@@ -1,13 +1,14 @@
 ---
 description: File a new FEAT, BUG or CR item in TASKS.md with the next free id
-argument-hint: "<feat|bug|cr> <title> [--version <task version>] [--phase H]"
+argument-hint: "<feat|bug|cr> <title> [--version <task version>] [--phase 4]"
 ---
 
 # /task-new
 
 Request: $ARGUMENTS
 
-Load the `hs-tasks` skill. You are writing a ledger entry, not code — don't
+Read the `## Format` section of [docs/TASKS.md](../../docs/TASKS.md) and keep to it.
+You are writing a ledger entry, not code — don't
 start implementing.
 
 ## 1. Pick the prefix
@@ -23,12 +24,13 @@ Highest existing number for that prefix, plus one, four digits. Never reuse,
 never renumber.
 
 ```bash
-grep -oE '^### (FEAT|BUG|CR)-[0-9]{4}' TASKS.md | sort
+grep -oE '^### (FEAT|BUG|CR)-[0-9]{4}' docs/TASKS.md | sort
 ```
 
 ## 3. Work out what the item actually needs
 
-Read the tool's spec in `docs/tools/` and, for a `BUG`, grep
+Read the area's spec in `docs/specs/` (or `docs/11-prayer-and-azan.md` for
+prayer) and, for a `BUG`, grep
 `docs/GOTCHAS.md` for the symptom first — a known trap changes the steps. If
 the request is ambiguous or admits two readings, **ask me** instead of writing
 a vague item; a vague item is worse than no item.
@@ -43,22 +45,24 @@ shape exactly:
 
 ```markdown
 ### FEAT-0012 · <title: what the user can then do>
-- **State:** Pending · **Spec:** docs/tools/<tool>.md · **Phase:** <letter, if any>
+- **State:** Pending · **Spec:** docs/specs/<area>.md · **Phase:** <0-9, if any>
 - **Depends on:** <ids, if any>
 - [ ] <concrete step>
 - [ ] <concrete step>
 - [ ] Test: <what it asserts>
-- [ ] Gate: fmt · clippy -D warnings · test --workspace -j 4 · --self-test
+- [ ] Gate: fmt · clippy -D warnings · test --workspace -j 4 · deny · --self-test
 - [ ] App: `--data-dir ./tmp-data` — <what to click>
-- [ ] Docs: spec · README · CHANGELOG · CHECKLIST · GOTCHAS
+- [ ] Docs: spec · README + README.ms · CHANGELOG · CHECKLIST · GOTCHAS
 - **Notes:** <who asked, what it replaces, what is out of scope>
 ```
 
 The steps must be things someone can do and check, not restatements of the
-title. The **App** box says what to click. For a `BUG`, the first step is the
+title. The **App** box says what to click, and which language and theme to do
+it in where that matters. For a `BUG`, the first step is the
 reproducing test. For a `CR`, the first step is the spec edit.
 
 ## 5. Report
 
 The id, where you filed it, and one line on anything you had to assume. Don't
-touch `CHANGELOG.md` or `CHECKLIST.md` — those move when the work lands.
+touch `docs/CHANGELOG.md` or `docs/CHECKLIST.md` — those move when the work
+lands.

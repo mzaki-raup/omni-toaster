@@ -6,18 +6,19 @@ argument-hint: "[path, crate, version or 'branch'] [--file] (default: uncommitte
 # /review — change review
 
 Target: $ARGUMENTS (empty means the uncommitted changes plus
-`git diff main...HEAD`). A version (`v0.115.0`) means: review what the items
-under that heading in [TASKS.md](../../TASKS.md) produced, and check the diff
+`git diff main...HEAD`). A task version (`v0.0.1`) means: review what the items
+under that heading in [docs/TASKS.md](../../docs/TASKS.md) produced, and check the diff
 against those items' checklists.
 
 Run the three reviews **in parallel**, as one message with three Agent calls:
 
-1. `rust-reviewer` — correctness, scope, architecture, UI-thread blocking,
-   secrets, guards, performance.
-2. `ui-auditor` — only if the diff touches `crates/hs-ui/`, a tool's `ui()`,
-   `locales/en.ftl`, shortcuts or icons.
-3. `spec-guard` — spec agreement and the paperwork (`TASKS.md`, `CHANGELOG`,
-   `CHECKLIST`, `README`, the spec, ADRs, `GOTCHAS`).
+1. `rust-reviewer` — correctness, scope, crate boundaries, blocking work in the
+   wrong place, portability and import validation, performance.
+2. `ui-auditor` — only if the diff touches `crates/ot-ui/`, `crates/ot-toast/`,
+   a settings pane, or either locale file.
+3. `spec-guard` — spec agreement and the paperwork (`docs/TASKS.md`,
+   `docs/CHANGELOG.md`, `docs/CHECKLIST.md`, both READMEs, the spec, ADRs,
+   `docs/GOTCHAS.md`).
 
 Give each agent the target, the files in the diff, and the specs and ledger
 items that apply. Don't hand them your own conclusions.
@@ -30,9 +31,10 @@ Then, in one report:
 - **Ledger** — boxes ticked for checks that didn't run, items marked
   `Completed` with unticked boxes, work in the diff with no id.
 - **Paperwork** — the exact document edits still owed.
-- **Not verified here** — what only the running app can confirm (glyphs,
-  double-click paths, narrow-window layout), and any live-server test whose
-  server isn't up on this machine.
+- **Not verified here** — what only the running app can confirm (glyphs, the
+  toast on a chosen monitor, DPI above 100%, double-click paths, narrow-window
+  layout, a runtime language switch, all three themes), and any test whose
+  network service was unreachable on this machine.
 
 Report only. Don't apply fixes unless I ask — then re-run the gate afterwards.
 

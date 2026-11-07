@@ -21,6 +21,21 @@
 - Insert new functions **before** the `#[cfg(test)] mod tests` block, never
   after it, and never by appending with `cat >>`.
 
+## Crate boundaries
+
+- One concern per library crate: `ot-core`, `ot-i18n`, `ot-store`,
+  `ot-platform`, `ot-ui`, `ot-toast`, `ot-sched`, `ot-prayer`, `ot-weather`,
+  `ot-media`. `crates/omnitoaster` is the binary and the only crate that wires
+  them together.
+- **All Windows-only code lives in `ot-platform`.** Anything in another crate
+  that would not compile without `#[cfg(windows)]` — a `windows` crate call, a
+  registry read, an HWND — belongs behind an `ot-platform` interface instead.
+  Clippy must pass on Linux, which is what catches this.
+- Modules don't call each other: they publish and receive over the event bus.
+  A library crate reaching sideways into another's internals is a finding.
+- The scheduler owns time, `ot-i18n` owns formatting, `ot-store` owns SQL. Don't
+  reimplement any of the three elsewhere.
+
 ## Reuse before writing
 
 Search first: ripgrep for the function name. If logic is needed twice, extract a shared function
@@ -34,8 +49,9 @@ site.
   large document.
 - Don't allocate in hot loops: pre-size with `Vec::with_capacity`, reuse
   buffers, prefer iterators over intermediate vectors.
-- Share large data with `Arc`, references or channels, not clones. A `Tool` is
-  `Send`, so per-frame caches use `Arc`, never `Rc`.
+- Share large data with `Arc`, references or channels, not clones. Anything
+  crossing a channel between the UI, the scheduler and a worker thread is
+  `Send`, so caches shared across threads use `Arc`, never `Rc`.
 - Measure before optimising (`criterion`, `cargo flamegraph`).
 
 ## Build hygiene on this machine

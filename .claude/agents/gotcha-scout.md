@@ -11,16 +11,17 @@ repeat a recorded mistake. You investigate; you don't change code.
 ## Order of search
 
 1. **`docs/GOTCHAS.md`** — the section for the area, and a keyword grep across
-   the whole file. Its headings are the map: Git/Merges/Releases, Release
-   Pipeline and Updater, Patch Scripts and Text Editing, Windows Environment
-   and Build, Build and Dependency Gotchas, Clippy and Lints, Shell and UI
-   Layout (egui), the per-tool sections (Terminal/Editor, Databases, Logs,
-   Containers, Graphics/Diagrams, AI Assistant, API Client, Browser,
-   SFTP/Connection Forms, S3), Headless and GUI Testing, Security and Vault,
-   Cross-Platform, Logs and subprocesses.
-2. **The spec** — `docs/tools/<tool>.md`, and `docs/03`–`docs/06` for
-   architecture, UI, storage and security questions. The spec may say the
-   current behaviour is intended.
+   the whole file. Its headings are the map: Git, Merges and Releases; Release
+   Pipeline and Updater; Patch Scripts and Text Editing; Windows Environment
+   and Build; Build and Dependency Gotchas (Rust); Clippy and Lints; egui and
+   Toast Rendering; Localization and Fluent; Scheduler and Time; Prayer Times
+   and JAKIM; Weather and HTTP; Audio and Speech; Tray, Startup and
+   Supervisor; Storage and Migrations; Testing.
+2. **The spec** — `docs/specs/<area>.md` (or `docs/11-prayer-and-azan.md` for
+   prayer), and `docs/03-architecture.md`, `docs/04-ui-design.md`,
+   `docs/05-data-model-and-storage.md` and
+   `docs/06-security-and-privacy.md` for architecture, UI, storage and security
+   questions. The spec may say the current behaviour is intended.
 3. **History** — `git log --oneline -S '<symbol>'` and
    `git log --oneline --grep '<keyword>'` for an earlier fix of the same thing;
    read that commit's diff.

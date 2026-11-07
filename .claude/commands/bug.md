@@ -11,8 +11,8 @@ Work in this order and don't skip a step.
 
 ## 0. The ledger item
 
-An id (`BUG-0003`) → load `hs-tasks` and work that block's checklist in
-[TASKS.md](../../TASKS.md). A raw symptom → file it with
+An id (`BUG-0003`) → work that block's checklist in
+[docs/TASKS.md](../../docs/TASKS.md). A raw symptom → file it with
 `/task-new bug <symptom>` first, so the fix has an id to tick and the commit
 has something to reference. Set **State** to `In-Progress`.
 
@@ -44,14 +44,16 @@ refactor of working code. Remove only what your change orphaned.
 
 ## 5. Gate
 
-The `hs-gate` skill in full — fmt, clippy `-D warnings`, `cargo test
---workspace --locked -j 4`, `--self-test` — plus any live test whose server is
-up, plus the other crates that call the changed code.
+The gate in [.claude/rules/testing.md](../rules/testing.md), in full — fmt,
+clippy `-D warnings`, `cargo test
+--workspace --locked -j 4`, `cargo deny check`, `--self-test` — plus the other
+crates that call the changed code. A test whose network service is unreachable
+is simply not run; say so, and don't edit it to skip itself.
 
 ## 6. Verify in the app
 
 ```bash
-cargo run -p hyperstack -- --data-dir ./tmp-data
+cargo run -p omnitoaster -- --data-dir ./tmp-data
 ```
 
 Reproduce the original symptom and confirm it's gone. This is the item's **App**
@@ -61,13 +63,15 @@ box; a passing test does not tick it.
 
 - `docs/GOTCHAS.md`: an entry under the matching heading — the mistake, the
   symptom it showed as, and the fix.
-- `CHANGELOG.md`: a `fix:` line under Unreleased.
-- The spec, `README.md` and `CHECKLIST.md` if the behaviour they describe
+- `docs/CHANGELOG.md`: a `fix:` line under Unreleased.
+- The spec, both READMEs and `docs/CHECKLIST.md` if the behaviour they describe
   changed.
 - Tick the item's boxes; `Completed` only when all of them are.
 
 ## 8. Ship and report
 
-Commit with `Refs: BUG-0003` in the footer, then `hs-ship`. Report what was
+Commit with `Refs: BUG-0003` in the footer, then the branch flow in
+[.claude/rules/git.md](../rules/git.md): push, wait for `ci.yml` green, merge
+into `main`, push. Report what was
 wrong, why it happened, what the test now asserts, side effects, and anything
 you could not verify here.

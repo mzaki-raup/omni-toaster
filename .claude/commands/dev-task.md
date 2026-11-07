@@ -7,7 +7,8 @@ argument-hint: "<task version | id | ids | next> [--plan-only]"
 
 Target: $ARGUMENTS
 
-Load the `hs-tasks` skill. [TASKS.md](../../TASKS.md) is the source of truth
+Read the `## Format` section of [docs/TASKS.md](../../docs/TASKS.md) first — it is
+authoritative for the shape of an item. The file itself is the source of truth
 for what the work is — don't take it from memory or from this conversation.
 
 ## 1. Resolve the target
@@ -16,7 +17,7 @@ Two forms, and they are not the same job:
 
 | I typed | You do |
 |---|---|
-| **a task version** — `v0.7.1`, `v3`, `sprint-11` | every `### (FEAT\|BUG\|CR)-dddd` block under that `## ` heading, as one batch |
+| **a task version** — `v0.0.1`, `v3`, `sprint-11` | every `### (FEAT\|BUG\|CR)-dddd` block under that `## ` heading, as one batch |
 | **an id** — `BUG-0003`, `FEAT-0012` | that item alone. Not its neighbours, not the rest of its heading, and no closing of the batch around it |
 
 Also accepted: several ids in one go (`FEAT-0062 BUG-0012`) — then only those
@@ -32,11 +33,11 @@ if I name it. No match, or a heading with no items → say so and stop. Don't
 guess a neighbouring version, and don't widen a single id into its batch.
 
 ```bash
-grep -nE '^(## |### (FEAT|BUG|CR)-)' TASKS.md
+grep -nE '^(## |### (FEAT|BUG|CR)-)' docs/TASKS.md
 ```
 
 ```bash
-awk '/^## v0\.7\.1/{f=1;next} /^## /{f=0} f' TASKS.md
+awk '/^## v0\.0\.1/{f=1;next} /^## /{f=0} f' docs/TASKS.md
 ```
 
 Only headings at column 0 are real — the file's Format section indents its
@@ -56,8 +57,8 @@ Then:
 - **Blocked before we start**: an item whose dependency is outside the batch
   and not `Completed`, or whose spec doesn't exist yet. Name them; they are not
   attempted.
-- **Branch**: `batch/<task version>` for a multi-item batch, the depth phase's
-  own branch if every item belongs to one phase, or `fix/<slug>` /
+- **Branch**: `batch/<task version>` for a multi-item batch,
+  `feat/phase-<n>-<slug>` if every item belongs to one phase, or `fix/<slug>` /
   `feat/<slug>` for a single id. Create it from an up-to-date base; never work
   on `main`.
 - Anything in the batch that needs a decision from me — an ambiguous
@@ -70,14 +71,14 @@ With `--plan-only`, stop here.
 
 For each, in the resolved order:
 
-1. Mark its **State** `In-Progress` in `TASKS.md`.
+1. Mark its **State** `In-Progress` in `docs/TASKS.md`.
 2. Dispatch on the prefix: `BUG` → the `/bug` procedure (prior art in
    `docs/GOTCHAS.md` first, reproducing test before the fix); `CR` → spec edit
    in the same commit, then the change, then a test that asserts the new
    behaviour and the absence of the old; `FEAT` → the `/feat` procedure.
 3. Tick each item-specific box as it genuinely passes.
-4. Then the four closing boxes in order: **Test**, **Gate** (`hs-gate`, in
-   full), **App** (`cargo run -p hyperstack -- --data-dir ./tmp-data`, doing
+4. Then the four closing boxes in order: **Test**, **Gate** (`/gate`, in
+   full), **App** (`cargo run -p omnitoaster -- --data-dir ./tmp-data`, doing
    what the box says), **Docs**.
 5. Commit with the id in the footer (`Refs: FEAT-0012`), Conventional Commits.
 6. Set **State** `Completed` only when every box on that item is ticked.
@@ -96,8 +97,9 @@ justifies closing the batch early.
 ## 5. Close
 
 - Run the gate once more over everything the run touched.
-- `CHANGELOG.md` lines under **Unreleased**, `CHECKLIST.md` rows, specs.
-- `hs-ship`: push, wait for `ci.yml` green (check `/actions/tasks?limit=4` —
+- `docs/CHANGELOG.md` lines under **Unreleased**, `docs/CHECKLIST.md` rows, specs.
+- The branch flow in [.claude/rules/git.md](../rules/git.md): push, wait for
+  `ci.yml` green (check `/actions/tasks?limit=4` —
   the runner is this machine), merge into `main`, push. The app release then
   publishes itself from `main`, numbered by the pipeline — that number has
   nothing to do with the task version, so don't rename the heading to it and

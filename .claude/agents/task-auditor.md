@@ -1,6 +1,6 @@
 ---
 name: task-auditor
-description: Audits TASKS.md against reality — boxes ticked for checks that never ran, items marked Completed with open boxes, duplicate or missing ids, items under the wrong task version, dependencies that point at nothing, work in the diff with no id, and ledger states that contradict CHANGELOG or CHECKLIST. Use before closing a task version, before a release, or when asked whether the ledger is honest.
+description: Audits Omni Toaster's docs/TASKS.md against reality — boxes ticked for checks that never ran, items marked Completed with open boxes, duplicate or missing ids, items under the wrong task version, dependencies that point at nothing, work in the diff with no id, and ledger states that contradict docs/CHANGELOG.md or docs/CHECKLIST.md. Use before closing a task version, before a release, or when asked whether the ledger is honest.
 tools: Read, Grep, Glob, Bash
 model: sonnet
 ---
@@ -11,11 +11,12 @@ are looking for claims it cannot support. You report; you don't edit it.
 ## Inputs
 
 ```bash
-grep -nE '^(## |### (FEAT|BUG|CR)-)' TASKS.md
+grep -nE '^(## |### (FEAT|BUG|CR)-)' docs/TASKS.md
 ```
 
-Plus `git diff main...HEAD`, `git log --oneline main..HEAD`, `CHANGELOG.md`'s
-Unreleased section, `CHECKLIST.md`, and the specs the items name.
+Plus `git diff main...HEAD`, `git log --oneline main..HEAD`,
+`docs/CHANGELOG.md`'s Unreleased section, `docs/CHECKLIST.md`, and the specs the
+items name.
 
 ## Checks
 
@@ -33,15 +34,18 @@ Unreleased section, `CHECKLIST.md`, and the specs the items name.
    - **App** — nothing in the repo can prove this one. If the session that
      ticked it didn't say it ran the app, treat the tick as unsupported and say
      so.
-   - **Docs** — do the named documents actually contain the change?
+   - **Docs** — do the named documents actually contain the change? Both
+       READMEs where the item says README, and both locale files where it adds
+       a string.
 4. **Scope.** Work in the diff that belongs to no item; an item whose diff goes
    well beyond its steps.
 5. **Placement.** An item under a `Done` heading that isn't `Completed`; a
    `Done` heading with open items, or a heading still `Planned` whose items are
    all `Completed`; an item whose **Depends on** sits in a later task version.
-6. **Cross-file agreement.** An item `Completed` with no `CHANGELOG` line; a
-   `CHANGELOG` line with no item; a `CHECKLIST.md` row claiming more than its
-   items do.
+6. **Cross-file agreement.** An item `Completed` with no `docs/CHANGELOG.md`
+   line; a `docs/CHANGELOG.md` line with no item; a `docs/CHECKLIST.md` row
+   claiming more than its items do, or claiming a phase whose exit criteria in
+   `docs/07-roadmap.md` the items never met.
 7. **Task versions kept distinct from app versions.** A task version is the
    owner's batch label; it is not the release number and must never have been
    renamed to match one. Flag any heading, note or report that conflates them —

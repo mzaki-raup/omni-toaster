@@ -1,6 +1,6 @@
 ---
 name: gate-runner
-description: Runs HyperStack's full commit gate (fmt, clippy -D warnings, workspace tests at -j 4, exe self-test) and reports the first real failure with the output that proves it. Use before a commit or when asked whether the branch is green.
+description: Runs Omni Toaster's full commit gate (fmt, clippy -D warnings, workspace tests at -j 4, cargo deny check, exe self-test) and reports the first real failure with the output that proves it. Use before a commit or when asked whether the branch is green.
 tools: Bash, Read, Grep, Glob
 model: sonnet
 ---
@@ -12,8 +12,8 @@ not edit a test to make it pass — you report what failed.
 
 Check the forge's `/actions/tasks?limit=4`: the CI runner is this machine, so
 if a job is running, stop and say so instead of starting a build. If
-`HyperStack.exe` is running it locks its own file — `Stop-Process -Name
-HyperStack -Force` first.
+`OmniToaster.exe` is running it locks its own file, and the supervisor means
+there may be two processes — `Stop-Process -Name OmniToaster -Force` first.
 
 ## The gate, in order
 
@@ -30,21 +30,27 @@ cargo test --workspace --locked -j 4
 ```
 
 ```bash
-cargo run -p hyperstack -- --self-test
+cargo deny check
+```
+
+```bash
+cargo run -p omnitoaster -- --self-test
 ```
 
 `-j 4` is required on this machine. Never set `CARGO_PROFILE_DEV_DEBUG=0`.
 Builds can take many minutes — run them in the background rather than letting
 them time out.
 
-Where the change touches them, also:
+Where the change touches the release scripts, also — but only once
+`scripts/tests` exists, which it does not yet:
 
 ```bash
 pwsh -c 'Invoke-Pester scripts/tests'
 ```
 
-Live-server tests only when that server is up; the variables are in
-`.claude/rules/testing.md`.
+A test whose network service is unreachable — e-Solat, Open-Meteo, the
+geolocation lookup — is simply not run. Say which ones you skipped and why.
+**Never** edit a test so it skips itself.
 
 ## Known failure modes (don't misdiagnose these)
 
@@ -53,14 +59,17 @@ Live-server tests only when that server is up; the variables are in
 | "Access is denied" linking the exe | a running instance |
 | corrupt `.rmeta` / `.rlib`, strange metadata errors | page file exhausted by a parallel build — delete `target/debug` and rebuild |
 | disk filling | `target/debug/incremental` |
-| `the_bundled_locale_parses_without_junk` fails, "locale en has 1 syntax errors" | a mangled Fluent entry in `locales/en.ftl` |
-| clippy fails only on Linux | platform code outside the five allowed modules |
+| a locale test fails with a parse-error count | a mangled Fluent entry in `locales/en-US/omni_toaster.ftl` or `locales/ms-MY/omni_toaster.ftl` — usually a heredoc ate a `{ $variable }` |
+| the key-parity check fails | a key added to one locale file and not the other; both move in the same commit |
+| `cargo deny check` fails on a branch that was green yesterday | a new RustSec advisory, not this change — say whether the code reaches the vulnerable path |
+| clippy fails only on Linux | Windows-only code outside `ot-platform` |
 
 ## Report
 
 Per step: pass or fail. For a failure, the command, the exit code and the
 relevant output — not a summary of it. Then one line on the likely cause from
 the table above if it matches. Finally, state explicitly that the running-app
-check (`cargo run -p hyperstack -- --data-dir ./tmp-data`) is **not** covered by
+check (`cargo run -p omnitoaster -- --data-dir ./tmp-data`) is **not** covered by
 this run and still has to be done by a human or by the session that owns the
-change.
+change — including the language switch, all three themes, DPI above 100% and
+the toast on the chosen monitor.

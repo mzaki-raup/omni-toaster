@@ -5,28 +5,29 @@
   `chore:`, `refactor:`, `test:`, `ci:`, `style:`, `build:`. Add `!` or a
   `BREAKING CHANGE:` footer for a major bump.
 - Never `--no-verify`, never `--no-gpg-sign`.
-- Reference the ledger item in the footer, so history maps back to `TASKS.md`:
+- Reference the ledger item in the footer, so history maps back to
+  `docs/TASKS.md`:
 
 ```
-fix(tool-db): keep the schema cache across a reconnect
+fix(ot-sched): keep the next fire time correct across a DST transition
 
 Refs: BUG-0003
 ```
 
 - One commit per item in a `/dev-task` batch, on one branch
-  (`batch/v0.7.1`, after the task version), so the batch gets one CI run and
-  one merge.
+  (`batch/v0.0.1`, after the task version), so the batch gets one CI run and
+  one merge. A phase gets its own branch instead: `feat/phase-<n>-<slug>`.
 - Gate commands must have their exit code checked, not their output eyeballed:
 
 ```bash
 cargo clippy --workspace --all-targets --locked -- -D warnings >/dev/null 2>&1 && git commit
 ```
 
-- Before committing a merge, a conflict-marker grep over `CHANGELOG.md` must
-  print nothing:
+- Before committing a merge, a conflict-marker grep over `docs/CHANGELOG.md`
+  must print nothing:
 
 ```bash
-grep -nE '^(<<<<<<<|=======|>>>>>>>)' CHANGELOG.md
+grep -nE '^(<<<<<<<|=======|>>>>>>>)' docs/CHANGELOG.md
 ```
 
 ## Branch flow (the owner asked for this every time)
@@ -41,7 +42,9 @@ cargo commands while a job is running.
 
 ## Remotes
 
-`origin` is the Forgejo instance (`git.zacx.net`) and holds version authority;
-pushing `origin` also pushes the public GitHub mirror. `github` is the mirror
+`origin` is the Forgejo instance,
+`https://git.zacx.net/owner/omni-toaster.git`, and holds version authority;
+pushing `origin` also pushes the public GitHub mirror,
+`https://github.com/mzaki-raup/omni-toaster.git`. `github` is that mirror
 alone. `scripts/push-to-mirror.ps1` and `scripts/sync-from-github.ps1` handle
 the mirror; don't improvise around them.
