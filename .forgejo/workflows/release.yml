@@ -8,10 +8,10 @@ name: Release
 # pre-release instead.
 #
 # Assets published per release. The in-app updater reads these exact names, so
-# they are a contract (docs/09-ci-cd-and-updates.md §4.3):
+# they are a contract (docs/09-ci-cd-and-releases.md):
 #
-#   HyperStack.exe                          bare executable, downloaded by the updater
-#   HyperStack-<version>-windows-x64.zip    manual update (exe + README.txt + LICENSE + notes)
+#   OmniToaster.exe                         bare executable, downloaded by the updater
+#   OmniToaster-<version>-windows-x64.zip   manual update (exe + README.txt + LICENSE + notes)
 #   manifest.json                           version, channel, assets with size + sha256
 #   manifest.json.minisig                   Ed25519 signature of manifest.json
 #   SHA256SUMS.txt                          for humans and scripts
@@ -34,11 +34,11 @@ defaults:
 
 env:
   CARGO_TERM_COLOR: always
-  CARGO_HOME: C:\hs-ci\cargo
-  CARGO_TARGET_DIR: C:\hs-ci\target
+  CARGO_HOME: C:\ot-ci\cargo
+  CARGO_TARGET_DIR: C:\ot-ci\target
   # The forge attributes a release to the account whose email matches the
   # tag's author; an unknown email publishes as "Ghost".
-  TAGGER_NAME: HyperStack Release
+  TAGGER_NAME: Omni Toaster Release
   TAGGER_EMAIL: owner@zacx.net
 
 jobs:
@@ -132,7 +132,7 @@ jobs:
         if: steps.plan.outputs.version != ''
         # -j 4: this runner is the owner's own machine, where an unbounded
         # parallel build exhausts the page file
-        # (.claude/rules/build-and-run.md). CI run 471 died with
+        # (.claude/rules/build-and-run.md); it has died with
         # `rustc-LLVM ERROR: out of memory` for want of this.
         run: cargo clippy --workspace --all-targets --locked -j 4 -- -D warnings
 
@@ -153,7 +153,7 @@ jobs:
           pwsh -NoProfile -File scripts/update-version.ps1 -Version ${{ steps.plan.outputs.version }} -NotesFile release/notes.md
           git config user.name "$env:TAGGER_NAME"
           git config user.email "$env:TAGGER_EMAIL"
-          git add Cargo.toml Cargo.lock CHANGELOG.md
+          git add Cargo.toml Cargo.lock docs/CHANGELOG.md
           # [skip ci] so pushing this back does not start another release.
           git commit --quiet -m "chore(release): ${{ steps.plan.outputs.tag }} [skip ci]"
           # Annotated, on the bumped commit, so the tag and the Cargo.toml at
@@ -192,9 +192,9 @@ jobs:
           # Optional: the forge's own address on the LAN, so assets do not
           # go through Cloudflare. Cloudflare gives the origin about 100
           # seconds to answer a request and cuts it with a 524 otherwise:
-          # the 34 MB zip needed six minutes of retries through it (runs 92
-          # and 95 died there), and took 0.24 s straight to the origin. The
-          # 83 MB exe is also close to the free plan's 100 MB body cap.
+          # a large zip can need minutes of retries through it where the
+          # origin takes well under a second, and a large exe can approach
+          # the free plan's 100 MB body cap.
           # Set it in the forge's repository secrets; it must stay unset on
           # GitHub, where there is no such route.
           UPLOAD_URL: ${{ secrets.HS_FORGE_UPLOAD_URL }}
@@ -227,14 +227,14 @@ jobs:
           # row, upload the assets, apply the metadata LAST, then confirm in a
           # loop rather than once.
           # Creating the row right after the tag push can fail while the
-          # forge is still deriving its own row for the tag (run 66: an
-          # empty error body), so fetch-or-create is retried a few times.
+          # forge is still deriving its own row for the tag (an empty error
+          # body), so fetch-or-create is retried a few times.
           $release = $null
           for ($try = 1; $try -le 8 -and -not $release; $try++) {
             try { $release = Invoke-RestMethod -Method Get -Headers $headers -Uri "$api/releases/tags/$([uri]::EscapeDataString($tag))" } catch { $release = $null }
             if ($release) { Write-Host "The forge already has a release for $tag (id $($release.id))"; break }
             try {
-              $body = @{ tag_name = $tag; name = "HyperStack $version"; body = $notes; draft = $true; prerelease = $prerelease } | ConvertTo-Json -Depth 4
+              $body = @{ tag_name = $tag; name = "Omni Toaster $version"; body = $notes; draft = $true; prerelease = $prerelease } | ConvertTo-Json -Depth 4
               $release = Invoke-RestMethod -Method Post -Headers $headers -ContentType 'application/json' -Uri "$api/releases" -Body $body
               Write-Host "Created release $($release.id)"
             } catch {
@@ -247,9 +247,8 @@ jobs:
 
           # git.zacx.net sits behind Cloudflare and the link to it drops
           # connections all day - the runner's own control channel logs the
-          # same resets, 17 of them on the day of v0.29.1 - so a 34 MB asset
-          # often does not survive one try: runs 92 and 95 both died on the
-          # file after the changelog. Invoke-RestMethod buffers the body and
+          # same resets - so a large asset often does not survive one try.
+          # Invoke-RestMethod buffers the body and
           # gives up on the first reset; curl streams the file from disk and
           # retries the transfer itself, and the loop around it covers a
           # reset that lands between transfers.
@@ -278,7 +277,7 @@ jobs:
             if (-not $sent) { throw "Could not upload $($file.Name) after 5 attempts." }
           }
 
-          $patch = @{ name = "HyperStack $version"; body = $notes; draft = $false; prerelease = $prerelease } | ConvertTo-Json -Depth 4
+          $patch = @{ name = "Omni Toaster $version"; body = $notes; draft = $false; prerelease = $prerelease } | ConvertTo-Json -Depth 4
           $ok = $false
           for ($i = 0; $i -lt 10 -and -not $ok; $i++) {
             # A reset here used to end the step with every asset already
@@ -306,7 +305,7 @@ jobs:
         if: steps.plan.outputs.version != ''
         run: pwsh -NoProfile -File scripts/verify-release.ps1 -Tag ${{ steps.plan.outputs.tag }} -Repository ${{ github.repository }} -Server ${{ github.server_url }}
 
-      # GitHub builds a release only when the tag reaches it (docs/09 §10.3).
+      # GitHub builds a release only when the tag reaches it (docs/09-ci-cd-and-releases.md).
       # Fast-forwards the mirror's branch to the version commit and pushes the
       # tag with a GitHub token held as a forge secret; skipped when the
       # secrets are absent. Runs last so GitHub only ever sees a tag that
@@ -314,6 +313,6 @@ jobs:
       - name: Hand the release to the GitHub mirror
         if: steps.plan.outputs.version != ''
         env:
-          HS_GITHUB_MIRROR_URL: ${{ secrets.HS_GITHUB_MIRROR_URL }}
-          HS_GITHUB_MIRROR_TOKEN: ${{ secrets.HS_GITHUB_MIRROR_TOKEN }}
+          OT_GITHUB_MIRROR_URL: ${{ secrets.OT_GITHUB_MIRROR_URL }}
+          OT_GITHUB_MIRROR_TOKEN: ${{ secrets.OT_GITHUB_MIRROR_TOKEN }}
         run: pwsh -NoProfile -File scripts/push-to-mirror.ps1 -Tag ${{ steps.plan.outputs.tag }} -Branch ${{ github.ref_name }}

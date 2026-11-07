@@ -3,13 +3,13 @@ name: Release
 # The public mirror's release pipeline.
 #
 # VERSIONING LIVES ON FORGEJO. scripts/next-release.ps1 works out the version
-# there, update-version.ps1 bumps Cargo.toml and CHANGELOG.md, and the release
+# there, update-version.ps1 bumps Cargo.toml and docs/CHANGELOG.md, and the release
 # commit is tagged - all of which reach this repository through the shared git
 # history. This workflow therefore never computes a version: it builds the tag
 # it was handed, takes the version from the tag name, and refuses to run if the
 # tag disagrees with the Cargo.toml at that commit. That is what keeps the two
 # forges publishing the same version, from the same commit, with the same
-# notes (docs/09-ci-cd-and-updates.md §10).
+# notes (docs/09-ci-cd-and-releases.md).
 #
 # The only differences from the Forgejo release are the baked-in update source
 # (HS_RELEASES_URL / HS_FORGE_URL) and the asset download URLs in the manifest.
@@ -85,7 +85,7 @@ jobs:
           $ErrorActionPreference = "Stop"
           if (-not (Get-Command rsign -ErrorAction SilentlyContinue)) { cargo install rsign2 --locked }
 
-      # The notes are read back out of CHANGELOG.md (the Forgejo release put
+      # The notes are read back out of docs/CHANGELOG.md (the Forgejo release put
       # them there before tagging), so both forges publish the same text.
       - name: Release notes
         run: pwsh -NoProfile -File scripts/changelog-section.ps1 -Version ${{ steps.plan.outputs.version }}
@@ -122,7 +122,7 @@ jobs:
           if (-not (Test-Path $notes)) { throw "Packaging did not produce $notes." }
           $assets = @(Get-ChildItem release/dist -File | ForEach-Object { $_.FullName })
           if ($assets.Count -lt 6) { throw "Expected the six contracted assets, found $($assets.Count)." }
-          $flags = @('--title', "HyperStack $version", '--notes-file', $notes, '--verify-tag')
+          $flags = @('--title', "Omni Toaster $version", '--notes-file', $notes, '--verify-tag')
           if ("${{ steps.plan.outputs.channel }}" -eq "beta") { $flags += '--prerelease' }
           # Re-running the workflow for a tag that already has a release should
           # replace its assets, not fail.
@@ -131,7 +131,7 @@ jobs:
             Write-Host "Release $tag exists; replacing its assets."
             gh release upload $tag @assets --clobber
             if ($LASTEXITCODE -ne 0) { throw "gh release upload failed with $LASTEXITCODE." }
-            gh release edit $tag --title "HyperStack $version" --notes-file $notes
+            gh release edit $tag --title "Omni Toaster $version" --notes-file $notes
             if ($LASTEXITCODE -ne 0) { throw "gh release edit failed with $LASTEXITCODE." }
           } else {
             gh release create $tag @assets @flags

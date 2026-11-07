@@ -3,7 +3,7 @@
   Brings commits made on the GitHub mirror back into Forgejo.
 
 .DESCRIPTION
-  The two forges share one git history (docs/09-ci-cd-and-updates.md section 10),
+  The two forges share one git history (docs/09-ci-cd-and-releases.md),
   so this is not a content sync: it is a fast-forward of the local branch onto
   whatever GitHub has, followed by a normal push.
 
@@ -36,7 +36,7 @@ function Invoke-Git([string]$what, [string[]]$gitArgs) {
 }
 
 if (-not (git remote | Where-Object { $_ -eq $Remote })) {
-  throw "There is no '$Remote' remote. Add it with: git remote add $Remote https://github.com/<user>/hyper-stack.git"
+  throw "There is no '$Remote' remote. Add it with: git remote add $Remote https://github.com/mzaki-raup/omni-toaster.git"
 }
 
 $dirty = git status --porcelain

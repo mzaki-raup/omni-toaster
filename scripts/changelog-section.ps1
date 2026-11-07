@@ -1,15 +1,15 @@
 <#
 .SYNOPSIS
-  Writes one released CHANGELOG.md section out to a notes file.
+  Writes one released docs/CHANGELOG.md section out to a notes file.
 
 .DESCRIPTION
   The Forgejo pipeline generates release notes from the commit subjects
   (scripts/next-release.ps1 -> release/notes.md) and update-version.ps1 folds
-  the same text into CHANGELOG.md before the release commit is tagged.
+  the same text into docs/CHANGELOG.md before the release commit is tagged.
 
   The GitHub pipeline builds an existing tag rather than computing a release,
   so it cannot regenerate those notes - at the tag there are no commits since
-  the tag. It reads them back out of CHANGELOG.md with this script instead,
+  the tag. It reads them back out of docs/CHANGELOG.md with this script instead,
   which is why both forges publish byte-identical notes for a version.
 
 .EXAMPLE
@@ -17,7 +17,7 @@
 #>
 param(
   [Parameter(Mandatory = $true)][string]$Version,
-  [string]$ChangelogFile = "CHANGELOG.md",
+  [string]$ChangelogFile = "docs/CHANGELOG.md",
   [string]$OutFile = "release/notes.md"
 )
 

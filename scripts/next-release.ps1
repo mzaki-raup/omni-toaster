@@ -37,7 +37,7 @@
   has no published release for it (a release job that tagged and pushed but
   died before publishing). When nothing new warrants a release, that version is
   planned again with republish=true and its notes read back out of
-  CHANGELOG.md, so the next push to main publishes the tag instead of leaving
+  docs/CHANGELOG.md, so the next push to main publishes the tag instead of leaving
   it orphaned. A new release-worthy commit still wins and supersedes it.
 #>
 param(
@@ -141,9 +141,9 @@ if ((-not $worthy -and -not $forcedHere) -or ($bump -eq 0 -and -not $forced)) {
     New-Item -ItemType Directory -Force (Split-Path $NotesFile -Parent) | Out-Null
     $section = Join-Path $PSScriptRoot "changelog-section.ps1"
     $written = $false
-    if ((Test-Path $section) -and (Test-Path "CHANGELOG.md")) {
+    if ((Test-Path $section) -and (Test-Path "docs/CHANGELOG.md")) {
       try {
-        & $section -Version $version -ChangelogFile "CHANGELOG.md" -OutFile $NotesFile
+        & $section -Version $version -ChangelogFile "docs/CHANGELOG.md" -OutFile $NotesFile
         $written = (Test-Path $NotesFile) -and -not [string]::IsNullOrWhiteSpace((Get-Content $NotesFile -Raw))
       } catch { $written = $false }
     }

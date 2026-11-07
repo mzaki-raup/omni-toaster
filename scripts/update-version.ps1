@@ -1,7 +1,7 @@
 <#
 .SYNOPSIS
   Sets the workspace version in Cargo.toml and Cargo.lock, and moves the
-  release notes into CHANGELOG.md.
+  release notes into docs/CHANGELOG.md.
 
 .DESCRIPTION
   OmniToaster is a Cargo workspace: the single version lives under
@@ -20,8 +20,9 @@
 param(
   [Parameter(Mandatory = $true)][string]$Version,
   # When given, its contents become the "## <version>" section at the top of
-  # CHANGELOG.md and the Unreleased section is emptied.
-  [string]$NotesFile = ""
+  # docs/CHANGELOG.md and the Unreleased section is emptied.
+  [string]$NotesFile = "",
+  [string]$ChangelogFile = "docs/CHANGELOG.md"
 )
 
 $ErrorActionPreference = "Stop"
@@ -67,11 +68,11 @@ if ($updated -ne $members.Count) {
 }
 $lock | Set-Content Cargo.lock -Encoding utf8
 
-# --- CHANGELOG.md --------------------------------------------------------------
+# --- docs/CHANGELOG.md --------------------------------------------------------------
 if ($NotesFile) {
   if (-not (Test-Path $NotesFile)) { throw "Notes file $NotesFile does not exist." }
   $notes = (Get-Content $NotesFile -Raw).TrimEnd()
-  $changelog = if (Test-Path CHANGELOG.md) { Get-Content CHANGELOG.md -Raw } else { "# Changelog`n`n## Unreleased`n" }
+  $changelog = if (Test-Path $ChangelogFile) { Get-Content $ChangelogFile -Raw } else { "# Changelog`n`n## Unreleased`n" }
   $date = (Get-Date).ToUniversalTime().ToString("yyyy-MM-dd")
   $section = "## Unreleased`n`n- (nothing yet)`n`n## $Version — $date`n`n$notes`n"
   # The Unreleased section runs from its heading to the next "## " heading (or
@@ -83,7 +84,7 @@ if ($NotesFile) {
   } else {
     $changelog = $changelog.TrimEnd() + "`n`n" + $section
   }
-  $changelog | Set-Content CHANGELOG.md -Encoding utf8 -NoNewline
+  $changelog | Set-Content $ChangelogFile -Encoding utf8 -NoNewline
 }
 
 Write-Host "Cargo.toml : $($toml[$versionLine])"

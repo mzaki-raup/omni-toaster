@@ -4,7 +4,7 @@
   to the branch and the tag, so GitHub's release.yml builds the same version.
 
 .DESCRIPTION
-  Forgejo owns versioning (docs/09-ci-cd-and-updates.md section 10.3): its
+  Forgejo owns versioning (docs/09-ci-cd-and-releases.md): its
   release job commits the bump and tags. GitHub builds a release only when
   the tag reaches it, so this runs as the last step of the Forgejo release
   job, after the release is published and verified.
@@ -32,15 +32,15 @@
   Workflows and Actions read/write; classic: repo + workflow.
 
 .EXAMPLE
-  $env:HS_GITHUB_MIRROR_URL = "https://github.com/<user>/hyper-stack.git"
-  $env:HS_GITHUB_MIRROR_TOKEN = "<token>"
+  $env:OT_GITHUB_MIRROR_URL = "https://github.com/mzaki-raup/omni-toaster.git"
+  $env:OT_GITHUB_MIRROR_TOKEN = "<token>"
   pwsh -File scripts/push-to-mirror.ps1 -Tag v0.12.1 -Branch main
 #>
 param(
   [Parameter(Mandatory)][string]$Tag,
   [string]$Branch = "main",
-  [string]$MirrorUrl = $env:HS_GITHUB_MIRROR_URL,
-  [string]$Token = $env:HS_GITHUB_MIRROR_TOKEN,
+  [string]$MirrorUrl = $env:OT_GITHUB_MIRROR_URL,
+  [string]$Token = $env:OT_GITHUB_MIRROR_TOKEN,
   # Pushes the tag's commit, not whatever HEAD is.
   [string]$Ref = ""
 )
@@ -48,7 +48,7 @@ param(
 $ErrorActionPreference = "Stop"
 
 if ([string]::IsNullOrWhiteSpace($MirrorUrl) -or ([string]::IsNullOrWhiteSpace($Token) -and $MirrorUrl -match '^https?://')) {
-  Write-Host "GitHub mirror not configured (HS_GITHUB_MIRROR_URL / HS_GITHUB_MIRROR_TOKEN); skipping."
+  Write-Host "GitHub mirror not configured (OT_GITHUB_MIRROR_URL / OT_GITHUB_MIRROR_TOKEN); skipping."
   exit 0
 }
 

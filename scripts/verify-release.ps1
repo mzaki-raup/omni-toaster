@@ -84,7 +84,7 @@ $required = @("OmniToaster.exe", "OmniToaster-$version-windows-x64.zip", "manife
 $missing = @($required | Where-Object { -not $assets.ContainsKey($_) })
 if ($missing.Count) { throw "Release $Tag lacks required assets: $($missing -join ', ')" }
 
-$work = Join-Path ([System.IO.Path]::GetTempPath()) ("hs-verify-" + [guid]::NewGuid())
+$work = Join-Path ([System.IO.Path]::GetTempPath()) ("ot-verify-" + [guid]::NewGuid())
 New-Item -ItemType Directory -Path $work | Out-Null
 try {
   function Fetch([string]$name) {
