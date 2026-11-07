@@ -91,7 +91,7 @@ OmniToaster/
     │   └── omnitoaster.db          # SQLite: reminders, categories, caches, history
     ├── locales/                    # Optional user overrides (same file names as embedded)
     │   ├── en-US/omni_toaster.ftl
-    │	└── ms-MY/omni_toaster.ftl
+    │   └── ms-MY/omni_toaster.ftl
     ├── assets/
     │   ├── images/                 # User images, copied in with content-hashed names
     │   ├── audio/

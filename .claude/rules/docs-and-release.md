@@ -82,7 +82,8 @@ Prayer has no file under `docs/specs/` — its spec is
   and the rsign signature. The in-app updater reads `manifest.json` and
   verifies the checksum and signature before replacing the exe, so changing an
   asset name is a breaking change for every installed copy.
-- Packaging happens in the release workflow, not in a local script.
+- `scripts/build-and-package.ps1` builds those assets, and both release
+  workflows call it. Don't reimplement any part of it in a workflow step.
 - Dry runs:
 
 ```bash
@@ -90,5 +91,11 @@ pwsh -File scripts/next-release.ps1
 ```
 
 ```bash
+pwsh -File scripts/build-and-package.ps1 -Version 0.0.0-local -SkipSign
+```
+
+```bash
 pwsh -File scripts/verify-release.ps1 -Tag v0.1.0
 ```
+
+`-SkipSign` is for local runs only — the release workflow never passes it.

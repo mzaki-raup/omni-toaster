@@ -20,6 +20,8 @@ Format: [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) · Versioning:
 - Fixed the phase headings in `docs/CHECKLIST.md`: the second "Phase 2 — Shell" is "Phase 2 — Toast Core", and "Phase 5 — Location and Azan" is "Phase 5 — Location, Prayer and Azan".
 - Pruned `docs/GOTCHAS.md` to the entries that apply here. The machine-level and toolchain-level traps are kept — the `origin` fetch refspec, merge resolution as one `&&` chain, exit-code gates, the GnuPG pair, CHANGELOG conflict markers, the paging-file and PDB failures, `-j 4` in CI, the Edition 2024 `gen` keyword, items after a test module — and the entries naming the other project's crates, release runs and test names are gone. The headings are now the fifteen areas of this project.
 - Corrected the proposal's version line to 1.0 (reviewed, 2026-11-08), since the stakeholder questions in §16 are answered.
+- Replaced a stray tab with spaces in the proposal's §4 data-layout tree, which had pushed the `ms-MY/omni_toaster.ftl` branch out of line with the rest of `OmniToasterData/locales/`.
+- Documented `scripts/build-and-package.ps1` in `.claude/rules/build-and-run.md` and `.claude/rules/docs-and-release.md`, which until now said the script did not exist and told sessions not to invent one. Both files now give the local dry run and record that `-SkipSign` is for local runs only, that the release workflow never passes it, and that signing needs `rsign2` with the key in `$env:OT_MINISIGN_KEY` or the run hangs waiting for a password.
 
 ### Added
 

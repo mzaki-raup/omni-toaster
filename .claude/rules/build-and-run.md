@@ -80,11 +80,24 @@ pwsh -File scripts/update-version.ps1
 ```
 
 The only thing that moves `[workspace.package] version` in the root
-`Cargo.toml`. Never edit that line by hand.
+`Cargo.toml`. Never edit that line by hand — and run it **before** packaging,
+because the binary's version comes from it.
 
-Packaging itself — the portable zip, the checksums, the signature, the update
-manifest — happens in the **release workflow**, not in a local script. There is
-no `build-and-package.ps1` in this repository; don't invent one.
+```bash
+pwsh -File scripts/build-and-package.ps1 -Version 0.0.0-local -SkipSign
+```
+
+A local packaging dry run. The script builds the exe and assembles every
+release asset — `OmniToaster.exe`, the portable zip, `manifest.json`, its
+minisign signature, `SHA256SUMS.txt` and the release notes. Both release
+workflows call it with `-Version` and `-Channel`; **`-SkipSign` is for local
+runs only** and the workflow never passes it. Signing needs `rsign2` and the
+key in `$env:OT_MINISIGN_KEY`, so a local run without `-SkipSign` will hang
+waiting for a password.
+
+The asset names are a **contract** the in-app updater depends on, not a
+convention — renaming one breaks every installed copy. `docs/09-ci-cd-and-releases.md`
+is the authority.
 
 ## This machine
 
