@@ -24,8 +24,8 @@ env:
   CARGO_TERM_COLOR: always
   # A mirror build checks GitHub for its updates, so the checks run against the
   # same configuration the release will ship (docs/09-ci-cd-and-releases.md).
-  HS_RELEASES_URL: ${{ github.api_url }}/repos/${{ github.repository }}/releases?per_page=20
-  HS_FORGE_URL: ${{ github.server_url }}/${{ github.repository }}
+  OT_RELEASES_URL: ${{ github.api_url }}/repos/${{ github.repository }}/releases?per_page=20
+  OT_FORGE_URL: ${{ github.server_url }}/${{ github.repository }}
 
 jobs:
   check:

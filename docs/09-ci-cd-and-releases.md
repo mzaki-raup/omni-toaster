@@ -88,11 +88,18 @@ name ([ADR-010](08-decisions.md), [specs/updater.md](specs/updater.md)):
 
 | Asset | Is |
 |---|---|
-| `OmniToaster.exe` | The bare executable, what the updater downloads |
-| `OmniToaster-<version>-windows-x64.zip` | Manual update: exe + `README.txt` + `LICENSE` + notes |
-| `manifest.json` | Version, channel, and each asset with its size and SHA-256 |
-| `SHA256SUMS` | Checksums, for manual verification |
-| `*.minisig` | The rsign signature over the manifest |
+| `OmniToaster.exe` | The bare executable, what the updater downloads and stages |
+| `OmniToaster-<version>-windows-x64.zip` | Manual update: exe + `README.txt` + `LICENSE` + `THIRD_PARTY_NOTICES.md` + notes |
+| `manifest.json` | Schema, product, version, channel, tag, `notes_url`, `min_supported_version`, `data_schema`, and each asset with its size and SHA-256 |
+| `manifest.json.minisig` | The minisign (Ed25519) signature over `manifest.json` — the trust anchor, checked before the manifest is believed |
+| `SHA256SUMS.txt` | Checksums in `sha256sum -c` layout, for manual verification |
+| `CHANGELOG-<version>.md` | The release notes, also used as the release body |
+
+The verifying half of the key is committed as `keys/minisign.pub` and embedded
+in the app; `keys/README.md` covers generation, the `OT_MINISIGN_KEY` forge
+secret and rotation. `scripts/build-and-package.ps1` produces this set and
+fails if any member is missing; `scripts/verify-release.ps1` re-checks it
+against a published release.
 
 A release that lacks them reads to the app as "no installable release" and
 users stay where they are. **Renaming an asset is a breaking change** and needs
@@ -130,3 +137,9 @@ exe triggers SmartScreen. Until a certificate exists, releases ship published
 SHA-256 checksums and the README documents how to verify them. The rsign
 signature over `manifest.json` is independent of code signing and is what the
 updater actually checks.
+
+The signing secret is `OT_MINISIGN_KEY` on both forges, and the build fails
+loudly rather than publishing unsigned if it is unset. It must be the **two-line
+unencrypted** minisign secret key: a key made with `rsign generate -W` prompts
+for a password on the console, which on a runner hangs until the 60-second
+timeout kills it. `keys/README.md` has the generation and rotation procedure.

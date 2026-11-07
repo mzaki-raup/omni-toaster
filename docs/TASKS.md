@@ -246,15 +246,17 @@ of it, then 0004, 0005 and 0006 in any order.
 - **State:** Pending · **Spec:** docs/09-ci-cd-and-releases.md · **Phase:** 0
 - **Branch:** feat/phase-0-foundation
 - **Depends on:** FEAT-0001
-- [ ] `scripts/build-and-package.ps1` — build the release exe, assemble `OmniToaster-<version>-windows-x64.zip` (exe + `README.txt` + `LICENSE` + notes), write `manifest.json` (version, channel, each asset with its size and SHA-256), write `SHA256SUMS`, and sign the manifest with rsign
-- [ ] `keys/README.md` — how the minisign keypair is generated, where the public key is embedded in the exe, how `HS_MINISIGN_KEY` is configured as a forge secret, and how the key is rotated
+- [x] `scripts/build-and-package.ps1` — builds the release exe, assembles `OmniToaster-<version>-windows-x64.zip` (exe + `README.txt` + `LICENSE` + `THIRD_PARTY_NOTICES.md` + notes), writes `manifest.json`, writes `SHA256SUMS.txt` and `CHANGELOG-<version>.md`, signs the manifest with rsign, and fails if any contract member is missing. Written 2026-11-08; **parsed, never executed** — there is no workspace to build yet
+- [x] `keys/README.md` — generation, where the public key is embedded, the `OT_MINISIGN_KEY` forge secret, and rotation. Written 2026-11-08
+- [ ] `keys/minisign.pub` — the owner generates the keypair and commits the public half; the build fails without it
 - [ ] `scripts/tests/` — Pester 5 tests for the release planner against throwaway git repositories, covering each Conventional Commit type's bump and a documentation-only push producing no release
 - [ ] Remove the `Test-Path scripts/tests` guard added to `.forgejo/workflows/ci.yml` once the tests exist
+- [ ] Rename the forge secrets: the workflows now read `OT_MINISIGN_KEY` and `OT_FORGE_UPLOAD_URL`, and the GitHub mirror `OT_SIGNING_KEY_EXTRA`. The secrets configured on the instance are still the `HS_*` names, so **the first release will fail until the owner renames them**
 - [ ] Test: `pwsh -c 'Invoke-Pester scripts/tests'` green; `scripts/build-and-package.ps1 -Version 0.0.0-local -SkipSign` produces the full asset set and `scripts/verify-release.ps1` accepts it
 - [ ] Gate: fmt · clippy -D warnings · test --workspace --locked -j 4 · deny check · --self-test
 - [ ] App: not applicable — this item ships no user-visible behaviour
 - [ ] Docs: spec · README · CHANGELOG · CHECKLIST · GOTCHAS
-- **Notes:** Filed 2026-11-08 during the scaffolding realignment. Both `release.yml` files already call `scripts/build-and-package.ps1` and both reference `keys/README.md`; neither exists, and `keys/` is empty. A documentation-only push cannot reach that step (it is guarded on a computed version), so this is latent — but **the first `feat:` commit merged to `main` will fail the release job**. `.forgejo/workflows/ci.yml`'s Pester step was unguarded and would have failed the very first branch push; it is guarded now, and this item removes the guard. The asset names are a contract the updater reads — see `docs/specs/updater.md` and ADR-010; renaming one needs a new ADR.
+- **Notes:** Filed 2026-11-08 during the scaffolding realignment, when both `release.yml` files called `scripts/build-and-package.ps1` and referenced `keys/README.md` while neither existed. Both were written the same day and are ticked above; they are **parsed, not executed**, because there is no workspace to build until FEAT-0001. What is still open is `keys/minisign.pub`, the Pester tests, and the forge secret rename. A documentation-only push cannot reach the signing step (it is guarded on a computed version), so this stays latent — but **the first `feat:` commit merged to `main` will fail the release job** until the secrets are renamed and the public key is committed. `.forgejo/workflows/ci.yml`'s Pester step was unguarded and would have failed the very first branch push; it is guarded now, and this item removes the guard. The asset names are a contract the updater reads — see `docs/specs/updater.md` and ADR-010; renaming one needs a new ADR.
 
 ---
 

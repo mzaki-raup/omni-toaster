@@ -12,7 +12,7 @@ name: Release
 # notes (docs/09-ci-cd-and-releases.md).
 #
 # The only differences from the Forgejo release are the baked-in update source
-# (HS_RELEASES_URL / HS_FORGE_URL) and the asset download URLs in the manifest.
+# (OT_RELEASES_URL / OT_FORGE_URL) and the asset download URLs in the manifest.
 on:
   push:
     tags: ['v*']
@@ -92,17 +92,17 @@ jobs:
 
       - name: Build, package and sign
         env:
-          HS_CHANNEL: ${{ steps.plan.outputs.channel }}
-          HS_MINISIGN_KEY: ${{ secrets.HS_MINISIGN_KEY }}
+          OT_CHANNEL: ${{ steps.plan.outputs.channel }}
+          OT_MINISIGN_KEY: ${{ secrets.OT_MINISIGN_KEY }}
           # Baked into the binary: a copy downloaded here updates from here.
-          HS_RELEASES_URL: ${{ github.api_url }}/repos/${{ github.repository }}/releases?per_page=20
-          HS_FORGE_URL: ${{ github.server_url }}/${{ github.repository }}
+          OT_RELEASES_URL: ${{ github.api_url }}/repos/${{ github.repository }}/releases?per_page=20
+          OT_FORGE_URL: ${{ github.server_url }}/${{ github.repository }}
           # Only set this if this pipeline signs with a key of its own; empty
           # means both forges use the same key (keys/README.md).
-          HS_SIGNING_KEY_EXTRA: ${{ vars.HS_SIGNING_KEY_EXTRA }}
+          OT_SIGNING_KEY_EXTRA: ${{ vars.OT_SIGNING_KEY_EXTRA }}
         run: |
           $ErrorActionPreference = "Stop"
-          if (-not $env:HS_MINISIGN_KEY) { throw "The HS_MINISIGN_KEY secret is not configured; releases must be signed (see keys/README.md)." }
+          if (-not $env:OT_MINISIGN_KEY) { throw "The OT_MINISIGN_KEY secret is not configured; releases must be signed (see keys/README.md)." }
           # -RepoUrl is required here: GitHub is only a PUSH url on origin, so
           # the script's `git remote get-url origin` fallback would answer with
           # the Forgejo URL and the manifest would point at the wrong assets.

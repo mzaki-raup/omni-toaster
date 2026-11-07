@@ -26,11 +26,12 @@ Every release publishes exactly these, and the updater reads them **by name**
 
 | Asset | The updater uses it for |
 |---|---|
-| `manifest.json` | The version, the channel, and each asset's size and SHA-256 |
-| `*.minisig` | The rsign signature over `manifest.json` — checked **first** |
-| `OmniToaster.exe` | The bare executable it downloads and stages |
+| `manifest.json` | The version, the channel, `min_supported_version`, `data_schema`, and each asset's size and SHA-256 |
+| `manifest.json.minisig` | The minisign signature over `manifest.json` — checked **first**, against the public key embedded in the exe (`keys/minisign.pub`) |
+| `OmniToaster.exe` | The bare executable it downloads and stages (the manifest's `assets["windows-x64"]`) |
 | `OmniToaster-<version>-windows-x64.zip` | Not used by the updater; the manual path |
-| `SHA256SUMS` | Not used by the updater; the manual path |
+| `SHA256SUMS.txt` | Not used by the updater; the manual path |
+| `CHANGELOG-<version>.md` | Not fetched; `notes_url` in the manifest is what the UI links to |
 
 A release missing the first three reads as **"no installable release"** and the
 user stays where they are. Renaming an asset is a breaking change needing a new
@@ -130,12 +131,22 @@ pwsh -File scripts/verify-release.ps1 -Tag v0.1.0
 
 ## 11. Open questions
 
-1. Whether the rsign public key is embedded in the exe (simple, but rotating it
-   needs a release) or read from a file beside it (rotatable, but then it is
-   attacker-writable in a portable folder). Embedded is the current assumption.
-2. Whether a prerelease channel is worth shipping in v1.0 or can wait.
-3. Whether the manifest should carry a minimum-version floor, so an ancient
-   install is told to update manually rather than stepping through versions.
+1. ~~Whether the rsign public key is embedded in the exe or read from a file
+   beside it.~~ **Settled:** embedded, and the same key committed as
+   `keys/minisign.pub` for manual verification. A file beside the exe would be
+   attacker-writable in a portable folder. `keys/README.md` covers rotation:
+   ship the new public key one release early, signed with the old key.
+2. Whether a prerelease channel is worth shipping in v1.0 or can wait. The
+   `beta` channel already exists in the manifest and in
+   `scripts/build-and-package.ps1`; the open part is only whether the UI
+   exposes it.
+3. ~~Whether the manifest should carry a minimum-version floor.~~ **Settled:**
+   it does — `min_supported_version`, defaulting to `0.1.0`, bumped only when
+   the updater protocol changes. An older copy is sent to the zip.
+4. What `data_schema` in the manifest should make the updater do. It records
+   the on-disk format version the build writes
+   ([05-data-model-and-storage.md](../05-data-model-and-storage.md)); whether a
+   forward jump should warn before updating is undecided.
 
 ## What is implemented (2026-11-08)
 
