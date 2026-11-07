@@ -32,6 +32,17 @@ omni-toaster/
 └── scripts/
 ```
 
+Workspace-wide settings that are decisions rather than taste:
+
+| Setting | Why |
+|---|---|
+| `resolver = "3"` | The edition 2024 resolver. |
+| `[workspace.lints]` with `unsafe_code`, `clippy::unwrap_used`, `todo`, `dbg_macro` set to `warn`, and every member opting in with `[lints] workspace = true` | The project rules forbid a crate-wide `allow`, so the lints that must hold everywhere are declared once. The gate runs clippy with `-D warnings`, so these are errors in practice. |
+| `[profile.release]` `panic = "abort"` | A panicking worker should die and be restarted, not limp on half-unwound. The panic hook still runs and still writes the crash report, then the process aborts with a non-zero exit — which is exactly the signal the supervisor waits for ([specs/supervisor.md](specs/supervisor.md) §4). It also means `catch_unwind` is not available as a recovery mechanism anywhere, which is the intent. |
+| `[profile.release]` `strip`, `lto = "thin"`, `codegen-units = 1` | One portable exe, as small as the toolchain will make it. |
+| `[profile.dev] debug = 1` | Pinned in the manifest rather than passed as `CARGO_PROFILE_DEV_DEBUG` on the command line, which changes every fingerprint and rebuilds the workspace ([GOTCHAS.md](GOTCHAS.md)). |
+| `.cargo/config.toml` with `-C target-feature=+crt-static` | The MSVC runtime is linked in, so the folder runs on a machine with no Visual C++ redistributable. Verified by the absence of `VCRUNTIME`/`msvcp`/`api-ms-win-crt` imports in the built exe. |
+
 Dependency direction is one way only:
 
 ```

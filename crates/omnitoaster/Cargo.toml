@@ -1,0 +1,27 @@
+[package]
+name = "omnitoaster"
+description = "Portable Windows toast notifications for reminders, prayer times, weather and time announcements."
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+repository.workspace = true
+authors.workspace = true
+
+# The published asset is OmniToaster.exe and the in-app updater downloads it by
+# that exact name, so the binary name is part of the release contract
+# (docs/09-ci-cd-and-releases.md, ADR-010). Renaming it breaks the updater.
+[[bin]]
+name = "OmniToaster"
+path = "src/main.rs"
+
+[lints]
+workspace = true
+
+# The binary is where the service crates meet (docs/03-architecture.md), but a
+# dependency is declared when the code that needs it lands, not before: an
+# unused path dependency is dead weight the manifest claims is load-bearing.
+# FEAT-0002 adds ot-core, FEAT-0004 ot-i18n and ot-platform, FEAT-0005
+# ot-store. `cargo build --workspace` compiles every member regardless, so the
+# gate still covers the crates listed here.
+[dependencies]

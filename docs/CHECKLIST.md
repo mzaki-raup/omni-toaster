@@ -29,9 +29,10 @@ Last updated: 2026-11-08
 
 | Item | State | Notes |
 |---|---|---|
-| Repository and `docs/` skeleton | In-Progress | `docs/` is complete; the Cargo workspace and its eleven crates do not exist yet |
+| Repository and `docs/` skeleton | Completed | `docs/` complete; the Cargo workspace and all eleven crates build — FEAT-0001 |
 | `CLAUDE.md` | Completed | Realigned, and `.claude/rules/` has landed — every link resolves |
-| CI skeleton | Pending | FEAT-0007 |
+| Cargo workspace skeleton | Completed | FEAT-0001. 11 members, `cargo fmt`/`clippy -D warnings`/`test --locked -j 4`/`deny check` all green; `OmniToaster.exe` builds at 223 KB and prints its version; no dynamic CRT imports, so `+crt-static` is confirmed |
+| CI skeleton | In-Progress | FEAT-0007. The workflows exist and `release.yml` goes green on `main`, but `ci.yml` does not trigger on a branch push — BUG-0001 |
 | Logging | Pending | FEAT-0003 |
 | Panic hook | Pending | FEAT-0003 |
 | Portable path resolution with writability check | Pending | FEAT-0002 |

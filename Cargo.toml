@@ -1,0 +1,46 @@
+[workspace]
+resolver = "3"
+members = ["crates/*"]
+
+# The version lives here and only here. scripts/update-version.ps1 moves it;
+# never edit it by hand (docs/09-ci-cd-and-releases.md, ADR-001).
+[workspace.package]
+version = "0.1.0"
+edition = "2024"
+rust-version = "1.85"
+license = "MIT"
+repository = "https://git.zacx.net/owner/omni-toaster"
+authors = ["owner <owner@zacx.net>"]
+
+# Shared dependency versions. Each Phase 0 item adds what it needs here with
+# `cargo add`, so the versions come from the registry rather than from memory,
+# and a member then declares `<crate>.workspace = true`.
+[workspace.dependencies]
+
+[workspace.lints.rust]
+# A crate-wide allow is forbidden by the project rules, so lints that must hold
+# everywhere are set here and each crate opts in with `[lints] workspace = true`.
+unsafe_code = "warn"
+
+[workspace.lints.clippy]
+# The gate runs clippy with -D warnings, so these are errors in practice.
+# unwrap/expect outside tests are a review item in .claude/rules/rust.md; these
+# catch the cases a human reviewer misses.
+unwrap_used = "warn"
+todo = "warn"
+dbg_macro = "warn"
+
+[profile.release]
+# A portable single exe: strip symbols, one codegen unit, abort on panic in the
+# worker so the supervisor sees a non-zero exit rather than a half-unwound
+# process (docs/specs/supervisor.md).
+strip = true
+lto = "thin"
+codegen-units = 1
+panic = "abort"
+
+[profile.dev]
+# Pinned here rather than passed on the command line: setting
+# CARGO_PROFILE_DEV_DEBUG on the command line changes every fingerprint and
+# rebuilds the workspace (docs/GOTCHAS.md).
+debug = 1

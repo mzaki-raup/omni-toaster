@@ -1,0 +1,5 @@
+# +crt-static links the MSVC runtime into the exe, so the portable folder runs
+# on a machine with no Visual C++ redistributable installed. Removing this
+# breaks portability, which is the whole point of the product (ADR-004).
+[target.x86_64-pc-windows-msvc]
+rustflags = ["-C", "target-feature=+crt-static"]

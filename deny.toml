@@ -1,0 +1,45 @@
+# cargo deny configuration. The gate runs `cargo deny check`, and CI runs it
+# too: advisories come from the RustSec database and move on their own, so a
+# branch that was green yesterday can fail today with no change of its own
+# (.claude/rules/testing.md).
+
+[graph]
+targets = ["x86_64-pc-windows-msvc"]
+all-features = false
+
+[advisories]
+version = 2
+yanked = "deny"
+ignore = []
+
+[licenses]
+version = 2
+# The project is MIT and public, so only permissive licences are allowed in.
+# A copyleft dependency needs an ADR before it is added (docs/08-decisions.md).
+allow = [
+    "MIT",
+    "Apache-2.0",
+    "Apache-2.0 WITH LLVM-exception",
+    "BSD-2-Clause",
+    "BSD-3-Clause",
+    "ISC",
+    "Zlib",
+    "Unicode-3.0",
+    "MPL-2.0",
+    "CC0-1.0",
+]
+confidence-threshold = 0.9
+exceptions = []
+
+[bans]
+multiple-versions = "warn"
+wildcards = "deny"
+# Prefer pure Rust and rustls over C-bound and OpenSSL alternatives (ADR-012).
+deny = [{ crate = "openssl-sys", reason = "use rustls; a C-bound TLS stack breaks the static portable build" }]
+skip = []
+skip-tree = []
+
+[sources]
+unknown-registry = "deny"
+unknown-git = "deny"
+allow-registry = ["https://github.com/rust-lang/crates.io-index"]

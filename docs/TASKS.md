@@ -127,7 +127,7 @@ Refs: BUG-0003
 ```
 Version : v0.0.2
 Features : FEAT-0010
-Bugs : BUG-0001
+Bugs : BUG-0002
 Change Request : CR-0001
 ```
 
@@ -143,20 +143,21 @@ The items are ordered by dependency: FEAT-0001 first, then 0002 and 0003 on top
 of it, then 0004, 0005 and 0006 in any order.
 
 ### FEAT-0001 · Cargo workspace skeleton
-- **State:** Pending · **Spec:** docs/03-architecture.md · **Phase:** 0
+- **State:** Completed · **Spec:** docs/03-architecture.md · **Phase:** 0
 - **Branch:** feat/phase-0-foundation
-- [ ] Root `Cargo.toml` with `[workspace]`, `[workspace.package]` (version, edition 2024, licence MIT, repository) and `[workspace.dependencies]` for everything shared
-- [ ] `crates/omnitoaster` — package `omnitoaster`, `[[bin]] name = "OmniToaster"`, a `main` that prints its version and exits
-- [ ] The ten library crates, each compiling with a doc comment and nothing else: `ot-core`, `ot-i18n`, `ot-store`, `ot-platform`, `ot-ui`, `ot-toast`, `ot-sched`, `ot-prayer`, `ot-weather`, `ot-media`
-- [ ] `.cargo/config.toml` with `+crt-static` so the MSVC build stays portable
-- [ ] `rust-toolchain.toml` pinning the stable channel and the MSVC target
-- [ ] `deny.toml` so `cargo deny check` has something to read
-- [ ] `.gitignore` covering `target/`, `tmp-data/` and `OmniToasterData/`
-- [ ] Test: `cargo metadata` lists all eleven members; a test in `omnitoaster` asserts `env!("CARGO_PKG_VERSION")` is non-empty
-- [ ] Gate: fmt · clippy -D warnings · test --workspace --locked -j 4 · deny check
-- [ ] App: `cargo build --release -p omnitoaster` produces `target/release/OmniToaster.exe`, and running it prints the version
-- [ ] Docs: spec · README · CHANGELOG · CHECKLIST · GOTCHAS
-- **Notes:** `ot-platform` is the only crate allowed to contain Windows-only code, so every other crate's clippy must pass on Linux too. No tokio — `PROPOSAL.md` §5 and the architecture spec settle this.
+- **Verified:** the gate below, run 2026-11-08 on this machine, plus the built exe
+- [x] Root `Cargo.toml` with `[workspace]`, `[workspace.package]` (version, edition 2024, licence MIT, repository) and `[workspace.dependencies]` for everything shared
+- [x] `crates/omnitoaster` — package `omnitoaster`, `[[bin]] name = "OmniToaster"`, a `main` that prints its version and exits
+- [x] The ten library crates, each compiling with a doc comment and nothing else: `ot-core`, `ot-i18n`, `ot-store`, `ot-platform`, `ot-ui`, `ot-toast`, `ot-sched`, `ot-prayer`, `ot-weather`, `ot-media`
+- [x] `.cargo/config.toml` with `+crt-static` so the MSVC build stays portable
+- [x] `rust-toolchain.toml` pinning the stable channel and the MSVC target
+- [x] `deny.toml` so `cargo deny check` has something to read
+- [x] `.gitignore` covering `target/`, `tmp-data/` and `OmniToasterData/`
+- [x] Test: `cargo metadata` lists all eleven members; a test in `omnitoaster` asserts `env!("CARGO_PKG_VERSION")` is non-empty
+- [x] Gate: fmt · clippy -D warnings · test --workspace --locked -j 4 · deny check
+- [x] App: `cargo build --release -p omnitoaster` produces `target/release/OmniToaster.exe`, and running it prints the version
+- [x] Docs: spec · README · CHANGELOG · CHECKLIST · GOTCHAS
+- **Notes:** `ot-platform` is the only crate allowed to contain Windows-only code, so every other crate's clippy must pass on Linux too. No tokio — `PROPOSAL.md` §5 and the architecture spec settle this. Two deliberate deviations from the boxes as written, both recorded in `docs/03-architecture.md`: `[workspace.dependencies]` is present but **empty**, because populating it would have meant inventing twenty version numbers that `--locked` would then enforce — each later item adds its own with `cargo add`, so the versions come from the registry; and `crates/omnitoaster` declares **no** path dependencies yet for the same reason an unused dependency is dead weight, with `cargo build --workspace` still compiling every member so the gate covers them. `.gitignore` landed earlier, in the realignment batch. The release profile sets `panic = "abort"`, which is a design choice the supervisor depends on and is written up in the architecture spec. `+crt-static` was confirmed, not assumed: the built exe imports only `KERNEL32.dll` and `ntdll.dll`, with no `VCRUNTIME`, `msvcp` or `api-ms-win-crt` entries. The gate's `--self-test` step is not in this item's box because the flag arrives with FEAT-0006.
 
 ### FEAT-0002 · Portable path resolution and the writability check
 - **State:** Pending · **Spec:** docs/05-data-model-and-storage.md · **Phase:** 0
@@ -261,6 +262,18 @@ of it, then 0004, 0005 and 0006 in any order.
 ---
 
 ## Backlog
+
+### BUG-0001 · `ci.yml` does not run on a branch push, so the branch gate is unenforced
+- **State:** Pending · **Spec:** docs/09-ci-cd-and-releases.md · **Phase:** 0
+- [ ] Reproduce: push a branch and confirm no workflow run is created for it, while a push to `main` does create a `release.yml` run
+- [ ] Establish the cause. The leading candidate is the `on.push` filter `branches: ['**', '!main', '!beta']` combined with `tags-ignore: ['v*']`: GitHub Actions supports `!` negation inside `branches`, and Forgejo 9.0.3 / Gitea 1.22 may not, in which case the event fails to match at all rather than matching everything
+- [ ] Fix with the narrowest change that makes a branch push run `ci.yml` — most likely `branches-ignore: ['main', 'beta']` in place of the negated list
+- [ ] Confirm `ci.yml` still does **not** run on `main`, so it cannot collide with `release.yml` on the single runner
+- [ ] Test: not unit-testable — verified by a real branch push creating a run, and by a `main` push creating only a `release.yml` run. Record both run numbers in Notes
+- [ ] Gate: fmt · clippy -D warnings · test --workspace --locked -j 4 · deny check · --self-test
+- [ ] App: not applicable — this item ships no user-visible behaviour
+- [ ] Docs: spec · README · CHANGELOG · CHECKLIST · GOTCHAS
+- **Notes:** Found 2026-11-08 pushing the scaffolding realignment. Branch `docs/realign-scaffolding` reached Forgejo at `2a720c0`, confirmed with `git ls-remote`; after 20 minutes of polling `/actions/tasks` the repository still reported `total_count` 1, the old `release.yml` run. Actions is enabled (`has_actions: true`), the forge is healthy (`9.0.3+gitea-1.22.0`), and the `gitea-runner` service was processing other repositories throughout — it then picked up the `main` push as run 2 within seconds and went green. So the runner and the triggering both work; only `ci.yml`'s event filter fails to match a branch push. The `on:` block is byte-identical to the sibling project's, whose `check` runs fire on a ~30-minute cadence that looks scheduled rather than push-driven, so this may never have worked on this instance. **Until this is fixed the mandated branch → push → CI green → merge flow cannot be followed**, and the owner merged the realignment batch knowing that. The next branch push — Phase 0's — is the cheapest reproduction.
 
 ### FEAT-0008 · In-app updater
 - **State:** Pending · **Spec:** docs/specs/updater.md · **Phase:** 9

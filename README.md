@@ -6,10 +6,13 @@ customizable, Windows-style toast notifications for reminders, prayer times
 starts with Windows, recovers from crashes, and keeps every byte of its data in
 an `OmniToasterData/` folder next to the executable.
 
-**Status:** pre-Phase-0. There is no implementation yet — the repository holds
-the proposal, the specifications and the work ledger. Phase 0 (Foundation)
-creates the Cargo workspace. See [PROPOSAL.md](PROPOSAL.md) §13 for the phase
-plan and [docs/CHECKLIST.md](docs/CHECKLIST.md) for progress.
+**Status:** Phase 0 (Foundation), in progress. The Cargo workspace and its
+eleven crates build, and `OmniToaster.exe` reports its version — but it does
+nothing else yet: there is no tray icon, no settings window and no toast. The
+`--data-dir`, `--self-test` and `--worker` flags documented below are specified
+and not yet implemented, so the build and run commands are here for
+contributors rather than for users. See [PROPOSAL.md](PROPOSAL.md) §13 for the
+phase plan and [docs/CHECKLIST.md](docs/CHECKLIST.md) for progress.
 
 ---
 
