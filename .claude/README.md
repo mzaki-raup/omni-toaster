@@ -88,10 +88,9 @@ not the app's release number.
 - All I/O on the tokio runtime, bounded channels drained at frame start,
   anything over ~200 ms a Job with progress and cancel, never `block_on` on the
   UI thread.
-- Every visible string through Fluent (`locales/en.ftl`), edited with the
+- Every visible string through Fluent (`locales/en-US/omni_toaster.ftl`, `locales/ms-MY/omni_toaster.ftl`), edited with the
   **Edit tool**, never a heredoc.
-- All app data under `HyperStackData/` beside the exe; secrets only as
-  `secret:<ulid>` in the vault.
+
 
 ## Not included on purpose
 

@@ -1,8 +1,7 @@
 # Build and run
 
-HyperStack is a portable Rust + egui desktop workspace — a Cargo workspace of
+OmniToaster is a portable Rust + egui desktop workspace — a Cargo workspace of
 small crates, one per tool. `README.md` has the crate layout;
-`docs/03-architecture.md` has the shape.
 
 ## Build and run
 
@@ -17,11 +16,11 @@ cargo run -p hyperstack -- --data-dir ./tmp-data
 ```
 
 Run against a throwaway data folder. **Always pass `--data-dir` with a scratch
-folder while developing**, so the real `HyperStackData/` beside the exe is not
+folder while developing**, so the real `OmniToasterData/` beside the exe is not
 touched.
 
 ```bash
-cargo run -p hyperstack -- --self-test
+cargo run -p omnitoaster -- --self-test
 ```
 
 What the CI smoke step runs.
@@ -34,37 +33,16 @@ One tool crate at a time.
 
 ## Running the app while developing
 
-- A running `HyperStack.exe` locks its own file, so a release build fails with
+- A running `OmniToaster.exe` locks its own file, so a release build fails with
   "Access is denied" while an old instance is open. Stop it first:
 
 ```bash
-Stop-Process -Name HyperStack -Force
+Stop-Process -Name OmniToaster -Force
 ```
 
 - Live-server tests need their environment variables (see
   [testing.md](testing.md)). Skip any test whose server you aren't running;
   **don't edit the test to skip it**.
-
-## Live and container-backed tests
-
-```bash
-HS_S3_ENDPOINT=http://127.0.0.1:5055 cargo test -p hs-core --test s3_live
-```
-
-```bash
-HS_PG=127.0.0.1:5432:dev:dev:postgres HS_MYSQL=127.0.0.1:3306:dev:dev:shop cargo test -p tool-db --test drivers
-```
-
-```bash
-HS_REDIS=127.0.0.1:6379 cargo test -p tool-redis --test live
-```
-
-```bash
-HS_MONGO=127.0.0.1:27017 HS_COUCH=http://admin:pw@127.0.0.1:5984 cargo test -p tool-nosql --test live
-```
-
-SQLite always runs. Container-backed driver tests run only when
-`HS_INTEGRATION` is set.
 
 ## Release and packaging scripts
 

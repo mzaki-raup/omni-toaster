@@ -49,28 +49,6 @@ say so either way, rather than implying a vulnerability shipped.
 - Never edit a live-server test so it skips — just don't run it when its server
   isn't up.
 
-## Live and container-backed tests
-
-Each needs its environment variable; without it the test skips itself.
-
-```bash
-HS_S3_ENDPOINT=http://127.0.0.1:5055 cargo test -p hs-core --test s3_live
-```
-
-```bash
-HS_PG=127.0.0.1:5432:dev:dev:postgres HS_MYSQL=127.0.0.1:3306:dev:dev:shop cargo test -p tool-db --test drivers
-```
-
-```bash
-HS_REDIS=127.0.0.1:6379 cargo test -p tool-redis --test live
-```
-
-```bash
-HS_MONGO=127.0.0.1:27017 HS_COUCH=http://admin:pw@127.0.0.1:5984 cargo test -p tool-nosql --test live
-```
-
-Container-backed driver tests run only when `HS_INTEGRATION` is set.
-
 Release-planner tests are Pester 5:
 
 ```bash

@@ -20,9 +20,9 @@ the document **in the same commit**.
    batch merges. A new feature with a visible screen gets a screenshot in
    the README, and every new feature, activity, setting or option the
    batch adds is described in the README's feature text too — not only in
-   CHANGELOG. Owner's rule, 2026-11-07.
+   CHANGELOG.
 4. The affected `docs/*.md` and `docs/tools/*.md` spec.
-5. `CHECKLIST.md` — only after the work is verified. States are exactly
+5. `docs/CHECKLIST.md` — only after the work is verified. States are exactly
    `Completed`, `In-Progress`, `Pending`.
 6. `docs/GOTCHAS.md` — an entry under the matching heading for every new
    mistake you found and fixed.

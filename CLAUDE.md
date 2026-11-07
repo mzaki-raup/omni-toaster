@@ -75,7 +75,7 @@ touches before you start** — they are requirements, not suggestions.
 | Where | What |
 |---|---|
 | [.claude/README.md](.claude/README.md) | How the scaffolding fits together: commands, skills, subagents, rules, templates |
-| [docs/rules/INDEX.md](docs/rules/INDEX.md) | The non-negotiables in one page, and which rules file covers which area : `UI_UX.md`, `SECURITY.md`, `DATA_MODEL.md`, `STORAGE.md`, `ARCHITECTURE.md`, `FEATURES.md`, `CI_CD.md`, `DECISIONS.md` (ADR log) |
+| [docs/rules/INDEX.md](docs/rules/INDEX.md) | The non-negotiables in one page, and which rules file covers which area : `RUST.md`, `WORKFLOW.md`, `UI_UX.md`, `SECURITY.md`, `TESTING.md`, `RELEASE.md`, `DATA_MODEL.md`, `STORAGE.md`, `ARCHITECTURE.md`, `FEATURES.md`, `CI_CD.md`, `DECISIONS.md` (ADR log) |
 | [docs/TASKS.md](TASKS.md) | The work ledger: `FEAT-`/`BUG-`/`CR-` ids under task versions, each with its checklist |
 | [docs/GOTCHAS.md](docs/GOTCHAS.md) | Every known mistake and its fix. Read your area's section **before** fixing a bug; add an entry for every new one |
 

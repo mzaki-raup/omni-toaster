@@ -30,9 +30,9 @@
 
 1. Update the docs the change touches: [`TASKS.md`](../../TASKS.md) (the item's
    boxes and state), `README.md`, the affected `docs/*.md` specs,
-   `CHECKLIST.md`, and the Unreleased section of `CHANGELOG.md`. A line for
+   `docs/CHECKLIST.md`, and the Unreleased section of `docs/CHANGELOG.md`. A line for
    every add, change, delete or fix — see
-   [docs-and-release.md](docs-and-release.md).
+   [RELEASE.md](RELEASE.md).
 2. Verify the feature **in the running app**, not only in tests, before marking
    anything Completed.
 3. Work on a branch. Push it, wait for CI to go green, then merge into `main`
@@ -43,14 +43,11 @@
 
 ## Phases
 
-- Phases follow the order in [docs/07-roadmap.md](../../docs/07-roadmap.md) and
-  [docs/10-depth-programme.md](../../docs/10-depth-programme.md). Follow the
-  latest developer notes.
 - Track each item as `Completed`, `In-Progress` or `Pending` — those three
   states only.
 - Before marking a phase done: all gate checks pass **and** the feature has
   been exercised in the running app (with `--data-dir` on a scratch folder).
-  Update `CHECKLIST.md` right after that verification.
+  Update `docs/CHECKLIST.md` right after that verification.
 
 ## Specs are requirements
 

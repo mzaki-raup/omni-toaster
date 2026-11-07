@@ -20,23 +20,10 @@
   Clippy must pass with `-D warnings`, including on Linux.
 - Insert new functions **before** the `#[cfg(test)] mod tests` block, never
   after it, and never by appending with `cat >>`.
-- `hs-core`, `hs-ui`, `hs-editor`, `hs-term` and every tool crate must compile
-  on Linux and macOS. Platform code lives only in `hs_core::secrets`,
-  `hs_core::storage::paths`, `hs_core::clipboard_files`, `hs_core::env_path`
-  and `hs_term::pty`.
-
-## Architecture
-
-- One crate per tool, one `Tool` trait (`crates/hs-core/src/tool.rs`).
-- A tool depends on `hs-core` / `hs-ui` (and `hs-editor` / `hs-term` where the
-  spec says so) — **never on another tool crate**. Cross-tool features go
-  through `Services`, `OpenRequest` and events.
-- `../eden-explorer` is a reference only: don't copy code, don't depend on it.
 
 ## Reuse before writing
 
-Search first: ripgrep for the function name, then `crates/hs-ui/src/` and
-`crates/hs-core/src/`. If logic is needed twice, extract a shared function
+Search first: ripgrep for the function name. If logic is needed twice, extract a shared function
 instead of copying. Don't change a public signature without updating every call
 site.
 
@@ -59,9 +46,9 @@ site.
 - Delete `target/debug/incremental` after long build sessions. Never set
   `CARGO_PROFILE_DEV_DEBUG=0` on the command line.
 - Keep `.cargo/config.toml` (`+crt-static`) so the MSVC build stays portable.
-- A running `HyperStack.exe` locks its own file, so a release build fails with
+- A running `OmniToaster.exe` locks its own file, so a release build fails with
   "Access is denied" while an instance is open. Stop it first:
 
 ```bash
-Stop-Process -Name HyperStack -Force
+Stop-Process -Name OmniToaster -Force
 ```
