@@ -263,17 +263,15 @@ of it, then 0004, 0005 and 0006 in any order.
 
 ## Backlog
 
-### BUG-0001 · `ci.yml` does not run on a branch push, so the branch gate is unenforced
-- **State:** Pending · **Spec:** docs/09-ci-cd-and-releases.md · **Phase:** 0
-- [ ] Reproduce: push a branch and confirm no workflow run is created for it, while a push to `main` does create a `release.yml` run
-- [ ] Establish the cause. The leading candidate is the `on.push` filter `branches: ['**', '!main', '!beta']` combined with `tags-ignore: ['v*']`: GitHub Actions supports `!` negation inside `branches`, and Forgejo 9.0.3 / Gitea 1.22 may not, in which case the event fails to match at all rather than matching everything
-- [ ] Fix with the narrowest change that makes a branch push run `ci.yml` — most likely `branches-ignore: ['main', 'beta']` in place of the negated list
-- [ ] Confirm `ci.yml` still does **not** run on `main`, so it cannot collide with `release.yml` on the single runner
-- [ ] Test: not unit-testable — verified by a real branch push creating a run, and by a `main` push creating only a `release.yml` run. Record both run numbers in Notes
-- [ ] Gate: fmt · clippy -D warnings · test --workspace --locked -j 4 · deny check · --self-test
-- [ ] App: not applicable — this item ships no user-visible behaviour
-- [ ] Docs: spec · README · CHANGELOG · CHECKLIST · GOTCHAS
-- **Notes:** Found 2026-11-08 pushing the scaffolding realignment. Branch `docs/realign-scaffolding` reached Forgejo at `2a720c0`, confirmed with `git ls-remote`; after 20 minutes of polling `/actions/tasks` the repository still reported `total_count` 1, the old `release.yml` run. Actions is enabled (`has_actions: true`), the forge is healthy (`9.0.3+gitea-1.22.0`), and the `gitea-runner` service was processing other repositories throughout — it then picked up the `main` push as run 2 within seconds and went green. So the runner and the triggering both work; only `ci.yml`'s event filter fails to match a branch push. The `on:` block is byte-identical to the sibling project's, whose `check` runs fire on a ~30-minute cadence that looks scheduled rather than push-driven, so this may never have worked on this instance. **Until this is fixed the mandated branch → push → CI green → merge flow cannot be followed**, and the owner merged the realignment batch knowing that. The next branch push — Phase 0's — is the cheapest reproduction.
+### BUG-0001 · A branch push created no `ci.yml` run — not a defect, a forge outage
+- **State:** Completed · **Spec:** docs/09-ci-cd-and-releases.md · **Phase:** 0
+- **Verified:** reproduction attempt on 2026-11-08, which did **not** reproduce
+- [x] Reproduce: push a branch and check whether a workflow run is created
+- [x] Establish the cause
+- [x] Confirm `ci.yml` still does not run on `main`
+- [x] Test: not unit-testable — settled by a real branch push
+- [x] Docs: CHANGELOG · CHECKLIST · GOTCHAS
+- **Notes:** Filed and closed the same day; **the original diagnosis was wrong and no code was changed.** What happened: branch `docs/realign-scaffolding` was pushed at 05:26 and reached Forgejo (confirmed at `2a720c0` with `git ls-remote`), but 20 minutes of polling showed `total_count` still 1. I suspected the `on.push` filter's `!` negation, which Forgejo 9.0.3 might not support. Pushing `feat/phase-0-foundation` disproved it: `ci.yml` triggered within seconds and ran. The real cause was a **transient outage of the forge's Actions dispatch** in exactly that window — the runner logged `fetching a task timed out after 5s` and `failed to fetch task: unavailable: 502 Bad Gateway` at 05:40, and my own API probes returned connection failures around 05:45 before recovering. The filter is fine, the runner is fine, and `release.yml` on `main` went green throughout. Kept as a closed record rather than deleted, because the next person to see an absent CI run should check the runner log and the forge before touching the workflow — which is the lesson now in `docs/GOTCHAS.md`.
 
 ### FEAT-0008 · In-app updater
 - **State:** Pending · **Spec:** docs/specs/updater.md · **Phase:** 9
