@@ -1,6 +1,6 @@
 # Omni Toaster: Project Proposal
 
-**Version:** 0.1 (Draft for review)
+**Version:** 1.0 (Reviewed — stakeholder answers in §16 are decided), 2026-11-08
 **Target platform:** Windows 10 (1809+) and Windows 11
 **Language:** Rust (stable toolchain)
 **UI languages:** English (`en-US`) and Bahasa Melayu (`ms-MY`)
@@ -28,12 +28,13 @@ The recommended UI framework is **eframe/egui**, with Slint as a documented fall
 - Portable distribution: one folder, no installer required.
 - Self-recovery: auto-start at login, auto-restart after a crash, and persistent local debug logs.
 - Dark theme by default, with System, Dark, and Light options.
+- An in-app updater: the app checks a signed release manifest, tells the user a new version exists, and replaces itself in place without losing `OmniToasterData/`.
 
 ### Non-Goals (Initial Release)
 - Replacing or hooking into the native Windows Action Center.
 - macOS and Linux support. Platform code is isolated so these can be added later.
 - Cloud sync, user accounts, or telemetry.
-- Built-in sound or image libraries. The user supplies all media (subject to the licensing review in §17).
+- Built-in sound or image libraries beyond the default Azan audio and images that ship with the app (subject to the licensing review in the Phase 9 terms check, §13).
 - Jawi (Arabic-based Malay) script. This is deferred to a later version.
 - Languages other than English and Malay.
 
@@ -67,7 +68,8 @@ The recommended UI framework is **eframe/egui**, with Slint as a documented fall
 | Serialization | `serde` | | Standard. |
 | Errors | `thiserror` (libraries), `anyhow` (application) | | Standard. |
 | Date and time | `chrono` + `chrono-tz` | `time` | Arithmetic and timezone handling. Malay names come from static tables. |
-| CI/CD | GitHub Actions (`windows-latest`) | | Runs fmt, clippy, tests, lints, and release builds. |
+| CI/CD | **Forgejo Actions** on the owner's own Windows machine (`.forgejo/workflows/`), with GitHub Actions (`.github/workflows/`, `windows-latest`) on the public mirror | A single hosted runner | Forgejo holds version authority and publishes the release; GitHub is a read-only mirror that runs the same checks for contributors. Both run fmt, clippy, tests, lints, and release builds. Because the Forgejo runner *is* the development machine, every cargo step there is bounded with `-j 4`. |
+| In-app updater | Signed release manifest (`manifest.json`) + rsign signature, checked over HTTPS; self-replace on restart | `cargo-dist` self-update, winget | Keeps the portable single-exe model: no installer, no admin rights, `OmniToasterData/` untouched. A Phase 9 deliverable. |
 
 **Key Cargo additions for v1.0:** `i18n-embed` (with `fluent-system-ui`), `i18n-embed-fl`, `rust-embed`, `unic-langid`, `chrono-tz`, `adhan`, `ureq`, `rusqlite`, `rodio`, `tray-icon`, `muda`, `window-vibrancy`, `winreg`, `image`, `windows`.
 
@@ -106,16 +108,29 @@ Source repository layout (developer view):
 
 ```
 omni-toaster/
-├── src/                            # Application code
+├── Cargo.toml                      # Workspace root; [workspace.package] version lives here
+├── crates/
+│   ├── omnitoaster/                # The binary: OmniToaster.exe
+│   ├── ot-core/                    # Settings, paths, event bus, errors, logging, panic hook
+│   ├── ot-i18n/                    # Fluent bundles, locale detection, the date/number formatter
+│   ├── ot-store/                   # SQLite, migrations, asset store
+│   ├── ot-platform/                # All Windows-only code: tray, autostart, theme, mutex, vibrancy, supervisor
+│   ├── ot-ui/                      # Shared egui widgets, theme, settings window
+│   ├── ot-toast/                   # ToastSpec, renderer, animations
+│   ├── ot-sched/                   # Scheduler thread, recurrence, snooze
+│   ├── ot-prayer/                  # PrayerSource trait, JakimSource, CalculatedSource, zone table
+│   ├── ot-weather/                 # Open-Meteo
+│   └── ot-media/                   # Audio (rodio), TTS (Windows SpeechSynthesizer)
 ├── locales/
 │   ├── en-US/omni_toaster.ftl
 │   └── ms-MY/omni_toaster.ftl
-├── assets/prayer/jakim/            # Bundled JAKIM dataset (if licensing allows, see §17)
+├── assets/prayer/jakim/            # Bundled JAKIM dataset (if licensing allows; Phase 9 terms check, §13)
 ├── data/jakim_zones.csv            # Zone table (reviewed commits only)
 ├── tests/
 │   ├── fixtures/jakim_sample.json
 │   └── fixtures/jakim_reference.csv
-├── docs/                           # CHECKLIST, CHANGELOG, TASKS, GOTCHAS, RULES/
+├── docs/                           # 01–11 specs, specs/, CHECKLIST, CHANGELOG, TASKS, GOTCHAS
+├── .claude/rules/                  # Agent-facing rules, one file per area
 ├── CLAUDE.md
 └── README.md
 ```
@@ -246,7 +261,7 @@ weather-storm = Ribut petir
 Translator context comments are placed above each key in the `.ftl` file.
 
 ### 6.3 Localization Rules
-- Every user-visible string uses a Fluent key. Hard-coded user-facing strings are rejected in review and by CI (§15).
+- Every user-visible string uses a Fluent key. Hard-coded user-facing strings are rejected in review and by the hard-coded string lint in CI (§12).
 - Never concatenate translated fragments in code. Use Fluent variables so word order can change per language.
 - Never format dates or numbers manually. Use the shared formatter.
 - Every new key is added to **both** `.ftl` files in the same commit.
@@ -269,7 +284,7 @@ Translator context comments are placed above each key in the `.ftl` file.
 
 ### 6.6 Translation Process
 - The English catalogue is the source of truth. Translators work from the English keys with context comments.
-- Malay translations are reviewed by a named native speaker before Phase 9 (see §18).
+- Malay translations are reviewed by a named native speaker before Phase 9; the sign-off is a Phase 9 exit criterion (§13).
 - A translation change that alters meaning is recorded in `GOTCHAS.md`. Every translation change is recorded in `CHANGELOG.md`.
 
 ---
@@ -302,10 +317,10 @@ The e-Solat portal (`e-solat.gov.my`) publishes times by zone code. Malaysia has
 | Option | Description | Use |
 |---|---|---|
 | **A. e-Solat JSON endpoint** (primary) | Monthly or weekly JSON for one zone | Live fetch and monthly cache |
-| **B. Official export** (fallback) | Monthly or yearly tables bundled as JSON | Offline fallback, only if terms allow (§17) |
+| **B. Official export** (fallback) | Monthly or yearly tables bundled as JSON | Offline fallback, only if terms allow (Phase 9 terms check, §13) |
 | **C. Calculated** (last resort) | `adhan` with Fajr 20.0° and Isha 18.0°, plus JAKIM precautionary offsets if confirmed | When A and B fail |
 
-> **Important:** The e-Solat JSON endpoint is not a formally documented public API. Its path and response format may change without notice. Phase 5 begins with a verification spike (§10). The implementation treats the endpoint as unstable: every field is validated, missing keys are handled, and a format change never crashes the app.
+> **Important:** The e-Solat JSON endpoint is not a formally documented public API. Its path and response format may change without notice. Phase 5 begins with a verification spike (§13). The implementation treats the endpoint as unstable: every field is validated, missing keys are handled, and a format change never crashes the app.
 
 **Expected response shape (illustrative, to be verified in the spike):**
 
@@ -338,7 +353,7 @@ The e-Solat portal (`e-solat.gov.my`) publishes times by zone code. Malaysia has
 
 ### 7.3 Zone Mapping
 
-1. Detect location (IP lookup or manual entry, §9.7).
+1. Detect location (IP lookup or manual entry, §8.7).
 2. Check that the coordinates are inside Malaysia (bounding box plus the country code from the geolocation result).
 3. Find the nearest zone from `data/jakim_zones.csv` (zone code, state and area names in both languages, representative coordinates).
 4. Show the result on the setup screen: "Detected zone: SGR01 · Gombak, Hulu Langat, Sepang, Petaling · Selangor. Change zone?"
@@ -377,7 +392,7 @@ Times are stored as local clock values and converted to absolute timestamps in `
 
 ### 7.5 Bundled Dataset (Option B)
 - Covers the current year and the next year, one file per zone, embedded with `rust-embed`.
-- Used only if the licensing review (§17) permits bundling. Otherwise, the user triggers a download.
+- Used only if the licensing review (the Phase 9 terms check, §13) permits bundling. Otherwise, the user triggers a download.
 - Its `source` value is `bundled`, and the UI shows "Offline data".
 - The app warns the user 30 days before the last bundled date.
 
@@ -539,7 +554,9 @@ jakim_prayer_cache (zone_code, date, hijri, imsak, fajr, syuruk, dhuha,
 
 ---
 
-## 11. Quality, Testing, and CI/CD
+## 11. Quality and Testing
+
+This section is the test plan. The pipeline that runs it is §12.
 
 **Unit tests**
 - Scheduler math: DST, offsets, recurrence, snooze limits.
@@ -565,7 +582,7 @@ jakim_prayer_cache (zone_code, date, hijri, imsak, fajr, syuruk, dhuha,
 
 **Localization tests**
 - Key parity: CI fails if `en-US` and `ms-MY` have different key sets.
-- Hard-coded string lint (§15).
+- Hard-coded string lint (§12).
 
 **Manual test checklist (each phase)**
 - Animations at 60 fps on reference hardware.
@@ -579,18 +596,55 @@ jakim_prayer_cache (zone_code, date, hijri, imsak, fajr, syuruk, dhuha,
 
 ## 12. Quality Gates and CI/CD
 
-**CI pipeline (GitHub Actions, `windows-latest`):**
-1. `cargo fmt --check`
-2. `cargo clippy -- -D warnings`
-3. `cargo test --all`
-4. Locale key parity check (script)
-5. Hard-coded string lint (script, §15)
+**The local gate — the definition of done for any change:**
+1. `cargo fmt --all --check`
+2. `cargo clippy --workspace --all-targets --locked -- -D warnings`
+3. `cargo test --workspace --locked -j 4`
+4. `cargo deny check`
+5. `cargo run -p omnitoaster -- --self-test`
+6. The feature exercised in the running app with `--data-dir ./tmp-data`
+
+`-j 4` is mandatory: an unbounded parallel build on this machine exhausts the
+paging file and corrupts `.rmeta`/`.rlib` files.
+
+**CI pipeline.** `.forgejo/workflows/` runs on the owner's own Windows machine
+and holds version authority; `.github/workflows/` runs the same checks on the
+public GitHub mirror for contributors. Because the Forgejo runner *is* the
+development machine, every cargo step there is bounded with `-j 4`.
+
+1. `cargo fmt --all --check`
+2. `cargo clippy --workspace --all-targets --locked -- -D warnings`
+3. `cargo test --workspace --locked -j 4`
+4. Locale key parity check (script): fails if `en-US` and `ms-MY` have different key sets
+5. Hard-coded string lint (script): fails on a user-facing string literal that is not a Fluent key
 6. `cargo audit` and `cargo deny check`
-7. Release build: zip the portable folder, generate SHA-256 checksums, attach to the release on tag
+7. Release build, packaging, signing, and publication of the assets below
 
-**Versioning:** Semantic versioning. Tags such as `v1.0.0` trigger the release workflow.
+**Release asset contract.** Every published release carries exactly these:
 
-**Branching:** Trunk-based with short-lived feature branches. Each phase is merged to `main` only after its exit criteria pass.
+| Asset | What it is |
+|---|---|
+| `OmniToaster.exe` | The bare portable executable |
+| `OmniToaster-<version>-windows-x64.zip` | The portable folder: the exe plus both READMEs |
+| `manifest.json` | Version, release date, asset names, sizes and SHA-256 digests — what the in-app updater reads |
+| SHA-256 checksums | One digest per asset, for manual verification |
+| rsign signature | A detached signature over `manifest.json`, verified by the updater before it replaces the exe |
+
+**The in-app updater** (Phase 9) fetches `manifest.json` over HTTPS, verifies the
+rsign signature against a public key embedded in the exe, compares versions, and
+offers the update to the user. It never updates silently, it never touches
+`OmniToasterData/`, and a failed verification is reported and abandoned rather
+than retried against an unsigned asset.
+
+**Versioning:** Semantic versioning. The version lives once, in
+`[workspace.package] version` in the root `Cargo.toml`, and is moved by the
+release pipeline from the Conventional Commit types — never edited by hand.
+
+**Branching:** Work happens on a short-lived branch. Push it, wait for the
+Forgejo `ci.yml` run to go green, then merge to `main` and push. Never merge
+red. Because the runner is this machine, do not run local cargo commands while a
+CI job is running. Pushing `origin` (Forgejo) also pushes the GitHub mirror.
+Each phase is merged to `main` only after its exit criteria pass.
 
 ---
 
@@ -609,7 +663,7 @@ Each phase ends with verification, a checklist update, a changelog entry, and a 
 | **6** | Weather | Open-Meteo service, caching, condition change detection, per-condition templates, weather code to Fluent key mapping, offline stale marker | Condition change triggers a toast in simulation; offline mode shows the stale marker in both languages |
 | **7** | Time Announcements | Speech synthesis, language-tag voice selection, Malay voice detection and fallback hint, schedules, quiet hours, Azan priority | Announcements fire on schedule in the selected language or fall back with a visible hint; quiet hours respected |
 | **8** | Supervisor and Hardening | Watchdog supervisor, crash-loop protection, crash reports, log retention, security review of imports and external data | Forced panic is recovered and logged; crash loop stops at threshold; security review checklist complete |
-| **9** | Packaging and Release | Portable zip, checksums, signing, bilingual READMEs, bilingual user guide, bilingual screenshots and GIFs, JAKIM terms check, attribution in app and docs, Malay translation review sign-off | Clean-machine test passes in both languages; reviewer sign-off recorded; terms decision recorded; release published |
+| **9** | Packaging and Release | Portable zip, checksums, signing, `manifest.json`, **in-app updater** (manifest fetch, rsign signature check, version compare, user-confirmed self-replace), bilingual READMEs, bilingual user guide, bilingual screenshots and GIFs, JAKIM terms check, attribution in app and docs, Malay translation review sign-off | Clean-machine test passes in both languages; reviewer sign-off recorded; terms decision recorded; release published with the full asset set (§12); **the updater moves a clean install from the previous release to the current one, refuses a manifest whose signature does not verify, and leaves `OmniToasterData/` intact** |
 
 **Estimated effort (single experienced Rust developer):**
 - Phases 0 to 2: about 3 to 4 weeks
@@ -626,22 +680,60 @@ Each phase ends with verification, a checklist update, a changelog entry, and a 
 |---|---|---|
 | `docs/CHECKLIST.md` | Every phase and sub-phase, state: Completed, In-Progress, Pending | After each verified task |
 | `docs/CHANGELOG.md` | Every add, change, fix, or deployment, including translation changes | Every code, content, or deployment change |
-| `docs/TASKS.md` | User requests, bugs, feature requests | When a request, bug, or feature arrives |
+| `docs/TASKS.md` | The work ledger: `FEAT-`, `BUG-` and `CR-` items, each under exactly one task version heading, each with its own checklist closing on Test, Gate, App and Docs boxes. Ids are allocated once and never reused or renumbered, because commits, branches and changelog lines point at them (`Refs: FEAT-0012`). A box is ticked only after that check actually ran and passed | When a feature, bug or change request is filed, and as each box is verified |
 | `docs/GOTCHAS.md` | Issues, resolutions, lessons learned, JAKIM format changes | When a problem is found and fixed |
-| `docs/RULES/` | `UI_UX.md`, `SECURITY.md`, `DATA_MODEL.md`, `STORAGE.md`, `ARCHITECTURE.md`, `FEATURES.md`, `CI_CD.md`, `I18N.md`, `PRAYER.md`, `DECISIONS.md` (ADR log) | When a new rule or decision is identified |
-| `README.md` (root) | GIFs animation on Apps flow, Features, requirements, build commands, restrictions, screenshots,  | When features, requirements, or build steps change |
-| `CLAUDE.md` (root) | General rules for agent | Detail rules are in docs/RULES folder  |
+| `README.md` (root) | What the app is, notification types, features, requirements, build commands, restrictions, screenshots and flow GIFs, licence, JAKIM attribution | When features, requirements, or build steps change |
+| `CLAUDE.md` (root) | General behavioural guidelines for the agent, plus the map of everything below | When the document map or the gate changes |
 
-**Recommended `CLAUDE.md` structure:**
+The first three divide the work between them and never restate each other:
+`TASKS.md` is **what is to be done**, `CHANGELOG.md` is **what was done**, and
+`CHECKLIST.md` is **how far the phases have got**. `TASKS.md`'s own Format
+section is authoritative for the item shape.
+
+**The specifications.** One numbered document per area, written from this
+proposal and authoritative once written:
+
+| File | Covers |
+|---|---|
+| `docs/01-vision-and-scope.md` | Scope, personas, non-goals (§1, §2) |
+| `docs/02-features.md` | Features with priority and effort (§8) |
+| `docs/03-architecture.md` | Crate layout, event bus, scheduler thread, supervisor (§5) |
+| `docs/04-ui-design.md` | Settings window, tray, toast layout, theming (§8.1–8.6) |
+| `docs/05-data-model-and-storage.md` | `OmniToasterData/`, settings file, SQLite schema, migrations, asset store (§4, §9) |
+| `docs/06-security-and-privacy.md` | Threat model, import validation, what leaves the machine (§10) |
+| `docs/07-roadmap.md` | Phases 0–9 (§13) |
+| `docs/08-decisions.md` | The ADR log, including the Phase 5 e-Solat spike result |
+| `docs/09-ci-cd-and-releases.md` | CI, releases, the asset contract, the updater (§12) |
+| `docs/10-i18n.md` | Fluent, locale files, the shared date and number formatter (§6) |
+| `docs/11-prayer-and-azan.md` | JAKIM e-Solat, zones, caching, the fallback chain, calculated mode (§7) |
+
+**Per-area specs**, one file per feature area, under `docs/specs/`: `toast.md`,
+`reminders.md`, `weather.md`, `announcements.md`, `tray-and-settings.md`,
+`supervisor.md`, `updater.md`. Prayer has no file here — its spec is
+`docs/11-prayer-and-azan.md`.
+
+**Agent-facing rules** live in `.claude/rules/`, one file per area, loaded by a
+session only when its task touches that area: `00-index.md`, `rust.md`, `ui.md`,
+`threads-and-scheduling.md`, `security.md`, `testing.md`, `i18n.md`,
+`docs-and-release.md`, `build-and-run.md`, `git.md`, `workflow.md`. There is no
+`docs/rules/` folder.
+
+**`CLAUDE.md` structure, as it stands:**
 ```
 # CLAUDE.md
-## Project Rules          (links to docs/RULES)
-## Workflow Rules        (verify before checklist; commit per phase)
+## 1. Think Before Coding        general behavioural guidelines
+## 2. Simplicity First
+## 3. Surgical Changes
+## 4. Goal-Driven Execution
+## Project-specific instructions: Omni Toaster
+   what the app is · the rules table (.claude/rules/) · the ledger ·
+   the spec map (docs/01–11, docs/specs/) · the four non-negotiables
+   (the gate · branch→CI→merge · specs are requirements · Fluent keys)
 ```
 
 ---
 
-## 12. Risks and Mitigations
+## 15. Risks and Mitigations
 
 | Risk | Impact | Mitigation |
 |---|---|---|
@@ -665,7 +757,10 @@ Each phase ends with verification, a checklist update, a changelog entry, and a 
 
 ---
 
-## 13. Open Questions for the Stakeholder
+## 16. Stakeholder Questions, Answered
+
+Every question below has been answered by the owner. The answers are decisions,
+not suggestions, and the rest of this document follows them.
 
 1. Is Windows-only confirmed for the first release, or is cross-platform needed soon? - Cross-platform needed in future.
 2. Which minimum Windows version should be supported (10 1809+ or Windows 11 only)? - Windows 10 1809+
@@ -683,7 +778,7 @@ Each phase ends with verification, a checklist update, a changelog entry, and a 
 
 ---
 
-## 14. Next Steps
+## 17. Next Steps
 
 1. Add the JAKIM zone table and reference fixtures to the repository in Phase 5.
 2. Create the repository and `docs/` skeleton (Phase 0). If files existed, modify and amend.
