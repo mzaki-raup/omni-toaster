@@ -32,7 +32,7 @@ Last updated: 2026-11-08
 | Repository and `docs/` skeleton | Completed | `docs/` complete; the Cargo workspace and all eleven crates build — FEAT-0001 |
 | `CLAUDE.md` | Completed | Realigned, and `.claude/rules/` has landed — every link resolves |
 | Cargo workspace skeleton | Completed | FEAT-0001. 11 members, `cargo fmt`/`clippy -D warnings`/`test --locked -j 4`/`deny check` all green; `OmniToaster.exe` builds at 223 KB and prints its version; no dynamic CRT imports, so `+crt-static` is confirmed |
-| CI skeleton | In-Progress | FEAT-0007. The workflows exist and `release.yml` goes green on `main`, but `ci.yml` does not trigger on a branch push — BUG-0001 |
+| CI skeleton | In-Progress | FEAT-0007. `ci.yml` runs on a branch push and went green (runs 3 and 4); `release.yml` on `main` now fails at signing because no key is configured — FEAT-0009, blocked on the owner. BUG-0001 was closed as a transient forge outage, not a defect |
 | Logging | Pending | FEAT-0003 |
 | Panic hook | Pending | FEAT-0003 |
 | Portable path resolution with writability check | Pending | FEAT-0002 |
