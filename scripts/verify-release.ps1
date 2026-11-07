@@ -1,0 +1,155 @@
+<#
+.SYNOPSIS
+  Verifies a published OmniToaster release exactly as the in-app updater would.
+
+.DESCRIPTION
+  Reads the release for -Tag from the forge API, then:
+    1. the release is not a draft and has a non-empty body;
+    2. every contracted asset is attached;
+    3. manifest.json downloads (anonymously, like the app) and its minisign
+       signature verifies against keys/minisign.pub;
+    4. the manifest's version, tag and channel match the release;
+    5. every asset listed in the manifest downloads with the stated size and
+       sha256, and SHA256SUMS.txt agrees;
+    6. the Windows executable prints the released version with --version and
+       passes --self-test against a temporary data folder.
+
+  The release workflow runs this as its last step; a failure fails the job so a
+  broken release is never left looking fine. Run it locally against any tag to
+  check what users will get.
+#>
+param(
+  [Parameter(Mandatory = $true)][string]$Tag,
+  # owner/repo on the forge; defaults to the origin remote.
+  [string]$Repository = "",
+  # Forgejo instance, or https://github.com for the public mirror. Forgejo
+  # cloned GitHub's releases API, so only the base URL differs and everything
+  # below works unchanged against either.
+  [string]$Server = "https://git.zacx.net",
+  [string]$PublicKey = "keys/minisign.pub",
+  # Used only for the release metadata request, never for an asset download:
+  # github.com limits anonymous calls to 60/hour per IP and a shared Actions
+  # runner can exhaust that before this step runs. Assets are still fetched
+  # anonymously, exactly as the app fetches them.
+  [string]$Token = $(if ($env:GITHUB_TOKEN) { $env:GITHUB_TOKEN } elseif ($env:GH_TOKEN) { $env:GH_TOKEN } else { "" }),
+  [switch]$NoSelfTest
+)
+
+$ErrorActionPreference = "Stop"
+
+if (-not $Repository) {
+  $origin = git remote get-url origin
+  if ($origin -match '[:/]([^/]+/[^/]+?)(\.git)?$') { $Repository = $Matches[1] } else { throw "Cannot derive owner/repo from '$origin'; pass -Repository." }
+}
+if (-not (Test-Path $PublicKey)) { throw "Public key $PublicKey is missing." }
+if (-not (Get-Command rsign -ErrorAction SilentlyContinue)) { throw "rsign (rsign2) is not installed: cargo install rsign2 --locked" }
+
+# GitHub puts the API on a separate host; Forgejo serves it under /api/v1 on
+# the instance itself. Anonymous github.com calls are rate-limited to 60/hour
+# per IP, which is ample for one release but will bite a tight retry loop.
+$api = if ($Server -match '^https://(api\.)?github\.com/?$') {
+  "https://api.github.com/repos/$Repository"
+} else {
+  "$Server/api/v1/repos/$Repository"
+}
+$ua  = @{ "User-Agent" = "OmniToaster-verify-release" }
+$metaHeaders = @{ "User-Agent" = "OmniToaster-verify-release" }
+if ($Token) { $metaHeaders["Authorization"] = "Bearer $Token" }
+
+# Retry the metadata read: github.com answers 403/429 when the shared runner
+# IP has used its anonymous hour, and a transient 5xx should not fail a
+# release that is otherwise fine.
+$release = $null
+for ($attempt = 1; ; $attempt++) {
+  try {
+    $release = Invoke-RestMethod -Method Get -Headers $metaHeaders -Uri "$api/releases/tags/$([uri]::EscapeDataString($Tag))" -TimeoutSec 60
+    break
+  } catch {
+    $code = 0
+    try { $code = [int]$_.Exception.Response.StatusCode } catch { }
+    if ($attempt -ge 3 -or ($code -ne 403 -and $code -ne 429 -and $code -lt 500)) { throw }
+    $wait = 10 * $attempt
+    Write-Host "Release metadata read returned $code (attempt $attempt); retrying in $wait s."
+    Start-Sleep -Seconds $wait
+  }
+}
+
+if ($release.draft) { throw "Release $Tag is still a draft." }
+if ([string]::IsNullOrWhiteSpace($release.body)) { throw "Release $Tag has an empty body." }
+$version = $Tag -replace '^v', ''
+$assets = @{}
+foreach ($a in $release.assets) { $assets[$a.name] = $a }
+
+$required = @("OmniToaster.exe", "OmniToaster-$version-windows-x64.zip", "manifest.json", "manifest.json.minisig", "SHA256SUMS.txt", "CHANGELOG-$version.md")
+$missing = @($required | Where-Object { -not $assets.ContainsKey($_) })
+if ($missing.Count) { throw "Release $Tag lacks required assets: $($missing -join ', ')" }
+
+$work = Join-Path ([System.IO.Path]::GetTempPath()) ("hs-verify-" + [guid]::NewGuid())
+New-Item -ItemType Directory -Path $work | Out-Null
+try {
+  function Fetch([string]$name) {
+    $path = Join-Path $work $name
+    for ($attempt = 1; ; $attempt++) {
+      try {
+        Invoke-WebRequest -Headers $ua -Uri $assets[$name].browser_download_url -OutFile $path -TimeoutSec 600
+        return $path
+      } catch {
+        # A half-written file would fail the hash anyway; start clean.
+        Remove-Item -LiteralPath $path -Force -ErrorAction SilentlyContinue
+        if ($attempt -ge 4) {
+          throw "Downloading $name failed after $attempt attempts: $($_.Exception.Message)"
+        }
+        $wait = 3 * [math]::Pow(2, $attempt - 1)
+        Write-Host "Downloading $name failed (attempt $attempt): $($_.Exception.Message). Retrying in $wait s."
+        Start-Sleep -Seconds $wait
+      }
+    }
+  }
+
+  $manifestPath = Fetch "manifest.json"
+  $sigPath      = Fetch "manifest.json.minisig"
+  rsign verify -p $PublicKey -x $sigPath $manifestPath
+  if ($LASTEXITCODE -ne 0) { throw "manifest.json signature does NOT verify against $PublicKey." }
+  Write-Host "manifest.json signature OK"
+
+  $manifest = Get-Content $manifestPath -Raw | ConvertFrom-Json
+  if ($manifest.version -ne $version) { throw "manifest.version '$($manifest.version)' != '$version'." }
+  if ($manifest.tag -ne $Tag)         { throw "manifest.tag '$($manifest.tag)' != '$Tag'." }
+  $expectedChannel = if ($release.prerelease) { "beta" } else { "stable" }
+  if ($manifest.channel -ne $expectedChannel) { throw "manifest.channel '$($manifest.channel)' but the forge marks the release as $expectedChannel." }
+
+  $sumsPath = Fetch "SHA256SUMS.txt"
+  $sums = @{}
+  foreach ($line in Get-Content $sumsPath) { if ($line -match '^([0-9a-f]{64})\s+\*?(.+)$') { $sums[$Matches[2]] = $Matches[1] } }
+
+  $exePath = $null
+  foreach ($key in $manifest.assets.PSObject.Properties.Name) {
+    $entry = $manifest.assets.$key
+    if (-not $assets.ContainsKey($entry.name)) { throw "Manifest asset '$($entry.name)' is not attached to the release." }
+    $path = Fetch $entry.name
+    $size = (Get-Item $path).Length
+    $hash = (Get-FileHash $path -Algorithm SHA256).Hash.ToLower()
+    if ($size -ne $entry.size)     { throw "$($entry.name): size $size != manifest $($entry.size)." }
+    if ($hash -ne $entry.sha256)   { throw "$($entry.name): sha256 mismatch against manifest." }
+    if ($sums[$entry.name] -ne $hash) { throw "$($entry.name): sha256 mismatch against SHA256SUMS.txt." }
+    Write-Host "$($entry.name): size and sha256 OK"
+    if ($key -eq "windows-x64") { $exePath = $path }
+  }
+
+  if (-not $NoSelfTest -and $exePath -and $IsWindows) {
+    # GUI-subsystem exe: use Start-Process -Wait to get real exit codes.
+    $versionOut = Join-Path $work "version.txt"
+    $p = Start-Process -FilePath $exePath -ArgumentList @('--version') -Wait -PassThru -NoNewWindow -RedirectStandardOutput $versionOut
+    $reported = (Get-Content $versionOut -Raw -ErrorAction SilentlyContinue | Out-String).Trim()
+    if ($p.ExitCode -ne 0 -or $reported -notmatch [regex]::Escape($version)) { throw "Downloaded exe reports '$reported', expected $version." }
+    $data = Join-Path $work "data"
+    $p = Start-Process -FilePath $exePath -ArgumentList @('--self-test', '--data-dir', $data) -Wait -PassThru -NoNewWindow
+    if ($p.ExitCode -ne 0) { throw "Downloaded exe failed --self-test with exit code $($p.ExitCode)." }
+    Write-Host "OmniToaster.exe --version and --self-test OK"
+  }
+
+  Write-Host "Release $Tag verified: $($required.Count) assets, signed manifest, hashes and self-test all OK."
+} finally {
+  Remove-Item $work -Recurse -Force -ErrorAction SilentlyContinue
+}
+exit 0

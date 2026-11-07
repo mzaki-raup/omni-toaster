@@ -1,0 +1,55 @@
+
+# Omni TOaster
+
+I want to develop rust desktop apps in windows where it resemble Windows Toast Notification.
+Please help me to do proposal based on these requirements.
+
+## Spec
+- Project Name is Omni Toaster.
+- Language : Rust.
+Mode : Portable with settings folder in the same executable named "OmniToasterData".
+- UI Framework : egui / slint/ eframe / iced / etc.
+- Themes mode : System, Dark, Light. Dark is the dafult themes.
+- Sit in system tray. when clicked/right click, some menu with some setting and open a detail settings page.
+- Auto Startup when windows start. Auto start when apps crash with debug log saved for future debug.
+- Size of toaster can be set by user. But put appropriate minimum and maximum size setting for toast notification.
+- Toast Notification can be Rectangle, rounded rectange (can be set the rounded curve), etc.
+- Toast Notification can have header with content. Content can have text and image upload/set by user.
+- Toast Notification can be set color, transparent level, glass look, etc.
+- Toast Notification In and out presentation can be choose by user. (Slide from right, slide from bottom, genie from bottom, pop out, drawer, appear, dissolved, glow, alpha to solid, etc.
+- Toast Notification display duration can be set by user. Make a appropriate minimum and maximum duration settings.
+- Apps can detect current user location or user can set its own location.
+- These location data will be use for Azan Prayer Notification and Weather Notification.
+- Type of notification includes Azan Prayer Reminder, Weather change reminder, Event reminder, Task reminder, Aniversary reminder, Fatigue reminder, Timer reminder, Alarm reminder, etc.
+- Reminder time can be set on the time, 1 day before, 1 week before, 2 days before, 1 hour before, 15 minutes before and other time user can set. And can be snooze to remind again in 5 minutes, 1 hour, 1 day, etc, and so on.
+- Time announcement with voice - Can be set every hour, mstart of the day, etc.
+- For azan prayer, user can set/upload every audio for every prayer time. 
+
+
+
+
+
+
+
+
+## Operational Instructions
+You must strictly adhere to these guidelines during every task execution. Prioritize system safety, meticulous tracking, and verification. And create necessary document in docs folder
+
+### Workflow & Execution Rules
+Phase Execution: Implement the latest plan and design phase-by-phase. Follow the latest version of developer notes if they exist.
+Pre-Verification: You must always verify and test that the current phase is fully working before updating any checklist or moving forward.
+Git Automation: If a git repository exists, you must always commit and push the code/documentation to the server after completing a phase or several tasks.
+Mistake: If any mistake encounter during development and fix, always update in CLAUDE.md file in appropriate section so that you will not make the same mistake twice.
+
+### File Tracking & Documentation Rules
+Checklist File: Create a CHECKLIST file in the docs folder if it does not exist.
+Detail every phase and sub-phase.
+Track states strictly as: Completed, In-Progress, or Pending.
+Update this file immediately after verifying a phase's / sub phase / tasks success.
+Change Log: Update the CHANGELOG file (create in docs folder if not exists) every time you add, delete, change, or fix code, implementation, or deployment.
+README.md: Update the Readme file in the root folder whenever changes are made to features, requirements, cross-platform build commands, or restrictions, Screenshots, Gif animation of apps flow, etc
+Task File: Create the TASKS file (if not exist, create it in docs folder) whenever request, bug, new feature request by user.
+Gotcha File: Create the GOTCHAS file (if not exist, create it in docs folder) whenever finding with resolution, lesson learn, fixing issue advise, etc.
+Rules File: Create all category of rules for the Apps development in docs folder (UI UX design, Security, Data model, Storage, Architecture, features, Ci CD, decision, etc ) whenever user request and what you find that need to write it in.
+
+
