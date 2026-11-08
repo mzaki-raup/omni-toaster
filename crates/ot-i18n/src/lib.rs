@@ -269,6 +269,33 @@ pub fn current_language() -> Option<Language> {
     Some(Language::from_os_locale(&tag))
 }
 
+/// Initialise the global loader for a test, tolerating a sibling test having
+/// done it first.
+///
+/// The loader is a process-wide `OnceLock` and `cargo test` runs tests in
+/// parallel threads in one process, so exactly one test wins the race and
+/// every other gets [`I18nError::AlreadyInitialised`]. A test that calls
+/// [`init`] and unwraps is therefore order-dependent: it passes or fails on
+/// thread scheduling, which is how a green local run turned into a red CI run.
+///
+/// This asserts the end state rather than who got there first — and fails
+/// loudly if the global is serving a *different* language than the test needs,
+/// because that test wants [`build_loader`] instead of the global.
+#[cfg(test)]
+fn ensure_initialised(language: Language) {
+    match init(language) {
+        Ok(()) => {}
+        Err(I18nError::AlreadyInitialised) => {}
+        Err(other) => panic!("the bundled locales failed to load: {other}"),
+    }
+    assert_eq!(
+        current_language(),
+        Some(language),
+        "another test initialised the global loader to a different language; \
+         use build_loader() for a test that needs its own language"
+    );
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -449,7 +476,7 @@ mod tests {
     fn substituted_values_carry_no_fluent_isolate_marks() {
         // These reached the user as stray boxes in "Logs are kept in
         // <U+2068>D:\...<U+2069>." before text_with stripped them.
-        let _ = init(Language::English);
+        ensure_initialised(Language::English);
         let rendered = text_with(
             "notice-log-location",
             &[("path", r"D:\OmniToaster\OmniToasterData\logs".into())],

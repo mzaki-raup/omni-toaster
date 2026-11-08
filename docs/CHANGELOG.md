@@ -7,6 +7,10 @@ Format: [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) · Versioning:
 
 ## Unreleased
 
+### Fixed
+
+- Fixed a flaky test that failed the first v0.1.0 release run. Two `ot-i18n` tests shared the process-wide Fluent loader — a `OnceLock` — and one of them unwrapped `init`, so whichever test lost the race panicked with `AlreadyInitialised` and the suite's result depended on thread scheduling. It passed locally and then took the release job down. Both now go through a test helper that tolerates a sibling having initialised first **and asserts the resulting language**, so a test needing a different bundle fails loudly rather than silently reading the wrong one. Proven with 20 consecutive parallel runs, a single-threaded run and each test in isolation. `ot-core`'s logging test has the same shape and is now documented as the only permitted caller of `logging::init`, with the alternative named for the next test that needs logging.
+
 ### Changed
 
 - Realigned the agent scaffolding in `.claude/` off the HyperStack project it was copied from: the rules now live in `.claude/rules/` one file per area, and every command, skill and subagent names Omni Toaster's own crates, commands and documents instead of modules that do not exist here.

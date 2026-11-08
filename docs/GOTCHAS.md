@@ -96,4 +96,6 @@ Nothing recorded yet.
 
 
 ## Testing
+- **A test that unwraps a process-wide `init()` is order-dependent, and "it passed locally" is not evidence.** `cargo test` runs a crate's tests in parallel threads in **one process**, so a global `OnceLock` or `tracing`'s global subscriber is claimed by exactly one test and every other call returns "already initialised". A test doing `init(..).expect(..)` therefore passes or fails on thread scheduling: `ot-i18n`'s formatter test passed twenty local runs and then failed the release job with `AlreadyInitialised`, taking a release down with it. Two tests had the same global, one tolerating failure and one unwrapping. Give such tests a shared helper that tolerates a sibling having initialised first **and asserts the resulting state** (so a test needing a different language fails loudly instead of silently reading the wrong bundle), or build a local instance instead of the global. Prove the fix with repeated runs *and* `--test-threads=1`, not one green run.
+- **A flaky test is a failure you have not localised yet.** It is tempting to re-run and move on when the second run is green. The first run was the honest one.
 Nothing recorded yet.

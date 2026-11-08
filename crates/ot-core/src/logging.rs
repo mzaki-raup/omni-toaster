@@ -508,6 +508,16 @@ mod tests {
         );
     }
 
+    /// The only test in this crate that may call [`init`].
+    ///
+    /// `tracing`'s subscriber is process-wide and `cargo test` runs tests in
+    /// parallel threads in one process, so the first `init` anywhere wins and
+    /// every later one returns `AlreadyInitialised`. This test asserts exactly
+    /// that, which only holds while it is the sole caller — a second test
+    /// calling `init` would make both order-dependent, passing or failing on
+    /// thread scheduling. If another test needs logging, give it its own
+    /// subscriber with `tracing::subscriber::with_default` rather than the
+    /// global.
     #[test]
     fn init_writes_a_log_file_and_a_second_call_is_refused() {
         let (_temp, root) = root();

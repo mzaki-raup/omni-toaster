@@ -184,7 +184,11 @@ mod tests {
         // One test that actually initialises the loader. It must not assume
         // which language another test left selected, so it checks shape rather
         // than exact words.
-        crate::init(Language::English).expect("the bundled locales load");
+        // Not `init(...).expect(...)`: the loader is a process-wide OnceLock
+        // and tests run in parallel, so whichever test loses the race gets
+        // AlreadyInitialised. Unwrapping made this test pass or fail on thread
+        // scheduling — green here, red on CI.
+        crate::ensure_initialised(Language::English);
 
         let rendered = format_datetime(&at(13, 5), TimePrefs::for_language(Language::English));
 
