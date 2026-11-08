@@ -7,7 +7,16 @@ Format: [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) · Versioning:
 
 ## Unreleased
 
-- (nothing yet)
+### Added
+
+- `ot-store`: `data/omnitoaster.db` with WAL, enforced foreign keys and a `PRAGMA user_version` migration runner (FEAT-0005).
+- `001_init.sql`: the eight Phase 0 tables as `STRICT`, with the partial index on `reminder.next_fire_at`.
+- `rusqlite` with the `bundled` feature, so SQLite ships inside the exe; confirmed the release binary still has no dynamic CRT imports.
+
+### Changed
+
+- Ticked FEAT-0009's forge-secret box: release run 14 signed `manifest.json` on the runner, and `verify-release.ps1 -Tag v0.1.0` verified it from a clean download.
+- Recorded that `verify-release.ps1`'s "`--self-test` OK" line is a false positive until FEAT-0006 implements the flag.
 
 ## 0.1.0 — 2026-11-08
 
