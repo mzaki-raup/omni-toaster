@@ -7,6 +7,8 @@
 //! See `docs/03-architecture.md` for where this crate sits and which crates it
 //! may depend on.
 
+pub mod logging;
 pub mod paths;
 
+pub use logging::{HostInfo, LogError, LogGuard, RecentLines};
 pub use paths::{DataRoot, PathError};

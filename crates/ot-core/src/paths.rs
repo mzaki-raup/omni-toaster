@@ -141,8 +141,13 @@ impl DataRoot {
         // Belt and braces: even with no `..` component, a symlink inside the
         // root could point outside it. Where the path already exists, check
         // where it really lands.
+        //
+        // The stripping matters: `canonicalize` hands back a `\\?\` path while
+        // `self.root` has had that prefix removed, so comparing them directly
+        // makes `starts_with` false for every existing path inside the root
+        // and this check rejects everything.
         if let Ok(real) = fs::canonicalize(&resolved)
-            && !real.starts_with(&self.root)
+            && !strip_verbatim_prefix(real).starts_with(&self.root)
         {
             return Err(escapes());
         }
@@ -288,6 +293,28 @@ mod tests {
             .expect("a plain relative path is fine");
         assert!(path.starts_with(root.path()));
         assert!(!path.exists(), "join must not create anything");
+    }
+
+    #[test]
+    fn join_allows_a_path_that_already_exists() {
+        // Regression: the existence check canonicalizes, which on Windows
+        // returns a `\\?\` path, while the stored root has that prefix
+        // stripped. Comparing the two directly made `starts_with` false for
+        // every existing path inside the root, so `join` refused all of them -
+        // including `logs`, which stopped logging from starting at all.
+        let temp = temp_root();
+        let root = DataRoot::resolve(Some(&temp.path().join("data"))).expect("resolves");
+
+        for existing in ["logs", "config", "assets/audio/azan", "logs/crash"] {
+            assert!(
+                root.path().join(existing).is_dir(),
+                "{existing} should have been created by resolve"
+            );
+            let joined = root
+                .join(existing)
+                .unwrap_or_else(|e| panic!("join({existing}) was refused: {e}"));
+            assert!(joined.starts_with(root.path()));
+        }
     }
 
     #[test]

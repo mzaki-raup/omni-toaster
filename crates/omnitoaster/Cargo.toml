@@ -26,3 +26,4 @@ workspace = true
 # gate still covers the crates listed here.
 [dependencies]
 ot-core = { version = "0.1.0", path = "../ot-core" }
+tracing.workspace = true

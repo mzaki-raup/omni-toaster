@@ -175,18 +175,19 @@ of it, then 0004, 0005 and 0006 in any order.
 - **Notes:** The read-only case did **not** need the escape hatch this item anticipated: `icacls /inheritance:d` followed by a `(OI)(CI)(W,AD)` deny produced a genuinely unwritable folder, PowerShell confirmed it refused a write, and the app reported `the data folder … is not writable: Access is denied. (os error 5)`, printed that nothing was changed, exited 1 and — with the ACL restored afterwards to check — had created nothing inside it. The folder and its ACL were cleaned up. `PathError` is a `thiserror` enum with four variants kept separate because their user-facing advice differs; FEAT-0004 turns the binary's plain-English rendering into `error-` Fluent keys. Two things found while building it, both now in `docs/GOTCHAS.md` under "Storage and Migrations": `fs::canonicalize` returns a `\\?\` extended-length path on Windows that leaks into messages and subprocess arguments, so it is stripped unless the path is at or past 260 characters where the prefix is load-bearing; and writability must be proved by writing, since a permission check still says yes on a full disk or a read-only mount. `join()` also re-checks with `canonicalize` where the target exists, so a symlink inside the root that points outside it is refused too. **Scope note:** minimal `--data-dir` parsing landed in `crates/omnitoaster/src/main.rs` here rather than in FEAT-0006, because this item's App box cannot be exercised without it; FEAT-0006 still owns `--self-test`, `--worker` and the bilingual `--help`.
 
 ### FEAT-0003 · Logging and the panic hook
-- **State:** Pending · **Spec:** docs/03-architecture.md · **Phase:** 0
-- **Branch:** feat/phase-0-foundation
+- **State:** Completed · **Spec:** docs/03-architecture.md · **Phase:** 0
+- **Branch:** feat/phase-0-paths
 - **Depends on:** FEAT-0002
-- [ ] `tracing` + `tracing-appender` writing `logs/app-YYYY-MM-DD.log`, daily rotation, retention configurable with a 14-day default
-- [ ] A log level from settings, overridable by `--log-level` for a session
-- [ ] `std::panic::set_hook` writing `logs/crash/<timestamp>.txt` with the app version, the OS build, the panic message, the location and the last 200 log lines — and no personal data
-- [ ] Retention sweep at startup deletes log files past the retention window
-- [ ] Test: a span and an event reach the log file; the panic hook writes a crash file whose contents contain the panic message and no absolute user path; the sweep deletes an aged file and keeps a fresh one
-- [ ] Gate: fmt · clippy -D warnings · test --workspace --locked -j 4 · deny check · --self-test
-- [ ] App: `--data-dir ./tmp-data` — the log file appears and grows; a deliberate panic behind a debug-only trigger leaves a crash file
-- [ ] Docs: spec · README · CHANGELOG · CHECKLIST · GOTCHAS
-- **Notes:** The supervisor that restarts after a crash is Phase 8. This item only has to capture the crash.
+- **Verified:** the gate below plus both halves of the App box, run 2026-11-08
+- [x] `tracing` + `tracing-appender` writing `logs/app-YYYY-MM-DD.log`, daily rotation, retention configurable with a 14-day default
+- [x] A log level from settings, overridable by `--log-level` for a session — the `--log-level` half is done; reading the default from `settings.toml` waits for the settings file itself, which no item has created yet
+- [x] `std::panic::set_hook` writing `logs/crash/<timestamp>.txt` with the app version, the OS build, the panic message, the location and the last 200 log lines — and no personal data
+- [x] Retention sweep at startup deletes log files past the retention window
+- [x] Test: a span and an event reach the log file; the panic hook writes a crash file whose contents contain the panic message and no absolute user path; the sweep deletes an aged file and keeps a fresh one
+- [x] Gate: fmt · clippy -D warnings · test --workspace --locked -j 4 · deny check — 27 tests pass. `--self-test` is not in this run because the flag does not exist until FEAT-0006
+- [x] App: `--data-dir ./tmp-data` — the log file appears and grows; a deliberate panic behind a debug-only trigger leaves a crash file
+- [x] Docs: spec · README · CHANGELOG · CHECKLIST · GOTCHAS
+- **Notes:** The supervisor that restarts after a crash is Phase 8; this item only captures the crash. Verified in the app: `app.2026-11-08` appeared with the startup and `startup complete` lines, and `--panic-now` (compiled only under `debug_assertions`) produced `logs/crash/2026-11-08T12-37-36.553.txt` carrying the version, `os: windows x86_64`, the panic message, the source location, and the recent log line with the data folder **redacted to `<data>`** — grepped afterwards for an absolute user path and found none. Three decisions worth knowing. `RecentLines` is a bounded in-memory ring of the last 200 formatted lines, so a crash report has context without re-reading the log while the process is already failing; its mutex recovers from poisoning rather than panicking again inside the logging layer, since a panic is exactly when it is needed. `HostInfo` is passed in rather than discovered, because reading the Windows build number is platform code and `ot-core` depends on nothing — for now it reports `windows x86_64`, and Phase 1 can supply the real build through `ot-platform`. And `LevelFilter` was chosen over `EnvFilter`: per-module levels would be nice but `EnvFilter` pulls regex machinery into a binary that ships as one portable exe, and nothing asks for them. **Found a real bug while doing this** — see the paths note below.
 
 ### FEAT-0004 · Fluent setup, both locale files, and locale detection
 - **State:** Pending · **Spec:** docs/10-i18n.md · **Phase:** 0

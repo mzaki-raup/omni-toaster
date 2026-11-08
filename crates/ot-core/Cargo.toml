@@ -12,7 +12,11 @@ authors.workspace = true
 workspace = true
 
 [dependencies]
+chrono.workspace = true
 thiserror.workspace = true
+tracing.workspace = true
+tracing-appender.workspace = true
+tracing-subscriber.workspace = true
 
 [dev-dependencies]
 tempfile.workspace = true

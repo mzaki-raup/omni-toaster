@@ -33,8 +33,8 @@ Last updated: 2026-11-08
 | `CLAUDE.md` | Completed | Realigned, and `.claude/rules/` has landed — every link resolves |
 | Cargo workspace skeleton | Completed | FEAT-0001. 11 members, `cargo fmt`/`clippy -D warnings`/`test --locked -j 4`/`deny check` all green; `OmniToaster.exe` builds at 223 KB and prints its version; no dynamic CRT imports, so `+crt-static` is confirmed |
 | CI skeleton | In-Progress | FEAT-0007. `ci.yml` runs on a branch push and went green (runs 3 and 4); `release.yml` on `main` now fails at signing because no key is configured — FEAT-0009, blocked on the owner. BUG-0001 was closed as a transient forge outage, not a defect |
-| Logging | Pending | FEAT-0003 |
-| Panic hook | Pending | FEAT-0003 |
+| Logging | Completed | FEAT-0003. `tracing` + `tracing-appender`, daily rotation, 14-day retention swept at startup, `--log-level` override; verified in the app |
+| Panic hook | Completed | FEAT-0003. Crash report with version, OS, message, location and the last 200 log lines, data folder redacted; verified in the app with a debug-only `--panic-now` |
 | Portable path resolution with writability check | Completed | FEAT-0002. `ot-core::paths`; 17 tests green; verified in the app both ways — the subtree appears under a scratch `--data-dir`, and a genuinely ACL-denied folder is reported with its OS cause, exits 1 and creates nothing |
 | Fluent setup with both `.ftl` files | Pending | FEAT-0004 |
 | `fl!()` wired in | Pending | FEAT-0004 |
