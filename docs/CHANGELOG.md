@@ -7,9 +7,13 @@ Format: [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) · Versioning:
 
 ## Unreleased
 
+- (nothing yet)
+
+## 0.4.0 — 2026-11-08
+
 ### Added
 
-- The app icon: `assets/icon/omnitoaster-512.png` as the master, seven generated sizes and a seven-entry `omnitoaster.ico` embedded into `OmniToaster.exe` with its version metadata (FEAT-0010, ADR-013). Sizes at or below 32 px are sharpened after downscaling, without which 16 px — the tray and title-bar size — collapses into a coloured blob.
+- Add the app icon and embed it in the executable (fa575538)
 
 ## 0.3.0 — 2026-11-08
 
