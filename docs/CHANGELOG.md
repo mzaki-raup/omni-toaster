@@ -7,21 +7,13 @@ Format: [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) · Versioning:
 
 ## Unreleased
 
+- (nothing yet)
+
+## 0.3.0 — 2026-11-08
+
 ### Added
 
-- `--self-test` (FEAT-0006): six headless checks — paths, the log file, both locale bundles, key parity, the database migration, and the date formatter — one flushed line each, exit 0 only when all say `ok`. The check's name prints **before** it runs, so an abort leaves the dying check's name as the last line; `panic = "abort"` in the release profile means a panic cannot be caught and turned into a `FAILED` line, and the panic strategy matters more than the self-test's convenience. `docs/09` specifies the ordering and why.
-- A real command line: `--help` in both languages, `-h`/`-V` aliases, `--self-test`, `--worker` (accepted, inert until Phase 8), `--data-dir`, `--log-level`, `--lang`.
-- An argument starting `--` that is not a known flag is now rejected and named. A silently ignored `--data-dirr` typo would have run the app against the real `OmniToasterData/`. A test keeps `--help`'s list and the accepted set in step.
-- Public `ot_i18n::message_keys`, `check_key_parity` and `probe_language`, so `--self-test` and the unit test share one parity implementation instead of each parsing the catalogues their own way.
-- `help-` strings in both catalogues, and `--self-test` now runs the parity check on the built exe, not only at `cargo test` time.
-
-### Changed
-
-- Closed FEAT-0007, which had sat `Pending` while its CHECKLIST row read `Completed`, and set the v0.0.1 batch heading to `In-Progress` rather than `Done` — two of its items are still open.
-
-### Fixed
-
-- `--self-test` was reported as passing by `scripts/verify-release.ps1` from v0.1.0 onward while the flag did not exist: it was ignored and the process exited 0 for the wrong reason. The check is real from this release on.
+- Implement --self-test and the real command line (56ca4373)
 
 ## 0.2.0 — 2026-11-08
 
