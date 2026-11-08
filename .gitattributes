@@ -1,0 +1,41 @@
+# Line endings are normalised to LF in the repository. Without this, this
+# machine's core.autocrlf=true rewrites every file it touches, so a one-line
+# patch arrives as "every line changed" and a real diff hides inside it -
+# docs/GOTCHAS.md records that happening.
+* text=auto eol=lf
+
+# Signed and hashed material: byte-exact, never translated. A CRLF in the
+# public key or a checksum file would be a verification failure found late,
+# in a release job, rather than here.
+keys/*.pub      -text
+*.minisig       -text
+SHA256SUMS.txt  -text
+
+# Windows scripts. PowerShell reads LF happily and the Forgejo runner checks
+# out with these attributes, so LF is safe and keeps diffs clean.
+*.ps1   text eol=lf
+*.psd1  text eol=lf
+*.psm1  text eol=lf
+
+# Rust, config, docs and locales: LF, which is what rustfmt and Fluent emit.
+*.rs    text eol=lf
+*.toml  text eol=lf
+*.ftl   text eol=lf
+*.md    text eol=lf
+*.yml   text eol=lf
+*.sql   text eol=lf
+*.csv   text eol=lf
+
+# Binary, so git never tries to diff or translate them.
+*.png   binary
+*.jpg   binary
+*.webp  binary
+*.gif   binary
+*.ico   binary
+*.mp3   binary
+*.wav   binary
+*.ogg   binary
+*.zip   binary
+*.exe   binary
+*.ttf   binary
+*.otf   binary
