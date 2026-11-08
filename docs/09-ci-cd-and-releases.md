@@ -92,12 +92,28 @@ the root `Cargo.toml`, and is moved only by `scripts/update-version.ps1` —
 never by hand. The release pipeline decides the number from the Conventional
 Commit types since the previous tag:
 
-| Commit type | Bump |
-|---|---|
-| `feat:` | minor |
-| `fix:`, `perf:`, `security:`, `refactor:`, `build:` | patch |
-| `!` or a `BREAKING CHANGE:` footer | major |
-| `docs:`, `chore:`, `test:`, `ci:`, `style:` | none — a docs-only push to `main` triggers no release |
+| Commit type | Bump | Appears in the notes under |
+|---|---|---|
+| `!` or a `BREAKING CHANGE:` footer | major | Added |
+| `feat:` | minor | Added |
+| `fix:` | patch | Fixed |
+| `security:` | patch | Security |
+| `perf:` | patch | Changed |
+| `docs:`, `chore:`, `refactor:`, `test:`, `ci:`, `style:`, `build:` | none | **nothing — the commit is not listed at all** |
+
+Taken from `$MinorTypes`, `$PatchTypes` and `$NoReleaseTypes` in
+`scripts/next-release.ps1`, which is the implementation. An earlier version of
+this table had `refactor:` and `build:` as patch bumps, which was simply wrong.
+
+**The type decides whether a change is published *and* whether anyone is told
+about it.** A no-release type is skipped entirely: no bump, and no line in the
+release notes. That is right for genuine no-ops, and wrong the moment a commit
+labelled `style:` or `refactor:` changes something a user can see — the change
+then ships silently, carried by whatever releasable commit happens to be in the
+same push. CR-0001 did exactly that: it renamed the product in every visible
+string under a `style:` subject, so it shipped in v0.2.0 with no mention in
+v0.2.0's notes. **A change to user-visible text is `fix:` or `feat:`, never
+`style:`**, whatever the diff looks like.
 
 Preview the next release with:
 

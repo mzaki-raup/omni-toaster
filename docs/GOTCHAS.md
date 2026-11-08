@@ -35,6 +35,7 @@ have.
 - **Tag and mirror.** The release job's last step fast-forwards GitHub to the version commit (never forced), pushes the tag, and dispatches GitHub's workflow. Never set a Forgejo push mirror while GitHub is writable.
 - **Changes made on GitHub** come back with the sync script (fast-forward only).
 - **Every GitHub job** is guarded with `if: github.server_url == 'https://github.com'`. Forgejo Actions also reads `.github/workflows/` and can't fetch published actions.
+- **The commit type decides whether a change ships *and* whether anyone is told about it.** `docs`, `chore`, `refactor`, `test`, `ci`, `style` and `build` are in `$NoReleaseTypes` in `scripts/next-release.ps1`: no version bump, and **no line in the release notes at all**. That is correct for real no-ops and wrong the instant such a commit changes something a user sees, because it then ships silently on the back of whatever releasable commit shares the push. CR-0001 renamed the product in every visible string under a `style:` subject and shipped in v0.2.0 with no mention in v0.2.0's notes; released sections are never hand-edited, so that cannot be fixed afterwards. A change to user-visible text is `fix:` or `feat:` no matter how cosmetic the diff looks.
 - **Release notes** are generated from commit subjects. Hand-edit only the Unreleased section.
 
 ## Patch Scripts and Text Editing
