@@ -289,15 +289,25 @@ of it, then 0004, 0005 and 0006 in any order.
 - [x] Docs: spec · README · CHANGELOG · CHECKLIST
 - **Notes:** 66 occurrences across 32 files, done as a literal replacement with no regex or escapes — the only kind of scripted edit this project trusts (`docs/GOTCHAS.md`). The real defect was that the product had **two** spellings: the exe, the data folder, the package, `docs/CHANGELOG.md` and `docs/CHECKLIST.md` already said `OmniToaster`, while the proposal, the specs and every user-visible string said `Omni Toaster`. Two things were deliberately left alone: `Feasibility Study.txt`, which records the owner's own original words and is a historical input rather than a document we maintain; and the released `0.1.0` section of `docs/CHANGELOG.md`, which belongs to the release workflow and is never hand-edited — it happens to contain no occurrence anyway, since its entries are commit subjects. **v0.1.0 shipped with the old spelling** and cannot be changed retrospectively; the next release carries the fix.
 
-### BUG-0001 · A branch push created no `ci.yml` run — not a defect, a forge outage
-- **State:** Completed · **Spec:** docs/09-ci-cd-and-releases.md · **Phase:** 0
-- **Verified:** reproduction attempt on 2026-11-08, which did **not** reproduce
+### BUG-0001 · A branch push intermittently creates no `ci.yml` run
+- **State:** Blocked · **Spec:** docs/09-ci-cd-and-releases.md · **Phase:** 0
+- **Blocked on:** the owner — this is the forge's Actions dispatch, not anything in this repository
+- **Reopened:** 2026-11-08, after a second and third occurrence. The earlier closure called it a one-off transient outage; it is a recurring one, which is a different thing
+- [x] Reproduce: a branch push creates no workflow run, while the forge, the runner and the git push itself are all healthy
+- [x] Rule out the workflow's `on.push` filter — a later branch push triggered `ci.yml` within seconds with the filter untouched
+- [ ] Establish why the forge stops creating runs. First occurrence came with `502 Bad Gateway` in the runner's task fetch; the second and third came with **no error at all** in the runner log, so a 502 is a symptom rather than the cause
+- [ ] Decide what the project does about it: whether `workflow_dispatch` is the manual nudge, or whether the branch gate needs a documented "CI did not run" path so work is not blocked indefinitely
+- [ ] Docs: CHANGELOG · CHECKLIST · GOTCHAS
 - [x] Reproduce: push a branch and check whether a workflow run is created
 - [x] Establish the cause
 - [x] Confirm `ci.yml` still does not run on `main`
 - [x] Test: not unit-testable — settled by a real branch push
 - [x] Docs: CHANGELOG · CHECKLIST · GOTCHAS
-- **Notes:** Filed and closed the same day; **the original diagnosis was wrong and no code was changed.** What happened: branch `docs/realign-scaffolding` was pushed at 05:26 and reached Forgejo (confirmed at `2a720c0` with `git ls-remote`), but 20 minutes of polling showed `total_count` still 1. I suspected the `on.push` filter's `!` negation, which Forgejo 9.0.3 might not support. Pushing `feat/phase-0-foundation` disproved it: `ci.yml` triggered within seconds and ran. The real cause was a **transient outage of the forge's Actions dispatch** in exactly that window — the runner logged `fetching a task timed out after 5s` and `failed to fetch task: unavailable: 502 Bad Gateway` at 05:40, and my own API probes returned connection failures around 05:45 before recovering. The filter is fine, the runner is fine, and `release.yml` on `main` went green throughout. Kept as a closed record rather than deleted, because the next person to see an absent CI run should check the runner log and the forge before touching the workflow — which is the lesson now in `docs/GOTCHAS.md`.
+- **Notes:** My first diagnosis — the `on.push` filter's `!` negation — was wrong, and no code was changed for it. My second — "a transient outage, closed" — was also wrong, just less so.
+  **Occurrence 1, 05:26.** `docs/realign-scaffolding` reached Forgejo at `2a720c0` (`git ls-remote` confirmed it) and 20 minutes of polling showed `total_count` still 1. The runner logged `fetching a task timed out after 5s` and `failed to fetch task: unavailable: 502 Bad Gateway` at 05:40. A later push of `feat/phase-0-foundation` triggered `ci.yml` in seconds with the filter untouched, which is what ruled the filter out.
+  **Occurrences 2 and 3, ~13:30 onward.** `feat/phase-0-store` at `c084482` and `cr/product-name-omnitoaster` at `e7ec0f0` both reached the remote and neither produced a run. This time the diagnostic came back completely clean: forge responding on `/api/v1/version` with `9.0.3+gitea-1.22.0`, `gitea-runner` service **Running**, and **no error of any kind** in the runner log — whose last task fetch was 13:12:45, consistent with no task existing to fetch rather than a failure to fetch one. So the 502 in occurrence 1 was a symptom of the same underlying stall, not its cause.
+  **Why this matters beyond the annoyance:** the project's mandated flow is branch → push → CI green → merge, and it cannot be followed while runs are not created. Work either waits indefinitely or merges unverified. That decision is the owner's, which is why this is `Blocked` rather than carried further here.
+  The diagnostic order itself is worth keeping and is in `docs/GOTCHAS.md`: confirm the commit is on the remote, read the runner log, then check the forge — before touching a workflow that is probably innocent.
 
 ### FEAT-0008 · In-app updater
 - **State:** Pending · **Spec:** docs/specs/updater.md · **Phase:** 9
