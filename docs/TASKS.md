@@ -126,7 +126,7 @@ Refs: BUG-0003
 
 ```
 Version : v0.0.2
-Features : FEAT-0010
+Features : FEAT-0011
 Bugs : BUG-0002
 Change Request : CR-0002
 ```
@@ -270,6 +270,24 @@ of it, then 0004, 0005 and 0006 in any order.
 - **Notes:** **This item sat `Pending` while its work was finished and its CHECKLIST row read `Completed`** — the two disagreed for most of Phase 0, which is the exact drift `task-auditor` exists to catch, and it was my oversight rather than anything about the work. The pipeline itself was built in the realignment batch and has been exercised continuously since.
   The evidence this box rests on: `ci.yml` green on runs 3, 4, 9, 10, 11, 13, 15, 17 and 19 across six branches; `release.yml` published v0.1.0 (run 14) and v0.2.0 (run 18), both then verified from a clean download by `scripts/verify-release.ps1`. Docs-only pushes to `main` stayed green and published nothing while no `Cargo.toml` existed (runs 1 and 2), which is the behaviour the third box asks for. Two release runs failed first — run 5 at the version bump with no signing key configured, run 12 at the tests step on a flaky test — and both failed **safely**, before the push and publish steps, leaving no tag and no release.
   The runner **is** this machine, so no local cargo command may run while a job is; that rule held throughout. The asset contract and the updater are Phase 9. **BUG-0001 is open against this pipeline** — the forge intermittently stops creating runs — and it is a fault in the forge rather than in these workflows, which is why it does not block this item.
+
+### FEAT-0010 · The app icon, in every size and embedded in the exe
+- **State:** Completed · **Spec:** docs/08-decisions.md (ADR-013) · **Phase:** 0
+- **Branch:** feat/app-icon
+- **Source:** the owner supplied the artwork and asked for it on the app, the README and the executable
+- **Verified:** the generated set, the built exe's resources, and the small sizes looked at rather than assumed
+- [x] `assets/icon/omnitoaster-512.png` as the master, committed as supplied
+- [x] `scripts/make-icons.ps1` generating 256, 128, 64, 48, 32, 24 and 16 px PNGs and a seven-entry `omnitoaster.ico`, with a `-Check` mode and a refusal to upscale
+- [x] `crates/omnitoaster/build.rs` embedding the `.ico` and the VERSIONINFO block, a no-op on non-Windows so Linux clippy still passes
+- [x] README shows the icon and explains the master-and-generated arrangement
+- [x] ADR-013 records the tool and why the master is raster rather than SVG, which the rule had assumed
+- [x] Test: not unit-testable — verified by inspecting the artefacts, recorded in Notes
+- [x] Gate: fmt · clippy -D warnings · test --workspace --locked -j 4 · deny check · --self-test
+- [x] App: the exe's icon and metadata read back correctly; the small sizes inspected visually
+- [x] Docs: ADR · README · rules · CHANGELOG · CHECKLIST
+- **Notes:** The `.ico` holds 16, 24, 32, 48, 64, 128 and 256, the 256 entry PNG-compressed. Windows reads 16 in the tray and title bar, 32 in the taskbar, 48 in Explorer, 256 for Alt-Tab. Confirmed the embedding is verbatim rather than assumed: the 32 px extracted back out of `OmniToaster.exe` is pixel-identical to `omnitoaster-32.png`, and the PNG-compressed 256 entry is present in the binary. Properties ▸ Details now reads ProductName `OmniToaster`, FileDescription "OmniToaster — portable toast notifications", FileVersion `0.3.0`, taken from `CARGO_PKG_VERSION` so it cannot drift from the release.
+  **One real quality problem, found by looking instead of assuming.** A plain Lanczos downscale to 16 px turned the artwork into a coloured blob — the card stack and the bell indistinguishable, the rays gone entirely — and 16 px is the tray and title-bar size, the one users see most. An unsharp pass on sizes at or below 32 px recovers the card edges, the bell silhouette and the rays. **16 px is still the weakest size**, because three stacked cards plus a bell and rays is a lot of detail for 256 pixels. The alternative, a cropped bell-only variant at 16 and 24, would change what the icon *is* at those sizes, so it is the owner's call and would need its own ADR.
+  The exe grew from 2.68 MB to 2.90 MB, almost all of it the 256 px entry. `build.rs` needs the Windows SDK's `rc.exe`; it panics naming that requirement rather than silently producing a default-looking exe.
 
 ### FEAT-0009 · Release packaging, signing keys and release-planner tests
 - **State:** In-Progress · **Spec:** docs/09-ci-cd-and-releases.md · **Phase:** 0

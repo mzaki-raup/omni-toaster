@@ -287,6 +287,46 @@ the rules or the templates should mention a vault.
 
 ---
 
+## ADR-013 · One raster master for the icon, generated with ImageMagick, embedded with `winresource`
+
+**Status:** Accepted · **Phase:** 0
+
+**Context.** `.claude/rules/build-and-run.md` asked for the icon sizes to be
+generated from **one source SVG** by a committed script. The owner supplied the
+artwork as a 512 × 512 RGBA PNG, not an SVG, and it is a detailed illustration —
+three stacked cards, a bell and its rays — rather than something that would
+redraw well as vector shapes.
+
+**Options.**
+
+| Option | For | Against |
+|---|---|---|
+| **Keep the PNG master and downscale** | 512 is the largest size a Windows `.ico` uses, so nothing is ever upscaled; the artwork arrives exactly as the owner drew it | Cannot be re-rendered larger later; small sizes need help to stay legible |
+| Trace it to SVG first | Matches the original rule; re-renders at any size | A trace of this illustration would not be the same icon, and the gradients and soft shadows would have to be approximated |
+
+**Decision.** The master is `assets/icon/omnitoaster-512.png`.
+`scripts/make-icons.ps1` generates 256, 128, 64, 48, 32, 24 and 16 px PNGs plus
+a seven-entry `omnitoaster.ico`, using ImageMagick 7 with a Lanczos filter.
+Sizes at or below 32 px additionally get an unsharp pass: without it the
+composition collapses into a coloured blob at 16 px, which is the size the tray
+and the title bar use. `crates/omnitoaster/build.rs` embeds the `.ico` and the
+VERSIONINFO block with `winresource`, guarded so it is a no-op on non-Windows
+targets and Linux clippy still passes.
+
+**Consequences.** The rule's "source SVG" wording is corrected to "source image,
+SVG where there is one". The master must stay square and at least 512 px — the
+script refuses otherwise, so nobody can quietly introduce an upscale. Nothing
+in `assets/icon/` except the master may be edited by hand; `make-icons.ps1
+-Check` verifies the generated set is present. `build.rs` needs the Windows
+SDK's `rc.exe`, which comes with the MSVC build tools, and panics with that
+sentence if it is missing rather than producing a default-looking exe. **16 px
+remains the weakest size** even sharpened; if it matters more than keeping one
+composition at every size, the alternative is a cropped bell-only variant for
+16 and 24, which would be a new ADR because it changes what the icon *is* at
+those sizes.
+
+---
+
 ## ADR-012 · Two forges: Forgejo authoritative, GitHub mirrored
 
 **Status:** Accepted · **Phase:** 0

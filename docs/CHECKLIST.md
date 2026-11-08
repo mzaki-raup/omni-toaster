@@ -44,6 +44,7 @@ Last updated: 2026-11-08
 | `CLAUDE.md` | Completed | Realigned, and `.claude/rules/` has landed — every link resolves |
 | Cargo workspace skeleton | Completed | FEAT-0001. 11 members, `cargo fmt`/`clippy -D warnings`/`test --locked -j 4`/`deny check` all green; `OmniToaster.exe` builds at 223 KB and prints its version; no dynamic CRT imports, so `+crt-static` is confirmed |
 | CI skeleton | Completed | FEAT-0007. `ci.yml` green on every branch push that the forge dispatched; `release.yml` published v0.1.0 (run 14) and v0.2.0 (run 18), both verified by `scripts/verify-release.ps1`. BUG-0001 is **open** — the forge stops creating runs intermittently, three times on 2026-11-08 |
+| App icon | Completed | FEAT-0010. Master plus seven generated sizes and a seven-entry `.ico`, embedded in the exe with its version metadata; small sizes sharpened and inspected visually |
 | `--self-test` and the command line | Completed | FEAT-0006. Six checks, one flushed line each, name before verdict so an abort still names the dying check; `--help` in both languages; an unknown flag is named rather than ignored. 14 tests in the binary, 7 of them driving the real exe |
 | Logging | Completed | FEAT-0003. `tracing` + `tracing-appender`, daily rotation, 14-day retention swept at startup, `--log-level` override; verified in the app |
 | Panic hook | Completed | FEAT-0003. Crash report with version, OS, message, location and the last 200 log lines, data folder redacted; verified in the app with a debug-only `--panic-now` |

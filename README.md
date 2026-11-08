@@ -1,4 +1,10 @@
+<div align="center">
+
+<img src="assets/icon/omnitoaster-128.png" alt="OmniToaster" width="128" height="128">
+
 # OmniToaster
+
+</div>
 
 OmniToaster is a portable Windows desktop application that delivers
 customizable, Windows-style toast notifications for reminders, prayer times
@@ -160,6 +166,25 @@ OmniToaster -Force` first.
 - **No Jawi script** and no languages beyond English and Malay in this release.
 - **Text-to-speech uses installed Windows voices.** With no voice for the active
   language the app plays the chime and shows a setup hint; it downloads nothing.
+
+## The icon
+
+<img src="assets/icon/omnitoaster-64.png" alt="" width="64" height="64" align="left" hspace="12">
+
+`assets/icon/omnitoaster-512.png` is the master. Every other size, and
+`omnitoaster.ico` for the executable, is generated from it by
+`scripts/make-icons.ps1` — never edited by hand, so the sizes cannot drift
+apart. The `.ico` carries 16 through 256 and is embedded into
+`OmniToaster.exe` at build time along with the version metadata Explorer
+shows in Properties ▸ Details.
+
+<br clear="left">
+
+Sizes at or below 32 px are sharpened after downscaling. Without it the card
+stack and the bell merge into a coloured blob at 16 px, which is the size the
+tray and the title bar use. Even sharpened, 16 px is the weakest size: the
+artwork has three stacked cards, a bell and its rays, which is a lot of detail
+for 256 pixels.
 
 ## Screenshots
 
