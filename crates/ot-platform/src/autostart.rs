@@ -142,30 +142,103 @@ pub fn refresh_if_enabled() -> Result<bool, AutostartError> {
 mod platform {
     use windows::Win32::Foundation::ERROR_FILE_NOT_FOUND;
     use windows::Win32::System::Registry::{
-        HKEY, HKEY_CURRENT_USER, KEY_READ, KEY_WRITE, REG_SZ, RRF_RT_REG_SZ, RegCloseKey,
-        RegDeleteValueW, RegGetValueW, RegOpenKeyExW, RegSetValueExW,
+        HKEY, HKEY_CURRENT_USER, KEY_READ, KEY_WRITE, REG_OPTION_NON_VOLATILE, REG_SZ,
+        RRF_RT_REG_SZ, RegCloseKey, RegCreateKeyExW, RegDeleteValueW, RegGetValueW, RegOpenKeyExW,
+        RegSetValueExW,
     };
     use windows::core::HSTRING;
 
     use super::{AutostartError, RUN_KEY};
 
-    /// Open the Run key, creating nothing: it always exists on Windows.
+    /// Open the Run key for reading, or `None` when the profile has no such
+    /// key.
+    ///
+    /// Not hypothetical: a service account's profile can have
+    /// `…\CurrentVersion` with no `Run` subkey, and the CI runner — which
+    /// runs as LocalSystem — is exactly such an account. A missing key means
+    /// nothing is set to start, which is "off", not a failure.
     #[allow(
         unsafe_code,
-        reason = "RegOpenKeyExW is a Win32 call; the contract is argued at the call"
+        reason = "a Win32 registry call; the contract is argued at the call"
     )]
-    fn open(write: bool) -> Result<HKEY, AutostartError> {
-        let path = HSTRING::from(RUN_KEY);
+    fn open_for_read(key_path: &str) -> Result<Option<HKEY>, AutostartError> {
+        let path = HSTRING::from(key_path);
         let mut key = HKEY::default();
-        let access = if write {
-            KEY_READ | KEY_WRITE
-        } else {
-            KEY_READ
-        };
 
         // SAFETY: `path` outlives the call; `key` is a live out-parameter the
         // API fills with a handle we close below.
-        let status = unsafe { RegOpenKeyExW(HKEY_CURRENT_USER, &path, Some(0), access, &mut key) };
+        let status =
+            unsafe { RegOpenKeyExW(HKEY_CURRENT_USER, &path, Some(0), KEY_READ, &mut key) };
+
+        if status == ERROR_FILE_NOT_FOUND {
+            return Ok(None);
+        }
+        if status.is_err() {
+            return Err(AutostartError::KeyUnavailable(format!("{status:?}")));
+        }
+        Ok(Some(key))
+    }
+
+    /// Open the Run key for writing **without** creating it.
+    ///
+    /// Deleting a value must not bring the key into existence on a profile
+    /// that never had one.
+    #[allow(
+        unsafe_code,
+        reason = "a Win32 registry call; the contract is argued at the call"
+    )]
+    fn open_for_read_write(key_path: &str) -> Result<Option<HKEY>, AutostartError> {
+        let path = HSTRING::from(key_path);
+        let mut key = HKEY::default();
+
+        // SAFETY: as open_for_read, with write access added.
+        let status = unsafe {
+            RegOpenKeyExW(
+                HKEY_CURRENT_USER,
+                &path,
+                Some(0),
+                KEY_READ | KEY_WRITE,
+                &mut key,
+            )
+        };
+        if status == ERROR_FILE_NOT_FOUND {
+            return Ok(None);
+        }
+        if status.is_err() {
+            return Err(AutostartError::KeyUnavailable(format!("{status:?}")));
+        }
+        Ok(Some(key))
+    }
+
+    /// Open the Run key for writing, creating it if the profile lacks one.
+    ///
+    /// `RegCreateKeyExW` opens an existing key unchanged and creates it
+    /// otherwise, so enabling autostart works on a profile that has never
+    /// held a startup entry.
+    #[allow(
+        unsafe_code,
+        reason = "a Win32 registry call; the contract is argued at the call"
+    )]
+    fn open_for_write(key_path: &str) -> Result<HKEY, AutostartError> {
+        let path = HSTRING::from(key_path);
+        let mut key = HKEY::default();
+
+        // SAFETY: `path` outlives the call and `key` is a live out-parameter.
+        // A null class, the default options and no security attributes are
+        // the documented defaults; the disposition is not needed.
+        let status = unsafe {
+            RegCreateKeyExW(
+                HKEY_CURRENT_USER,
+                &path,
+                None,
+                None,
+                REG_OPTION_NON_VOLATILE,
+                KEY_READ | KEY_WRITE,
+                None,
+                &mut key,
+                None,
+            )
+        };
         if status.is_err() {
             return Err(AutostartError::KeyUnavailable(format!("{status:?}")));
         }
@@ -182,8 +255,13 @@ mod platform {
         unsafe_code,
         reason = "RegGetValueW is a Win32 call; the buffer protocol is argued at the call"
     )]
-    pub(super) fn read_value(name: &str) -> Result<Option<String>, AutostartError> {
-        let key = open(false)?;
+    pub(super) fn read_value_in(
+        key_path: &str,
+        name: &str,
+    ) -> Result<Option<String>, AutostartError> {
+        let Some(key) = open_for_read(key_path)? else {
+            return Ok(None);
+        };
         let value = HSTRING::from(name);
         let mut size: u32 = 0;
 
@@ -241,8 +319,12 @@ mod platform {
         unsafe_code,
         reason = "RegSetValueExW is a Win32 call; the buffer is a live UTF-16 string"
     )]
-    pub(super) fn write_value(name: &str, command: &str) -> Result<(), AutostartError> {
-        let key = open(true)?;
+    pub(super) fn write_value_in(
+        key_path: &str,
+        name: &str,
+        command: &str,
+    ) -> Result<(), AutostartError> {
+        let key = open_for_write(key_path)?;
         let value = HSTRING::from(name);
 
         // REG_SZ wants the terminating null included in the byte count.
@@ -267,8 +349,11 @@ mod platform {
         unsafe_code,
         reason = "RegDeleteValueW is a Win32 call on a key we own"
     )]
-    pub(super) fn delete_value(name: &str) -> Result<(), AutostartError> {
-        let key = open(true)?;
+    pub(super) fn delete_value_in(key_path: &str, name: &str) -> Result<(), AutostartError> {
+        // No key means no value, and the caller asked for "off".
+        let Some(key) = open_for_read_write(key_path)? else {
+            return Ok(());
+        };
         let value = HSTRING::from(name);
 
         // SAFETY: `value` outlives the call; `key` is open for writing.
@@ -280,6 +365,18 @@ mod platform {
             return Err(AutostartError::RemoveFailed(format!("{status:?}")));
         }
         Ok(())
+    }
+
+    pub(super) fn read_value(name: &str) -> Result<Option<String>, AutostartError> {
+        read_value_in(RUN_KEY, name)
+    }
+
+    pub(super) fn write_value(name: &str, command: &str) -> Result<(), AutostartError> {
+        write_value_in(RUN_KEY, name, command)
+    }
+
+    pub(super) fn delete_value(name: &str) -> Result<(), AutostartError> {
+        delete_value_in(RUN_KEY, name)
     }
 }
 
@@ -408,6 +505,53 @@ mod tests {
 
         // Deleting what is already gone is success, not an error.
         super::platform::delete_value(&name).expect("a second delete is a no-op");
+    }
+
+    /// A profile whose `Run` key does not exist must read as **off**, not as
+    /// an error — and enabling must create the key.
+    ///
+    /// This is the bug CI caught and a local run could not: the Forgejo
+    /// runner is a service running as LocalSystem, whose profile has
+    /// `…\CurrentVersion` with no `Run` subkey, so every registry call
+    /// failed there while passing on a normal account. Pointing the helpers
+    /// at a key that is guaranteed absent reproduces it as any user.
+    #[cfg(windows)]
+    #[test]
+    fn a_missing_key_reads_as_off_and_enabling_creates_it() {
+        let absent = format!(r"Software\OmniToaster-test-{}\Run", std::process::id());
+        let name = "Probe";
+
+        // Absent key: not an error, just nothing set.
+        assert_eq!(
+            super::platform::read_value_in(&absent, name).expect("reading a missing key"),
+            None,
+            "a profile with no Run key should read as off, not fail"
+        );
+
+        // And removing from a key that is not there is success, not an error,
+        // and must not bring the key into existence.
+        super::platform::delete_value_in(&absent, name).expect("deleting from a missing key");
+        assert_eq!(
+            super::platform::read_value_in(&absent, name).expect("still missing"),
+            None,
+            "the delete created the key it was meant to leave alone"
+        );
+
+        // Writing creates the key, so enabling autostart works on a profile
+        // that has never held a startup entry.
+        super::platform::write_value_in(&absent, name, "probe").expect("write creates the key");
+        assert_eq!(
+            super::platform::read_value_in(&absent, name).expect("read back"),
+            Some("probe".to_string())
+        );
+
+        super::platform::delete_value_in(&absent, name).expect("clean the value");
+
+        // Remove the key this test created, so nothing is left in the hive.
+        let parent = format!(r"Software\OmniToaster-test-{}", std::process::id());
+        let _ = std::process::Command::new("reg")
+            .args(["delete", &format!(r"HKCU\{parent}"), "/f"])
+            .output();
     }
 
     #[test]
