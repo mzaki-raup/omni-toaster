@@ -19,6 +19,7 @@ use std::process::ExitCode;
 
 use ot_core::DataRoot;
 use ot_core::logging::{self, DEFAULT_RETENTION_DAYS, HostInfo};
+use ot_i18n::Language;
 
 /// Printed by `--version` and compared against the tag being released, so a
 /// binary built from the wrong `Cargo.toml` cannot be packaged.
@@ -40,17 +41,45 @@ fn main() -> ExitCode {
         }
     };
 
-    // The user-facing wording here is deliberately plain English for now.
-    // FEAT-0004 brings Fluent in and these become `error-` keys, so the
-    // writability failure a user actually hits is bilingual.
+    // Localization comes up before anything that can fail with a message,
+    // because the startup errors are the only strings a user can see before
+    // the settings window exists and they must be in their own language.
+    let language = match value_of(&args, "--lang") {
+        Ok(Some(tag)) => Language::from_os_locale(&tag),
+        Ok(None) => match ot_platform::user_locale() {
+            Some(tag) => Language::from_os_locale(&tag),
+            None => Language::English,
+        },
+        Err(message) => {
+            eprintln!("{message}");
+            return ExitCode::FAILURE;
+        }
+    };
+    if let Err(error) = ot_i18n::init(language) {
+        // Nothing is translatable yet if this failed, so plain English is all
+        // there is.
+        eprintln!("Omni Toaster cannot start: {error}");
+        return ExitCode::FAILURE;
+    }
+
     let root = match DataRoot::resolve(data_dir.as_deref()) {
         Ok(root) => root,
         Err(error) => {
-            eprintln!("Omni Toaster cannot start: {error}");
-            eprintln!(
-                "Move the app to a folder you can write to, or pass --data-dir with one. \
-                 Nothing was changed."
-            );
+            // The typed error picks the message; the cause goes on its own
+            // line so the user sees advice first and detail second.
+            let key = match &error {
+                ot_core::PathError::NotWritable { .. } => "error-data-dir-not-writable",
+                ot_core::PathError::NotCreatable { .. } => "error-data-dir-not-creatable",
+                ot_core::PathError::ExeLocationUnknown { .. } => "error-exe-location-unknown",
+                ot_core::PathError::Escapes { .. } => "error-data-dir-not-writable",
+            };
+            let path = data_dir
+                .as_deref()
+                .map(|p| p.display().to_string())
+                .unwrap_or_else(|| ot_core::paths::DATA_DIR_NAME.to_string());
+            eprintln!("{}", ot_i18n::text_with(key, &[("path", path.into())]));
+            eprintln!("{}", ot_i18n::text("error-data-dir-advice"));
+            eprintln!("({error})");
             return ExitCode::FAILURE;
         }
     };
@@ -77,8 +106,18 @@ fn main() -> ExitCode {
     logging::install_panic_hook(&root, guard.recent(), host_info());
 
     println!("Omni Toaster {VERSION}");
+    println!("Language:    {}", ot_i18n::text(language.name_key()));
     println!("Data folder: {}", root.path().display());
-    println!("Log folder:  {}", root.path().join("logs").display());
+    println!(
+        "{}",
+        ot_i18n::text_with(
+            "notice-log-location",
+            &[(
+                "path",
+                root.path().join("logs").display().to_string().into()
+            )],
+        )
+    );
 
     // A debug-only trigger, so the panic hook can be exercised in the running
     // app without waiting for a real crash. Never compiled into a release.

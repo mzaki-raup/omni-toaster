@@ -7,6 +7,7 @@ rust-version.workspace = true
 license.workspace = true
 repository.workspace = true
 authors.workspace = true
+publish.workspace = true
 
 # The published asset is OmniToaster.exe and the in-app updater downloads it by
 # that exact name, so the binary name is part of the release contract
@@ -25,5 +26,7 @@ workspace = true
 # ot-store. `cargo build --workspace` compiles every member regardless, so the
 # gate still covers the crates listed here.
 [dependencies]
-ot-core = { version = "0.1.0", path = "../ot-core" }
+ot-core = { path = "../ot-core" }
+ot-i18n = { path = "../ot-i18n" }
+ot-platform = { path = "../ot-platform" }
 tracing.workspace = true

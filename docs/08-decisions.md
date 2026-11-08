@@ -160,8 +160,27 @@ means word order can change per language without code changes.
 both in the same commit, with CI enforcing key parity. The files are edited with
 the Edit tool and never with a heredoc — an unquoted heredoc expands `{ $var }`
 and silently drops the message. `rust-embed` keeps the bundled locales inside
-the exe while user overrides are read from the data folder.
+the exe while user overrides are layered over them from the data folder through
+`i18n_embed::AssetsMultiplexor` with the `filesystem-assets` feature.
 [10-i18n.md](10-i18n.md) has the policy.
+
+**Amendment, 2026-11-08 (Phase 0, FEAT-0004).** `i18n-embed-fl`'s `fl!` macro
+is **not** used, and the dependency is dropped. `fl!` and
+`fluent_language_loader!` both derive the catalogue filename from the *crate*
+name, so they look for `ot-i18n.ftl`; the locale files are named after the
+product, `omni_toaster.ftl`, because they are a translator's catalogue and that
+name is fixed by [05-data-model-and-storage.md](05-data-model-and-storage.md)
+and by `PROPOSAL.md`. `i18n-config` has no setting to change the domain, so the
+loader is constructed directly with `FluentLanguageLoader::new("omni_toaster",
+…)`.
+
+The cost is the compile-time key checking this ADR originally chose the stack
+for. It is replaced by three tests in `ot-i18n`, which is weaker than a compile
+error but not much: key parity between the two files, naming the missing keys
+on each side; every key lowercase, hyphenated and using a documented prefix;
+and `text()` logging a warning and returning the key rather than panicking when
+a lookup misses. Renaming the locale files to match the crate would restore
+`fl!`, and would be the thing to reconsider if key drift ever actually bites.
 
 ---
 

@@ -10,7 +10,17 @@ all-features = false
 [advisories]
 version = 2
 yanked = "deny"
-ignore = []
+# Every entry needs a reason, and a reason that says why the code does not
+# reach the problem — not merely that it is inconvenient to fix.
+ignore = [
+    # `basic-toml` is flagged unmaintained, not vulnerable, and the advisory
+    # itself says "No safe upgrade is available". It arrives only as a
+    # build-time dependency of `i18n-config`, inside the `i18n-embed-impl`
+    # proc-macro: it parses our own `i18n.toml` while the crate compiles and is
+    # not linked into the shipped exe, so it never sees runtime input of any
+    # kind. Revisit when i18n-embed moves to `toml`.
+    { id = "RUSTSEC-2026-0374", reason = "unmaintained build-time TOML parser inside the i18n-embed proc-macro; no upgrade exists and it is not in the shipped binary" },
+]
 
 [licenses]
 version = 2
@@ -33,7 +43,12 @@ exceptions = []
 
 [bans]
 multiple-versions = "warn"
+# External wildcard requirements stay denied — they are how a build silently
+# changes under you. Intra-workspace `path` dependencies are exempt: the
+# version lives once in `[workspace.package]` (ADR-001), so repeating it on
+# every path dependency would be two places to forget.
 wildcards = "deny"
+allow-wildcard-paths = true
 # Prefer pure Rust and rustls over C-bound and OpenSSL alternatives (ADR-012).
 deny = [{ crate = "openssl-sys", reason = "use rustls; a C-bound TLS stack breaks the static portable build" }]
 skip = []

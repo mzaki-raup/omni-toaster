@@ -7,8 +7,20 @@ rust-version.workspace = true
 license.workspace = true
 repository.workspace = true
 authors.workspace = true
+publish.workspace = true
 
 [lints]
 workspace = true
 
 [dependencies]
+chrono.workspace = true
+fluent-bundle.workspace = true
+fluent-syntax.workspace = true
+i18n-embed.workspace = true
+rust-embed.workspace = true
+thiserror.workspace = true
+tracing.workspace = true
+unic-langid.workspace = true
+
+[dev-dependencies]
+tempfile.workspace = true

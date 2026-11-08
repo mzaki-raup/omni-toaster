@@ -38,7 +38,7 @@ have.
 
 ## Patch Scripts and Text Editing
 - **`grep -c` the markers after any re-run.** Checking "new text present" isn't enough when the new text starts with the old text. Make each patch step idempotent, and test for a marker that exists only *after* that step - re-running a half-applied patch has duplicated whole functions.
-- **Unicode escapes in Python.** `\u{b7}` or `\u{2192}` in a Python string is an error ("truncated \uXXXX escape"). Put the character itself in the text, or build it with `chr()`. Doubling the backslash writes a literal `\\u` into Rust, which compiles to the wrong thing.
+- **Unicode escapes in Python.** `\u{b7}` or `\u{2192}` in a Python string is an error ("truncated \uXXXX escape"). Put the character itself in the text, or build it with `chr()`. Doubling the backslash writes a literal `\\u` into Rust, which compiles to the wrong thing. This bites when the *Rust* you are generating contains the escape too: a patch script adding `text.replace(['\u{2068}', '\u{2069}'], "")` died before running a line. Use the editing tool for text containing Unicode escapes rather than scripting it.
 - **Windows paths in Python.** Use raw strings (`r"C:\Users\..."`). `"C:\Users"` fails on `\U`.
 - **Windows paths in TOML.** Use single-quoted literal strings (`audio_path = 'C:\Users\...'`). A double-quoted TOML string processes `\U`, and an invalid escape fails the whole file. The symptom was only a "TOML parse error" and a setting that never appeared.
 - **Heredocs.** Use `<<'EOF'` (quoted). An unquoted heredoc expands `` `backticks` `` (blanking names in doc comments) and `$name` (turning Fluent text into `Remove { }?`, a parse error that dropped the whole message). Better still, write the script to a file with the Write tool and run it.
@@ -75,6 +75,9 @@ Nothing recorded yet.
 ## Localization and Fluent
 - **Edit `locales/**/*.ftl` with the Edit tool, never a heredoc.** An unquoted heredoc expands `` `backticks` `` and `$name`, which turns `Remove { $name }?` into `Remove { }?` - a Fluent parse error that silently drops the whole message. The only symptom is a "locale … has N syntax errors" line in the log and a failing key-parity or bundle-parse test. Quote the heredoc (`<<'EOF'`) if you must script it, or better, write the script to a file.
 - **A key added to one locale only** is caught by the key-parity test, not by the compiler, and only if the test names the missing keys on each side. A parity test that just asserts the counts are equal passes happily when each file is missing a different key. Add every new key to **both** `.ftl` files in the same commit.
+- **`load_languages` takes the ACTIVE language first; fallbacks come after.** Passing `[en-US, ms-MY]` on the reasoning that "English first means English is the fallback" gets it exactly backwards: English becomes the active language and every lookup answers in English, while the UI still reports Malay — because the language *name* key reads "Bahasa Melayu" in both files and so proves nothing. Pass `[selected, en-US]`. The failure is invisible to a key-parity test and to any key whose two translations happen to match, so assert it on a key whose Malay genuinely differs, and against the loader the builder returns rather than the global one a `OnceLock` may already have claimed.
+- **Fluent wraps every substituted value in U+2068/U+2069 isolating marks.** Correct for mixed-direction text; in two left-to-right languages they reach the user as stray boxes - `Logs are kept in ⁨D:\…⁩.` Strip them at the single place every substituted string passes through, not in each caller, because the next caller forgets.
+- **The catalogue filename comes from the crate name unless you override it.** `fluent_language_loader!` and `fl!` both derive it from the calling crate, so a crate named `ot-i18n` looks for `ot-i18n.ftl` and reports "The language file … is not available" for a file that is plainly embedded and parses. `i18n.toml` has no setting for it; construct the loader with `FluentLanguageLoader::new("<domain>", fallback)`, accepting that `fl!` is then unavailable (ADR-006).
 
 ## Scheduler and Time
 Nothing recorded yet.
@@ -91,8 +94,6 @@ Nothing recorded yet.
 ## Tray, Startup and Supervisor
 Nothing recorded yet.
 
-## Storage and Migrations
-Nothing recorded yet.
 
 ## Testing
 Nothing recorded yet.

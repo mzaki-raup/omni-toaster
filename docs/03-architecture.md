@@ -121,9 +121,13 @@ another service crate — they meet only in the binary, through the event bus.
 7. **Localization is resolved at display time.** Built-in text comes from
    Fluent keys in the active language; only user-written text is stored. A
    language switch never needs a data migration.
-8. **One formatter for dates and numbers.** `ot_i18n::format_datetime(dt, lang,
+8. **One formatter for dates and numbers.** `ot_i18n::format_datetime(dt,
    prefs)` is the only function that formats a date or a time. The toast, the
-   tray tooltip and the speech service all call it.
+   tray tooltip and the speech service all call it. It takes no language
+   argument: the words come from the active Fluent bundle, and the only
+   language-dependent choice — 12- against 24-hour — is carried by
+   `TimePrefs::for_language`. An earlier draft of this document gave it a
+   `lang` parameter, which the implementation could only have ignored.
 9. **Prayer source abstraction.** `PrayerSource` is implemented by
    `JakimSource` and `CalculatedSource`. The scheduler sees a list of prayer
    times with a source label; the fallback chain lives in one place.

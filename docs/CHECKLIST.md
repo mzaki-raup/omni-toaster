@@ -26,6 +26,13 @@ Last updated: 2026-11-08
 
 ## Phase 0 — Foundation
 > **Exit criteria:** the app starts in English and in Malay, writes a log, the locale key parity check passes, and CI is green.
+>
+> As of 2026-11-08 the first three hold: the app starts in both languages and
+> renders its startup errors in each, it writes a rotating log, and the parity
+> test passes. CI is green on the branch. What remains for the phase is
+> FEAT-0005 (the SQLite store and migration `001`) and FEAT-0006 (`--self-test`
+> and the real command line), after which the `--self-test` box on every item
+> above can be run for the first time.
 
 | Item | State | Notes |
 |---|---|---|
@@ -36,9 +43,9 @@ Last updated: 2026-11-08
 | Logging | Completed | FEAT-0003. `tracing` + `tracing-appender`, daily rotation, 14-day retention swept at startup, `--log-level` override; verified in the app |
 | Panic hook | Completed | FEAT-0003. Crash report with version, OS, message, location and the last 200 log lines, data folder redacted; verified in the app with a debug-only `--panic-now` |
 | Portable path resolution with writability check | Completed | FEAT-0002. `ot-core::paths`; 17 tests green; verified in the app both ways — the subtree appears under a scratch `--data-dir`, and a genuinely ACL-denied folder is reported with its OS cause, exits 1 and creates nothing |
-| Fluent setup with both `.ftl` files | Pending | FEAT-0004 |
-| `fl!()` wired in | Pending | FEAT-0004 |
-| Locale detection | Pending | FEAT-0004 |
+| Fluent setup with both `.ftl` files | Completed | FEAT-0004. 16 tests including key parity, prefixes and the Malay fallback; both languages verified in the app |
+| `fl!()` wired in | Completed | **Not as planned, and deliberately so:** `fl!` derives the catalogue filename from the crate name, which would rename the locale files away from `omni_toaster.ftl`. The loader is built with an explicit domain and the compile-time key check is replaced by the parity, prefix and casing tests — ADR-006 amendment, FEAT-0004 |
+| Locale detection | Completed | FEAT-0004. `GetUserDefaultLocaleName` in `ot-platform`, the only `unsafe` in the workspace, scoped with a reason; `--lang` overrides it |
 | Migration 001 | Pending | FEAT-0005 |
 
 ## Phase 1 — Shell
