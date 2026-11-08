@@ -7,7 +7,9 @@ Format: [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) · Versioning:
 
 ## Unreleased
 
-- (nothing yet)
+### Fixed
+
+- Filed BUG-0002: the GitHub mirror handoff skips and exits 0 when its secrets are unset, so v0.1.0 to v0.3.0 reached Forgejo while GitHub received no tags and no releases. `main` looked current on the mirror throughout, because `origin` carries GitHub as a second push url and ordinary pushes reach both forges while tags do not.
 
 ## 0.3.0 — 2026-11-08
 

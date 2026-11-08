@@ -127,7 +127,7 @@ Refs: BUG-0003
 ```
 Version : v0.0.2
 Features : FEAT-0010
-Bugs : BUG-0002
+Bugs : BUG-0003
 Change Request : CR-0002
 ```
 
@@ -308,6 +308,22 @@ of it, then 0004, 0005 and 0006 in any order.
 - [x] Docs: spec · README · CHANGELOG · CHECKLIST
 - **Notes:** 66 occurrences across 32 files, done as a literal replacement with no regex or escapes — the only kind of scripted edit this project trusts (`docs/GOTCHAS.md`). The real defect was that the product had **two** spellings: the exe, the data folder, the package, `docs/CHANGELOG.md` and `docs/CHECKLIST.md` already said `OmniToaster`, while the proposal, the specs and every user-visible string said `Omni Toaster`. Two things were deliberately left alone: `Feasibility Study.txt`, which records the owner's own original words and is a historical input rather than a document we maintain; and the released `0.1.0` section of `docs/CHANGELOG.md`, which belongs to the release workflow and is never hand-edited — it happens to contain no occurrence anyway, since its entries are commit subjects. **v0.1.0 shipped with the old spelling** and cannot be changed retrospectively; v0.2.0 carries the fix.
   **A second mistake, found afterwards and worth more than the first:** this was committed as `style:`, which `scripts/next-release.ps1` lists in `$NoReleaseTypes` — no version bump and **no line in the release notes**. So the rename reached users in v0.2.0 carried by the `feat(store)` commit in the same push, and v0.2.0's notes do not mention it. Released sections are never hand-edited, so that cannot be corrected now. A change to user-visible text is `fix:` or `feat:` however cosmetic the diff looks; `docs/09` and `docs/GOTCHAS.md` now say so. The same review also found `docs/09`'s bump table wrongly listing `refactor:` and `build:` as patch bumps when the script treats both as no-release.
+
+### BUG-0002 · The GitHub mirror handoff skips silently, so no release reaches GitHub
+- **State:** Blocked · **Spec:** docs/09-ci-cd-and-releases.md · **Phase:** 0
+- **Blocked on:** the owner — the fix needs two forge secrets only they can set
+- **Source:** the owner asked why GitHub had built no release
+- [x] Establish what is actually missing
+- [ ] Set `OT_GITHUB_MIRROR_URL` and `OT_GITHUB_MIRROR_TOKEN` as repository secrets on the Forgejo instance, and `OT_MINISIGN_KEY` on GitHub so its release job can sign
+- [ ] Make the skip **loud**: `scripts/push-to-mirror.ps1` should still exit 0 when the mirror is deliberately unconfigured, but the workflow step should surface it — a forge notice, or a step summary line — so three releases cannot go by unnoticed again
+- [ ] Decide whether an unconfigured mirror should fail the release outright once the secrets exist, since from then on a skip means something broke rather than something was never set up
+- [ ] Test: a release run reports what it did with the mirror either way
+- [ ] Docs: spec · CHANGELOG · CHECKLIST · GOTCHAS
+- **Notes:** Found 2026-11-08. GitHub has **no tags and no releases**, while Forgejo has v0.1.0, v0.2.0 and v0.3.0. `.github/workflows/release.yml` triggers on `push: tags: ['v*']`, so with no tag it has never run — GitHub's 10 Actions runs are all `ci.yml`, all green.
+  The tags never arrive because the Forgejo release job's last step runs `scripts/push-to-mirror.ps1`, which opens with: if `OT_GITHUB_MIRROR_URL` or `OT_GITHUB_MIRROR_TOKEN` is unset, print "GitHub mirror not configured … skipping" and **`exit 0`**. The job stays green having mirrored nothing. That silence is the actual defect — the missing secrets are just configuration.
+  `main` *is* current on GitHub, which is what makes this easy to miss: `origin` carries GitHub as a second **push url**, so `git push origin main` reaches both. That pushes the refs named on the command line, never tags, so branches mirror as a side effect of ordinary pushes while tags depend entirely on the step that is skipping.
+  **I may have caused it.** Earlier the same day I renamed every `HS_*` pipeline variable to `OT_*`, including these two. If they had been configured under the old names, that rename broke the handoff — and because the script exits 0, nothing said so. I cannot read secret names from here to tell whether they were ever set for this repository, so the honest position is that the rename is a candidate cause rather than a proven one.
+  Note that GitHub's own release job will also need `OT_MINISIGN_KEY` to sign, and uses `GITHUB_TOKEN` plus the `gh` CLI for the rest.
 
 ### BUG-0001 · A branch push intermittently creates no `ci.yml` run
 - **State:** Blocked · **Spec:** docs/09-ci-cd-and-releases.md · **Phase:** 0

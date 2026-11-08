@@ -13,6 +13,18 @@
 brings changes made on GitHub back, fast-forward only. Never set a Forgejo push
 mirror while GitHub is writable.
 
+**The mirror needs two secrets on the Forgejo instance**, `OT_GITHUB_MIRROR_URL`
+and `OT_GITHUB_MIRROR_TOKEN`, and GitHub needs `OT_MINISIGN_KEY` of its own to
+sign. Without them the handoff step **skips and exits 0**, so the release goes
+green having mirrored nothing — v0.1.0 through v0.3.0 reached Forgejo while
+GitHub got no tags and no releases at all (BUG-0002).
+
+That failure hides well, because `origin` carries GitHub as a second *push
+url*: an ordinary `git push origin main` updates both forges, so `main` looks
+current on the mirror. A plain push only moves the refs it is given, never
+tags — and `.github/workflows/release.yml` triggers on `push: tags: ['v*']`,
+so no tag means it has never run.
+
 **The Forgejo runner is the owner's own Windows machine.** Two consequences
 that are not negotiable: every whole-workspace build on it passes `-j 4`, and
 nobody runs a local `cargo` command while a job is running — check the forge's
