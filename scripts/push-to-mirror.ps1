@@ -47,8 +47,23 @@ param(
 
 $ErrorActionPreference = "Stop"
 
+# Whatever happens, say so where someone reading the run will see it. A step
+# that skips quietly and exits 0 is indistinguishable from one that worked:
+# v0.1.0 to v0.3.0 shipped with GitHub receiving no tags at all, and nobody
+# noticed until it was asked about directly (BUG-0002).
+function Write-Outcome([string]$level, [string]$text) {
+  # Forgejo and GitHub both render these annotations on the run.
+  if ($level -eq "warning") { Write-Host "::warning::$text" } else { Write-Host $text }
+  if ($env:GITHUB_STEP_SUMMARY) {
+    Add-Content -Path $env:GITHUB_STEP_SUMMARY -Value "- **Mirror:** $text" -Encoding utf8
+  }
+}
+
 if ([string]::IsNullOrWhiteSpace($MirrorUrl) -or ([string]::IsNullOrWhiteSpace($Token) -and $MirrorUrl -match '^https?://')) {
-  Write-Host "GitHub mirror not configured (OT_GITHUB_MIRROR_URL / OT_GITHUB_MIRROR_TOKEN); skipping."
+  Write-Outcome warning ("GitHub mirror NOT configured (OT_GITHUB_MIRROR_URL / OT_GITHUB_MIRROR_TOKEN are unset): " +
+    "$Tag was published here but has not reached GitHub, and GitHub will build no release for it.")
+  # Still exit 0: a fork, or a forge with no mirror, must be able to release.
+  # The warning is what stops that being invisible.
   exit 0
 }
 
@@ -95,18 +110,32 @@ if ($branchResult.ok) {
 
 $tagResult = Invoke-Push "Tag push" "refs/tags/${Tag}:refs/tags/$Tag"
 if (-not $tagResult.ok) {
-  throw "Pushing $Tag to the GitHub mirror failed; GitHub will not build this release.`n$($tagResult.text.Trim())"
+  # Name the likely cause. "403" on its own sends people checking the URL,
+  # which is the one thing a 403 proves is right - git reached the repository
+  # and authenticated; 404 is what a wrong URL gives.
+  $hint = ""
+  if ($tagResult.text -match '\b403\b|denied to') {
+    $hint = "`nA 403 means the URL is correct and the token is short of permissions. " +
+            "OT_GITHUB_MIRROR_TOKEN needs write access to Contents, Workflows and Actions: " +
+            "a fine-grained PAT must also list this repository under Repository access, " +
+            "and a classic PAT needs repo + workflow. Workflows matters because the pushed " +
+            "history touches .github/workflows/."
+  } elseif ($tagResult.text -match '\b404\b|not found|Repository not found') {
+    $hint = "`nA 404 usually means OT_GITHUB_MIRROR_URL is wrong, or the token cannot see the repository."
+  }
+  Write-Outcome warning "pushing $Tag to GitHub FAILED; the release is published here but not mirrored.$hint"
+  throw "Pushing $Tag to the GitHub mirror failed; GitHub will not build this release.$hint`n$($tagResult.text.Trim())"
 }
-Write-Host "Pushed $Tag to the GitHub mirror."
+Write-Outcome info "pushed $Tag to the GitHub mirror."
 
 # Start the mirror's release run when the tag push will not (see above).
 $message = (git log -1 --format=%B $sha) -join "`n"
 if ($message -notmatch '\[(skip ci|ci skip|no ci|skip actions|actions skip)\]') {
-  Write-Host "The tagged commit has no skip marker; the tag push starts GitHub's release workflow."
+  Write-Outcome info "$Tag pushed; the tag push itself starts GitHub's release workflow."
   exit 0
 }
 if ($MirrorUrl -notmatch '^https://github\.com/([^/]+)/([^/]+?)(\.git)?/?$') {
-  Write-Host "The mirror is not a github.com repository; no release run to dispatch."
+  Write-Outcome info "$Tag pushed; the mirror is not a github.com repository, so there is no release run to dispatch."
   exit 0
 }
 $api = "https://api.github.com/repos/$($Matches[1])/$($Matches[2])/actions/workflows/release.yml/dispatches"
@@ -128,5 +157,5 @@ for ($attempt = 1; ; $attempt++) {
     Start-Sleep -Seconds (3 * $attempt)
   }
 }
-Write-Host "Started GitHub's release workflow for $Tag (the [skip ci] commit does not start it on its own)."
+Write-Outcome info "$Tag pushed and GitHub's release workflow started (the [skip ci] commit does not start it on its own)."
 exit 0
