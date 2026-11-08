@@ -9,6 +9,12 @@ Format: [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) · Versioning:
 
 ### Added
 
+- `--self-test` (FEAT-0006): six headless checks — paths, the log file, both locale bundles, key parity, the database migration, and the date formatter — one flushed line each, exit 0 only when all say `ok`. The check's name prints **before** it runs, so an abort leaves the dying check's name as the last line; `panic = "abort"` in the release profile means a panic cannot be caught and turned into a `FAILED` line, and the panic strategy matters more than the self-test's convenience. `docs/09` specifies the ordering and why.
+- A real command line: `--help` in both languages, `-h`/`-V` aliases, `--self-test`, `--worker` (accepted, inert until Phase 8), `--data-dir`, `--log-level`, `--lang`.
+- An argument starting `--` that is not a known flag is now rejected and named. A silently ignored `--data-dirr` typo would have run the app against the real `OmniToasterData/`. A test keeps `--help`'s list and the accepted set in step.
+- Public `ot_i18n::message_keys`, `check_key_parity` and `probe_language`, so `--self-test` and the unit test share one parity implementation instead of each parsing the catalogues their own way.
+- `help-` strings in both catalogues, and `--self-test` now runs the parity check on the built exe, not only at `cargo test` time.
+
 - `ot-store`: `data/omnitoaster.db` with WAL, enforced foreign keys and a `PRAGMA user_version` migration runner (FEAT-0005).
 - `001_init.sql`: the eight Phase 0 tables as `STRICT`, with the partial index on `reminder.next_fire_at`.
 - `rusqlite` with the `bundled` feature, so SQLite ships inside the exe; confirmed the release binary still has no dynamic CRT imports.

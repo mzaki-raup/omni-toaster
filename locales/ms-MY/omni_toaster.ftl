@@ -26,6 +26,21 @@ notice-log-location = Log disimpan dalam { $path }.
 # $path ialah folder laporan ranap.
 error-crash-loop = OmniToaster berhenti dimulakan semula selepas ranap berulang kali. Laporan ranap ada dalam { $path }.
 
+## --help. Dicetak dalam bahasa pengguna, kerana orang yang menjalankan
+## OmniToaster --help pada mesin berbahasa Melayu ialah orang yang paling
+## memerlukannya dalam bahasa Melayu.
+
+help-usage = Penggunaan: OmniToaster [pilihan]
+help-intro = Pemberitahuan toast mudah alih untuk peringatan, waktu solat, cuaca dan masa.
+help-option-help = tunjukkan bantuan ini dan keluar
+help-option-version = tunjukkan versi dan keluar
+help-option-self-test = jalankan pemeriksaan tanpa antara muka dan keluar, satu baris bagi setiap pemeriksaan
+help-option-worker = jalankan sebagai proses pekerja (belum dilaksanakan; Fasa 8)
+help-option-data-dir = gunakan folder ini dan bukan OmniToasterData di sebelah fail boleh laksana
+help-option-log-level = log pada tahap ini bagi larian ini: error, warn, info, debug atau trace
+help-option-lang = gunakan bahasa ini bagi larian ini, mengatasi tetapan Windows
+help-footer = Semua yang ditulis oleh OmniToaster kekal dalam folder datanya. Tiada apa-apa dihantar ke mana-mana melainkan anda menghidupkannya.
+
 ## Nama bahasa, ditunjukkan dalam Tetapan ▸ Umum ▸ Bahasa. Setiap nama
 ## ditulis dalam bahasanya sendiri.
 

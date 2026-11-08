@@ -262,6 +262,78 @@ fn strip_isolates(text: &str) -> String {
     text.replace(['\u{2068}', '\u{2069}'], "")
 }
 
+/// The message keys defined in a bundled catalogue.
+///
+/// Public because `--self-test` checks parity on the built exe and the unit
+/// test checks it at `cargo test` time; they must agree, so they share this
+/// rather than each parsing the files their own way.
+pub fn message_keys(tag: &str) -> Result<std::collections::BTreeSet<String>, I18nError> {
+    let path = format!("{tag}/omni_toaster.ftl");
+    let file = Localizations::get(&path).ok_or_else(|| I18nError::Load {
+        message: format!("{path} is not embedded"),
+    })?;
+    let text = String::from_utf8(file.data.to_vec()).map_err(|_| I18nError::Load {
+        message: format!("{path} is not valid UTF-8"),
+    })?;
+
+    let resource =
+        fluent_bundle::FluentResource::try_new(text).map_err(|(_, errors)| I18nError::Load {
+            message: format!("{path} has {} syntax error(s)", errors.len()),
+        })?;
+
+    Ok(resource
+        .entries()
+        .filter_map(|entry| match entry {
+            fluent_syntax::ast::Entry::Message(message) => Some(message.id.name.to_string()),
+            _ => None,
+        })
+        .collect())
+}
+
+/// Check that both catalogues define exactly the same keys.
+///
+/// The error names the missing keys per side, because "the sets differ" sends
+/// someone diffing two files by hand.
+pub fn check_key_parity() -> Result<(), String> {
+    let english = message_keys(Language::English.tag()).map_err(|e| e.to_string())?;
+    let malay = message_keys(Language::Malay.tag()).map_err(|e| e.to_string())?;
+
+    let missing_from_malay: Vec<&str> = english.difference(&malay).map(String::as_str).collect();
+    let missing_from_english: Vec<&str> = malay.difference(&english).map(String::as_str).collect();
+
+    if missing_from_malay.is_empty() && missing_from_english.is_empty() {
+        return Ok(());
+    }
+
+    let mut message = String::new();
+    if !missing_from_malay.is_empty() {
+        message.push_str(&format!(
+            "ms-MY is missing {}: {}",
+            missing_from_malay.len(),
+            missing_from_malay.join(", ")
+        ));
+    }
+    if !missing_from_english.is_empty() {
+        if !message.is_empty() {
+            message.push_str("; ");
+        }
+        message.push_str(&format!(
+            "en-US is missing {}: {}",
+            missing_from_english.len(),
+            missing_from_english.join(", ")
+        ));
+    }
+    Err(message)
+}
+
+/// Build a loader for `language` without touching the global one.
+///
+/// `--self-test` uses this to prove each catalogue loads on its own, which the
+/// global loader cannot show because it only ever holds one selection.
+pub fn probe_language(language: Language) -> Result<(), I18nError> {
+    build_loader(language, None).map(|_| ())
+}
+
 /// The language the loader is currently serving, for tests and for the UI.
 pub fn current_language() -> Option<Language> {
     let loader = LOADER.get()?;
@@ -373,6 +445,7 @@ mod tests {
             "notice-",
             "day-",
             "month-",
+            "help-",
         ];
 
         for key in keys_of("en-US") {

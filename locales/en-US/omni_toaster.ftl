@@ -29,6 +29,21 @@ notice-log-location = Logs are kept in { $path }.
 # $path is the crash report folder.
 error-crash-loop = OmniToaster stopped restarting after repeated crashes. The crash reports are in { $path }.
 
+## --help. Printed in the user's language, because someone running
+## OmniToaster --help on a Malay machine is exactly the person who needs
+## it in Malay.
+
+help-usage = Usage: OmniToaster [options]
+help-intro = Portable toast notifications for reminders, prayer times, weather and the time.
+help-option-help = show this help and exit
+help-option-version = show the version and exit
+help-option-self-test = run the headless checks and exit, printing one line per check
+help-option-worker = run as the worker process (not yet implemented; Phase 8)
+help-option-data-dir = use this folder instead of OmniToasterData beside the executable
+help-option-log-level = log at this level for this run: error, warn, info, debug or trace
+help-option-lang = use this language for this run, overriding the Windows setting
+help-footer = Everything OmniToaster writes stays in its data folder. Nothing is sent anywhere unless you turn it on.
+
 ## Language names, shown in Settings ▸ General ▸ Language. Each name is
 ## written in its own language, which is what users expect in a language
 ## picker.

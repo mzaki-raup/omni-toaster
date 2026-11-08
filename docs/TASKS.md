@@ -226,18 +226,23 @@ of it, then 0004, 0005 and 0006 in any order.
   **A false positive worth knowing about:** `scripts/verify-release.ps1` reports "`--version` and `--self-test` OK" for v0.1.0, but `--self-test` does not exist yet, so the flag is ignored and the exit code is 0 for the wrong reason. That check only becomes real with FEAT-0006.
 
 ### FEAT-0006 · The `--self-test` and `--data-dir` flags
-- **State:** Pending · **Spec:** docs/09-ci-cd-and-releases.md · **Phase:** 0
-- **Branch:** feat/phase-0-foundation
+- **State:** Completed · **Spec:** docs/09-ci-cd-and-releases.md · **Phase:** 0
+- **Branch:** feat/phase-0-cli
 - **Depends on:** FEAT-0002, FEAT-0003, FEAT-0004, FEAT-0005
-- [ ] CLI parsing in `omnitoaster` for `--data-dir <dir>`, `--self-test`, `--worker` and `--version`, with a bilingual `--help`
-- [ ] `--self-test` runs the headless checks and prints one flushed line per check with `ok` or `FAILED`: paths resolve and are writable, the log file is written, both locale bundles parse, key parity holds, the database migrates to the expected version, the date formatter returns a value in each language
-- [ ] Exit code 0 only when every check printed `ok`; a panic inside a check becomes a `FAILED` line naming it, not a silent abort
-- [ ] `--worker` is accepted and recognised now but does nothing until Phase 8
-- [ ] Test: `--self-test` against a temp data dir exits 0 and its output contains every check name; a deliberately broken locale makes it exit non-zero and name the locale check
-- [ ] Gate: fmt · clippy -D warnings · test --workspace --locked -j 4 · deny check · --self-test
-- [ ] App: `cargo run -p omnitoaster -- --self-test` exits 0 with every line `ok`; `--data-dir ./tmp-data` still starts normally; `--help` reads correctly in both languages
-- [ ] Docs: spec · README · CHANGELOG · CHECKLIST · GOTCHAS
-- **Notes:** Flush each line as it prints. A buffered self-test that dies mid-check tells you nothing about which check died — `docs/GOTCHAS.md` records that lesson.
+- **Verified:** the gate plus the release exe, run 2026-11-08
+- [x] CLI parsing in `omnitoaster` for `--data-dir <dir>`, `--self-test`, `--worker` and `--version`, with a bilingual `--help`
+- [x] `--self-test` runs the headless checks and prints one flushed line per check with `ok` or `FAILED`: paths resolve and are writable, the log file is written, both locale bundles parse, key parity holds, the database migrates to the expected version, the date formatter returns a value in each language
+- [x] Exit code 0 only when every check printed `ok`. **The panic half of this box could not be built as written** — see Notes; the name is printed before the check instead, so an abort still names what died
+- [x] `--worker` is accepted and recognised now but does nothing until Phase 8
+- [x] Test: `--self-test` against a temp data dir exits 0 and its output contains every check name; the broken-locale case is covered, with a correction — see Notes
+- [x] Gate: fmt · clippy -D warnings · test --workspace --locked -j 4 · deny check · **--self-test on the release exe** — 61 tests, and the self-test's six checks all `ok`
+- [x] App: `--self-test` exits 0 with every line `ok`; `--data-dir ./tmp-data` still starts normally; `--help` reads correctly in both languages
+- [x] Docs: spec · README · CHANGELOG · CHECKLIST · GOTCHAS
+- **Notes:** **The `--self-test` gate box on FEAT-0001 to FEAT-0005 was left unticked because the flag did not exist. It does now, and it passes on the release exe**, so that caveat on those five items is resolved — their boxes stay as they were ticked, since they record what ran at the time.
+  **One box could not be built as written.** "A panic inside a check becomes a `FAILED` line naming it" needs `catch_unwind`, and the release profile sets `panic = "abort"` so the supervisor sees a non-zero exit rather than a half-unwound process — nothing unwinds, so nothing can be caught. Rather than weaken the panic strategy for the benefit of the self-test, the check's **name is printed and flushed before the check runs** and the verdict after it, so an abort leaves the dying check's name as the last line of output. Same diagnostic value, different mechanism; `docs/09-ci-cd-and-releases.md` now specifies the ordering and why, and a test asserts the name precedes the verdict.
+  **A correction to this item's own test box.** It asked for "a deliberately broken locale makes it exit non-zero and name the locale check". That contradicts `docs/05-data-model-and-storage.md`, which requires a broken *override* to be ignored with a logged warning so a user cannot break their app by mis-editing one. Both cannot be true. The spec wins: the test now asserts the broken override is survived, the locale check still runs, and nothing crashes or hangs. A broken *embedded* catalogue would fail the check, but it cannot be produced at runtime — it would fail `cargo test` first.
+  **Beyond the boxes, one addition worth naming:** an argument starting `--` that is not a known flag is now rejected and named. A silently ignored `--data-dirr` typo would have started the app against the **real** `OmniToasterData/`, which is the kind of thing that eats someone's reminders. A test keeps `--help`'s list and the accepted set from drifting apart.
+  `ot-i18n` gained public `message_keys`, `check_key_parity` and `probe_language` so the self-test and the unit test share one parity implementation rather than each parsing the catalogues their own way.
 
 ### FEAT-0007 · CI skeleton
 - **State:** Pending · **Spec:** docs/09-ci-cd-and-releases.md · **Phase:** 0

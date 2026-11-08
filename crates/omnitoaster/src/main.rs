@@ -8,11 +8,10 @@
 //! - `--self-test` — the headless smoke check CI runs
 //! - `--data-dir <path>` — use this folder instead of `OmniToasterData/`
 //!
-//! Only `--version`, `--data-dir` and `--log-level` do anything yet. FEAT-0006
-//! owns the real command line, including `--self-test`, `--worker` and a
-//! bilingual `--help`; the flags here exist because FEAT-0002's data root and
-//! FEAT-0003's logging cannot otherwise be exercised in the running app, which
-//! is what the project rules require before a feature is called done.
+//! `--worker` is accepted and recognised but does nothing yet: the supervisor
+//! that would spawn it is Phase 8. Everything else here is live.
+
+mod self_test;
 
 use std::path::PathBuf;
 use std::process::ExitCode;
@@ -25,12 +24,40 @@ use ot_i18n::Language;
 /// binary built from the wrong `Cargo.toml` cannot be packaged.
 const VERSION: &str = env!("CARGO_PKG_VERSION");
 
+/// Every option the binary accepts. An argument starting `--` that is not one
+/// of these is a mistake worth naming rather than ignoring: a silently dropped
+/// `--data-dir` typo would write into the real data folder.
+const KNOWN_FLAGS: &[&str] = &[
+    "--version",
+    "--help",
+    "--self-test",
+    "--worker",
+    "--data-dir",
+    "--log-level",
+    "--lang",
+    #[cfg(debug_assertions)]
+    "--panic-now",
+];
+
 fn main() -> ExitCode {
     let args: Vec<String> = std::env::args().skip(1).collect();
 
     if args.iter().any(|a| a == "--version" || a == "-V") {
         println!("OmniToaster {VERSION}");
         return ExitCode::SUCCESS;
+    }
+
+    if let Some(unknown) = args.iter().find(|a| {
+        a.starts_with("--")
+            && !KNOWN_FLAGS
+                .iter()
+                .any(|known| *a == known || a.starts_with(&format!("{known}=")))
+    }) {
+        // Naming it beats a generic usage dump: a typo'd flag is the common
+        // case and the user wants to know which one.
+        eprintln!("OmniToaster does not know the option {unknown}.");
+        eprintln!("Run OmniToaster --help to see the options it does know.");
+        return ExitCode::FAILURE;
     }
 
     let data_dir = match data_dir_from(&args) {
@@ -60,6 +87,22 @@ fn main() -> ExitCode {
         // there is.
         eprintln!("OmniToaster cannot start: {error}");
         return ExitCode::FAILURE;
+    }
+
+    if args.iter().any(|a| a == "--help" || a == "-h") {
+        print_help();
+        return ExitCode::SUCCESS;
+    }
+
+    if args.iter().any(|a| a == "--self-test") {
+        // Runs its own path resolution, so it is reached before the normal
+        // startup: the point is to test those steps, not to inherit them.
+        let failures = self_test::run(data_dir.as_deref());
+        return if failures == 0 {
+            ExitCode::SUCCESS
+        } else {
+            ExitCode::FAILURE
+        };
     }
 
     let root = match DataRoot::resolve(data_dir.as_deref()) {
@@ -145,6 +188,42 @@ fn main() -> ExitCode {
     tracing::info!("startup complete");
     drop(guard);
     ExitCode::SUCCESS
+}
+
+/// Print `--help` in the active language.
+///
+/// The option names themselves stay in English — they are what the user types
+/// — while every description is a Fluent key, so a Malay user gets Malay
+/// explanations of English flags, which is what every other CLI does too.
+fn print_help() {
+    println!("{}", ot_i18n::text("help-usage"));
+    println!();
+    println!("{}", ot_i18n::text("help-intro"));
+    println!();
+
+    // Widest option string, so the descriptions line up in both languages
+    // without hard-coding a column that Malay would overflow.
+    let options = [
+        ("-h, --help", "help-option-help"),
+        ("-V, --version", "help-option-version"),
+        ("    --self-test", "help-option-self-test"),
+        ("    --worker", "help-option-worker"),
+        ("    --data-dir <folder>", "help-option-data-dir"),
+        ("    --log-level <level>", "help-option-log-level"),
+        ("    --lang <tag>", "help-option-lang"),
+    ];
+    let width = options
+        .iter()
+        .map(|(flag, _)| flag.chars().count())
+        .max()
+        .unwrap_or(0);
+
+    for (flag, key) in options {
+        println!("  {flag:<width$}  {}", ot_i18n::text(key));
+    }
+
+    println!();
+    println!("{}", ot_i18n::text("help-footer"));
 }
 
 /// What the crash report records about the machine.
@@ -268,6 +347,27 @@ mod tests {
         );
         let error = value_of(&args(&["--log-level"]), "--log-level").expect_err("refused");
         assert!(error.contains("--log-level needs a value"), "{error}");
+    }
+
+    #[test]
+    fn every_flag_the_help_lists_is_a_known_flag() {
+        // A flag documented in --help but missing from KNOWN_FLAGS would be
+        // rejected as unknown the moment someone copied it out of the help
+        // text, which is the worst possible place to disagree with yourself.
+        for documented in [
+            "--help",
+            "--version",
+            "--self-test",
+            "--worker",
+            "--data-dir",
+            "--log-level",
+            "--lang",
+        ] {
+            assert!(
+                super::KNOWN_FLAGS.contains(&documented),
+                "{documented} is in --help but not in KNOWN_FLAGS"
+            );
+        }
     }
 
     #[test]

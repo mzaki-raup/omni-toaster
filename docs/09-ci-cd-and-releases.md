@@ -54,6 +54,33 @@ Until Phase 0 creates the workspace, the cargo steps are skipped by a
 appeared under `%APPDATA%`, `%LOCALAPPDATA%` or `%TEMP%` during the run
 ([ADR-004](08-decisions.md)).
 
+### What `--self-test` prints
+
+One line per check, **flushed as it prints**, and exit code 0 only when every
+line said `ok`. Six checks as of Phase 0: paths resolve and are writable, the
+log file is written, both locale bundles parse, locale key parity holds, the
+database migrates, and the date formatter answers in both languages.
+
+The check's **name is printed before the check runs** and the verdict after it:
+
+```
+paths resolve and are writable ... ok
+locale key parity holds ... FAILED: ms-MY is missing 2: help-usage, help-footer
+```
+
+That ordering is the contract, and it replaces an earlier plan to catch a
+panic inside a check and turn it into a `FAILED` line. The release profile sets
+`panic = "abort"` so the supervisor sees a non-zero exit rather than a
+half-unwound process ([03-architecture.md](03-architecture.md)), and
+`catch_unwind` cannot catch what does not unwind. Printing the name first gets
+the same diagnostic value a different way: an abort leaves the dying check's
+name as the last line of output. A buffered self-test that died mid-check would
+name nothing at all, which [GOTCHAS.md](GOTCHAS.md) records as a lesson already
+paid for.
+
+A failing check does not stop the others, because a self-test that stops at the
+first problem hides the rest.
+
 `cargo deny` is in the **local** gate too, not only in CI, because its
 advisories come from the RustSec database and move on their own: a branch that
 was green yesterday can fail today with no change of its own.

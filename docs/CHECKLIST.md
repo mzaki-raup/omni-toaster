@@ -27,19 +27,24 @@ Last updated: 2026-11-08
 ## Phase 0 — Foundation
 > **Exit criteria:** the app starts in English and in Malay, writes a log, the locale key parity check passes, and CI is green.
 >
-> As of 2026-11-08 the first three hold: the app starts in both languages and
-> renders its startup errors in each, it writes a rotating log, and the parity
-> test passes. CI is green on the branch. What remains for the phase is
-> FEAT-0005 (the SQLite store and migration `001`) and FEAT-0006 (`--self-test`
-> and the real command line), after which the `--self-test` box on every item
-> above can be run for the first time.
+> **All four hold as of 2026-11-08.** The app starts in English and in Malay
+> and renders its startup errors in each; it writes a rotating log; the locale
+> parity check passes, and now runs inside `--self-test` as well as in the unit
+> tests; and CI is green. v0.1.0 and v0.2.0 are published and
+> `scripts/verify-release.ps1` verifies them.
+>
+> One caveat that is not an exit criterion but should not be lost: BUG-0001 is
+> open and `Blocked` on the owner — the forge intermittently stops creating
+> workflow runs, which makes the mandated branch → CI green → merge flow
+> unreliable rather than wrong.
 
 | Item | State | Notes |
 |---|---|---|
 | Repository and `docs/` skeleton | Completed | `docs/` complete; the Cargo workspace and all eleven crates build — FEAT-0001 |
 | `CLAUDE.md` | Completed | Realigned, and `.claude/rules/` has landed — every link resolves |
 | Cargo workspace skeleton | Completed | FEAT-0001. 11 members, `cargo fmt`/`clippy -D warnings`/`test --locked -j 4`/`deny check` all green; `OmniToaster.exe` builds at 223 KB and prints its version; no dynamic CRT imports, so `+crt-static` is confirmed |
-| CI skeleton | In-Progress | FEAT-0007. `ci.yml` runs on a branch push and went green (runs 3 and 4); `release.yml` on `main` now fails at signing because no key is configured — FEAT-0009, blocked on the owner. BUG-0001 was closed as a transient forge outage, not a defect |
+| CI skeleton | Completed | FEAT-0007. `ci.yml` green on every branch push that the forge dispatched; `release.yml` published v0.1.0 (run 14) and v0.2.0 (run 18), both verified by `scripts/verify-release.ps1`. BUG-0001 is **open** — the forge stops creating runs intermittently, three times on 2026-11-08 |
+| `--self-test` and the command line | Completed | FEAT-0006. Six checks, one flushed line each, name before verdict so an abort still names the dying check; `--help` in both languages; an unknown flag is named rather than ignored. 14 tests in the binary, 7 of them driving the real exe |
 | Logging | Completed | FEAT-0003. `tracing` + `tracing-appender`, daily rotation, 14-day retention swept at startup, `--log-level` override; verified in the app |
 | Panic hook | Completed | FEAT-0003. Crash report with version, OS, message, location and the last 200 log lines, data folder redacted; verified in the app with a debug-only `--panic-now` |
 | Portable path resolution with writability check | Completed | FEAT-0002. `ot-core::paths`; 17 tests green; verified in the app both ways — the subtree appears under a scratch `--data-dir`, and a genuinely ACL-denied folder is reported with its OS cause, exits 1 and creates nothing |
