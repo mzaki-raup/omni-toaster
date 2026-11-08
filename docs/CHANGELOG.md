@@ -7,6 +7,11 @@ Format: [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) · Versioning:
 
 ## Unreleased
 
+### Added
+
+- `ot_platform::single_instance` (FEAT-0011): a named, session-scoped mutex per role, so a second launch bows out with a localized notice and exit 0 instead of starting a second tray icon and a second scheduler. The supervisor and worker take different names so they cannot block each other.
+- `ot_platform::autostart` (FEAT-0012): the single HKCU `Run` value, written only when enabled, refreshed at startup when the folder has moved, and read back from the registry rather than from `settings.toml` so a value removed elsewhere shows as off.
+
 ### Fixed
 
 - The GitHub mirror step now reports what it did on every path — a warning annotation and a run-summary line — so a skipped or failed mirror can no longer pass for success (BUG-0002). A failed tag push also names the likely cause: a 403 means the token is short of Contents, Workflows or Actions write, where a 404 would mean the URL is wrong.

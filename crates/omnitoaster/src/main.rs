@@ -19,6 +19,7 @@ use std::process::ExitCode;
 use ot_core::DataRoot;
 use ot_core::logging::{self, DEFAULT_RETENTION_DAYS, HostInfo};
 use ot_i18n::Language;
+use ot_platform::{InstanceGuard, Role};
 
 /// Printed by `--version` and compared against the tag being released, so a
 /// binary built from the wrong `Cargo.toml` cannot be packaged.
@@ -37,6 +38,12 @@ const KNOWN_FLAGS: &[&str] = &[
     "--lang",
     #[cfg(debug_assertions)]
     "--panic-now",
+    // Holds the single-instance guard so a second launch overlaps with the
+    // first. Until FEAT-0014 there is no window to keep the process alive, so
+    // without this the first copy exits before a second can be started and
+    // the guard cannot be tested across processes at all. Debug only.
+    #[cfg(debug_assertions)]
+    "--hold-ms",
 ];
 
 fn main() -> ExitCode {
@@ -104,6 +111,29 @@ fn main() -> ExitCode {
             ExitCode::FAILURE
         };
     }
+
+    // One instance per role. Taken after --self-test and --help, which are
+    // one-shot and must work while the app is already running, and before
+    // anything that touches the data folder — two processes migrating the same
+    // database is exactly what this prevents.
+    let role = if args.iter().any(|a| a == "--worker") {
+        Role::Worker
+    } else {
+        Role::Supervisor
+    };
+    let _instance = match InstanceGuard::acquire(role) {
+        Ok(guard) => guard,
+        Err(ot_platform::InstanceError::AlreadyRunning) => {
+            // Not a failure: the user asked for OmniToaster and OmniToaster is
+            // running. Focusing the existing window is FEAT-0014's job.
+            println!("{}", ot_i18n::text("notice-already-running"));
+            return ExitCode::SUCCESS;
+        }
+        Err(error) => {
+            eprintln!("OmniToaster cannot start: {error}");
+            return ExitCode::FAILURE;
+        }
+    };
 
     let root = match DataRoot::resolve(data_dir.as_deref()) {
         Ok(root) => root,
@@ -185,7 +215,34 @@ fn main() -> ExitCode {
         Err(error) => tracing::warn!(%error, "the schema version could not be read"),
     }
 
+    // Refresh the autostart path if it is on and the folder has moved. Never
+    // enables it: that is the user's choice, not a side effect of launching
+    // (docs/specs/tray-and-settings.md §7).
+    match ot_platform::autostart::refresh_if_enabled() {
+        Ok(true) => {
+            tracing::info!("autostart pointed at an old path and was refreshed");
+            println!("Autostart:   refreshed to this folder");
+        }
+        Ok(false) => match ot_platform::autostart::status() {
+            Ok(state) => println!("Autostart:   {}", if state.is_on() { "on" } else { "off" }),
+            Err(error) => tracing::warn!(%error, "the autostart state could not be read"),
+        },
+        Err(error) => tracing::warn!(%error, "autostart could not be refreshed"),
+    }
+
     tracing::info!("startup complete");
+
+    // Keep the instance guard held so a second launch can be observed being
+    // refused. Debug only; Phase 1's settings window makes it unnecessary.
+    #[cfg(debug_assertions)]
+    if let Ok(Some(text)) = value_of(&args, "--hold-ms")
+        && let Ok(ms) = text.parse::<u64>()
+    {
+        println!("Holding:     {ms} ms");
+        let _ = std::io::Write::flush(&mut std::io::stdout());
+        std::thread::sleep(std::time::Duration::from_millis(ms));
+    }
+
     drop(guard);
     ExitCode::SUCCESS
 }

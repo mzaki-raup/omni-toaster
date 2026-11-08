@@ -126,10 +126,107 @@ Refs: BUG-0003
 
 ```
 Version : v0.0.2
-Features : FEAT-0011
+Features : FEAT-0017
 Bugs : BUG-0003
 Change Request : CR-0002
 ```
+
+---
+
+## v0.1.0 — Planned
+
+Phase 1, Shell. The Phase 1 exit criteria from `docs/07-roadmap.md`: the tray
+works, the theme switches, autostart survives a reboot, and a language switch
+updates the tray and the settings window in under one second.
+
+Ordered by dependency: FEAT-0011 to FEAT-0013 are self-contained `ot-platform`
+work and come first; FEAT-0014 needs a theme to render; FEAT-0015 needs a
+window to open; FEAT-0016 needs both so it has something to re-render.
+
+### FEAT-0011 · Single instance
+- **State:** Completed · **Spec:** docs/specs/tray-and-settings.md §5 · **Phase:** 1
+- **Branch:** feat/phase-1-shell
+- **Verified:** the gate, plus a cross-process test that runs two real executables
+- [x] `ot_platform::single_instance` taking a named mutex, with a distinct name per role so the supervisor and its worker cannot collide
+- [x] A second launch does not start a second tray icon or a second scheduler; it exits 0 with a localized notice. **Signalling the first instance is deferred to FEAT-0014**, which is where a window exists to focus
+- [x] The guard releases on exit, including an abnormal one, so a killed process does not lock the app out
+- [x] Test: taking the guard twice in one process fails the second time; the name differs per role; dropping it lets a later take succeed
+- [x] Gate: fmt · clippy -D warnings · test --workspace --locked -j 4 · deny check · --self-test
+- [x] App: two overlapping processes — the second bows out and the database is left alone
+- [x] Docs: spec · CHANGELOG · CHECKLIST
+- **Notes:** Windows-only code, so it lives in `ot-platform` behind a capability-named interface with a non-Windows stub (`docs/03-architecture.md`). Focusing the existing window is FEAT-0014's job; this item only has to refuse the second start.
+  **A named mutex, not a lock file**, because the kernel releases it when the process ends however it ends — a lock file left by a killed process would lock the app out of its own slot until someone deleted it. The names are `Local\`-scoped so two users logged into the same machine each get their own instance; `Global\` would let one user's copy lock another out.
+  The unit tests can only prove the guard within one process, which is not the thing that matters. `a_second_instance_bows_out_instead_of_starting` in `tests/cli.rs` runs two real executables overlapping, asserts the second exits **0** with the notice — not a failure code, since a double-click on a running app is not an error — and asserts it never reached the database. It then starts a third after the first exits, proving the guard is released.
+  That test needed a debug-only `--hold-ms`, because until FEAT-0014 there is no window keeping the process alive, so the first copy would exit before a second could start. It is compiled out of release and goes away when the window lands.
+
+### FEAT-0012 · Start with Windows
+- **State:** In-Progress · **Spec:** docs/specs/tray-and-settings.md §7 · **Phase:** 1
+- **Branch:** feat/phase-1-shell
+- **Verified:** the gate, a real-registry round trip, and the refresh path driven end to end
+- [x] `ot_platform::autostart` writing a single HKCU `Run` value, only when the user enables it
+- [x] Refreshed on every launch, so a moved or renamed portable folder still starts
+- [x] Disabling removes the value; the toggle **reads the registry** rather than trusting `settings.toml`, so a value removed by other means shows as off
+- [x] Test: enable writes the value with the current exe path; a moved exe rewrites it; disable removes it; reading an absent value reports off rather than erroring
+- [x] Gate: fmt · clippy -D warnings · test --workspace --locked -j 4 · deny check · --self-test
+- [ ] App: enable it, reboot, confirm the app starts; move the folder, launch, confirm the value updated. **The refresh half is done** — a stale path was seeded under the real value name, the app rewrote it to this folder, and the value was removed afterwards. The **enable and reboot** half needs the settings window's toggle (FEAT-0014) and a reboot, so it stays open
+- [ ] Docs: spec · README · CHANGELOG · CHECKLIST · GOTCHAS — README waits until the toggle is visible
+- **Notes:** The **one** registry write the app is allowed (ADR-004), so the test must prove nothing else is written. Tests touch the real HKCU hive, so they use a value name scoped to the test run and remove it afterwards — never the production `OmniToaster` value, or running the suite would disable a user's autostart.
+
+### FEAT-0013 · The three themes and system detection
+- **State:** Pending · **Spec:** docs/04-ui-design.md · **Phase:** 1
+- **Branch:** feat/phase-1-shell
+- [ ] `ot_platform::system_theme` reading `AppsUseLightTheme`, rechecked every 5 seconds so a Windows change is followed without a restart
+- [ ] `ot_ui::theme` with the semantic tokens from `docs/04-ui-design.md` — `surface`, `surface_raised`, `text`, `text_dim`, `accent`, `border`, `danger` — for Dark and Light
+- [ ] Dark is the default; System follows Windows; nothing hard-codes a colour
+- [ ] Hover changes fill or border only — never size, position or glyph scale
+- [ ] Test: each mode resolves to the expected palette; System follows a change in the detected value; every token is defined in both palettes
+- [ ] Gate: fmt · clippy -D warnings · test --workspace --locked -j 4 · deny check · --self-test
+- [ ] App: switch all three modes and change the Windows setting with System selected
+- [ ] Docs: spec · README · CHANGELOG · CHECKLIST · GOTCHAS
+- **Notes:** The recheck is a poll because Windows offers no cheap notification for this worth a message loop here. 5 seconds is the spec's number.
+
+### FEAT-0014 · The settings window
+- **State:** Pending · **Spec:** docs/04-ui-design.md · **Phase:** 1
+- **Branch:** feat/phase-1-shell
+- **Depends on:** FEAT-0013
+- [ ] An eframe window: a left rail of sections, a content pane, a status line
+- [ ] The **General** pane only: language, theme, start with Windows, and the status line. The other panes belong to later phases and must not be stubbed in as empty tabs
+- [ ] Closing the window does not quit the app
+- [ ] Every string through Fluent in both catalogues; Title Case for labels, sentence case for hints
+- [ ] Test: the General pane's strings all resolve; no literal reaches a widget
+- [ ] Gate: fmt · clippy -D warnings · test --workspace --locked -j 4 · deny check · --self-test
+- [ ] App: `--data-dir ./tmp-data` — the window opens, every control works, and it looks right at the default size and narrow, in both languages and all three themes
+- [ ] Docs: spec · README · CHANGELOG · CHECKLIST · GOTCHAS
+- **Notes:** `egui_kittest` covers widget snapshots, but synthetic clicks never form double-clicks, so any double-click path is exercised in the running app. The window is where FEAT-0011's "focus the existing instance" lands.
+
+### FEAT-0015 · Tray icon and menu
+- **State:** Pending · **Spec:** docs/specs/tray-and-settings.md §3, §4 · **Phase:** 1
+- **Branch:** feat/phase-1-shell
+- **Depends on:** FEAT-0014
+- [ ] `tray-icon` + `muda`, using the generated `assets/icon/` sizes
+- [ ] Left-click opens or focuses the settings window
+- [ ] Right-click menu: Open Settings · Pause All Notifications (30 min · 1 hour · until resumed) · Test Toast · Snooze Last · Quit — each with a glyph, the same glyph for the same verb
+- [ ] The menu is **rebuilt** on a language change rather than created once
+- [ ] Pause state and its expiry visible in the tooltip and the status line; Quit confirms while a pause is active
+- [ ] A stale icon left by a killed process is removed on the next start
+- [ ] Test: the menu's labels all resolve in both languages; the pause windows compute the right expiry, including across midnight
+- [ ] Gate: fmt · clippy -D warnings · test --workspace --locked -j 4 · deny check · --self-test
+- [ ] App: every menu item, both languages, and the icon at 100% and 200% DPI
+- [ ] Docs: spec · README (screenshot) · CHANGELOG · CHECKLIST · GOTCHAS
+- **Notes:** Test Toast and Snooze Last have nothing to act on until Phases 2 and 4; they are present and disabled rather than hidden, so the menu's shape does not change under the user later. Pause suppresses toasts and announcements but **never Azan** — that is Settings ▸ Prayer's job.
+
+### FEAT-0016 · Live language switch
+- **State:** Pending · **Spec:** docs/10-i18n.md · **Phase:** 1
+- **Branch:** feat/phase-1-shell
+- **Depends on:** FEAT-0014, FEAT-0015
+- [ ] Changing the language re-renders the settings window and **rebuilds** the tray menu, with no restart
+- [ ] The whole switch completes in under one second — the phase's exit criterion
+- [ ] `system` follows the Windows display language; an explicit choice overrides it and persists
+- [ ] Test: switching rebuilds the menu rather than reusing it; the active language changes what `text()` returns; the setting round-trips through the store
+- [ ] Gate: fmt · clippy -D warnings · test --workspace --locked -j 4 · deny check · --self-test
+- [ ] App: switch English to Malay to System and watch both surfaces change, timed
+- [ ] Docs: spec · README · CHANGELOG · CHECKLIST · GOTCHAS
+- **Notes:** The global Fluent loader is a `OnceLock` set at startup (FEAT-0004), which a live switch cannot re-set. This item has to replace that with something swappable — an `ArcSwap` or an `RwLock` — and the existing `ensure_initialised` test helper and its two callers move with it.
 
 ---
 

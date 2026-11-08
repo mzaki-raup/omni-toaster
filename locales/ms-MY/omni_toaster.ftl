@@ -23,6 +23,9 @@ error-data-dir-not-creatable = OmniToaster tidak dapat membuat folder datanya { 
 error-exe-location-unknown = OmniToaster tidak dapat mengenal pasti lokasi pemasangannya.
 # $path ialah folder tempat aplikasi menyimpan lognya.
 notice-log-location = Log disimpan dalam { $path }.
+# Ditunjukkan apabila salinan kedua dimulakan. Bukan ralat: aplikasi yang
+# diminta pengguna sudah berjalan, jadi salinan kedua berundur dengan senyap.
+notice-already-running = OmniToaster sudah berjalan. Cari ikonnya dalam kawasan pemberitahuan.
 # $path ialah folder laporan ranap.
 error-crash-loop = OmniToaster berhenti dimulakan semula selepas ranap berulang kali. Laporan ranap ada dalam { $path }.
 

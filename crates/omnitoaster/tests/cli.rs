@@ -197,6 +197,69 @@ fn an_unknown_option_is_named_rather_than_ignored() {
 }
 
 #[test]
+fn a_second_instance_bows_out_instead_of_starting() {
+    // FEAT-0011. The unit tests can only prove the guard within one process;
+    // this is the one that shows a named mutex actually keeps two *processes*
+    // apart, which is the whole point — two schedulers would fire every
+    // reminder twice.
+    let temp = tempfile::tempdir().expect("temp dir");
+    let data = temp.path().join("data-root");
+
+    // The first copy holds the guard while the second tries to start. Without
+    // the hold it would exit first and the second would succeed legitimately.
+    let mut first = Command::new(exe())
+        .args(["--hold-ms", "4000", "--data-dir"])
+        .arg(&data)
+        .stdout(std::process::Stdio::piped())
+        .spawn()
+        .expect("start the first instance");
+
+    // Give it time to reach the guard. Generous: a cold start compiles
+    // nothing but does open a database.
+    std::thread::sleep(std::time::Duration::from_millis(1500));
+
+    let second = Command::new(exe())
+        .args(["--data-dir"])
+        .arg(&data)
+        .output()
+        .expect("run the second instance");
+
+    let out = String::from_utf8_lossy(&second.stdout).to_string();
+
+    // Exit 0, not a failure: the user asked for OmniToaster and OmniToaster
+    // is running. A non-zero code here would make a double-click look broken.
+    assert!(
+        second.status.success(),
+        "the second instance should exit 0, got {:?}\n{out}",
+        second.status.code()
+    );
+    assert!(
+        out.contains("already running"),
+        "the second instance should say so: {out:?}"
+    );
+    assert!(
+        !out.contains("schema version"),
+        "the second instance opened the database; it should have bowed out first:\n{out}"
+    );
+
+    let _ = first.wait();
+
+    // And once the first has gone, a fresh start works again — a killed or
+    // finished process must not lock the app out.
+    let third = Command::new(exe())
+        .args(["--data-dir"])
+        .arg(&data)
+        .output()
+        .expect("run after the first exited");
+    let third_out = String::from_utf8_lossy(&third.stdout).to_string();
+    assert!(third.status.success(), "a later start should succeed");
+    assert!(
+        third_out.contains("schema version"),
+        "the guard was not released: {third_out:?}"
+    );
+}
+
+#[test]
 fn worker_is_accepted_but_does_nothing_yet() {
     let temp = tempfile::tempdir().expect("temp dir");
     let output = Command::new(exe())

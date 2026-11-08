@@ -26,6 +26,9 @@ error-data-dir-not-creatable = OmniToaster could not create its data folder { $p
 error-exe-location-unknown = OmniToaster could not work out where it is installed.
 # $path is the folder the app writes its logs to.
 notice-log-location = Logs are kept in { $path }.
+# Shown when a second copy is started. Not an error: the app the user asked
+# for is already running, so the second copy bows out quietly.
+notice-already-running = OmniToaster is already running. Look for it in the notification area.
 # $path is the crash report folder.
 error-crash-loop = OmniToaster stopped restarting after repeated crashes. The crash reports are in { $path }.
 
