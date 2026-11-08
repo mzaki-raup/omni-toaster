@@ -13,9 +13,22 @@
 brings changes made on GitHub back, fast-forward only. Never set a Forgejo push
 mirror while GitHub is writable.
 
-**The mirror needs two secrets on the Forgejo instance**, `OT_GITHUB_MIRROR_URL`
-and `OT_GITHUB_MIRROR_TOKEN`, and GitHub needs `OT_MINISIGN_KEY` of its own to
-sign. Without them the handoff step **skips and exits 0**, so the release goes
+**The mirror needs two secrets on the Forgejo instance**, and GitHub needs
+`OT_MINISIGN_KEY` of its own to sign.
+
+| Secret | Value |
+|---|---|
+| `OT_GITHUB_MIRROR_URL` | `https://github.com/mzaki-raup/omni-toaster.git` — a plain HTTPS clone URL with no credentials in it. The `.git` suffix and a trailing slash are both optional |
+| `OT_GITHUB_MIRROR_TOKEN` | A GitHub PAT for the account that owns the mirror. **Fine-grained:** this repository listed under Repository access (they grant nothing by default), with Contents, Workflows and Actions all **read/write**. **Classic:** `repo` **and** `workflow` |
+
+The Workflows permission is not optional padding: the pushed history can touch
+`.github/workflows/`, and GitHub refuses such a push without it. Actions is
+needed because the script dispatches the mirror's release run — a tag push
+alone will not start it, since the tagged commit is Forgejo's
+`chore(release): vX.Y.Z [skip ci]` and GitHub honours that marker.
+
+A **403** on the tag push means the URL is right and the token is short of
+permissions; a **404** would mean the URL is wrong. Without them the handoff step **skips and exits 0**, so the release goes
 green having mirrored nothing — v0.1.0 through v0.3.0 reached Forgejo while
 GitHub got no tags and no releases at all (BUG-0002).
 
