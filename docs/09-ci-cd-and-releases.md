@@ -89,7 +89,7 @@ name ([ADR-010](08-decisions.md), [specs/updater.md](specs/updater.md)):
 | Asset | Is |
 |---|---|
 | `OmniToaster.exe` | The bare executable, what the updater downloads and stages |
-| `OmniToaster-<version>-windows-x64.zip` | Manual update: exe + `README.txt` + `LICENSE` + `THIRD_PARTY_NOTICES.md` + notes |
+| `OmniToaster-<version>-windows-x64.zip` | Manual update: exe + `README.txt` + `LICENSE` + notes, and `THIRD_PARTY_NOTICES.md` once that file exists — the packaging script copies it only if present, and the workspace has no third-party dependencies yet |
 | `manifest.json` | Schema, product, version, channel, tag, `notes_url`, `min_supported_version`, `data_schema`, and each asset with its size and SHA-256 |
 | `manifest.json.minisig` | The minisign (Ed25519) signature over `manifest.json` — the trust anchor, checked before the manifest is believed |
 | `SHA256SUMS.txt` | Checksums in `sha256sum -c` layout, for manual verification |
