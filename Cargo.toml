@@ -12,10 +12,16 @@ license = "MIT"
 repository = "https://git.zacx.net/owner/omni-toaster"
 authors = ["owner <owner@zacx.net>"]
 
-# Shared dependency versions. Each Phase 0 item adds what it needs here with
+# Shared dependency versions. Each item adds what it needs here with
 # `cargo add`, so the versions come from the registry rather than from memory,
 # and a member then declares `<crate>.workspace = true`.
 [workspace.dependencies]
+# Library errors are typed with thiserror; the binary may use anyhow later
+# (.claude/rules/rust.md).
+thiserror = "2.0.21"
+
+# Test-only.
+tempfile = "3.27.0"
 
 [workspace.lints.rust]
 # A crate-wide allow is forbidden by the project rules, so lints that must hold

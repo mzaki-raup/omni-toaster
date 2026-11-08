@@ -25,3 +25,4 @@ workspace = true
 # ot-store. `cargo build --workspace` compiles every member regardless, so the
 # gate still covers the crates listed here.
 [dependencies]
+ot-core = { version = "0.1.0", path = "../ot-core" }

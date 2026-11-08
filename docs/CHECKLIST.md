@@ -35,7 +35,7 @@ Last updated: 2026-11-08
 | CI skeleton | In-Progress | FEAT-0007. `ci.yml` runs on a branch push and went green (runs 3 and 4); `release.yml` on `main` now fails at signing because no key is configured — FEAT-0009, blocked on the owner. BUG-0001 was closed as a transient forge outage, not a defect |
 | Logging | Pending | FEAT-0003 |
 | Panic hook | Pending | FEAT-0003 |
-| Portable path resolution with writability check | Pending | FEAT-0002 |
+| Portable path resolution with writability check | Completed | FEAT-0002. `ot-core::paths`; 17 tests green; verified in the app both ways — the subtree appears under a scratch `--data-dir`, and a genuinely ACL-denied folder is reported with its OS cause, exits 1 and creates nothing |
 | Fluent setup with both `.ftl` files | Pending | FEAT-0004 |
 | `fl!()` wired in | Pending | FEAT-0004 |
 | Locale detection | Pending | FEAT-0004 |

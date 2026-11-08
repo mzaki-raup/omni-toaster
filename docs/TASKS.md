@@ -160,18 +160,19 @@ of it, then 0004, 0005 and 0006 in any order.
 - **Notes:** `ot-platform` is the only crate allowed to contain Windows-only code, so every other crate's clippy must pass on Linux too. No tokio — `PROPOSAL.md` §5 and the architecture spec settle this. Two deliberate deviations from the boxes as written, both recorded in `docs/03-architecture.md`: `[workspace.dependencies]` is present but **empty**, because populating it would have meant inventing twenty version numbers that `--locked` would then enforce — each later item adds its own with `cargo add`, so the versions come from the registry; and `crates/omnitoaster` declares **no** path dependencies yet for the same reason an unused dependency is dead weight, with `cargo build --workspace` still compiling every member so the gate covers them. `.gitignore` landed earlier, in the realignment batch. The release profile sets `panic = "abort"`, which is a design choice the supervisor depends on and is written up in the architecture spec. `+crt-static` was confirmed, not assumed: the built exe imports only `KERNEL32.dll` and `ntdll.dll`, with no `VCRUNTIME`, `msvcp` or `api-ms-win-crt` entries. The gate's `--self-test` step is not in this item's box because the flag arrives with FEAT-0006.
 
 ### FEAT-0002 · Portable path resolution and the writability check
-- **State:** Pending · **Spec:** docs/05-data-model-and-storage.md · **Phase:** 0
-- **Branch:** feat/phase-0-foundation
+- **State:** Completed · **Spec:** docs/05-data-model-and-storage.md · **Phase:** 0
+- **Branch:** feat/phase-0-paths
 - **Depends on:** FEAT-0001
-- [ ] `ot-core::paths` resolves the data root: `--data-dir <dir>` when given, otherwise `OmniToasterData/` beside the exe — never `%APPDATA%`, `%TEMP%` or the registry
-- [ ] Create the subtree on first run: `config/`, `data/`, `locales/`, `assets/{images,audio/azan,audio/chimes,icons}`, `logs/crash/`, `cache/`
-- [ ] Writability check at startup: write and delete a probe file in the root; on failure return a typed error that the caller can render bilingually, and exit without touching existing data
-- [ ] Path canonicalization helper that refuses any path resolving outside the data root
-- [ ] Test: a resolved root under a temp dir gets the whole subtree; a read-only root produces the writability error and creates nothing; `../` and an absolute path outside the root are both refused
-- [ ] Gate: fmt · clippy -D warnings · test --workspace --locked -j 4 · deny check · --self-test
-- [ ] App: `--data-dir ./tmp-data` — the folder appears with every subdirectory; point `--data-dir` at a read-only folder and the app reports it and exits instead of panicking
-- [ ] Docs: spec · README · CHANGELOG · CHECKLIST · GOTCHAS
-- **Notes:** The read-only case is awkward to automate on Windows; if `icacls` cannot produce a genuinely unwritable folder in the test, the test covers the error path by injection and the real check goes in the App box.
+- **Verified:** the gate below plus both halves of the App box, run 2026-11-08
+- [x] `ot-core::paths` resolves the data root: `--data-dir <dir>` when given, otherwise `OmniToasterData/` beside the exe — never `%APPDATA%`, `%TEMP%` or the registry
+- [x] Create the subtree on first run: `config/`, `data/`, `locales/`, `assets/{images,audio/azan,audio/chimes,icons}`, `logs/crash/`, `cache/`
+- [x] Writability check at startup: write and delete a probe file in the root; on failure return a typed error that the caller can render bilingually, and exit without touching existing data
+- [x] Path canonicalization helper that refuses any path resolving outside the data root
+- [x] Test: a resolved root under a temp dir gets the whole subtree; a read-only root produces the writability error and creates nothing; `../` and an absolute path outside the root are both refused
+- [x] Gate: fmt · clippy -D warnings · test --workspace --locked -j 4 · deny check — 17 tests pass. `--self-test` is **not** in this run because the flag does not exist until FEAT-0006
+- [x] App: `--data-dir ./tmp-data` — the folder appears with every subdirectory; point `--data-dir` at a read-only folder and the app reports it and exits instead of panicking
+- [x] Docs: spec · README · CHANGELOG · CHECKLIST · GOTCHAS
+- **Notes:** The read-only case did **not** need the escape hatch this item anticipated: `icacls /inheritance:d` followed by a `(OI)(CI)(W,AD)` deny produced a genuinely unwritable folder, PowerShell confirmed it refused a write, and the app reported `the data folder … is not writable: Access is denied. (os error 5)`, printed that nothing was changed, exited 1 and — with the ACL restored afterwards to check — had created nothing inside it. The folder and its ACL were cleaned up. `PathError` is a `thiserror` enum with four variants kept separate because their user-facing advice differs; FEAT-0004 turns the binary's plain-English rendering into `error-` Fluent keys. Two things found while building it, both now in `docs/GOTCHAS.md` under "Storage and Migrations": `fs::canonicalize` returns a `\\?\` extended-length path on Windows that leaks into messages and subprocess arguments, so it is stripped unless the path is at or past 260 characters where the prefix is load-bearing; and writability must be proved by writing, since a permission check still says yes on a full disk or a read-only mount. `join()` also re-checks with `canonicalize` where the target exists, so a symlink inside the root that points outside it is refused too. **Scope note:** minimal `--data-dir` parsing landed in `crates/omnitoaster/src/main.rs` here rather than in FEAT-0006, because this item's App box cannot be exercised without it; FEAT-0006 still owns `--self-test`, `--worker` and the bilingual `--help`.
 
 ### FEAT-0003 · Logging and the panic hook
 - **State:** Pending · **Spec:** docs/03-architecture.md · **Phase:** 0
