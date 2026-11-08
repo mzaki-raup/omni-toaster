@@ -29,4 +29,5 @@ workspace = true
 ot-core = { path = "../ot-core" }
 ot-i18n = { path = "../ot-i18n" }
 ot-platform = { path = "../ot-platform" }
+ot-store = { path = "../ot-store" }
 tracing.workspace = true

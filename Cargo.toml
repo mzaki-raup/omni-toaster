@@ -47,6 +47,10 @@ rust-embed = "8.13.0"
 unic-langid = "0.9.6"
 fluent-syntax = "0.12.0"
 
+# Storage (ADR-007). `bundled` compiles SQLite from source so the portable exe
+# carries its own engine and cannot meet a missing or old system sqlite3.dll.
+rusqlite = { version = "0.40.2", features = ["bundled"] }
+
 # Test-only.
 tempfile = "3.27.0"
 

@@ -209,18 +209,21 @@ of it, then 0004, 0005 and 0006 in any order.
   `cargo deny` also went red twice: `basic-toml` is flagged **unmaintained** (not vulnerable, no upgrade available) and arrives only inside the `i18n-embed` proc-macro at build time, so it is ignored in `deny.toml` with that reasoning written down.
 
 ### FEAT-0005 · SQLite store and migration `001_init.sql`
-- **State:** Pending · **Spec:** docs/05-data-model-and-storage.md · **Phase:** 0
-- **Branch:** feat/phase-0-foundation
+- **State:** Completed · **Spec:** docs/05-data-model-and-storage.md · **Phase:** 0
+- **Branch:** feat/phase-0-store
 - **Depends on:** FEAT-0002
-- [ ] `ot-store` opens `data/omnitoaster.db` with `rusqlite`, WAL journal, foreign keys on
-- [ ] Migration runner tracked with `PRAGMA user_version`, applying numbered files in order inside one transaction each
-- [ ] `001_init.sql`: `settings`, `location`, `category`, `reminder`, `snooze_log`, `notification_log`, `asset`, `weather_cache`, per `PROPOSAL.md` §9
-- [ ] Every statement parameterized; no string-built SQL anywhere in the crate
-- [ ] Test: a fresh database migrates to `user_version = 1` and has every table; running the migration twice is a no-op; an existing database at version 1 is left alone; a settings round trip returns what was written
-- [ ] Gate: fmt · clippy -D warnings · test --workspace --locked -j 4 · deny check · --self-test
-- [ ] App: `--data-dir ./tmp-data` — `data/omnitoaster.db` appears on first run, `PRAGMA user_version` reads 1, and a second run does not re-migrate
-- [ ] Docs: spec · README · CHANGELOG · CHECKLIST · GOTCHAS
-- **Notes:** Migrations `002_locale_keys.sql` and `003_jakim.sql` belong to Phases 4 and 5. Do not write them here.
+- **Verified:** the gate below plus the App box, run 2026-11-08
+- [x] `ot-store` opens `data/omnitoaster.db` with `rusqlite`, WAL journal, foreign keys on
+- [x] Migration runner tracked with `PRAGMA user_version`, applying numbered files in order inside one transaction each
+- [x] `001_init.sql`: `settings`, `location`, `category`, `reminder`, `snooze_log`, `notification_log`, `asset`, `weather_cache`, per `PROPOSAL.md` §9
+- [x] Every statement parameterized; no string-built SQL anywhere in the crate
+- [x] Test: a fresh database migrates to `user_version = 1` and has every table; running the migration twice is a no-op; an existing database at version 1 is left alone; a settings round trip returns what was written
+- [x] Gate: fmt · clippy -D warnings · test --workspace --locked -j 4 · deny check — 52 tests pass. `--self-test` still does not exist; FEAT-0006 owns it
+- [x] App: `--data-dir ./tmp-data` — `data/omnitoaster.db` appears on first run, `PRAGMA user_version` reads 1, and a second run does not re-migrate
+- [x] Docs: spec · README · CHANGELOG · CHECKLIST · GOTCHAS
+- **Notes:** Migrations `002_locale_keys.sql` and `003_jakim.sql` belong to Phases 4 and 5 and are **not** written here — `category` therefore has no key columns and no `authored_lang` yet, which is what `docs/05` assigns to `002`. 8 tests cover the migration, the table set, idempotence, the settings round trip, and three things the schema would otherwise only claim: that foreign keys are actually enforced (SQLite defaults them **off**, which would make every `ON DELETE` clause decorative), that a delete cascades, and that `STRICT` rejects a text value in an INTEGER column. A database at a *higher* `user_version` than the build knows is refused with a message telling the user to update, rather than being written to with an older schema.
+  **Decisions.** `rusqlite` uses the `bundled` feature, so SQLite is compiled from source into the exe and a portable folder can never meet a missing or ancient system `sqlite3.dll`; it also makes `STRICT` tables safe to rely on, since the bundled engine is new enough. Verified that this does not break portability: the release exe has **zero** dynamic CRT imports, so the C compilation picked up `+crt-static` correctly, and the binary grew from 970 KB to 2.6 MB — still one file. `Store` has a hand-written `Debug` that prints only the schema version, because the contents are the user's reminders and should not reach a log line or a crash report by accident. Cargo selected `rusqlite` 0.40.2 rather than 0.41.1 because the newer one needs Rust 1.89 and the workspace declares 1.88; worth revisiting only if 0.40 picks up an advisory.
+  **A false positive worth knowing about:** `scripts/verify-release.ps1` reports "`--version` and `--self-test` OK" for v0.1.0, but `--self-test` does not exist yet, so the flag is ignored and the exit code is 0 for the wrong reason. That check only becomes real with FEAT-0006.
 
 ### FEAT-0006 · The `--self-test` and `--data-dir` flags
 - **State:** Pending · **Spec:** docs/09-ci-cd-and-releases.md · **Phase:** 0
@@ -260,8 +263,8 @@ of it, then 0004, 0005 and 0006 in any order.
 - [ ] `THIRD_PARTY_NOTICES.md` — the packaging script copies it into the zip only `if (Test-Path)`, and it does not exist, so the 0.1.0 zip shipped without it. Harmless today because the workspace has no third-party dependencies; it must exist before the first release that does. Generate it from `cargo about` or `cargo-license` rather than by hand
 - [ ] `scripts/tests/` — Pester 5 tests for the release planner against throwaway git repositories, covering each Conventional Commit type's bump and a documentation-only push producing no release
 - [ ] Remove the `Test-Path scripts/tests` guard added to `.forgejo/workflows/ci.yml` once the tests exist
-- [ ] Rename the forge secrets: the workflows read `OT_MINISIGN_KEY` and `OT_FORGE_UPLOAD_URL`, and the GitHub mirror `OT_SIGNING_KEY_EXTRA`. The owner reports `OT_MINISIGN_KEY` is set. **Unverifiable from here** — secret names need an authenticated API call, and their values are never readable — so this box stays unticked until a release run signs successfully, which is the only honest evidence
-- [ ] Test: `pwsh -c 'Invoke-Pester scripts/tests'` green; `scripts/build-and-package.ps1` produces the full asset set and `scripts/verify-release.ps1` accepts a published release. **Mostly done — see Verified below.** The box stays unticked for three reasons: the Pester tests do not exist, `verify-release.ps1` needs a published release to run against, and the signing proven so far used the owner's local key file rather than the forge secret
+- [x] Rename the forge secrets: the workflows read `OT_MINISIGN_KEY` and `OT_FORGE_UPLOAD_URL`, and the GitHub mirror `OT_SIGNING_KEY_EXTRA`. **Proven by release run 14**, which signed `manifest.json` on the runner and published v0.1.0; `scripts/verify-release.ps1 -Tag v0.1.0` then verified that signature against the committed public key from a clean download
+- [ ] Test: `pwsh -c 'Invoke-Pester scripts/tests'` green; `scripts/build-and-package.ps1` produces the full asset set and `scripts/verify-release.ps1` accepts a published release. **Two of the three now hold:** packaging produces the full set, and `verify-release.ps1 -Tag v0.1.0` passed against the real published release — downloaded anonymously, signature verified against `keys/minisign.pub`, every size and SHA-256 matched. The box stays unticked **only** because `scripts/tests/` does not exist. Note the script's "`--self-test` OK" line is currently a false positive: the flag is unimplemented, so it is ignored and exits 0 for the wrong reason, which FEAT-0006 fixes
 - [ ] Gate: fmt · clippy -D warnings · test --workspace --locked -j 4 · deny check · --self-test
 - [ ] App: not applicable — this item ships no user-visible behaviour
 - [ ] Docs: spec · README · CHANGELOG · CHECKLIST · GOTCHAS

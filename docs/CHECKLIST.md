@@ -46,7 +46,7 @@ Last updated: 2026-11-08
 | Fluent setup with both `.ftl` files | Completed | FEAT-0004. 16 tests including key parity, prefixes and the Malay fallback; both languages verified in the app |
 | `fl!()` wired in | Completed | **Not as planned, and deliberately so:** `fl!` derives the catalogue filename from the crate name, which would rename the locale files away from `omni_toaster.ftl`. The loader is built with an explicit domain and the compile-time key check is replaced by the parity, prefix and casing tests — ADR-006 amendment, FEAT-0004 |
 | Locale detection | Completed | FEAT-0004. `GetUserDefaultLocaleName` in `ot-platform`, the only `unsafe` in the workspace, scoped with a reason; `--lang` overrides it |
-| Migration 001 | Pending | FEAT-0005 |
+| Migration 001 | Completed | FEAT-0005. `ot-store` with bundled SQLite, WAL, foreign keys enforced, `STRICT` tables; 8 tests; verified in the app that the database appears and a second run does not re-migrate |
 
 ## Phase 1 — Shell
 > **Exit criteria:** the tray works, the theme switches, autostart survives a reboot, and a language switch updates the tray and settings in under one second.

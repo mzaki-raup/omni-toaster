@@ -105,6 +105,17 @@ fn main() -> ExitCode {
 
     logging::install_panic_hook(&root, guard.recent(), host_info());
 
+    // The database is opened after logging, so a migration failure is in the
+    // log file rather than only on a console nobody is watching.
+    let store = match ot_store::Store::open(root.path()) {
+        Ok(store) => store,
+        Err(error) => {
+            tracing::error!(%error, "the database could not be opened");
+            eprintln!("Omni Toaster cannot start: {error}");
+            return ExitCode::FAILURE;
+        }
+    };
+
     println!("Omni Toaster {VERSION}");
     println!("Language:    {}", ot_i18n::text(language.name_key()));
     println!("Data folder: {}", root.path().display());
@@ -124,6 +135,11 @@ fn main() -> ExitCode {
     #[cfg(debug_assertions)]
     if args.iter().any(|a| a == "--panic-now") {
         panic!("deliberate panic from --panic-now");
+    }
+
+    match store.schema_version() {
+        Ok(version) => println!("Database:    schema version {version}"),
+        Err(error) => tracing::warn!(%error, "the schema version could not be read"),
     }
 
     tracing::info!("startup complete");
