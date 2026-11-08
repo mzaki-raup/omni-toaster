@@ -7,17 +7,13 @@ Format: [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) · Versioning:
 
 ## Unreleased
 
+- (nothing yet)
+
+## 0.2.0 — 2026-11-08
+
 ### Added
 
-- `ot-store`: `data/omnitoaster.db` with WAL, enforced foreign keys and a `PRAGMA user_version` migration runner (FEAT-0005).
-- `001_init.sql`: the eight Phase 0 tables as `STRICT`, with the partial index on `reminder.next_fire_at`.
-- `rusqlite` with the `bundled` feature, so SQLite ships inside the exe; confirmed the release binary still has no dynamic CRT imports.
-
-### Changed
-
-- The product is now written **OmniToaster**, one word, everywhere a user can see it — the version line, the startup and error messages, the crash report header, both locale catalogues, the packaged `README.txt` and the release title (CR-0001). It already matched the executable, the data folder and the package; the two-word spelling reached users through `OmniToaster --version`. A test fails if a locale message reintroduces it. **v0.1.0 shipped with the old spelling and cannot be changed retrospectively.**
-- Ticked FEAT-0009's forge-secret box: release run 14 signed `manifest.json` on the runner, and `verify-release.ps1 -Tag v0.1.0` verified it from a clean download.
-- Recorded that `verify-release.ps1`'s "`--self-test` OK" line is a false positive until FEAT-0006 implements the flag.
+- Open the database and run migration 001 (3dd251ec)
 
 ## 0.1.0 — 2026-11-08
 

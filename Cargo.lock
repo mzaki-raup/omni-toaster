@@ -523,7 +523,7 @@ dependencies = [
 
 [[package]]
 name = "omnitoaster"
-version = "0.1.0"
+version = "0.2.0"
 dependencies = [
  "ot-core",
  "ot-i18n",
@@ -540,7 +540,7 @@ checksum = "9f7c3e4beb33f85d45ae3e3a1792185706c8e16d043238c593331cc7cd313b50"
 
 [[package]]
 name = "ot-core"
-version = "0.1.0"
+version = "0.2.0"
 dependencies = [
  "chrono",
  "tempfile",
@@ -552,7 +552,7 @@ dependencies = [
 
 [[package]]
 name = "ot-i18n"
-version = "0.1.0"
+version = "0.2.0"
 dependencies = [
  "chrono",
  "fluent-bundle",
@@ -567,11 +567,11 @@ dependencies = [
 
 [[package]]
 name = "ot-media"
-version = "0.1.0"
+version = "0.2.0"
 
 [[package]]
 name = "ot-platform"
-version = "0.1.0"
+version = "0.2.0"
 dependencies = [
  "tracing",
  "windows",
@@ -579,15 +579,15 @@ dependencies = [
 
 [[package]]
 name = "ot-prayer"
-version = "0.1.0"
+version = "0.2.0"
 
 [[package]]
 name = "ot-sched"
-version = "0.1.0"
+version = "0.2.0"
 
 [[package]]
 name = "ot-store"
-version = "0.1.0"
+version = "0.2.0"
 dependencies = [
  "rusqlite",
  "tempfile",
@@ -597,15 +597,15 @@ dependencies = [
 
 [[package]]
 name = "ot-toast"
-version = "0.1.0"
+version = "0.2.0"
 
 [[package]]
 name = "ot-ui"
-version = "0.1.0"
+version = "0.2.0"
 
 [[package]]
 name = "ot-weather"
-version = "0.1.0"
+version = "0.2.0"
 
 [[package]]
 name = "parking_lot"
