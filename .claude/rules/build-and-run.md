@@ -114,10 +114,22 @@ is the authority.
 
 ## Assets
 
-Phase 0 must create `assets/icon/` — the app icon in the sizes the exe, the
-tray and the installer-free zip need. It does not exist yet. Generate the sizes
-from one source SVG with a script committed alongside them, never by hand, and
-say in the ADR or the phase plan which tool produced them.
+`assets/icon/` holds the app icon in every size the exe and the tray need.
+`omnitoaster-512.png` is the **master** and the only file there anyone edits;
+the rest are generated:
+
+```bash
+pwsh -File scripts/make-icons.ps1
+```
+
+That produces 256, 128, 64, 48, 32, 24 and 16 px PNGs and the seven-entry
+`omnitoaster.ico`, which `crates/omnitoaster/build.rs` embeds into the exe
+along with its version metadata. `-Check` verifies the set is present without
+rewriting it. Never edit a generated size by hand — regenerate, so they cannot
+drift apart. The master must be square and at least 512 px; the script refuses
+otherwise rather than upscaling. The tool and the reasoning are
+[ADR-013](../../docs/08-decisions.md) — a raster master, not an SVG, because
+that is how the artwork exists.
 
 `assets/prayer/jakim/` holds the bundled JAKIM dataset (Phase 5, subject to the
 terms check), and `data/jakim_zones.csv` the zone table — which changes only
