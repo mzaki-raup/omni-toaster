@@ -68,13 +68,13 @@ Strong success criteria let you loop independently. Weak criteria ("make it work
 
 ## Project-specific instructions: OmniToaster
 
-Omni Toaster is a portable Windows tray application that paints its own toast
+OmniToaster is a portable Windows tray application that paints its own toast
 notifications — for reminders, Azan prayer times, weather changes and hourly
 time announcements. It is a Cargo workspace: the binary crate `omnitoaster`
 plus the `ot-*` library crates. All of its data lives in `OmniToasterData/`
 beside the exe.
 
-The guidelines above are general. Omni Toaster's own rules live in
+The guidelines above are general. OmniToaster's own rules live in
 `.claude/rules/`, split by area so a session loads only what it needs. **Read
 the ones your task touches before you start** — they are requirements, not
 suggestions.

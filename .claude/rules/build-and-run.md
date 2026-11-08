@@ -1,6 +1,6 @@
 # Build and run
 
-Omni Toaster is a Cargo workspace. The binary crate is `crates/omnitoaster`
+OmniToaster is a Cargo workspace. The binary crate is `crates/omnitoaster`
 (package `omnitoaster`); the library crates are the `ot-*` crates listed in
 [00-index.md](00-index.md). [docs/03-architecture.md](../../docs/03-architecture.md)
 has the layout.

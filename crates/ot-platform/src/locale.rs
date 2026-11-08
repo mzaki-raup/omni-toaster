@@ -58,7 +58,7 @@ mod platform {
 
 #[cfg(not(windows))]
 mod platform {
-    /// Omni Toaster is Windows-only for now. The stub exists so every other
+    /// OmniToaster is Windows-only for now. The stub exists so every other
     /// crate still compiles and `cargo clippy` passes on Linux, which is what
     /// keeps the eventual macOS and Linux work possible
     /// (`docs/01-vision-and-scope.md`).

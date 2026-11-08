@@ -10,7 +10,7 @@ read `Completed` until they all hold. The work itself, by id, is in
 Last updated: 2026-11-08
 
 ## Planning
-> **Done when:** the scaffolding and the specifications describe Omni Toaster and point only at files that exist; no reference to the HyperStack project remains.
+> **Done when:** the scaffolding and the specifications describe OmniToaster and point only at files that exist; no reference to the HyperStack project remains.
 
 | Item | State | Notes |
 |---|---|---|
@@ -20,7 +20,7 @@ Last updated: 2026-11-08
 | Root documents and work ledger realigned | Completed | `CLAUDE.md`, `README.md`, `docs/TASKS.md`, `docs/CHECKLIST.md`, `docs/GOTCHAS.md`, `docs/CHANGELOG.md` |
 | Numbered specifications written (`docs/01`–`docs/11`) | Completed | Includes the ADR log with ADR-001–012 |
 | Per-area specifications written (`docs/specs/`) | Completed | `toast`, `reminders`, `weather`, `announcements`, `tray-and-settings`, `supervisor`, `updater` |
-| CI workflows and scripts renamed to the Omni Toaster asset contract | Completed | `.forgejo/`, `.github/`, `scripts/`; all YAML and all six scripts parse. Not executed — the workflows can only run on a push |
+| CI workflows and scripts renamed to the OmniToaster asset contract | Completed | `.forgejo/`, `.github/`, `scripts/`; all YAML and all six scripts parse. Not executed — the workflows can only run on a push |
 | Screenshot procedure written | Completed | `docs/screenshots/README.md`; no images yet, no code to photograph |
 | Every cross-reference resolves | Completed | Repo-wide link check over every `*.md`: zero broken relative links. Marker grep clean apart from prose that deliberately names what was removed |
 

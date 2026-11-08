@@ -1,4 +1,4 @@
-//! Omni Toaster — portable Windows toast notifications.
+//! OmniToaster — portable Windows toast notifications.
 //!
 //! One executable, several roles, chosen by the command line
 //! (`docs/specs/supervisor.md`):
@@ -29,7 +29,7 @@ fn main() -> ExitCode {
     let args: Vec<String> = std::env::args().skip(1).collect();
 
     if args.iter().any(|a| a == "--version" || a == "-V") {
-        println!("Omni Toaster {VERSION}");
+        println!("OmniToaster {VERSION}");
         return ExitCode::SUCCESS;
     }
 
@@ -58,7 +58,7 @@ fn main() -> ExitCode {
     if let Err(error) = ot_i18n::init(language) {
         // Nothing is translatable yet if this failed, so plain English is all
         // there is.
-        eprintln!("Omni Toaster cannot start: {error}");
+        eprintln!("OmniToaster cannot start: {error}");
         return ExitCode::FAILURE;
     }
 
@@ -98,7 +98,7 @@ fn main() -> ExitCode {
     let guard = match logging::init(&root, &level, DEFAULT_RETENTION_DAYS) {
         Ok(guard) => guard,
         Err(error) => {
-            eprintln!("Omni Toaster cannot start: {error}");
+            eprintln!("OmniToaster cannot start: {error}");
             return ExitCode::FAILURE;
         }
     };
@@ -111,12 +111,12 @@ fn main() -> ExitCode {
         Ok(store) => store,
         Err(error) => {
             tracing::error!(%error, "the database could not be opened");
-            eprintln!("Omni Toaster cannot start: {error}");
+            eprintln!("OmniToaster cannot start: {error}");
             return ExitCode::FAILURE;
         }
     };
 
-    println!("Omni Toaster {VERSION}");
+    println!("OmniToaster {VERSION}");
     println!("Language:    {}", ot_i18n::text(language.name_key()));
     println!("Data folder: {}", root.path().display());
     println!(

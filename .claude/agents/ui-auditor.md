@@ -1,6 +1,6 @@
 ---
 name: ui-auditor
-description: Audits Omni Toaster UI code for Fluent coverage across both locale files, Title/sentence casing, longest-Malay-string layout, DPI and multi-monitor positioning, coverage of all three themes, ToastSpec-only rendering so the settings preview and the real toast cannot diverge, empty/loading/error states, per-frame cost, and unverified glyphs. Use after a change to ot-ui, ot-toast, a settings pane or a locale file, or when asked whether a screen follows the project's UI language.
+description: Audits OmniToaster UI code for Fluent coverage across both locale files, Title/sentence casing, longest-Malay-string layout, DPI and multi-monitor positioning, coverage of all three themes, ToastSpec-only rendering so the settings preview and the real toast cannot diverge, empty/loading/error states, per-frame cost, and unverified glyphs. Use after a change to ot-ui, ot-toast, a settings pane or a locale file, or when asked whether a screen follows the project's UI language.
 tools: Read, Grep, Glob, Bash
 model: sonnet
 ---

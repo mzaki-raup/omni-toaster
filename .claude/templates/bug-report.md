@@ -38,7 +38,7 @@ Toast shape and animation, for a rendering problem: …
 
 ## Environment
 
-- Omni Toaster version (`--version` or the About pane):
+- OmniToaster version (`--version` or the About pane):
 - Windows version and build (`winver`):
 - DPI scaling: 100% · 125% · 150% · 175% · 200% · 250%
 - Monitors: how many, and which one the toast was supposed to appear on

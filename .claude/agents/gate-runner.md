@@ -1,6 +1,6 @@
 ---
 name: gate-runner
-description: Runs Omni Toaster's full commit gate (fmt, clippy -D warnings, workspace tests at -j 4, cargo deny check, exe self-test) and reports the first real failure with the output that proves it. Use before a commit or when asked whether the branch is green.
+description: Runs OmniToaster's full commit gate (fmt, clippy -D warnings, workspace tests at -j 4, cargo deny check, exe self-test) and reports the first real failure with the output that proves it. Use before a commit or when asked whether the branch is green.
 tools: Bash, Read, Grep, Glob
 model: sonnet
 ---

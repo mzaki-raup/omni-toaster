@@ -1,6 +1,6 @@
 //! Where the app is allowed to write, and nowhere else.
 //!
-//! Omni Toaster is portable: everything it owns lives under a single data root
+//! OmniToaster is portable: everything it owns lives under a single data root
 //! beside the executable, and nothing is written to the registry, `%APPDATA%`,
 //! `%LOCALAPPDATA%` or `%TEMP%` (`docs/05-data-model-and-storage.md`,
 //! ADR-004). This module is the only place that decides where that root is and

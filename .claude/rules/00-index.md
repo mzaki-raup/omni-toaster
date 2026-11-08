@@ -1,6 +1,6 @@
 # Rules index
 
-Omni Toaster is a portable Windows desktop app in Rust: a Cargo workspace whose
+OmniToaster is a portable Windows desktop app in Rust: a Cargo workspace whose
 binary crate is `crates/omnitoaster` (package `omnitoaster`, exe
 `OmniToaster.exe`) and whose library crates each own one concern —
 `ot-core` (settings, paths, event bus, errors, logging, panic hook), `ot-i18n`
@@ -18,7 +18,7 @@ itself. [`PROPOSAL.md`](../../PROPOSAL.md) is the product authority;
 [`docs/03-architecture.md`](../../docs/03-architecture.md) has the crate layout.
 
 The root [CLAUDE.md](../../CLAUDE.md) holds the behavioural guidelines that
-apply to any project. **These files hold Omni Toaster's own rules** — read the
+apply to any project. **These files hold OmniToaster's own rules** — read the
 one for the area you are about to change.
 
 | File | Read it before you… |

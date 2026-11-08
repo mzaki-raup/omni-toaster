@@ -8,7 +8,7 @@ The entries below were carried over from the owner's previous Rust project on
 this same machine and toolchain. They are kept because they are true of this
 Windows box, this GPG setup, this Forgejo runner and the Rust edition in use,
 and because re-learning any of them costs hours. The project-level entries from
-that codebase were dropped — nothing here refers to code Omni Toaster does not
+that codebase were dropped — nothing here refers to code OmniToaster does not
 have.
 
 ## Git, Merges and Releases

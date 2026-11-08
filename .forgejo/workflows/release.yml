@@ -38,7 +38,7 @@ env:
   CARGO_TARGET_DIR: C:\ot-ci\target
   # The forge attributes a release to the account whose email matches the
   # tag's author; an unknown email publishes as "Ghost".
-  TAGGER_NAME: Omni Toaster Release
+  TAGGER_NAME: OmniToaster Release
   TAGGER_EMAIL: owner@zacx.net
 
 jobs:
@@ -234,7 +234,7 @@ jobs:
             try { $release = Invoke-RestMethod -Method Get -Headers $headers -Uri "$api/releases/tags/$([uri]::EscapeDataString($tag))" } catch { $release = $null }
             if ($release) { Write-Host "The forge already has a release for $tag (id $($release.id))"; break }
             try {
-              $body = @{ tag_name = $tag; name = "Omni Toaster $version"; body = $notes; draft = $true; prerelease = $prerelease } | ConvertTo-Json -Depth 4
+              $body = @{ tag_name = $tag; name = "OmniToaster $version"; body = $notes; draft = $true; prerelease = $prerelease } | ConvertTo-Json -Depth 4
               $release = Invoke-RestMethod -Method Post -Headers $headers -ContentType 'application/json' -Uri "$api/releases" -Body $body
               Write-Host "Created release $($release.id)"
             } catch {
@@ -277,7 +277,7 @@ jobs:
             if (-not $sent) { throw "Could not upload $($file.Name) after 5 attempts." }
           }
 
-          $patch = @{ name = "Omni Toaster $version"; body = $notes; draft = $false; prerelease = $prerelease } | ConvertTo-Json -Depth 4
+          $patch = @{ name = "OmniToaster $version"; body = $notes; draft = $false; prerelease = $prerelease } | ConvertTo-Json -Depth 4
           $ok = $false
           for ($i = 0; $i -lt 10 -and -not $ok; $i++) {
             # A reset here used to end the step with every asset already

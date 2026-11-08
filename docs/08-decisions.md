@@ -272,7 +272,7 @@ asset is a breaking change requiring a new ADR.
 **Status:** Accepted · **Phase:** 0
 
 **Context.** The scaffolding this project inherited assumed an encrypted vault
-and `secret:<ulid>` references throughout. Omni Toaster holds no credentials:
+and `secret:<ulid>` references throughout. OmniToaster holds no credentials:
 JAKIM, Open-Meteo and the IP lookup all need none, and there is no account.
 
 **Decision.** No vault is built. If an API key ever becomes necessary it goes

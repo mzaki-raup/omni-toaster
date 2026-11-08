@@ -85,6 +85,6 @@ preferred over C-bound and OpenSSL alternatives.
 ## Privacy statement for the README
 
 The app is public and MIT licensed, so this is stated plainly where users can
-see it: Omni Toaster stores everything locally in its own folder, sends nothing
+see it: OmniToaster stores everything locally in its own folder, sends nothing
 anywhere except the four requests tabled above, has no accounts and no
 telemetry, and can be made fully offline by turning those four off.

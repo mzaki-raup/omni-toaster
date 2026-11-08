@@ -1,4 +1,4 @@
-# Omni Toaster — Bahasa Melayu (ms-MY)
+# OmniToaster — Bahasa Melayu (ms-MY)
 #
 # Ejaan dan istilah mengikut Dewan Bahasa dan Pustaka (DBP).
 #
@@ -16,15 +16,15 @@
 ## bahasa.
 
 # $path ialah folder yang cuba digunakan oleh aplikasi.
-error-data-dir-not-writable = Omni Toaster tidak dapat dimulakan kerana ia tidak boleh menulis ke { $path }.
+error-data-dir-not-writable = OmniToaster tidak dapat dimulakan kerana ia tidak boleh menulis ke { $path }.
 error-data-dir-advice = Pindahkan aplikasi ke folder yang anda boleh tulis, atau mulakannya dengan --data-dir yang menunjuk ke folder sedemikian. Tiada apa-apa yang diubah.
 # $path ialah folder yang gagal dibuat.
-error-data-dir-not-creatable = Omni Toaster tidak dapat membuat folder datanya { $path }.
-error-exe-location-unknown = Omni Toaster tidak dapat mengenal pasti lokasi pemasangannya.
+error-data-dir-not-creatable = OmniToaster tidak dapat membuat folder datanya { $path }.
+error-exe-location-unknown = OmniToaster tidak dapat mengenal pasti lokasi pemasangannya.
 # $path ialah folder tempat aplikasi menyimpan lognya.
 notice-log-location = Log disimpan dalam { $path }.
 # $path ialah folder laporan ranap.
-error-crash-loop = Omni Toaster berhenti dimulakan semula selepas ranap berulang kali. Laporan ranap ada dalam { $path }.
+error-crash-loop = OmniToaster berhenti dimulakan semula selepas ranap berulang kali. Laporan ranap ada dalam { $path }.
 
 ## Nama bahasa, ditunjukkan dalam Tetapan ▸ Umum ▸ Bahasa. Setiap nama
 ## ditulis dalam bahasanya sendiri.

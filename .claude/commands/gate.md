@@ -1,5 +1,5 @@
 ---
-description: Run the full Omni Toaster gate (fmt, clippy -D warnings, tests -j 4, cargo deny, self-test) and report
+description: Run the full OmniToaster gate (fmt, clippy -D warnings, tests -j 4, cargo deny, self-test) and report
 argument-hint: "[crate | id | task version] (default: the whole workspace)"
 ---
 

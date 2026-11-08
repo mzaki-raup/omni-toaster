@@ -1,4 +1,4 @@
-# `.claude/` — agent scaffolding for Omni Toaster
+# `.claude/` — agent scaffolding for OmniToaster
 
 Everything here is instructions for Claude Code, not application code. The root
 [CLAUDE.md](../CLAUDE.md) stays the law; these files break it into pieces that
@@ -62,7 +62,7 @@ non-negotiables:
 
 ## The short version
 
-- **Omni Toaster is a Cargo workspace.** The binary is `crates/omnitoaster`
+- **OmniToaster is a Cargo workspace.** The binary is `crates/omnitoaster`
   (exe `OmniToaster.exe`); the library crates are `ot-core`, `ot-i18n`,
   `ot-store`, `ot-platform`, `ot-ui`, `ot-toast`, `ot-sched`, `ot-prayer`,
   `ot-weather` and `ot-media`. One concern per crate, and **all** Windows-only

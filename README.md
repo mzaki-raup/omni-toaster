@@ -1,6 +1,6 @@
-# Omni Toaster
+# OmniToaster
 
-Omni Toaster is a portable Windows desktop application that delivers
+OmniToaster is a portable Windows desktop application that delivers
 customizable, Windows-style toast notifications for reminders, prayer times
 (Azan), weather changes and time announcements. It runs in the system tray,
 starts with Windows, recovers from crashes, and keeps every byte of its data in
@@ -148,7 +148,7 @@ OmniToaster -Force` first.
 
 - **Windows only** for this release. Platform code is isolated in one crate so
   other systems can be added later.
-- **Not the Action Center.** Omni Toaster paints its own windows; it does not
+- **Not the Action Center.** OmniToaster paints its own windows; it does not
   replace or hook into the native Windows notification system.
 - **No cloud, no accounts, no telemetry.** Nothing leaves the machine except
   requests to Open-Meteo, the IP geolocation service and JAKIM e-Solat — all
@@ -188,7 +188,7 @@ MIT. See [LICENSE](LICENSE).
 ## Attribution
 
 Official prayer times come from **JAKIM e-Solat** (Jabatan Kemajuan Islam
-Malaysia, `e-solat.gov.my`). Omni Toaster is not affiliated with or endorsed by
+Malaysia, `e-solat.gov.my`). OmniToaster is not affiliated with or endorsed by
 JAKIM. Where times are shown from that source the app labels them "Source:
 JAKIM e-Solat" with the time of the last fetch; calculated times are labelled as
 calculated. Whether the JAKIM dataset may be bundled with a release is settled

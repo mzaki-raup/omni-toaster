@@ -1,4 +1,4 @@
-# Omni Toaster: Project Proposal
+# OmniToaster: Project Proposal
 
 **Version:** 1.0 (Reviewed — stakeholder answers in §16 are decided), 2026-11-08
 **Target platform:** Windows 10 (1809+) and Windows 11
@@ -10,7 +10,7 @@
 
 ## 1. Executive Summary
 
-Omni Toaster is a portable Windows desktop application that delivers customizable, Windows-style toast notifications for reminders, prayer times (Azan), weather changes, and time announcements. It runs in the system tray, starts with Windows, recovers from crashes, and stores all of its data in an `OmniToasterData` folder next to the executable.
+OmniToaster is a portable Windows desktop application that delivers customizable, Windows-style toast notifications for reminders, prayer times (Azan), weather changes, and time announcements. It runs in the system tray, starts with Windows, recovers from crashes, and stores all of its data in an `OmniToasterData` folder next to the executable.
 
 The app is fully bilingual in English and Bahasa Melayu, and the language can be switched at runtime. For prayer times, it uses JAKIM e-Solat as the default source inside Malaysia, so times match the mosques, schools, and government offices that users follow. Calculated times (`adhan`) are available as an offline and overseas option.
 
@@ -147,7 +147,7 @@ omni-toaster/
 
 ```
 ┌────────────────────────────────────────────────────────────────────────┐
-│                        Omni Toaster                                    │
+│                        OmniToaster                                    │
 │                                                                        │
 │  ┌────────────┐  ┌─────────────┐  ┌──────────────────────┐             │
 │  │ Tray & Menu│  │ Settings UI │  │   Toast Renderer     │             │
@@ -725,7 +725,7 @@ session only when its task touches that area: `00-index.md`, `rust.md`, `ui.md`,
 ## 2. Simplicity First
 ## 3. Surgical Changes
 ## 4. Goal-Driven Execution
-## Project-specific instructions: Omni Toaster
+## Project-specific instructions: OmniToaster
    what the app is · the rules table (.claude/rules/) · the ledger ·
    the spec map (docs/01–11, docs/specs/) · the four non-negotiables
    (the gate · branch→CI→merge · specs are requirements · Fluent keys)

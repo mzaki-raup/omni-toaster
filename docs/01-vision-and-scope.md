@@ -2,7 +2,7 @@
 
 **Status:** approved · **Last updated:** 2026-11-08 · **Source:** [PROPOSAL.md](../PROPOSAL.md) §1, §2
 
-Omni Toaster is a portable Windows desktop application that delivers
+OmniToaster is a portable Windows desktop application that delivers
 customizable, Windows-style toast notifications for reminders, prayer times
 (Azan), weather changes and time announcements. It lives in the system tray,
 starts with Windows, recovers from crashes, and keeps everything it owns in an
@@ -10,6 +10,19 @@ starts with Windows, recovers from crashes, and keeps everything it owns in an
 
 It is fully bilingual in English (`en-US`) and Bahasa Melayu (`ms-MY`), and the
 language switches at runtime without a restart.
+
+## The product's name
+
+**OmniToaster**, one word, everywhere a user can see it: the version line, the
+startup and error messages, the crash report header, the packaged `README.txt`,
+the release title and both locale catalogues. It already matched the
+executable (`OmniToaster.exe`), the data folder (`OmniToasterData/`) and the
+package (`omnitoaster`); the two-word spelling was a drift that reached users
+through `OmniToaster --version` (CR-0001). A test in `ot-i18n` fails if a
+locale message reintroduces it.
+
+The repository, being a git remote rather than something a user reads, keeps
+its hyphenated name `omni-toaster`.
 
 ## Personas
 

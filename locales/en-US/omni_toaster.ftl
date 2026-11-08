@@ -1,4 +1,4 @@
-# Omni Toaster — English (en-US)
+# OmniToaster — English (en-US)
 #
 # This file is the source of truth for every visible string. Keys are
 # lowercase, hyphenated, and grouped by the prefixes in docs/10-i18n.md.
@@ -19,15 +19,15 @@
 ## they cannot read.
 
 # $path is the folder the app tried to use.
-error-data-dir-not-writable = Omni Toaster cannot start because it cannot write to { $path }.
+error-data-dir-not-writable = OmniToaster cannot start because it cannot write to { $path }.
 error-data-dir-advice = Move the app to a folder you can write to, or start it with --data-dir pointing at one. Nothing has been changed.
 # $path is the folder that could not be created.
-error-data-dir-not-creatable = Omni Toaster could not create its data folder { $path }.
-error-exe-location-unknown = Omni Toaster could not work out where it is installed.
+error-data-dir-not-creatable = OmniToaster could not create its data folder { $path }.
+error-exe-location-unknown = OmniToaster could not work out where it is installed.
 # $path is the folder the app writes its logs to.
 notice-log-location = Logs are kept in { $path }.
 # $path is the crash report folder.
-error-crash-loop = Omni Toaster stopped restarting after repeated crashes. The crash reports are in { $path }.
+error-crash-loop = OmniToaster stopped restarting after repeated crashes. The crash reports are in { $path }.
 
 ## Language names, shown in Settings ▸ General ▸ Language. Each name is
 ## written in its own language, which is what users expect in a language

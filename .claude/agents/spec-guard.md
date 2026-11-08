@@ -1,6 +1,6 @@
 ---
 name: spec-guard
-description: Checks that an Omni Toaster change matches its spec and that the paperwork is complete — the docs/TASKS.md item, the docs/specs/<area>.md spec, docs/01-11, docs/CHANGELOG.md Unreleased lines, docs/CHECKLIST.md state, both READMEs, docs/GOTCHAS.md entries, ADRs in docs/08-decisions.md for new dependencies or protocols. Use before committing or merging, or when asked whether the docs are up to date.
+description: Checks that an OmniToaster change matches its spec and that the paperwork is complete — the docs/TASKS.md item, the docs/specs/<area>.md spec, docs/01-11, docs/CHANGELOG.md Unreleased lines, docs/CHECKLIST.md state, both READMEs, docs/GOTCHAS.md entries, ADRs in docs/08-decisions.md for new dependencies or protocols. Use before committing or merging, or when asked whether the docs are up to date.
 tools: Read, Grep, Glob, Bash
 model: sonnet
 ---

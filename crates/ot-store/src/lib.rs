@@ -46,7 +46,7 @@ pub enum StoreError {
     /// expected to tell the user to update rather than to continue.
     #[error(
         "the database is at schema version {found} but this build only knows {known}; \
-         update Omni Toaster"
+         update OmniToaster"
     )]
     FromTheFuture { found: i64, known: i64 },
 

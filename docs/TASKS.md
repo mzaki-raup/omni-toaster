@@ -128,7 +128,7 @@ Refs: BUG-0003
 Version : v0.0.2
 Features : FEAT-0010
 Bugs : BUG-0002
-Change Request : CR-0001
+Change Request : CR-0002
 ```
 
 ---
@@ -273,6 +273,21 @@ of it, then 0004, 0005 and 0006 in any order.
 ---
 
 ## Backlog
+
+### CR-0001 · The product is "OmniToaster", one word, everywhere a user sees it
+- **State:** Completed · **Spec:** docs/01-vision-and-scope.md · **Phase:** 0
+- **Branch:** cr/product-name-omnitoaster
+- **Source:** the owner, on seeing `OmniToaster --version` print `Omni Toaster 0.1.0`
+- **Verified:** the gate plus the app, run 2026-11-08
+- [x] Spec first: `docs/01-vision-and-scope.md` states the canonical spelling and what keeps the hyphenated repository name
+- [x] Both locale catalogues, so the Malay strings do not keep a spelling the English ones dropped
+- [x] The version line, the startup and error messages, the crash report header
+- [x] The packaged `README.txt`, the release title and `TAGGER_NAME` on both forges
+- [x] Test: no message in either `.ftl` contains the two-word spelling, naming the offending lines
+- [x] Gate: fmt · clippy -D warnings · test --workspace --locked -j 4 · deny check — 53 tests
+- [x] App: `--version` prints `OmniToaster 0.1.0`; both languages and the crash report header checked
+- [x] Docs: spec · README · CHANGELOG · CHECKLIST
+- **Notes:** 66 occurrences across 32 files, done as a literal replacement with no regex or escapes — the only kind of scripted edit this project trusts (`docs/GOTCHAS.md`). The real defect was that the product had **two** spellings: the exe, the data folder, the package, `docs/CHANGELOG.md` and `docs/CHECKLIST.md` already said `OmniToaster`, while the proposal, the specs and every user-visible string said `Omni Toaster`. Two things were deliberately left alone: `Feasibility Study.txt`, which records the owner's own original words and is a historical input rather than a document we maintain; and the released `0.1.0` section of `docs/CHANGELOG.md`, which belongs to the release workflow and is never hand-edited — it happens to contain no occurrence anyway, since its entries are commit subjects. **v0.1.0 shipped with the old spelling** and cannot be changed retrospectively; the next release carries the fix.
 
 ### BUG-0001 · A branch push created no `ci.yml` run — not a defect, a forge outage
 - **State:** Completed · **Spec:** docs/09-ci-cd-and-releases.md · **Phase:** 0

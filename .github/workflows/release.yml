@@ -122,7 +122,7 @@ jobs:
           if (-not (Test-Path $notes)) { throw "Packaging did not produce $notes." }
           $assets = @(Get-ChildItem release/dist -File | ForEach-Object { $_.FullName })
           if ($assets.Count -lt 6) { throw "Expected the six contracted assets, found $($assets.Count)." }
-          $flags = @('--title', "Omni Toaster $version", '--notes-file', $notes, '--verify-tag')
+          $flags = @('--title', "OmniToaster $version", '--notes-file', $notes, '--verify-tag')
           if ("${{ steps.plan.outputs.channel }}" -eq "beta") { $flags += '--prerelease' }
           # Re-running the workflow for a tag that already has a release should
           # replace its assets, not fail.
@@ -131,7 +131,7 @@ jobs:
             Write-Host "Release $tag exists; replacing its assets."
             gh release upload $tag @assets --clobber
             if ($LASTEXITCODE -ne 0) { throw "gh release upload failed with $LASTEXITCODE." }
-            gh release edit $tag --title "Omni Toaster $version" --notes-file $notes
+            gh release edit $tag --title "OmniToaster $version" --notes-file $notes
             if ($LASTEXITCODE -ne 0) { throw "gh release edit failed with $LASTEXITCODE." }
           } else {
             gh release create $tag @assets @flags

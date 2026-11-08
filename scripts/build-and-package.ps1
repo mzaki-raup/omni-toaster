@@ -95,7 +95,7 @@ $zipName  = "OmniToaster-$Version-windows-x64.zip"
 $noteName = "CHANGELOG-$Version.md"
 
 Copy-Item $built "$dist/$exeName"
-"# Omni Toaster $Version`n`n$notes`n" | Set-Content "$dist/$noteName" -Encoding utf8
+"# OmniToaster $Version`n`n$notes`n" | Set-Content "$dist/$noteName" -Encoding utf8
 
 $staging = "release/zip-staging"
 if (Test-Path $staging) { Remove-Item $staging -Recurse -Force }
@@ -105,7 +105,7 @@ Copy-Item "$dist/$noteName" $staging
 if (Test-Path LICENSE) { Copy-Item LICENSE $staging }
 if (Test-Path THIRD_PARTY_NOTICES.md) { Copy-Item THIRD_PARTY_NOTICES.md $staging }
 @"
-Omni Toaster $Version ($Channel)
+OmniToaster $Version ($Channel)
 
 Portable: unzip anywhere writable and run OmniToaster.exe. Everything the app
 writes - settings, reminders, caches, logs - goes into an OmniToasterData
@@ -211,6 +211,6 @@ foreach ($name in $required) {
   if (-not (Test-Path "$dist/$name")) { throw "Packaging did not produce $name." }
 }
 
-Write-Host "Packaged Omni Toaster $Version ($Channel) for $Target"
+Write-Host "Packaged OmniToaster $Version ($Channel) for $Target"
 Get-ChildItem $dist -File | ForEach-Object { Write-Host ("  {0,-44} {1,12:N0} bytes" -f $_.Name, $_.Length) }
 exit 0

@@ -1,6 +1,6 @@
 //! Fluent bundles, locale detection and the one date/number formatter.
 //!
-//! Every visible string in Omni Toaster is a Fluent key present in **both**
+//! Every visible string in OmniToaster is a Fluent key present in **both**
 //! `locales/en-US/omni_toaster.ftl` and `locales/ms-MY/omni_toaster.ftl`
 //! (`docs/10-i18n.md`, ADR-006). A missing Malay key falls back to English and
 //! logs a warning rather than showing a key name to a user.
@@ -43,7 +43,7 @@ pub use format::{TimePrefs, format_datetime, format_time};
 #[folder = "../../locales"]
 struct Localizations;
 
-/// The two languages Omni Toaster supports.
+/// The two languages OmniToaster supports.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub enum Language {
     English,
@@ -437,7 +437,32 @@ mod tests {
             en, ms,
             "the Malay startup error is identical to the English one"
         );
-        assert!(ms.contains("Omni Toaster"), "the product name should stay");
+        assert!(ms.contains("OmniToaster"), "the product name should stay");
+    }
+
+    #[test]
+    fn no_locale_message_spells_the_product_name_with_a_space() {
+        // CR-0001. The product is OmniToaster, one word, everywhere a user can
+        // see it (docs/01-vision-and-scope.md). The two-word spelling drifted
+        // in and reached users through `OmniToaster --version`. Both files are
+        // checked, because a translator working from the English catalogue
+        // will copy whatever is in front of them.
+        for tag in ["en-US", "ms-MY"] {
+            let path = format!("{tag}/omni_toaster.ftl");
+            let file = Localizations::get(&path).expect("embedded");
+            let text = String::from_utf8(file.data.to_vec()).expect("UTF-8");
+
+            let offenders: Vec<&str> = text
+                .lines()
+                .filter(|line| line.contains("Omni Toaster"))
+                .collect();
+
+            assert!(
+                offenders.is_empty(),
+                "{path} spells the product name with a space on {} line(s): {offenders:#?}",
+                offenders.len()
+            );
+        }
     }
 
     #[test]

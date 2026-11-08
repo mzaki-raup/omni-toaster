@@ -1,6 +1,6 @@
 ---
 name: task-auditor
-description: Audits Omni Toaster's docs/TASKS.md against reality — boxes ticked for checks that never ran, items marked Completed with open boxes, duplicate or missing ids, items under the wrong task version, dependencies that point at nothing, work in the diff with no id, and ledger states that contradict docs/CHANGELOG.md or docs/CHECKLIST.md. Use before closing a task version, before a release, or when asked whether the ledger is honest.
+description: Audits OmniToaster's docs/TASKS.md against reality — boxes ticked for checks that never ran, items marked Completed with open boxes, duplicate or missing ids, items under the wrong task version, dependencies that point at nothing, work in the diff with no id, and ledger states that contradict docs/CHANGELOG.md or docs/CHECKLIST.md. Use before closing a task version, before a release, or when asked whether the ledger is honest.
 tools: Read, Grep, Glob, Bash
 model: sonnet
 ---

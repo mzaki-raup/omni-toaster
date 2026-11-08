@@ -174,7 +174,7 @@ pub fn init(root: &DataRoot, level: &str, retention_days: u16) -> Result<LogGuar
     tracing::info!(
         version = env!("CARGO_PKG_VERSION"),
         data_dir = %root.path().display(),
-        "Omni Toaster starting"
+        "OmniToaster starting"
     );
 
     Ok(LogGuard {
@@ -282,7 +282,7 @@ fn build_report(
         .unwrap_or_else(|| "unknown".to_string());
 
     let mut report = String::new();
-    let _ = writeln!(report, "Omni Toaster crash report");
+    let _ = writeln!(report, "OmniToaster crash report");
     let _ = writeln!(
         report,
         "when:     {}",
@@ -455,7 +455,7 @@ mod tests {
         let report = {
             let message = "assertion failed: times.len() == 5";
             let mut text = String::new();
-            let _ = writeln!(text, "Omni Toaster crash report");
+            let _ = writeln!(text, "OmniToaster crash report");
             let _ = writeln!(text, "version:  {}", env!("CARGO_PKG_VERSION"));
             let _ = writeln!(text, "os:       Windows 11 26100");
             let _ = writeln!(text, "panic:    {message}");
@@ -538,7 +538,7 @@ mod tests {
         assert_eq!(logs.len(), 1, "expected one log file, got {logs:?}");
 
         let body = fs::read_to_string(&logs[0]).expect("read the log");
-        assert!(body.contains("Omni Toaster starting"), "{body}");
+        assert!(body.contains("OmniToaster starting"), "{body}");
         assert!(body.contains("fetched prayer times"), "{body}");
         assert!(body.contains("SGR01"), "{body}");
 

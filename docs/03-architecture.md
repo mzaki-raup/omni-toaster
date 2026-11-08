@@ -4,7 +4,7 @@
 
 ## Crate layout
 
-Omni Toaster is a Cargo workspace. The version lives once, under
+OmniToaster is a Cargo workspace. The version lives once, under
 `[workspace.package]` in the root `Cargo.toml`; every member declares
 `version.workspace = true`. See [ADR-001](08-decisions.md).
 
