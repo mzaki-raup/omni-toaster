@@ -314,7 +314,8 @@ of it, then 0004, 0005 and 0006 in any order.
 - **Blocked on:** the owner — the fix needs two forge secrets only they can set
 - **Source:** the owner asked why GitHub had built no release
 - [x] Establish what is actually missing
-- [ ] Set `OT_GITHUB_MIRROR_URL` and `OT_GITHUB_MIRROR_TOKEN` as repository secrets on the Forgejo instance, and `OT_MINISIGN_KEY` on GitHub so its release job can sign
+- [x] Set `OT_GITHUB_MIRROR_URL` and `OT_GITHUB_MIRROR_TOKEN` as repository secrets on the Forgejo instance, and `OT_MINISIGN_KEY` on GitHub so its release job can sign — the owner set all three on 2026-11-08. **Unverified from here:** secret names are not readable, so the only proof is a release run that mirrors successfully
+- [ ] Back-fill the three tags GitHub never received. Either a `workflow_dispatch` of GitHub's Release workflow per tag from its Actions tab, or pushing each tag to the GitHub remote. Both create public releases, so both are the owner's to trigger
 - [ ] Make the skip **loud**: `scripts/push-to-mirror.ps1` should still exit 0 when the mirror is deliberately unconfigured, but the workflow step should surface it — a forge notice, or a step summary line — so three releases cannot go by unnoticed again
 - [ ] Decide whether an unconfigured mirror should fail the release outright once the secrets exist, since from then on a skip means something broke rather than something was never set up
 - [ ] Test: a release run reports what it did with the mirror either way
