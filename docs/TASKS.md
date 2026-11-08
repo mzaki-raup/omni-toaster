@@ -133,11 +133,22 @@ Change Request : CR-0002
 
 ---
 
-## v0.0.1 — Planned
+## v0.0.1 — In-Progress
 
 Phase 0, Foundation. The Phase 0 exit criteria from `PROPOSAL.md` §13: the app
 starts in English and in Malay, writes a log, the locale key parity check
 passes, and CI is green. Nothing here is `Completed` until all of that holds.
+
+**All four exit criteria hold as of 2026-11-08, and FEAT-0001 to FEAT-0007 are
+`Completed`.** The batch is still `In-Progress` rather than `Done`, because the
+batch closes only when *every* item in it is `Completed` and two are not:
+FEAT-0009 (the release packaging) is `In-Progress` with the Pester tests and
+`THIRD_PARTY_NOTICES.md` outstanding, and BUG-0001 is `Blocked` on the owner.
+Neither is an exit criterion, so Phase 1 is not held up by them.
+
+> **Shipped in:** app v0.1.0 and v0.2.0, 2026-11-08 — the batch spans two
+> releases, which is exactly what this file's own Format section says a task
+> version may do.
 
 The items are ordered by dependency: FEAT-0001 first, then 0002 and 0003 on top
 of it, then 0004, 0005 and 0006 in any order.
@@ -245,17 +256,20 @@ of it, then 0004, 0005 and 0006 in any order.
   `ot-i18n` gained public `message_keys`, `check_key_parity` and `probe_language` so the self-test and the unit test share one parity implementation rather than each parsing the catalogues their own way.
 
 ### FEAT-0007 · CI skeleton
-- **State:** Pending · **Spec:** docs/09-ci-cd-and-releases.md · **Phase:** 0
-- **Branch:** feat/phase-0-foundation
+- **State:** Completed · **Spec:** docs/09-ci-cd-and-releases.md · **Phase:** 0
+- **Branch:** the realignment batch, then `feat/phase-0-cli` for this bookkeeping
 - **Depends on:** FEAT-0006
-- [ ] `.forgejo/workflows/ci.yml` on the owner's machine: fmt, clippy `-D warnings`, `test --workspace --locked -j 4`, locale key parity, `cargo deny check`, release build, then `--version` and `--self-test` on the built exe — every cargo step bounded with `-j 4`
-- [ ] `.github/workflows/ci.yml` running the same checks on the mirror, guarded with `if: github.server_url == 'https://github.com'`
-- [ ] `ci.yml` does not run on `main`; documentation-only pushes do not trigger a release
-- [ ] Test: not applicable — a workflow is verified by a green run, recorded in Notes
-- [ ] Gate: fmt · clippy -D warnings · test --workspace --locked -j 4 · deny check · --self-test
-- [ ] App: not applicable — this item ships no user-visible behaviour
-- [ ] Docs: spec · README · CHANGELOG · CHECKLIST · GOTCHAS
-- **Notes:** The runner **is** this machine, so no local cargo command may run while a job is. The release workflow itself, the asset contract and the updater are Phase 9 — this item only builds the checking pipeline. Another session owns `.forgejo/`, `.github/` and `scripts/`; coordinate before editing them.
+- **Verified:** nine green `ci.yml` runs and two published releases — the run numbers are in Notes
+- [x] `.forgejo/workflows/ci.yml` on the owner's machine: fmt, clippy `-D warnings`, `test --workspace --locked -j 4`, locale key parity, `cargo deny check`, release build, then `--version` and `--self-test` on the built exe — every cargo step bounded with `-j 4`
+- [x] `.github/workflows/ci.yml` running the same checks on the mirror, guarded with `if: github.server_url == 'https://github.com'`
+- [x] `ci.yml` does not run on `main`; documentation-only pushes do not trigger a release
+- [x] Test: not applicable — a workflow is verified by a green run, recorded in Notes
+- [x] Gate: fmt · clippy -D warnings · test --workspace --locked -j 4 · deny check · --self-test
+- [x] App: not applicable — this item ships no user-visible behaviour
+- [x] Docs: spec · README · CHANGELOG · CHECKLIST · GOTCHAS
+- **Notes:** **This item sat `Pending` while its work was finished and its CHECKLIST row read `Completed`** — the two disagreed for most of Phase 0, which is the exact drift `task-auditor` exists to catch, and it was my oversight rather than anything about the work. The pipeline itself was built in the realignment batch and has been exercised continuously since.
+  The evidence this box rests on: `ci.yml` green on runs 3, 4, 9, 10, 11, 13, 15, 17 and 19 across six branches; `release.yml` published v0.1.0 (run 14) and v0.2.0 (run 18), both then verified from a clean download by `scripts/verify-release.ps1`. Docs-only pushes to `main` stayed green and published nothing while no `Cargo.toml` existed (runs 1 and 2), which is the behaviour the third box asks for. Two release runs failed first — run 5 at the version bump with no signing key configured, run 12 at the tests step on a flaky test — and both failed **safely**, before the push and publish steps, leaving no tag and no release.
+  The runner **is** this machine, so no local cargo command may run while a job is; that rule held throughout. The asset contract and the updater are Phase 9. **BUG-0001 is open against this pipeline** — the forge intermittently stops creating runs — and it is a fault in the forge rather than in these workflows, which is why it does not block this item.
 
 ### FEAT-0009 · Release packaging, signing keys and release-planner tests
 - **State:** In-Progress · **Spec:** docs/09-ci-cd-and-releases.md · **Phase:** 0
