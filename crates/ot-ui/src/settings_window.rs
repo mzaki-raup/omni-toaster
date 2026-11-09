@@ -73,6 +73,21 @@ impl LanguageChoice {
         }
     }
 
+    /// The language this choice actually means now.
+    ///
+    /// `System` is resolved against Windows each time it is asked for rather
+    /// than once at startup, so a user who changes their Windows display
+    /// language and comes back gets what they would expect.
+    pub fn resolve(self) -> Language {
+        match self {
+            Self::Fixed(language) => language,
+            Self::System => match ot_platform::user_locale() {
+                Some(tag) => Language::from_os_locale(&tag),
+                None => Language::English,
+            },
+        }
+    }
+
     /// Read a stored value. An unrecognised tag means follow Windows rather
     /// than refusing to start.
     pub fn parse(stored: Option<&str>) -> Self {
@@ -267,10 +282,42 @@ impl SettingsWindow {
         self.save();
     }
 
-    fn set_language(&mut self, choice: LanguageChoice) {
+    /// Change the language of the running app (FEAT-0016).
+    ///
+    /// Both surfaces have to follow, and they follow differently: the window
+    /// reads every string afresh on its next frame, while the tray menu was
+    /// built once and belongs to Windows until it is rebuilt. The window's
+    /// title is the third: it is set on the viewport, not drawn, so it keeps
+    /// the old language until it is told.
+    fn set_language(&mut self, choice: LanguageChoice, ctx: &egui::Context) {
         self.language = choice;
         self.settings.general.language = choice.as_setting();
+
+        let language = choice.resolve();
+        // Phase 1's exit criterion is a *timing* one — both surfaces inside a
+        // second — so the switch says how long it took. Logging the
+        // measurement makes it checkable on a user's machine, not only on
+        // this one.
+        let started = std::time::Instant::now();
+        if let Err(error) = ot_i18n::set_language(language) {
+            tracing::error!(%error, ?language, "the language could not be switched");
+            self.status = Status::Failed {
+                key: "settings-status-language-failed",
+                reason: error.to_string(),
+            };
+            return;
+        }
+
+        ctx.send_viewport_cmd(egui::ViewportCommand::Title(ot_i18n::text(
+            "settings-window-title",
+        )));
+        self.rebuild_tray(chrono::Local::now());
         self.save();
+        tracing::info!(
+            ?language,
+            micros = started.elapsed().as_micros(),
+            "the language was switched, catalogues and tray menu included"
+        );
     }
 
     /// Turn autostart on or off, then **re-read the registry**, so the toggle
@@ -346,11 +393,10 @@ impl SettingsWindow {
                 });
         });
         if chosen != self.language {
-            self.set_language(chosen);
+            self.set_language(chosen, ui.ctx());
         }
-        // Honest about what the control does today: the live switch is
-        // FEAT-0016, and a picker that appears to do nothing is worse than one
-        // that says when it takes effect.
+        // What System means is the part a user cannot guess; the switch
+        // itself is immediate and needs no explaining.
         layout::field_hint(
             ui,
             columns,
@@ -734,6 +780,7 @@ mod tests {
             "settings-status-autostart-off",
             "settings-status-autostart-failed",
             "settings-status-tray-failed",
+            "settings-status-language-failed",
             "settings-status-paused-until",
             "settings-status-paused-until-resumed",
             "settings-status-resumed",

@@ -66,7 +66,7 @@ Last updated: 2026-11-08
 | The three themes | In-Progress | FEAT-0013. The palette, the three modes and the `AppsUseLightTheme` poll are done and tested; nothing renders until FEAT-0014, so the look has not been seen on screen |
 | Settings window | In-Progress | FEAT-0014. The window, the General pane and the status line are done and checked in both languages, all three themes, at the default size and at the minimum. Closing it now hides it rather than ending the app (FEAT-0015); the Start with Windows click still needs the owner |
 | Tray icon and menu | In-Progress | FEAT-0015. The icon, the menu, pause and Quit are written and the icon is created without error in both languages; Windows 11 hides a new icon in the overflow, so clicking through the menu is the owner's check. CR-0003 covers the ghost icon a killed process leaves |
-| Live language switch | Pending | FEAT-0016 |
+| Live language switch | In-Progress | FEAT-0016. The loader is swappable and the window follows in 2.4 ms, title bar included, measured in the running app; the tray menu's half of the check is behind the same Windows 11 overflow as FEAT-0015 |
 
 ## Phase 2 — Toast Core
 > **Exit criteria:** every shape renders correctly at 100, 150 and 200 percent DPI in both languages, with no overflow.

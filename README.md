@@ -15,9 +15,11 @@ an `OmniToasterData/` folder next to the executable.
 **Status:** Phase 1 (Shell), in progress. The app starts in English or Malay,
 keeps its data in a portable folder, refuses to run twice, lives in the
 **system tray**, and opens a **settings window** with the General pane:
-language, theme and Start with Windows. Closing the window hides it; Quit is
-in the tray menu, which also pauses all notifications for half an hour, an
-hour or until you resume them. There is still no toast — that is Phase 2.
+language, theme and Start with Windows. The language switches **while it
+runs** — window, title bar and tray menu, in a few milliseconds, no restart.
+Closing the window hides it; Quit is in the tray menu, which also pauses all
+notifications for half an hour, an hour or until you resume them. There is
+still no toast — that is Phase 2.
 `--data-dir`, `--self-test`, `--version`, `--help`, `--lang` and `--worker`
 all work.
 

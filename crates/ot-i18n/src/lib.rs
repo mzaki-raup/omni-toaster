@@ -14,7 +14,8 @@
 
 use std::borrow::Cow;
 use std::path::Path;
-use std::sync::OnceLock;
+use std::path::PathBuf;
+use std::sync::{Arc, PoisonError, RwLock};
 
 use i18n_embed::LanguageLoader as _;
 use i18n_embed::fluent::FluentLanguageLoader;
@@ -91,18 +92,41 @@ impl Language {
     }
 }
 
-/// The active loader. Set once at startup by [`init`].
-static LOADER: OnceLock<FluentLanguageLoader> = OnceLock::new();
+/// What is currently being served: the loader, the language it is serving,
+/// and where its overrides came from so a switch can keep using them.
+struct Active {
+    loader: Arc<FluentLanguageLoader>,
+    language: Language,
+    overrides: Option<PathBuf>,
+}
+
+/// The active loader.
+///
+/// An `RwLock` rather than a `OnceLock` because the language changes while the
+/// app runs (FEAT-0016): a `OnceLock` can be set once and a live switch is
+/// exactly the thing it forbids. Readers take the lock only long enough to
+/// clone the `Arc`, never for the lookup itself, so a switch cannot be held up
+/// behind a frame that is drawing — and a frame cannot be held up behind a
+/// switch.
+static ACTIVE: RwLock<Option<Active>> = RwLock::new(None);
+
+/// Take the active loader, if there is one.
+///
+/// A poisoned lock is recovered from rather than propagated: a panic somewhere
+/// else in the process is no reason for every label in the app to turn into
+/// its key.
+fn active() -> Option<Arc<FluentLanguageLoader>> {
+    let guard = ACTIVE.read().unwrap_or_else(PoisonError::into_inner);
+    guard.as_ref().map(|active| Arc::clone(&active.loader))
+}
 
 /// Load the bundled locales and select `language`.
 ///
 /// English is always loaded as well as the selected language, so a missing
-/// Malay key can fall back to it. Call once.
+/// Malay key can fall back to it. Call once at startup; [`set_language`] is
+/// what changes it afterwards.
 pub fn init(language: Language) -> Result<(), I18nError> {
-    let loader = build_loader(language, None)?;
-    LOADER
-        .set(loader)
-        .map_err(|_| I18nError::AlreadyInitialised)
+    install(language, None, Installing::First)
 }
 
 /// Load the bundled locales, then apply any user overrides found in
@@ -112,10 +136,61 @@ pub fn init(language: Language) -> Result<(), I18nError> {
 /// text is used, so a user cannot break their own app by mis-editing one
 /// (`docs/05-data-model-and-storage.md`).
 pub fn init_with_overrides(language: Language, data_locales: &Path) -> Result<(), I18nError> {
-    let loader = build_loader(language, Some(data_locales))?;
-    LOADER
-        .set(loader)
-        .map_err(|_| I18nError::AlreadyInitialised)
+    install(
+        language,
+        Some(data_locales.to_path_buf()),
+        Installing::First,
+    )
+}
+
+/// Change the language of the running app.
+///
+/// Builds a loader for `language` and swaps it in, keeping whatever override
+/// folder the app was initialised with — a user who has overridden their Malay
+/// text should not lose it by switching away and back.
+///
+/// Every surface reads its strings afresh each time it draws, so the settings
+/// window follows on its next frame; the tray menu has to be **rebuilt** by
+/// its owner, because a menu is built once and then belongs to Windows
+/// (`docs/specs/tray-and-settings.md` §3).
+pub fn set_language(language: Language) -> Result<(), I18nError> {
+    let overrides = {
+        let guard = ACTIVE.read().unwrap_or_else(PoisonError::into_inner);
+        guard.as_ref().and_then(|active| active.overrides.clone())
+    };
+    install(language, overrides, Installing::Replacing)
+}
+
+/// Whether an install is the first one or a later swap.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+enum Installing {
+    /// Refuses to overwrite: two callers initialising is a defect worth
+    /// naming, not something to paper over.
+    First,
+    /// Replaces whatever is there.
+    Replacing,
+}
+
+fn install(
+    language: Language,
+    overrides: Option<PathBuf>,
+    mode: Installing,
+) -> Result<(), I18nError> {
+    // Built *before* the lock is taken: loading parses both catalogues, and
+    // doing that while holding the write lock would stall every string lookup
+    // in the app for the duration.
+    let loader = build_loader(language, overrides.as_deref())?;
+
+    let mut guard = ACTIVE.write().unwrap_or_else(PoisonError::into_inner);
+    if mode == Installing::First && guard.is_some() {
+        return Err(I18nError::AlreadyInitialised);
+    }
+    *guard = Some(Active {
+        loader: Arc::new(loader),
+        language,
+        overrides,
+    });
+    Ok(())
 }
 
 fn build_loader(
@@ -222,7 +297,7 @@ pub enum I18nError {
 /// should be a visible oddity and a warning in the log, never a crash in front
 /// of a user.
 pub fn text(key: &str) -> String {
-    let Some(loader) = LOADER.get() else {
+    let Some(loader) = active() else {
         tracing::warn!(
             key,
             "a string was requested before localization was initialised"
@@ -238,7 +313,7 @@ pub fn text(key: &str) -> String {
 
 /// Look up `key`, substituting named arguments.
 pub fn text_with(key: &str, args: &[(&str, Cow<'_, str>)]) -> String {
-    let Some(loader) = LOADER.get() else {
+    let Some(loader) = active() else {
         tracing::warn!(
             key,
             "a string was requested before localization was initialised"
@@ -336,9 +411,8 @@ pub fn probe_language(language: Language) -> Result<(), I18nError> {
 
 /// The language the loader is currently serving, for tests and for the UI.
 pub fn current_language() -> Option<Language> {
-    let loader = LOADER.get()?;
-    let tag = loader.current_language().to_string();
-    Some(Language::from_os_locale(&tag))
+    let guard = ACTIVE.read().unwrap_or_else(PoisonError::into_inner);
+    guard.as_ref().map(|active| active.language)
 }
 
 /// Initialise the global loader for a test, tolerating a sibling test having
