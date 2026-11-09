@@ -82,6 +82,17 @@ toast-position-custom = Custom Position
 # Under the position picker, when Custom Position is chosen.
 toast-position-custom-hint = Drag the preview to place it, or type the distance from the left and top edges as a percentage.
 
+## Why an imported image was refused. Sentence case, and each one names the
+## rule the file broke — "it didn't work" is not a message. $name is the
+## file's own name.
+
+error-import-too-large = { $name } is larger than 5 MB, so it was not imported.
+error-import-not-an-image = { $name } is not a PNG, JPEG or WebP picture, whatever its name says.
+error-import-too-many-pixels = { $name } is larger than 4096 by 4096 pixels, so it was not imported.
+error-import-undecodable = { $name } could not be read as a picture. It may be damaged.
+error-import-escapes = { $name } could not be copied into the OmniToaster folder.
+error-import-unreadable = { $name } could not be read.
+
 ## Toast shapes and shadows, shown in Settings ▸ Appearance.
 
 toast-shape-rectangle = Rectangle

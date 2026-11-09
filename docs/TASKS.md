@@ -220,18 +220,23 @@ shortcut (`docs/specs/toast.md` §3).
   **The first version of these tests proved nothing.** `FontDefinitions::default()` is empty in this build, because `default_fonts` is off (ADR-014) — so every glyph measured zero wide, nothing ever wrapped, and the assertions passed on text that had not been laid out. The test context now installs the machine's own UI font, and `the_test_context_has_a_font_that_measures_something` is there so the same mistake cannot come back quietly.
 
 ### FEAT-0021 · Images on a toast
-- **State:** Pending · **Spec:** docs/specs/toast.md §4, docs/06-security-and-privacy.md · **Phase:** 2
+- **State:** In-Progress · **Spec:** docs/specs/toast.md §4, docs/06-security-and-privacy.md · **Phase:** 2
 - **Branch:** feat/phase-2-toast
 - **Depends on:** FEAT-0020
-- [ ] The import path in the order security.md fixes it: size limit **before reading**, format by **magic bytes** not extension, canonicalized source and destination, copy in under a content-hashed name, bounded decode at 4096 × 4096
+- **Verified:** the gate — nine tests over the import path, one per rule it enforces
+- [x] The import path in the order security.md fixes it: size limit **before reading**, format by **magic bytes** not extension, canonicalized source and destination, copy in under a content-hashed name, bounded decode at 4096 × 4096
 - [ ] A thumbnail cached under the data folder and treated as derived data, never as the source of truth
-- [ ] Decoding and resizing happen off the UI thread; the result arrives through a bounded channel drained at frame start
-- [ ] An oversize, corrupt or mislabelled file is rejected with a localized message naming the reason — it must not hang or exhaust memory
-- [ ] Test: a `.png` that is not a PNG is refused; a 6 MB file is refused before it is read; a traversal path cannot land outside `OmniToasterData/assets/`; a decode bomb is bounded
-- [ ] Gate: fmt · clippy -D warnings · test --workspace --locked -j 4 · deny check · --self-test
-- [ ] App: import a real image, see it on a toast, and see a rejected one explain itself in both languages
+- [ ] Decoding and resizing happen off the UI thread; the result arrives through a bounded channel drained at frame start. **`import` is blocking and documented as worker-thread work**, but nothing calls it yet: the file picker is a control and lands with the Appearance pane (FEAT-0023), which is also what makes the App box reachable
+- [x] An oversize, corrupt or mislabelled file is rejected with a localized message naming the reason — it must not hang or exhaust memory
+- [x] Test: a `.png` that is not a PNG is refused; a 6 MB file is refused before it is read; a traversal path cannot land outside `OmniToasterData/assets/`; a decode bomb is bounded
+- [x] Gate: fmt · clippy -D warnings · test --workspace --locked -j 4 (174 tests) · deny check · --self-test
+- [ ] App: import a real image, see it on a toast, and see a rejected one explain itself in both languages. **Waits on the file picker** (FEAT-0023). The rules themselves are proven by test rather than by clicking: a fake PNG, an oversize file, a decode bomb, a traversal and a RIFF that is not a WebP
 - [ ] Docs: spec · CHANGELOG · CHECKLIST · GOTCHAS
 - **Notes:** The first feature in the project that takes a file from outside. Every step above is a requirement from `docs/06-security-and-privacy.md`, not a suggestion, and the decoder choice has to keep the static build and `cargo deny` clean.
+  **The decoder is `image` with default features off and only `png`, `jpeg` and `webp` on** (the owner's call, 2026-11-09). Pure Rust, so `+crt-static` and the portable exe are unaffected; MIT/Apache-2.0, so `deny.toml` needed nothing; and the exe carries no decoder for a format the app refuses anyway, which makes the attack surface the three formats we validate rather than the twenty the crate can read. `sha2` comes with it for the content-hashed names the schema already expects.
+  **The bomb is refused on its header, not its pixels.** A PNG claiming 50000 × 50000 is a few dozen bytes on disk and 10 GB decoded; `into_dimensions` reads the header alone, so the refusal costs nothing and nothing ever allocates for it. The decode check runs *before* the copy, so a bomb never reaches the data folder at all.
+  **"RIFF" alone is not a WebP** — a RIFF wave file starts with the same four bytes, so the payload tag at offset 8 is what settles it. Sniffing the container alone would accept an audio file as a picture.
+  **The keys are `error-import-*`, not `import-error-*`.** The project's own key-prefix test refused the first spelling: `import-` is not a documented prefix and an import failure is an error, so it belongs under the prefix that already exists. The test said so before a human had to.
 
 ### FEAT-0022 · Placement, DPI, monitors and stacking
 - **State:** In-Progress · **Spec:** docs/specs/toast.md §7 · **Phase:** 2

@@ -84,6 +84,20 @@ tray-icon = { version = "0.24.2", default-features = false }
 toml = "1.2.1"
 serde = { version = "1.0.229", features = ["derive"] }
 
+# Decoding an imported image (FEAT-0021). Default features are off and only
+# the three formats the spec allows are on - PNG, JPEG and WebP - so the exe
+# carries no decoder for a format the app refuses anyway, and the attack
+# surface is the three we validate rather than the twenty the crate can read.
+# Pure Rust, so `+crt-static` and the portable build are unaffected.
+image = { version = "0.25.10", default-features = false, features = [
+    "png",
+    "jpeg",
+    "webp",
+] }
+
+# Content-hashed asset names (docs/05-data-model-and-storage.md).
+sha2 = "0.11.1"
+
 # Test-only.
 tempfile = "3.27.0"
 

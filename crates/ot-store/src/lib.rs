@@ -8,6 +8,8 @@
 //! See `docs/05-data-model-and-storage.md` for the schema and
 //! `docs/03-architecture.md` for where this crate sits.
 
+pub mod assets;
+
 use std::path::{Path, PathBuf};
 
 use rusqlite::{Connection, OptionalExtension as _, params};

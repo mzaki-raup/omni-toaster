@@ -78,6 +78,16 @@ toast-position-custom = Kedudukan Tersuai
 # Di bawah pemilih kedudukan, apabila Kedudukan Tersuai dipilih.
 toast-position-custom-hint = Seret pratonton untuk meletakkannya, atau taipkan jarak dari tepi kiri dan atas dalam peratus.
 
+## Sebab imej yang diimport ditolak. Huruf biasa, dan setiap satu menyatakan
+## peraturan yang dilanggar oleh fail itu. $name ialah nama fail itu sendiri.
+
+error-import-too-large = { $name } lebih besar daripada 5 MB, jadi ia tidak diimport.
+error-import-not-an-image = { $name } bukan gambar PNG, JPEG atau WebP, walau apa pun namanya.
+error-import-too-many-pixels = { $name } lebih besar daripada 4096 kali 4096 piksel, jadi ia tidak diimport.
+error-import-undecodable = { $name } tidak dapat dibaca sebagai gambar. Ia mungkin rosak.
+error-import-escapes = { $name } tidak dapat disalin ke dalam folder OmniToaster.
+error-import-unreadable = { $name } tidak dapat dibaca.
+
 ## Bentuk dan bayang toast, ditunjukkan dalam Tetapan ▸ Penampilan.
 
 toast-shape-rectangle = Segi Empat Tepat
