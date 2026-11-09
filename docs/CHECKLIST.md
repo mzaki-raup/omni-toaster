@@ -55,17 +55,18 @@ Last updated: 2026-11-08
 | Migration 001 | Completed | FEAT-0005. `ot-store` with bundled SQLite, WAL, foreign keys enforced, `STRICT` tables; 8 tests; verified in the app that the database appears and a second run does not re-migrate |
 
 ## Phase 1 — Shell
-> **Exit criteria:** the tray works, the theme switches, autostart survives a reboot, and a language switch updates the tray and settings in under one second.
+> **Exit criteria:** the tray works, the theme switches, autostart survives a
+> reboot, and a language switch updates the tray and the settings window in
+> under one second.
 
 | Item | State | Notes |
 |---|---|---|
-| eframe settings window | Pending | |
-| Tray icon and menu | Pending | |
-| Single instance | Pending | Named mutex |
-| Theme system (System, Dark, Light; Dark default) | Pending | |
-| Start with Windows | Pending | HKCU `Run`, refreshed each launch |
-| Language selector | Pending | |
-| Live language switch | Pending | No restart, no migration |
+| Single instance | Completed | FEAT-0011. Named mutex per role; proven across two real processes, not just within one |
+| Start with Windows | In-Progress | FEAT-0012. Write, read-back and the moved-folder refresh all verified against the real registry; the enable toggle and the reboot check wait on the settings window |
+| The three themes | In-Progress | FEAT-0013. The palette, the three modes and the `AppsUseLightTheme` poll are done and tested; nothing renders until FEAT-0014, so the look has not been seen on screen |
+| Settings window | Pending | FEAT-0014 |
+| Tray icon and menu | Pending | FEAT-0015 |
+| Live language switch | Pending | FEAT-0016 |
 
 ## Phase 2 — Toast Core
 > **Exit criteria:** every shape renders correctly at 100, 150 and 200 percent DPI in both languages, with no overflow.

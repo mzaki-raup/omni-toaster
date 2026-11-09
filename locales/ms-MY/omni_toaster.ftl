@@ -23,6 +23,9 @@ error-data-dir-not-creatable = OmniToaster tidak dapat membuat folder datanya { 
 error-exe-location-unknown = OmniToaster tidak dapat mengenal pasti lokasi pemasangannya.
 # $path ialah folder tempat aplikasi menyimpan lognya.
 notice-log-location = Log disimpan dalam { $path }.
+# Ditunjukkan apabila salinan kedua dimulakan. Bukan ralat: aplikasi yang
+# diminta pengguna sudah berjalan, jadi salinan kedua berundur dengan senyap.
+notice-already-running = OmniToaster sudah berjalan. Cari ikonnya dalam kawasan pemberitahuan.
 # $path ialah folder laporan ranap.
 error-crash-loop = OmniToaster berhenti dimulakan semula selepas ranap berulang kali. Laporan ranap ada dalam { $path }.
 
@@ -47,6 +50,13 @@ help-footer = Semua yang ditulis oleh OmniToaster kekal dalam folder datanya. Ti
 language-system = Sama seperti Windows
 language-en-us = English
 language-ms-my = Bahasa Melayu
+
+## Nama tema, ditunjukkan dalam Tetapan ▸ Umum ▸ Tema, mengikut susunan
+## pemilihnya. Gelap ialah tetapan lalai; Sistem mengikut Windows.
+
+settings-theme-system = Sistem
+settings-theme-dark = Gelap
+settings-theme-light = Cerah
 
 ## Pola tarikh, masa dan nombor. Hanya ot_i18n::format_datetime membaca
 ## pola ini; tiada tempat lain memformat tarikh atau nombor

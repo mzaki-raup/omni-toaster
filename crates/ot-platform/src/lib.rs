@@ -9,6 +9,12 @@
 //! See `docs/03-architecture.md` for where this crate sits and which crates it
 //! may depend on.
 
+pub mod autostart;
 pub mod locale;
+pub mod single_instance;
+pub mod system_theme;
 
+pub use autostart::{Autostart, AutostartError};
 pub use locale::user_locale;
+pub use single_instance::{InstanceError, InstanceGuard, Role};
+pub use system_theme::{SystemTheme, system_theme};

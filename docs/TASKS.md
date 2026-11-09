@@ -126,10 +126,113 @@ Refs: BUG-0003
 
 ```
 Version : v0.0.2
-Features : FEAT-0011
+Features : FEAT-0017
 Bugs : BUG-0003
 Change Request : CR-0002
 ```
+
+---
+
+## v0.1.0 — Planned
+
+Phase 1, Shell. The Phase 1 exit criteria from `docs/07-roadmap.md`: the tray
+works, the theme switches, autostart survives a reboot, and a language switch
+updates the tray and the settings window in under one second.
+
+Ordered by dependency: FEAT-0011 to FEAT-0013 are self-contained `ot-platform`
+work and come first; FEAT-0014 needs a theme to render; FEAT-0015 needs a
+window to open; FEAT-0016 needs both so it has something to re-render.
+
+### FEAT-0011 · Single instance
+- **State:** Completed · **Spec:** docs/specs/tray-and-settings.md §5 · **Phase:** 1
+- **Branch:** feat/phase-1-shell
+- **Verified:** the gate, plus a cross-process test that runs two real executables
+- [x] `ot_platform::single_instance` taking a named mutex, with a distinct name per role so the supervisor and its worker cannot collide
+- [x] A second launch does not start a second tray icon or a second scheduler; it exits 0 with a localized notice. **Signalling the first instance is deferred to FEAT-0014**, which is where a window exists to focus
+- [x] The guard releases on exit, including an abnormal one, so a killed process does not lock the app out
+- [x] Test: taking the guard twice in one process fails the second time; the name differs per role; dropping it lets a later take succeed
+- [x] Gate: fmt · clippy -D warnings · test --workspace --locked -j 4 · deny check · --self-test
+- [x] App: two overlapping processes — the second bows out and the database is left alone
+- [x] Docs: spec · CHANGELOG · CHECKLIST
+- **Notes:** Windows-only code, so it lives in `ot-platform` behind a capability-named interface with a non-Windows stub (`docs/03-architecture.md`). Focusing the existing window is FEAT-0014's job; this item only has to refuse the second start.
+  **A named mutex, not a lock file**, because the kernel releases it when the process ends however it ends — a lock file left by a killed process would lock the app out of its own slot until someone deleted it. The names are `Local\`-scoped so two users logged into the same machine each get their own instance; `Global\` would let one user's copy lock another out.
+  The unit tests can only prove the guard within one process, which is not the thing that matters. `a_second_instance_bows_out_instead_of_starting` in `tests/cli.rs` runs two real executables overlapping, asserts the second exits **0** with the notice — not a failure code, since a double-click on a running app is not an error — and asserts it never reached the database. It then starts a third after the first exits, proving the guard is released.
+  That test needed a debug-only `--hold-ms`, because until FEAT-0014 there is no window keeping the process alive, so the first copy would exit before a second could start. It is compiled out of release and goes away when the window lands.
+
+### FEAT-0012 · Start with Windows
+- **State:** In-Progress · **Spec:** docs/specs/tray-and-settings.md §7 · **Phase:** 1
+- **Branch:** feat/phase-1-shell
+- **Verified:** the gate, a real-registry round trip, and the refresh path driven end to end
+- [x] `ot_platform::autostart` writing a single HKCU `Run` value, only when the user enables it
+- [x] Refreshed on every launch, so a moved or renamed portable folder still starts
+- [x] Disabling removes the value; the toggle **reads the registry** rather than trusting `settings.toml`, so a value removed by other means shows as off
+- [x] Test: enable writes the value with the current exe path; a moved exe rewrites it; disable removes it; reading an absent value reports off rather than erroring
+- [x] Gate: fmt · clippy -D warnings · test --workspace --locked -j 4 · deny check · --self-test
+- [ ] App: enable it, reboot, confirm the app starts; move the folder, launch, confirm the value updated. **The refresh half is done** — a stale path was seeded under the real value name, the app rewrote it to this folder, and the value was removed afterwards. The **enable and reboot** half needs the settings window's toggle (FEAT-0014) and a reboot, so it stays open
+- [ ] Docs: spec · README · CHANGELOG · CHECKLIST · GOTCHAS — README waits until the toggle is visible
+- **Notes:** The **one** registry write the app is allowed (ADR-004), so the test must prove nothing else is written. Tests touch the real HKCU hive, so they use a value name scoped to the test run and remove it afterwards — never the production `OmniToaster` value, or running the suite would disable a user's autostart.
+
+### FEAT-0013 · The three themes and system detection
+- **State:** In-Progress · **Spec:** docs/04-ui-design.md · **Phase:** 1
+- **Branch:** feat/phase-1-shell
+- **Verified:** the gate, a cross-check of the reading against the live registry, and the System path driven through every reading
+- [x] `ot_platform::system_theme` reading `AppsUseLightTheme`, rechecked every 5 seconds so a Windows change is followed without a restart
+- [x] `ot_ui::theme` with the semantic tokens from `docs/04-ui-design.md` — `surface`, `surface_raised`, `text`, `text_dim`, `accent`, `border`, `danger` — for Dark and Light
+- [x] Dark is the default; System follows Windows; nothing hard-codes a colour
+- [x] Hover changes fill or border only — never size, position or glyph scale
+- [x] Test: each mode resolves to the expected palette; System follows a change in the detected value; every token is defined in both palettes
+- [x] Gate: fmt · clippy -D warnings · test --workspace --locked -j 4 · deny check · --self-test
+- [ ] App: switch all three modes and change the Windows setting with System selected. **Nothing renders yet** — there is no window until FEAT-0014, so this cannot be looked at and stays open
+- [ ] Docs: spec · README · CHANGELOG · CHECKLIST · GOTCHAS — README waits until a themed screen exists to describe
+- **Notes:** The recheck is a poll because Windows offers no cheap notification for this worth a message loop here. 5 seconds is the spec's number.
+  **`AppsUseLightTheme`, not `SystemUsesLightTheme`**: the second is the taskbar and Start menu, the two can differ, and following the wrong one would put OmniToaster in light mode while every other app stayed dark. The name reads backwards from how it is spoken about — 1 means light — so the test cross-checks the reading against `reg query` rather than only asserting it does not panic.
+  A reading Windows declines (an older build, a profile that never set it) is not an error: it falls back to Dark, the app's default. Guessing light would flash a white window at someone who chose dark everywhere.
+  `poll` is split from a pure `resolve(mode, reading)` plus a private `adopt(reading)`, so the test can drive System through Light, Dark and absent without changing the machine's own Windows setting — a test that only read the live value could not prove the app follows a change.
+  `widget.expansion = 0.0` on all five widget states: egui grows widgets under the pointer by default, which `.claude/rules/ui.md` forbids outright, and it is the kind of thing only a human notices, so it is asserted.
+  Adding `egui` failed `cargo deny` twice over — `epaint_default_fonts` ships the Ubuntu font under licences not on the allow list, and `ab_glyph` reaches the unmaintained `ttf-parser`. ADR-014 turns `default_fonts` off rather than allowing a font licence the app does not need; the advisory is ignored with its reason.
+
+### FEAT-0014 · The settings window
+- **State:** Pending · **Spec:** docs/04-ui-design.md · **Phase:** 1
+- **Branch:** feat/phase-1-shell
+- **Depends on:** FEAT-0013
+- [ ] An eframe window: a left rail of sections, a content pane, a status line
+- [ ] The **General** pane only: language, theme, start with Windows, and the status line. The other panes belong to later phases and must not be stubbed in as empty tabs
+- [ ] Closing the window does not quit the app
+- [ ] Every string through Fluent in both catalogues; Title Case for labels, sentence case for hints
+- [ ] Test: the General pane's strings all resolve; no literal reaches a widget
+- [ ] Gate: fmt · clippy -D warnings · test --workspace --locked -j 4 · deny check · --self-test
+- [ ] App: `--data-dir ./tmp-data` — the window opens, every control works, and it looks right at the default size and narrow, in both languages and all three themes
+- [ ] Docs: spec · README · CHANGELOG · CHECKLIST · GOTCHAS
+- **Notes:** `egui_kittest` covers widget snapshots, but synthetic clicks never form double-clicks, so any double-click path is exercised in the running app. The window is where FEAT-0011's "focus the existing instance" lands.
+
+### FEAT-0015 · Tray icon and menu
+- **State:** Pending · **Spec:** docs/specs/tray-and-settings.md §3, §4 · **Phase:** 1
+- **Branch:** feat/phase-1-shell
+- **Depends on:** FEAT-0014
+- [ ] `tray-icon` + `muda`, using the generated `assets/icon/` sizes
+- [ ] Left-click opens or focuses the settings window
+- [ ] Right-click menu: Open Settings · Pause All Notifications (30 min · 1 hour · until resumed) · Test Toast · Snooze Last · Quit — each with a glyph, the same glyph for the same verb
+- [ ] The menu is **rebuilt** on a language change rather than created once
+- [ ] Pause state and its expiry visible in the tooltip and the status line; Quit confirms while a pause is active
+- [ ] A stale icon left by a killed process is removed on the next start
+- [ ] Test: the menu's labels all resolve in both languages; the pause windows compute the right expiry, including across midnight
+- [ ] Gate: fmt · clippy -D warnings · test --workspace --locked -j 4 · deny check · --self-test
+- [ ] App: every menu item, both languages, and the icon at 100% and 200% DPI
+- [ ] Docs: spec · README (screenshot) · CHANGELOG · CHECKLIST · GOTCHAS
+- **Notes:** Test Toast and Snooze Last have nothing to act on until Phases 2 and 4; they are present and disabled rather than hidden, so the menu's shape does not change under the user later. Pause suppresses toasts and announcements but **never Azan** — that is Settings ▸ Prayer's job.
+
+### FEAT-0016 · Live language switch
+- **State:** Pending · **Spec:** docs/10-i18n.md · **Phase:** 1
+- **Branch:** feat/phase-1-shell
+- **Depends on:** FEAT-0014, FEAT-0015
+- [ ] Changing the language re-renders the settings window and **rebuilds** the tray menu, with no restart
+- [ ] The whole switch completes in under one second — the phase's exit criterion
+- [ ] `system` follows the Windows display language; an explicit choice overrides it and persists
+- [ ] Test: switching rebuilds the menu rather than reusing it; the active language changes what `text()` returns; the setting round-trips through the store
+- [ ] Gate: fmt · clippy -D warnings · test --workspace --locked -j 4 · deny check · --self-test
+- [ ] App: switch English to Malay to System and watch both surfaces change, timed
+- [ ] Docs: spec · README · CHANGELOG · CHECKLIST · GOTCHAS
+- **Notes:** The global Fluent loader is a `OnceLock` set at startup (FEAT-0004), which a live switch cannot re-set. This item has to replace that with something swappable — an `ArcSwap` or an `RwLock` — and the existing `ensure_initialised` test helper and its two callers move with it.
 
 ---
 
@@ -328,20 +431,35 @@ of it, then 0004, 0005 and 0006 in any order.
   **A second mistake, found afterwards and worth more than the first:** this was committed as `style:`, which `scripts/next-release.ps1` lists in `$NoReleaseTypes` — no version bump and **no line in the release notes**. So the rename reached users in v0.2.0 carried by the `feat(store)` commit in the same push, and v0.2.0's notes do not mention it. Released sections are never hand-edited, so that cannot be corrected now. A change to user-visible text is `fix:` or `feat:` however cosmetic the diff looks; `docs/09` and `docs/GOTCHAS.md` now say so. The same review also found `docs/09`'s bump table wrongly listing `refactor:` and `build:` as patch bumps when the script treats both as no-release.
 
 ### BUG-0002 · The GitHub mirror handoff skips silently, so no release reaches GitHub
-- **State:** Blocked · **Spec:** docs/09-ci-cd-and-releases.md · **Phase:** 0
+- **State:** In-Progress · **Spec:** docs/09-ci-cd-and-releases.md · **Phase:** 0
 - **Blocked on:** the owner — the fix needs two forge secrets only they can set
 - **Source:** the owner asked why GitHub had built no release
 - [x] Establish what is actually missing
 - [x] Set `OT_GITHUB_MIRROR_URL` and `OT_GITHUB_MIRROR_TOKEN` as repository secrets on the Forgejo instance, and `OT_MINISIGN_KEY` on GitHub so its release job can sign — the owner set all three on 2026-11-08. **Unverified from here:** secret names are not readable, so the only proof is a release run that mirrors successfully
-- [ ] Back-fill the three tags GitHub never received. Either a `workflow_dispatch` of GitHub's Release workflow per tag from its Actions tab, or pushing each tag to the GitHub remote. Both create public releases, so both are the owner's to trigger
+- [x] Back-fill v0.1.0 to v0.4.0, which GitHub never received. **Done 2026-11-08:** the owner pushed the four tags, which started nothing on their own as predicted, and all four builds were dispatched from here and went green — five releases on GitHub, six assets each. One correction was needed afterwards: back-filling in ascending order left `/releases/latest` answering v0.4.0, a downgrade for a v0.4.1 user, so v0.4.1 was re-marked latest. Previously: needed one command from the owner, then this session can finish it. All four tag commits are already reachable from GitHub's `main`, so only the refs are missing — no objects to transfer. Creating them from here is refused by this session's permission guard, both as a `git push` of the tags and as a `gh api` ref creation, which is the right call for an action that creates public surface. The owner runs:
+  ```
+  git push https://github.com/mzaki-raup/omni-toaster.git v0.1.0 v0.2.0 v0.3.0 v0.4.0
+  ```
+  That pushes the annotated tags as they exist on Forgejo, and starts nothing on its own: every tagged commit is a `chore(release): … [skip ci]`, which GitHub honours. Dispatching the builds afterwards is **not** blocked — `gh workflow run release.yml -f tag=<tag>` worked for v0.4.1 — so the builds can be driven from here once the refs exist
 - [x] Make the skip **loud**: every exit path in `scripts/push-to-mirror.ps1` now reports through `Write-Outcome`, which emits a `::warning::` annotation and a line into `$GITHUB_STEP_SUMMARY`. The unconfigured case still exits 0 — a fork or a forge without a mirror must be able to release — but it can no longer pass for success. Exercised both paths locally: the annotation prints and the summary line is written
 - [x] Decide whether an unconfigured mirror should fail the release outright once the secrets exist. **It should not, and does not need to:** once the secrets exist the script gets past the guard, and a push that is refused already throws. The only case that still exits 0 is genuinely-absent configuration, which is the fork case. A warning covers it
-- [ ] Test: a release run reports what it did with the mirror either way — **pending**, this needs the next release to go out; the local exercise covers the script, not the step
+- [x] Test: a release run reports what it did with the mirror either way. Forgejo run 30 carried the reporting change and its mirror step worked end to end — the tag reached GitHub and the release workflow was dispatched. The summary line's *rendering* is unverified, since Forgejo's job logs need a token this session does not have; the step's behaviour is proven by its effects
 - [ ] Docs: spec · CHANGELOG · CHECKLIST · GOTCHAS
 - **Notes:** Found 2026-11-08. GitHub has **no tags and no releases**, while Forgejo has v0.1.0, v0.2.0 and v0.3.0. `.github/workflows/release.yml` triggers on `push: tags: ['v*']`, so with no tag it has never run — GitHub's 10 Actions runs are all `ci.yml`, all green.
   The tags never arrive because the Forgejo release job's last step runs `scripts/push-to-mirror.ps1`, which opens with: if `OT_GITHUB_MIRROR_URL` or `OT_GITHUB_MIRROR_TOKEN` is unset, print "GitHub mirror not configured … skipping" and **`exit 0`**. The job stays green having mirrored nothing. That silence is the actual defect — the missing secrets are just configuration.
   `main` *is* current on GitHub, which is what makes this easy to miss: `origin` carries GitHub as a second **push url**, so `git push origin main` reaches both. That pushes the refs named on the command line, never tags, so branches mirror as a side effect of ordinary pushes while tags depend entirely on the step that is skipping.
   **I may have caused it.** Earlier the same day I renamed every `HS_*` pipeline variable to `OT_*`, including these two. If they had been configured under the old names, that rename broke the handoff — and because the script exits 0, nothing said so. I cannot read secret names from here to tell whether they were ever set for this repository, so the honest position is that the rename is a candidate cause rather than a proven one.
+  **Fixed and proven, 2026-11-08.** After the owner replaced the secret with the actual secret key (timestamp moved 15:21:57Z → 15:28:33Z), a re-dispatch went green on every step, including *Publish the release* and *Verify the published release as a user would*. GitHub now carries **v0.4.1 with all six contract assets**, signed and self-verified. The full chain works: Forgejo publishes, pushes the tag to GitHub, dispatches GitHub's workflow, and GitHub builds, signs and publishes its own copy.
+  Three distinct faults sat on top of each other here, which is why it took four attempts: the mirror secrets were absent so the step skipped silently; then the token lacked Contents/Workflows/Actions write so the tag push 403'd; then `OT_MINISIGN_KEY` was set under the wrong name, then set to the public key rather than the secret key. Each one masked the next.
+
+  **Second GitHub attempt: the secret exists now, and is the wrong key.** `gh secret list` confirmed `OT_MINISIGN_KEY` was created at 15:21:57Z, eight minutes *after* the failed run started at 15:13:10Z — so the earlier one-second guard failure was simply the secret not existing yet. The repository also carries `OT_SIGNING_KEY` from 04:06, which is the wrong name and is what the first attempt set.
+  Re-dispatching the workflow got much further: **the build succeeded in 1m04s**, which proves `build.rs` and the icon's resource embedding work on a GitHub-hosted runner — a genuine unknown until now, since GitHub had never built any release. It then failed at `rsign sign` with **`failed to fill whole buffer`**, rsign's way of saying the key material is shorter than a secret key. The likeliest cause is that the secret holds the **public** key: both halves are two-line files beginning `untrusted comment:`, so the script's shape check passes and only rsign notices. The discriminator is the second line's length — 56 characters for the public key, roughly 140 to 210 for an unencrypted secret key.
+  Whatever is pasted must also be the **same** secret key Forgejo signs with, because `keys/minisign.pub` is committed and `build-and-package.ps1` runs `rsign verify` against it straight after signing.
+  **Tooling note that should have come first:** `gh` is installed and authenticated here as `mzaki-raup` with `repo` and `workflow` scopes. That makes secret *names*, job logs and `workflow run` all readable or runnable from this session. Two diagnostic rounds were spent inferring from step timings and asking the owner to read logs before this was checked.
+
+  **The mirror itself is fixed (2026-11-08).** After the owner widened the token, Forgejo release run 30 went green, `v0.4.1` reached GitHub, and the script dispatched GitHub's release workflow — which is the only way it starts, since the tagged commit is `chore(release): … [skip ci]` and GitHub honours that marker. So the 403 was the whole of the mirror problem and all three permissions were needed.
+  **GitHub's own release build then failed, which is a separate fault.** Its job steps are public even though its logs are not: fmt, clippy, tests, the `rsign2` install and the release notes all passed, and **"Build, package and sign" failed after 1 second**. That timing is the diagnosis — a cargo build takes minutes and the rsign password timeout is 60 s, so it threw before doing any work. The first statement in that step is `if (-not $env:OT_MINISIGN_KEY) { throw … }`, so **`OT_MINISIGN_KEY` is arriving empty in the GitHub job**. The repository is not a fork and the run was a `workflow_dispatch` on `main`, so neither of the usual reasons secrets go missing applies; the likely causes are that it was set as a *variable* rather than a *secret*, at *environment* scope when the job declares no environment, on the wrong repository, or under a slightly different name. It must also be the **same** key as Forgejo's, because `keys/minisign.pub` is committed and `build-and-package.ps1` runs `rsign verify` against it immediately after signing — a separate GitHub keypair would sign fine and fail verification.
+
   **Root cause, from run 27's log: a 403 on the tag push.**
 
 ```
@@ -376,6 +494,8 @@ fatal: unable to access '***/': The requested URL returned error: 403
 - **Notes:** My first diagnosis — the `on.push` filter's `!` negation — was wrong, and no code was changed for it. My second — "a transient outage, closed" — was also wrong, just less so.
   **Occurrence 1, 05:26.** `docs/realign-scaffolding` reached Forgejo at `2a720c0` (`git ls-remote` confirmed it) and 20 minutes of polling showed `total_count` still 1. The runner logged `fetching a task timed out after 5s` and `failed to fetch task: unavailable: 502 Bad Gateway` at 05:40. A later push of `feat/phase-0-foundation` triggered `ci.yml` in seconds with the filter untouched, which is what ruled the filter out.
   **Occurrences 2 and 3, ~13:30 onward.** `feat/phase-0-store` at `c084482` and `cr/product-name-omnitoaster` at `e7ec0f0` both reached the remote and neither produced a run. This time the diagnostic came back completely clean: forge responding on `/api/v1/version` with `9.0.3+gitea-1.22.0`, `gitea-runner` service **Running**, and **no error of any kind** in the runner log — whose last task fetch was 13:12:45, consistent with no task existing to fetch rather than a failure to fetch one. So the 502 in occurrence 1 was a symptom of the same underlying stall, not its cause.
+  **Occurrence 4, 2026-11-08 evening.** `cab96a0` on `bug/mirror-skips-silently` reached the remote — `git ls-remote` confirms it — and no run was created; `total_count` stayed at 28. Same clean diagnostic: forge answering on `/api/v1/version`, `gitea-runner` **Running**. This time the runner log does carry a network error, `failed to fetch task … wsarecv: An existing connection was forcibly closed by the remote host`, against `104.21.50.102` — a Cloudflare address, not the origin. So the pattern across four occurrences is a **connection between the runner and the forge being dropped by whatever sits in front of it**, which shows up as a 502, a forcible close, or nothing at all depending on timing. That points at the proxy or tunnel rather than at Forgejo itself, which is worth checking before anything in the forge's own configuration.
+
   **Why this matters beyond the annoyance:** the project's mandated flow is branch → push → CI green → merge, and it cannot be followed while runs are not created. Work either waits indefinitely or merges unverified. That decision is the owner's, which is why this is `Blocked` rather than carried further here.
   The diagnostic order itself is worth keeping and is in `docs/GOTCHAS.md`: confirm the commit is on the remote, read the runner log, then check the forge — before touching a workflow that is probably innocent.
 
