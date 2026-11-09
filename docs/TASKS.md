@@ -255,17 +255,21 @@ window to open; FEAT-0016 needs both so it has something to re-render.
 - **Notes:** `tray-icon` 0.24 has no way to pass a `GUID` to `Shell_NotifyIcon`, so this is either a patch upstream or the one Win32 call made directly in `ot-platform`. Worth doing before Phase 8, when the supervisor starts restarting workers and every crash would otherwise leave another ghost.
 
 ### FEAT-0016 · Live language switch
-- **State:** Pending · **Spec:** docs/10-i18n.md · **Phase:** 1
-- **Branch:** feat/phase-1-shell
+- **State:** In-Progress · **Spec:** docs/10-i18n.md · **Phase:** 1
+- **Branch:** feat/live-language
 - **Depends on:** FEAT-0014, FEAT-0015
-- [ ] Changing the language re-renders the settings window and **rebuilds** the tray menu, with no restart
-- [ ] The whole switch completes in under one second — the phase's exit criterion
-- [ ] `system` follows the Windows display language; an explicit choice overrides it and persists
-- [ ] Test: switching rebuilds the menu rather than reusing it; the active language changes what `text()` returns; the setting round-trips through the store
-- [ ] Gate: fmt · clippy -D warnings · test --workspace --locked -j 4 · deny check · --self-test
-- [ ] App: switch English to Malay to System and watch both surfaces change, timed
-- [ ] Docs: spec · README · CHANGELOG · CHECKLIST · GOTCHAS
-- **Notes:** The global Fluent loader is a `OnceLock` set at startup (FEAT-0004), which a live switch cannot re-set. This item has to replace that with something swappable — an `ArcSwap` or an `RwLock` — and the existing `ensure_initialised` test helper and its two callers move with it.
+- **Verified:** the gate, plus the running app — English to Malay to System, with the switch timing itself
+- [x] Changing the language re-renders the settings window and **rebuilds** the tray menu, with no restart. The window's *title* needed its own command: it is set on the viewport rather than drawn, so it kept the old language until it was told
+- [x] The whole switch completes in under one second — **measured at 2.4 ms** (English to Malay) and 1.4 ms (Malay to System), catalogues and tray menu included. The switch logs its own duration, so the claim is checkable on a user's machine
+- [x] `system` follows the Windows display language; an explicit choice overrides it and persists. Resolved against Windows each time it is chosen rather than once at startup, and stored as the *absence* of a language key, which is what makes "follow Windows" survive a restart
+- [x] Test: the active language changes what `text()` returns, including under substitution; the setting round-trips through `settings.toml`; a second `init` is refused rather than becoming a silent way to switch
+- [x] Gate: fmt · clippy -D warnings · test --workspace --locked -j 4 (120 tests) · deny check · --self-test
+- [ ] App: switch English to Malay to System and watch both surfaces change, timed. **The window half is done and photographed** — every label, the hint, the status line and the title bar, in both directions. The **tray menu** half cannot be seen from this session for the same reason as FEAT-0015: Windows 11 hides a new icon in the overflow. The rebuild is called on the measured path and its labels come from the same catalogue the test checks
+- [x] Docs: spec · README · CHANGELOG · CHECKLIST · GOTCHAS
+- **Notes:** The global Fluent loader was a `OnceLock` set at startup (FEAT-0004), which a live switch cannot re-set. It is now an `RwLock<Option<Active>>` holding the loader, the language it is serving and the override folder it was built with — so a user who has overridden their Malay text does not lose it by switching away and back.
+  **The loader is built before the write lock is taken.** Loading parses both catalogues; doing that under the lock would stall every string lookup in the app for the duration, and a frame that is drawing would block a switch as surely as a switch would block a frame. Readers hold the lock only long enough to clone an `Arc`.
+  **A poisoned lock is recovered from, not propagated.** A panic somewhere else in the process is no reason for every label in the app to turn into its key.
+  **The switching tests live in their own integration test — their own process.** A unit test that asserts English and a test that switches to Malay cannot share one, and it is the same global-state race that made a release flaky earlier in this project. For the same reason it is *one* test and not several: `cargo test` runs the tests in one file in parallel threads.
 
 ---
 
@@ -369,7 +373,7 @@ of it, then 0004, 0005 and 0006 in any order.
 - [x] App: `--data-dir ./tmp-data` — `data/omnitoaster.db` appears on first run, `PRAGMA user_version` reads 1, and a second run does not re-migrate
 - [x] Docs: spec · README · CHANGELOG · CHECKLIST · GOTCHAS
 - **Notes:** Migrations `002_locale_keys.sql` and `003_jakim.sql` belong to Phases 4 and 5 and are **not** written here — `category` therefore has no key columns and no `authored_lang` yet, which is what `docs/05` assigns to `002`. 8 tests cover the migration, the table set, idempotence, the settings round trip, and three things the schema would otherwise only claim: that foreign keys are actually enforced (SQLite defaults them **off**, which would make every `ON DELETE` clause decorative), that a delete cascades, and that `STRICT` rejects a text value in an INTEGER column. A database at a *higher* `user_version` than the build knows is refused with a message telling the user to update, rather than being written to with an older schema.
-  **Decisions.** `rusqlite` uses the `bundled` feature, so SQLite is compiled from source into the exe and a portable folder can never meet a missing or ancient system `sqlite3.dll`; it also makes `STRICT` tables safe to rely on, since the bundled engine is new enough. Verified that this does not break portability: the release exe has **zero** dynamic CRT imports, so the C compilation picked up `+crt-static` correctly, and the binary grew from 970 KB to 2.6 MB — still one file. `Store` has a hand-written `Debug` that prints only the schema version, because the contents are the user's reminders and should not reach a log line or a crash report by accident. Cargo selected `rusqlite` 0.40.2 rather than 0.41.1 because the newer one needs Rust 1.89 and the workspace declares 1.88; worth revisiting only if 0.40 picks up an advisory.
+  **Decisions.** `rusqlite` uses the `bundled` feature, so SQLite is compiled from source into the exe and a portable folder can never meet a missing or ancient system `sqlite3.dll`; it also makes `STRICT` tables safe to rely on, since the bundled engine is new enough. Verified that this does not break portability: the release exe has **zero** dynamic CRT imports, so the C compilation picked up `+crt-static` correctly, and the binary grew from 970 KB to 2.6 MB — still one file. `Store` has a hand-written `Debug` that prints only the schema version, because the contents are the user's reminders and should not reach a log line or a crash report by accident. Cargo selected `rusqlite` 0.40.2 rather than 0.41.1 because the newer one needs Rust 1.89 and the workspace declares 1.88; worth revisiting only if 0.40 picks up an advisory. **It did, on 2026-11-09** — RUSTSEC-2026-0459 against the SQLite it bundles — and BUG-0004 took the upgrade and the MSRV with it.
   **A false positive worth knowing about:** `scripts/verify-release.ps1` reports "`--version` and `--self-test` OK" for v0.1.0, but `--self-test` does not exist yet, so the flag is ignored and the exit code is 0 for the wrong reason. That check only becomes real with FEAT-0006.
 
 ### FEAT-0006 · The `--self-test` and `--data-dir` flags
@@ -462,6 +466,20 @@ of it, then 0004, 0005 and 0006 in any order.
 - [x] Docs: spec · README · CHANGELOG · CHECKLIST
 - **Notes:** 66 occurrences across 32 files, done as a literal replacement with no regex or escapes — the only kind of scripted edit this project trusts (`docs/GOTCHAS.md`). The real defect was that the product had **two** spellings: the exe, the data folder, the package, `docs/CHANGELOG.md` and `docs/CHECKLIST.md` already said `OmniToaster`, while the proposal, the specs and every user-visible string said `Omni Toaster`. Two things were deliberately left alone: `Feasibility Study.txt`, which records the owner's own original words and is a historical input rather than a document we maintain; and the released `0.1.0` section of `docs/CHANGELOG.md`, which belongs to the release workflow and is never hand-edited — it happens to contain no occurrence anyway, since its entries are commit subjects. **v0.1.0 shipped with the old spelling** and cannot be changed retrospectively; v0.2.0 carries the fix.
   **A second mistake, found afterwards and worth more than the first:** this was committed as `style:`, which `scripts/next-release.ps1` lists in `$NoReleaseTypes` — no version bump and **no line in the release notes**. So the rename reached users in v0.2.0 carried by the `feat(store)` commit in the same push, and v0.2.0's notes do not mention it. Released sections are never hand-edited, so that cannot be corrected now. A change to user-visible text is `fix:` or `feat:` however cosmetic the diff looks; `docs/09` and `docs/GOTCHAS.md` now say so. The same review also found `docs/09`'s bump table wrongly listing `refactor:` and `build:` as patch bumps when the script treats both as no-release.
+
+### BUG-0004 · The bundled SQLite carried CVE-2026-119375
+- **State:** Completed · **Spec:** docs/06-security-and-privacy.md · **Phase:** 1
+- **Branch:** feat/live-language
+- **Source:** `cargo deny check` went red mid-branch on RUSTSEC-2026-0459, with no change of our own — exactly the case the testing rules describe
+- **Verified:** the gate, plus the bundled header now reading `SQLITE_VERSION "3.54.1"`
+- [x] Establish whether the code reaches the vulnerable path. **It barely does, and the fix was taken anyway:** SQLite before 3.54.0 can return uninitialized page-cache memory when a database is opened alongside a `-wal` file whose page size differs, and only a process that opens a database a less trusted party could have written is exposed. OmniToaster opens one database, the one it created, in its own portable folder. But saying "unreachable" and shipping a known-vulnerable SQLite is not the same as not shipping one
+- [x] `rusqlite` 0.40.2 → 0.41.1 and `libsqlite3-sys` 0.38.2 → 0.39.1, which bundles SQLite 3.54.1. No API change was needed
+- [x] MSRV 1.88 → 1.89, which `rusqlite` 0.41 requires. The declared floor follows the versions that carry the security fixes rather than the fixes waiting on the floor
+- [x] Gate: fmt · clippy -D warnings · test --workspace --locked -j 4 (120 tests) · deny check · --self-test
+- [ ] App: not applicable — no behaviour changed. The migration path is covered by the existing fresh-and-existing database tests, which pass against the new engine
+- [x] Docs: CHANGELOG · TASKS
+- **Notes:** The advisory landed while an unrelated feature branch was open, which is exactly why `cargo deny check` is in the local gate: its result does not depend on the branch, so one that was green yesterday goes red today with nothing of its own changed.
+  Worth saying plainly rather than implying a shipped vulnerability: **the app has never opened a database it did not create**, so no release was exposed in a way that mattered. The upgrade removes the code from the binary regardless.
 
 ### BUG-0003 · A path dependency pinned `0.4.0`, so the first minor release could not resolve
 - **State:** Completed · **Spec:** docs/08-decisions.md (ADR-001) · **Phase:** 0

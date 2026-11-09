@@ -91,9 +91,9 @@ tray-quit-confirm-stay = Keep Running
 settings-window-title = Settings
 settings-section-general = General
 settings-language = Language
-# Under the language picker. The window re-renders in the new language only
-# after a restart until the live switch lands.
-settings-language-hint = The window changes language the next time OmniToaster starts.
+# Under the language picker. The switch is immediate, so the hint explains the
+# only part a user cannot guess: what "Same as Windows" follows.
+settings-language-hint = Same as Windows follows your Windows display language. A choice here applies straight away and is remembered.
 settings-theme = Theme
 settings-startup = Start with Windows
 settings-startup-hint = OmniToaster starts when you sign in. Moving the folder is fine — the setting follows it.
@@ -109,6 +109,7 @@ settings-status-paused-until = Notifications are paused until { $time }.
 settings-status-paused-until-resumed = Notifications are paused until you resume them.
 settings-status-resumed = Notifications are on again.
 settings-status-tray-failed = The tray icon could not be created, so closing this window is the only way out: { $reason }
+settings-status-language-failed = The language could not be changed: { $reason }
 settings-status-saved = Your settings are saved.
 settings-status-autostart-on = OmniToaster will start with Windows.
 settings-status-autostart-off = OmniToaster will not start with Windows.

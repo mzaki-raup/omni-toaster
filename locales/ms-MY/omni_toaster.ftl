@@ -87,9 +87,10 @@ tray-quit-confirm-stay = Teruskan Berjalan
 settings-window-title = Tetapan
 settings-section-general = Umum
 settings-language = Bahasa
-# Di bawah pemilih bahasa. Tetingkap hanya bertukar bahasa selepas dimulakan
-# semula sehingga penukaran serta-merta siap.
-settings-language-hint = Tetingkap ini bertukar bahasa pada kali seterusnya OmniToaster dimulakan.
+# Di bawah pemilih bahasa. Penukaran berlaku serta-merta, jadi petunjuk ini
+# menerangkan satu-satunya perkara yang pengguna tidak dapat teka: apa yang
+# diikuti oleh "Sama seperti Windows".
+settings-language-hint = Sama seperti Windows mengikut bahasa paparan Windows anda. Pilihan di sini digunakan serta-merta dan diingati.
 settings-theme = Tema
 settings-startup = Mula dengan Windows
 settings-startup-hint = OmniToaster dimulakan apabila anda menandatangani masuk. Folder ini boleh dipindahkan — tetapan akan mengikutinya.
@@ -105,6 +106,7 @@ settings-status-paused-until = Pemberitahuan dijeda sehingga { $time }.
 settings-status-paused-until-resumed = Pemberitahuan dijeda sehingga anda menyambungnya semula.
 settings-status-resumed = Pemberitahuan dihidupkan semula.
 settings-status-tray-failed = Ikon dulang tidak dapat dibuat, jadi menutup tetingkap ini ialah satu-satunya jalan keluar: { $reason }
+settings-status-language-failed = Bahasa tidak dapat ditukar: { $reason }
 settings-status-saved = Tetapan anda telah disimpan.
 settings-status-autostart-on = OmniToaster akan mula dengan Windows.
 settings-status-autostart-off = OmniToaster tidak akan mula dengan Windows.
