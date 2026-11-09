@@ -141,11 +141,23 @@ cargo run -p omnitoaster -- --data-dir ./tmp-data
 
 ## 12. Open questions
 
-1. Whether "pill" shape earns its place alongside rounded rectangle, or is just
-   radius 40 under another name.
+1. ~~Whether "pill" shape earns its place alongside rounded rectangle, or is
+   just radius 40 under another name.~~ **Answered (FEAT-0017): it earns its
+   place.** A pill's radius is half its height, so it stays a pill as the
+   toast grows; a fixed radius of 40 stops being half the height the moment
+   the toast is taller than 80 px. The shape decides its own radius —
+   rectangle is always 0, pill is always half the height, and only the rounded
+   rectangle uses the number on the slider.
 2. Whether Genie's mesh warp is affordable on integrated graphics, or should be
    gated behind a capability check rather than a frame-time fallback.
 
-## What is implemented (2026-11-08)
+## What is implemented (2026-11-09)
 
-Nothing. Phase 2 has not started; this file is the requirement.
+**`ToastSpec` and its limits** (FEAT-0017). The model in `ot_toast::spec`,
+with every limit in §4's table enforced by `ToastSpec::clamped` rather than by
+the UI: the model is what the renderer trusts, and a settings file edited by
+hand is as real an input as a slider. Each clamp logs the field and both
+values. A non-finite value takes the field's default instead, because
+`f32::clamp` keeps a NaN and a NaN width draws a toast of no size.
+
+Nothing renders yet — the viewport is FEAT-0018 and the renderer FEAT-0019.

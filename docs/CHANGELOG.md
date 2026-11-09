@@ -7,6 +7,11 @@ Format: [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) · Versioning:
 
 ## Unreleased
 
+### Added
+
+- `ot_toast::spec` (FEAT-0017): `ToastSpec`, the only thing the toast renderer will draw, so the Settings preview and a real toast cannot diverge. Every limit in the toast spec's table — width, height, radius, opacity, border, duration, visible count, actions — is enforced on the model rather than in the UI, so a `settings.toml` edited by hand to width 20 is clamped with a logged warning instead of reaching the renderer. A non-finite value takes the field's default, because `f32::clamp` keeps a NaN.
+- Phase 2 is filed as FEAT-0017 to FEAT-0024 under task version v0.2.0.
+
 - (nothing yet)
 
 ## 0.8.0 — 2026-11-09

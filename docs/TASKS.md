@@ -133,6 +133,133 @@ Change Request : CR-0002
 
 ---
 
+## v0.2.0 — Planned
+
+Phase 2, Toast Core. The Phase 2 exit criteria from `docs/07-roadmap.md`:
+every shape renders correctly at 100%, 150% and 200% DPI in both languages
+with no overflow, and the preview matches the real toast.
+
+Ordered by dependency: FEAT-0017 is the model everything else draws, so it
+comes first; FEAT-0018 gives it a window to live in and FEAT-0019 paints it;
+FEAT-0020 and FEAT-0021 fill it with content; FEAT-0022 decides where it goes;
+FEAT-0023 shows it inside Settings, which is the half of the exit criteria
+that cannot be met by the renderer alone; FEAT-0024 is the evidence.
+
+**The rule that governs the whole phase**: the renderer draws a `ToastSpec`
+and nothing else. The preview and a real toast therefore cannot diverge, and
+anything that renders without going through a `ToastSpec` is a defect, not a
+shortcut (`docs/specs/toast.md` §3).
+
+### FEAT-0017 · `ToastSpec`, and its limits enforced in the model
+- **State:** Completed · **Spec:** docs/specs/toast.md §3, §4 · **Phase:** 2
+- **Branch:** feat/phase-2-toast
+- **Verified:** the gate — 11 tests over the model, including the hand-edited-file case
+- [x] `ToastSpec` with its four parts — content, style, animation, behaviour — as `docs/specs/toast.md` §3 names them
+- [x] Every limit in §4's table enforced **on construction and on load**, not only in the UI: width 280–600, height 80–300, radius 0–40, opacity 40–100%, border 0–4, duration 3–60 s, persistent capped at 10 minutes, 1–5 visible toasts, 1–3 actions
+- [x] A settings file edited by hand to width 20 is clamped, with a logged warning naming the field and both values
+- [x] Defaults that match the spec's table, so a spec with nothing set is a usable toast
+- [x] Test: every field clamps at both ends; a round trip through TOML keeps what it was given; a hand-edited out-of-range value loads clamped rather than refused
+- [x] Gate: fmt · clippy -D warnings · test --workspace --locked -j 4 (131 tests) · deny check · --self-test
+- [x] App: not applicable on its own — nothing renders yet. The App box belongs to FEAT-0019
+- [x] Docs: spec · CHANGELOG
+- **Notes:** Clamping belongs in the model because the model is what the renderer trusts. A UI that clamps and a file that does not is the same defect wearing a hat.
+  **A NaN is replaced by the default rather than clamped.** `f32::clamp` panics on a NaN bound and quietly keeps a NaN value, so a NaN width would reach the renderer intact and draw a toast of no size at all. Every non-finite value takes the field's default and says so in the log.
+  **The spec's first open question is answered here:** a pill is its own shape, not radius 40 under another name. Its radius is half its height, so it stays a pill as the toast grows; a fixed 40 stops being half the height the moment it does. `a_pill_stays_a_pill_at_any_height_and_a_rectangle_stays_square` is the test, and `docs/specs/toast.md` §12 now records the answer.
+
+### FEAT-0018 · The toast viewport
+- **State:** Pending · **Spec:** docs/specs/toast.md §1, §7 · **Phase:** 2
+- **Branch:** feat/phase-2-toast
+- **Depends on:** FEAT-0017
+- [ ] A borderless, transparent, always-on-top viewport that **never steals focus** and appears in neither the taskbar nor Alt+Tab
+- [ ] Opening and closing one on demand, with more than one alive at once
+- [ ] It is not a Windows Action Center notification: the app paints its own
+- [ ] Test: the viewport builder carries the flags the spec names, so a later edit that drops one fails rather than being noticed by a user
+- [ ] Gate: fmt · clippy -D warnings · test --workspace --locked -j 4 · deny check · --self-test
+- [ ] App: a toast appears over a full-screen window, takes no focus from what is being typed into, and is absent from Alt+Tab
+- [ ] Docs: spec · CHANGELOG · GOTCHAS
+- **Notes:** eframe's second viewport is the obvious route; whether an always-on-top no-focus window is reachable through `ViewportBuilder` alone or needs a Win32 call in `ot-platform` is the thing to establish first, and the answer belongs in the spec.
+
+### FEAT-0019 · Shape, radius, colour, opacity, border and shadow
+- **State:** Pending · **Spec:** docs/specs/toast.md §4 · **Phase:** 2
+- **Branch:** feat/phase-2-toast
+- **Depends on:** FEAT-0018
+- [ ] Rectangle, rounded rectangle and pill, each drawn from the `ToastSpec` alone
+- [ ] Corner radius 0–40, solid and gradient backgrounds, opacity 40–100%, border 0–4 px, shadow off / soft / strong
+- [ ] Nothing hard-codes a colour: the palette comes from the theme and the spec's accent overrides exactly what the template says it does
+- [ ] Test: `egui_kittest` snapshots per shape, in both languages, with the longest Malay strings
+- [ ] Gate: fmt · clippy -D warnings · test --workspace --locked -j 4 · deny check · --self-test
+- [ ] App: every shape at 100%, 150% and 200% DPI, in both languages, with no overflow — **this is half of the phase's exit criteria** and is checked in the running app, not in a snapshot
+- [ ] Docs: spec · README (screenshot) · CHANGELOG · CHECKLIST · GOTCHAS
+- **Notes:** Settles the spec's first open question — whether pill earns its place beside rounded rectangle, or is radius 40 under another name. The answer goes in the spec either way.
+
+### FEAT-0020 · Header, text and the ellipsis rules
+- **State:** Pending · **Spec:** docs/specs/toast.md §4 · **Phase:** 2
+- **Branch:** feat/phase-2-toast
+- **Depends on:** FEAT-0019
+- [ ] Header: icon, title, app name, timestamp, each toggleable, the timestamp through `ot_i18n`'s one formatter
+- [ ] Body text with bold and italic
+- [ ] Boxes size to content in both languages; a long word wraps or truncates with an ellipsis, and **nothing overflows the toast**
+- [ ] An ellipsis is for user text that can be any length, never for the app's own labels while there is room
+- [ ] Test: the longest Malay strings in every slot; a single unbroken 200-character word; the pseudo-locale (about 40% longer) catching what Malay does not
+- [ ] Gate: fmt · clippy -D warnings · test --workspace --locked -j 4 · deny check · --self-test
+- [ ] App: a long Malay title, a long body and a long app name together, at each DPI
+- [ ] Docs: spec · CHANGELOG · CHECKLIST
+- **Notes:** Malay runs up to 30% wider than English, so the Malay layout is the one that decides the design, not the English one.
+
+### FEAT-0021 · Images on a toast
+- **State:** Pending · **Spec:** docs/specs/toast.md §4, docs/06-security-and-privacy.md · **Phase:** 2
+- **Branch:** feat/phase-2-toast
+- **Depends on:** FEAT-0020
+- [ ] The import path in the order security.md fixes it: size limit **before reading**, format by **magic bytes** not extension, canonicalized source and destination, copy in under a content-hashed name, bounded decode at 4096 × 4096
+- [ ] A thumbnail cached under the data folder and treated as derived data, never as the source of truth
+- [ ] Decoding and resizing happen off the UI thread; the result arrives through a bounded channel drained at frame start
+- [ ] An oversize, corrupt or mislabelled file is rejected with a localized message naming the reason — it must not hang or exhaust memory
+- [ ] Test: a `.png` that is not a PNG is refused; a 6 MB file is refused before it is read; a traversal path cannot land outside `OmniToasterData/assets/`; a decode bomb is bounded
+- [ ] Gate: fmt · clippy -D warnings · test --workspace --locked -j 4 · deny check · --self-test
+- [ ] App: import a real image, see it on a toast, and see a rejected one explain itself in both languages
+- [ ] Docs: spec · CHANGELOG · CHECKLIST · GOTCHAS
+- **Notes:** The first feature in the project that takes a file from outside. Every step above is a requirement from `docs/06-security-and-privacy.md`, not a suggestion, and the decoder choice has to keep the static build and `cargo deny` clean.
+
+### FEAT-0022 · Placement, DPI, monitors and stacking
+- **State:** Pending · **Spec:** docs/specs/toast.md §7 · **Phase:** 2
+- **Branch:** feat/phase-2-toast
+- **Depends on:** FEAT-0019
+- [ ] A chosen screen and corner or edge, worked out from **that monitor's work area** and never from the primary monitor's rect
+- [ ] Never covers the taskbar; stacks toward the screen centre
+- [ ] 1–5 visible with a configurable gap; the surplus queues and appears as earlier ones retire
+- [ ] Correct from 100% to 250% DPI, including a DPI change mid-session and a monitor unplugged while a toast is visible
+- [ ] Test: the placement arithmetic against a table of work areas, corners and DPI scales, including a monitor whose origin is negative — the second-monitor case that catches a primary-rect assumption
+- [ ] Gate: fmt · clippy -D warnings · test --workspace --locked -j 4 · deny check · --self-test
+- [ ] App: each corner at 100%, 150% and 200%; a stack of five; **a second monitor and a 250% display are checks this machine may not be able to make**, and whatever cannot be made is recorded as not made
+- [ ] Docs: spec · CHANGELOG · CHECKLIST · GOTCHAS
+- **Notes:** All monitor and work-area queries are Win32, so they live in `ot-platform` behind a capability-named interface, with the arithmetic in `ot-toast` where it can be tested without a screen.
+
+### FEAT-0023 · The Settings ▸ Appearance preview
+- **State:** Pending · **Spec:** docs/specs/toast.md §3, docs/04-ui-design.md · **Phase:** 2
+- **Branch:** feat/phase-2-toast
+- **Depends on:** FEAT-0019, FEAT-0020
+- [ ] An Appearance pane: shape, radius, width, height, colours, opacity, border, shadow, header toggles — each the control `docs/04-ui-design.md` names for its value
+- [ ] A live preview drawn by **the same renderer, from the same `ToastSpec`**, so it cannot diverge from the real thing
+- [ ] A style option the preview cannot show is a design bug, not a preview limitation
+- [ ] Test: the pane's strings all resolve in both catalogues; building a spec from the pane and from a template produce the same spec for the same inputs
+- [ ] Gate: fmt · clippy -D warnings · test --workspace --locked -j 4 · deny check · --self-test
+- [ ] App: change a style, look at the preview, fire the real toast, compare them side by side — **this is the other half of the phase's exit criteria**
+- [ ] Docs: spec · README (screenshot) · CHANGELOG · CHECKLIST
+- **Notes:** The preview is the reason `ToastSpec` exists. Building one from a reminder plus its template is one function used by both the preview and the scheduler, so there is one path and not two.
+
+### FEAT-0024 · Snapshot and length evidence
+- **State:** Pending · **Spec:** docs/specs/toast.md §11 · **Phase:** 2
+- **Branch:** feat/phase-2-toast
+- **Depends on:** FEAT-0019, FEAT-0020, FEAT-0023
+- [ ] `egui_kittest` snapshots for every shape, in both languages, with the longest Malay strings
+- [ ] A pseudo-locale (about 40% longer than English) built and used to catch layout breakage Malay does not
+- [ ] The snapshots run in CI and fail on a visual change, so a layout regression is caught by the gate rather than by a user
+- [ ] Test: that is what this item is
+- [ ] Gate: fmt · clippy -D warnings · test --workspace --locked -j 4 · deny check · --self-test
+- [ ] App: not applicable — this item is the evidence for the others
+- [ ] Docs: spec · CHANGELOG · CHECKLIST · GOTCHAS
+- **Notes:** Synthetic clicks never form double-clicks, so any double-click path stays an in-app check. Snapshots are a floor, not a substitute for looking: the phase's exit criteria say *in the running app*.
+
 ## v0.1.0 — Planned
 
 Phase 1, Shell. The Phase 1 exit criteria from `docs/07-roadmap.md`: the tray

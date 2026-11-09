@@ -6,3 +6,7 @@
 //!
 //! See `docs/03-architecture.md` for where this crate sits and which crates it
 //! may depend on.
+
+pub mod spec;
+
+pub use spec::{Behaviour, Content, Rgba, Shadow, Shape, Style, ToastSpec};
