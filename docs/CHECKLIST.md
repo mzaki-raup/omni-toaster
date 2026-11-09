@@ -82,7 +82,7 @@ Last updated: 2026-11-08
 | Header | Pending | Icon, title, app name, timestamp |
 | Text | Pending | Bold and italic |
 | Image | In-Progress | Magic-byte validation, pixel limit and the image library are verified in the app; thumbnails are decoded on demand and held as textures, not yet cached on disk |
-| Stacking | Pending | 1–5 visible, configurable gap |
+| Stacking | Completed | 1–5 visible, configurable gap — set in Settings ▸ Appearance and checked with five real toasts and a queue of two |
 | DPI and multi-monitor positioning | Pending | |
 | Ellipsis rules | Pending | Nothing overflows the toast |
 | Malay length testing | Pending | Longest Malay strings |

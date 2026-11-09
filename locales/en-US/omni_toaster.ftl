@@ -160,6 +160,10 @@ settings-toast-header-app-name = App Name
 settings-toast-header-time = Time
 settings-toast-position = Position
 settings-toast-position-custom = Custom Point
+# How many toasts may be on screen at once (1 to 5); the rest wait their turn.
+settings-toast-max-visible = Visible at Once
+# The space between one toast and the next in a stack, in pixels.
+settings-toast-stack-gap = Gap Between Toasts
 settings-toast-position-x = From Left
 settings-toast-position-y = From Top
 settings-toast-map-hint = Click a dot to choose a position, or drag to place the toast anywhere on the screen.

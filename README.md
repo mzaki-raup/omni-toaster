@@ -208,6 +208,12 @@ Settings ▸ General, the first screen the app has:
 The same pane in Bahasa Melayu is
 [settings-general-ms.png](docs/screenshots/settings-general-ms.png).
 
+Settings ▸ Appearance, where the preview is drawn by the same code as a real toast:
+
+![Settings ▸ Appearance with the live preview](docs/screenshots/settings-appearance.png)
+
+In Bahasa Melayu: [settings-appearance-ms.png](docs/screenshots/settings-appearance-ms.png).
+
 Settings ▸ Picture Library, where pictures are uploaded once and named:
 
 ![Settings ▸ Picture Library with three pictures](docs/screenshots/settings-pictures.png)
@@ -224,7 +230,6 @@ taken as its phase lands:
 | `docs/screenshots/toast-dark.png` | A toast in the Dark theme | Phase 2 |
 | `docs/screenshots/toast-glass.png` | The Acrylic glass effect | Phase 3 |
 | `docs/screenshots/tray-menu.png` | The tray icon and its menu | Phase 1 |
-| `docs/screenshots/settings-toast.png` | The toast style editor and its live preview | Phase 2 |
 | `docs/screenshots/settings-prayer.png` | Settings → Prayer, zone confirmation and source label | Phase 5 |
 | `docs/screenshots/animation-in.gif` | The in and out animations | Phase 3 |
 | `docs/screenshots/flow-reminder.gif` | Creating a reminder and seeing it fire | Phase 4 |

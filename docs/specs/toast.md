@@ -310,6 +310,16 @@ point. The preview is drawn by `Prefs::spec`, `render::frame` and
 — and was checked side by side against one. The style is saved to the
 `[toast]` table of `settings.toml` when the pointer is released.
 
+**Stacking controls** (FEAT-0022). Settings ▸ Appearance sets how many toasts
+show at once (Visible at Once, 1–5) and the gap between them (0–40 px), under the
+position map. The Custom Point fields sit below the map too, so that choosing a
+custom point by dragging never moves the map under the pointer.
+
+**Text colour.** A toast's text takes the Dark palette's colours on a dark
+background and the Light palette's on a light one, judged by the background's
+luminance (a gradient by both ends) — never by the window's theme, which a
+toast does not follow.
+
 **Placement** (FEAT-0022, in part). The nine presets and the custom point, in
 `ot_toast::placement`, worked out against the chosen monitor's work area with
 no screen in sight so the arithmetic can be tested against a table — including

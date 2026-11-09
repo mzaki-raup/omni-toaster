@@ -8,7 +8,7 @@ consumers.
 
 ## Status
 
-**Four captured so far:** `settings-pictures.png` and `settings-pictures-ms.png`, the Picture Library in both languages, taken from a debug build on a scratch `--data-dir` when FEAT-0025 landed, with three plain coloured test pictures; and `settings-general.png` and `settings-general-ms.png`,
+**Six captured so far:** `settings-appearance.png` and `settings-appearance-ms.png` on a fresh scratch folder; `settings-pictures.png` and `settings-pictures-ms.png`, the Picture Library in both languages, taken from a debug build on a scratch `--data-dir` when FEAT-0025 landed, with three plain coloured test pictures; and `settings-general.png` and `settings-general-ms.png`,
 the Settings ▸ General pane in both languages, taken from a release build on a
 scratch `--data-dir` when FEAT-0014 landed. Everything else below is still a
 placeholder name reserved for the phase that first produces that screen; the
@@ -30,7 +30,8 @@ quantised with `magick <in> -strip -colors 256 -define png:compression-level=9
 | `toast-shapes.png` | Rectangle, rounded and pill side by side | Phase 2 |
 | `settings-general.png` | Settings ▸ General, English | Phase 1 |
 | `settings-general-ms.png` | Settings ▸ General, Bahasa Melayu | Phase 1 |
-| `settings-appearance.png` | Settings ▸ Appearance with the live preview | Phase 2 |
+| `settings-appearance.png` | Settings ▸ Appearance with the live preview | Phase 2 (captured) |
+| `settings-appearance-ms.png` | The same, Bahasa Melayu | Phase 2 (captured) |
 | `settings-pictures.png` | Settings ▸ Picture Library with three pictures, English | Phase 2 (captured) |
 | `settings-pictures-ms.png` | The same, Bahasa Melayu, asking before removing a picture in use | Phase 2 (captured) |
 | `settings-prayer.png` | Settings ▸ Prayer with the zone picker and source label | Phase 5 |

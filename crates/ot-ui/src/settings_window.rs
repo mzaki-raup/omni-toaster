@@ -698,7 +698,6 @@ impl SettingsWindow {
         }
         let pictures = self.images.pictures();
 
-        let tokens = self.theme.tokens();
         ot_toast::viewport::show_all(ctx, &self.toasts, work_area, move |ui, spec| {
             // The whole toast comes from the spec: the renderer reads no
             // setting and no category, which is what keeps the preview and
@@ -719,12 +718,15 @@ impl SettingsWindow {
                 .image
                 .as_deref()
                 .and_then(|path| pictures.get(path).copied());
+            // The toast's own background picks the text colour, not the
+            // window's theme, which a toast does not follow.
+            let text = Tokens::for_toast(spec);
             ot_toast::content::draw(
                 ui.painter(),
                 content,
                 spec,
-                tokens.text,
-                tokens.text_dim,
+                text.text,
+                text.text_dim,
                 icon,
                 image,
             );
@@ -794,7 +796,7 @@ impl SettingsWindow {
                 ui.add_space(layout::ROW_GAP);
                 let spec = self.test_spec();
                 let (icon, image) = self.pictures_for(&spec.content);
-                crate::appearance::preview(ui, columns, &spec, tokens, icon, image);
+                crate::appearance::preview(ui, columns, &spec, icon, image);
                 ui.add_space(layout::ROW_GAP);
                 ui.horizontal_wrapped(|ui| {
                     ui.add_space(columns.label);
@@ -1616,6 +1618,8 @@ mod tests {
             "settings-toast-header-time",
             "settings-toast-position",
             "settings-toast-position-custom",
+            "settings-toast-max-visible",
+            "settings-toast-stack-gap",
             "settings-toast-position-x",
             "settings-toast-position-y",
             "settings-toast-map-hint",

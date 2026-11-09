@@ -9,6 +9,7 @@ Format: [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) · Versioning:
 
 ### Added
 
+- Settings ▸ Appearance: **Visible at Once** (1–5) and **Gap Between Toasts** (0–40 px). The toast model already honoured both; nothing let the user set them.
 - Settings ▸ Picture Library (FEAT-0025): upload a picture once, give it a name, and use it in any notification as its icon or its image. The same picture uploaded twice is one entry under its first name. Every icon and image picker chooses from the library, with thumbnails and Upload a New Picture at the end of the list. Removing a picture something still uses asks first and says what uses it; whatever used it falls back to the app icon or to no image, and the file is deleted with it. Migration `002_asset_label.sql` adds the name. The library runs on a thread of its own with its own database connection, so the window never waits on SQLite.
 - Layout tests (FEAT-0024): the real Settings ▸ Appearance controls driven headlessly by `egui_kittest` — no window, no GPU — in English, Malay and a pseudo-locale about 40% longer, at 100%, 150% and 200%, at the default and narrow widths, failing the gate if any widget runs past its pane; the toast's own text and content rect checked the same way for every shape. `ot_i18n::set_pseudo` is the pseudo-locale.
 - `ot_toast::spec` (FEAT-0017): `ToastSpec`, the only thing the toast renderer will draw, so the Settings preview and a real toast cannot diverge. Every limit in the toast spec's table — width, height, radius, opacity, border, duration, visible count, actions — is enforced on the model rather than in the UI, so a `settings.toml` edited by hand to width 20 is clamped with a logged warning instead of reaching the renderer. A non-finite value takes the field's default, because `f32::clamp` keeps a NaN.
@@ -25,6 +26,11 @@ Format: [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) · Versioning:
 - `ot_platform::toast_window`: the Win32 call that actually keeps a toast out of Alt+Tab. `ViewportBuilder::with_taskbar(false)` removes the taskbar button but leaves the extended style alone, so the window stayed in Alt+Tab with `WS_EX_APPWINDOW` set.
 - Phase 2 is filed as FEAT-0017 to FEAT-0024 under task version v0.2.0.
 - Toast placement is specified as **nine presets plus a custom point** (`docs/specs/toast.md` §7, FEAT-0022): four corners, four edges and the centre of the chosen monitor's work area, with Bottom Right the default, or any point the user drags the preview to or types as a percentage. A custom point is stored as a fraction of the work area rather than as pixels, so it means the same place after a resolution change or on another monitor, and it addresses the toast's anchor corner so a toast near an edge grows inward. The nine position names are in both catalogues.
+
+### Fixed
+
+- A toast's text colour now follows the toast's own background, not the window's theme. In the Light theme the title and body were near-black on the default dark toast, on the preview and on every real toast alike.
+- Dragging on the position map moves the toast with the pointer: the Custom Point row now sits under the map, where appearing mid-drag no longer pushes the map down. Its two fields show one decimal each instead of whatever the drag left.
 
 ## 0.8.0 — 2026-11-09
 

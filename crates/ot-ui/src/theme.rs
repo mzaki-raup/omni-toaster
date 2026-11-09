@@ -119,6 +119,41 @@ impl Tokens {
             Appearance::Light => Self::LIGHT,
         }
     }
+
+    /// The palette a toast's text is drawn in, chosen by the toast's **own**
+    /// background rather than the window's theme: the background is the
+    /// user's colour and stays dark in the Light theme unless they change it,
+    /// so text from the window's palette could be near-black on near-black.
+    ///
+    /// The Dark palette's text on a dark fill, the Light palette's on a light
+    /// one. A gradient is judged by the average of its two ends.
+    pub fn for_toast(spec: &ot_toast::ToastSpec) -> Self {
+        let start = luminance(spec.style.background);
+        let fill = spec
+            .style
+            .background_to
+            .map_or(start, |end| (start + luminance(end)) / 2.0);
+        // Where black and white text have equal contrast against the fill.
+        if fill > 0.179 {
+            Self::LIGHT
+        } else {
+            Self::DARK
+        }
+    }
+}
+
+/// Relative luminance (WCAG 2), from 0 for black to 1 for white.
+fn luminance(colour: ot_toast::Rgba) -> f32 {
+    let (r, g, b, _) = colour.parts();
+    let linear = |channel: u8| {
+        let c = f32::from(channel) / 255.0;
+        if c <= 0.039_28 {
+            c / 12.92
+        } else {
+            ((c + 0.055) / 1.055).powf(2.4)
+        }
+    };
+    0.2126 * linear(r) + 0.7152 * linear(g) + 0.0722 * linear(b)
 }
 
 /// What a mode draws as, given what Windows said. Pure, so the System path
@@ -273,6 +308,29 @@ impl Theme {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn a_toasts_text_follows_its_own_background_not_the_window_theme() {
+        // The bug: in the Light theme the toast's text took the Light
+        // palette's near-black while the toast kept its dark default fill,
+        // so the title all but vanished on the preview and on a real toast.
+        let mut spec = ot_toast::ToastSpec::default();
+        assert_eq!(
+            Tokens::for_toast(&spec),
+            Tokens::DARK,
+            "the dark default fill"
+        );
+
+        spec.style.background = ot_toast::Rgba::new(0xff, 0xff, 0xff, 0xff);
+        assert_eq!(Tokens::for_toast(&spec), Tokens::LIGHT, "a white fill");
+
+        // A gradient is judged by both ends: white into black is mid-grey,
+        // which reads better with dark text than with light.
+        spec.style.background_to = Some(ot_toast::Rgba::new(0x00, 0x00, 0x00, 0xff));
+        assert_eq!(Tokens::for_toast(&spec), Tokens::LIGHT);
+        spec.style.background = ot_toast::Rgba::new(0x10, 0x20, 0x40, 0xff);
+        assert_eq!(Tokens::for_toast(&spec), Tokens::DARK, "navy into black");
+    }
 
     #[test]
     fn dark_is_the_default() {

@@ -176,7 +176,14 @@ pub fn position_controls(
     );
     ui.add_space(layout::ROW_GAP);
 
-    if let Position::Custom { x, y } = position {
+    // The map before the Custom Point row, not after it: dragging on the map
+    // turns a preset into a custom point, and a row appearing *above* the map
+    // mid-drag pushed the map down under the pointer, so the toast moved less
+    // than the hand did.
+    changed |= position_map(ui, columns, prefs, work_area, tokens);
+    ui.add_space(layout::ROW_GAP);
+
+    if let Position::Custom { x, y } = &mut prefs.behaviour.position {
         let mut x_percent = *x * 100.0;
         let mut y_percent = *y * 100.0;
         layout::labelled_row(
@@ -190,6 +197,10 @@ pub fn position_controls(
                         egui::DragValue::new(&mut x_percent)
                             .range(0.0..=100.0)
                             .speed(0.5)
+                            // One decimal on both, whatever the drag left
+                            // behind: "86.25 %" beside "89.634 %" read as two
+                            // different kinds of value.
+                            .fixed_decimals(1)
                             .suffix(" %"),
                     )
                     .changed();
@@ -200,6 +211,7 @@ pub fn position_controls(
                         egui::DragValue::new(&mut y_percent)
                             .range(0.0..=100.0)
                             .speed(0.5)
+                            .fixed_decimals(1)
                             .suffix(" %"),
                     )
                     .changed();
@@ -216,7 +228,34 @@ pub fn position_controls(
         ui.add_space(layout::ROW_GAP);
     }
 
-    changed |= position_map(ui, columns, prefs, work_area, tokens);
+    // How many show at once, and how far apart; the rest queue
+    // (`docs/specs/toast.md` §7).
+    let visible = ot_toast::spec::MAX_VISIBLE;
+    let width = columns.field;
+    layout::labelled_row(
+        ui,
+        columns,
+        &ot_i18n::text("settings-toast-max-visible"),
+        |ui| {
+            ui.spacing_mut().slider_width = (width - 80.0).max(80.0);
+            changed |= ui
+                .add(egui::Slider::new(
+                    &mut prefs.behaviour.max_visible,
+                    visible.min..=visible.max,
+                ))
+                .changed();
+        },
+    );
+    ui.add_space(layout::ROW_GAP);
+    changed |= slider_row(
+        ui,
+        columns,
+        "settings-toast-stack-gap",
+        &mut prefs.behaviour.stack_gap,
+        ot_toast::spec::STACK_GAP,
+        " px",
+        true,
+    );
     changed
 }
 
@@ -326,7 +365,6 @@ pub fn preview(
     ui: &mut egui::Ui,
     columns: Columns,
     spec: &ot_toast::ToastSpec,
-    tokens: Tokens,
     icon: Option<ot_toast::content::Picture>,
     image: Option<ot_toast::content::Picture>,
 ) {
@@ -338,12 +376,15 @@ pub fn preview(
         ui.add_space(columns.label);
         let (rect, _) = ui.allocate_exact_size(size, egui::Sense::hover());
         let content = ot_toast::render::frame(ui.painter(), rect, spec);
+        // The toast's own background picks the text colour, exactly as on a
+        // real toast; the window's theme does not.
+        let text = Tokens::for_toast(spec);
         ot_toast::content::draw(
             ui.painter(),
             content,
             spec,
-            tokens.text,
-            tokens.text_dim,
+            text.text,
+            text.text_dim,
             icon,
             image,
         );

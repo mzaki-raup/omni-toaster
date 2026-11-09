@@ -155,6 +155,10 @@ settings-toast-header-app-name = Nama Aplikasi
 settings-toast-header-time = Masa
 settings-toast-position = Kedudukan
 settings-toast-position-custom = Titik Tersuai
+# Berapa banyak toast boleh dipaparkan serentak (1 hingga 5); yang lain menunggu giliran.
+settings-toast-max-visible = Dipaparkan Serentak
+# Ruang antara satu toast dengan toast seterusnya dalam timbunan, dalam piksel.
+settings-toast-stack-gap = Jarak Antara Toast
 settings-toast-position-x = Dari Kiri
 settings-toast-position-y = Dari Atas
 settings-toast-map-hint = Klik titik untuk memilih kedudukan, atau seret untuk meletakkan toast di mana-mana pada skrin.
