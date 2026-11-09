@@ -88,6 +88,9 @@ everything about them is a setting:
   hover pausing the timer
 - **Header:** icon, title, app name and timestamp, each toggleable
 - **Body:** text with bold and italic, plus an image (PNG, JPG or WebP, up to 5 MB)
+- **Picture Library:** upload a picture once — a mosque, a meeting, an alarm
+  clock — name it, and use it in any notification as its icon or its image.
+  Removing a picture still in use asks first
 - **Position and stacking:** any corner or edge, a chosen monitor, 1–5 visible at once
 
 ## Prayer times
@@ -203,7 +206,14 @@ Settings ▸ General, the first screen the app has:
 ![Settings ▸ General in the Dark theme](docs/screenshots/settings-general.png)
 
 The same pane in Bahasa Melayu is
-[settings-general-ms.png](docs/screenshots/settings-general-ms.png). The rest
+[settings-general-ms.png](docs/screenshots/settings-general-ms.png).
+
+Settings ▸ Picture Library, where pictures are uploaded once and named:
+
+![Settings ▸ Picture Library with three pictures](docs/screenshots/settings-pictures.png)
+
+In Bahasa Melayu, asking before removing a picture the test toast uses:
+[settings-pictures-ms.png](docs/screenshots/settings-pictures-ms.png). The rest
 are **not captured yet** — the screens do not exist. The places are reserved
 and the capture procedure is written down in
 [docs/screenshots/README.md](docs/screenshots/README.md); each image below is

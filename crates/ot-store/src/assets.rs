@@ -308,6 +308,21 @@ fn dimensions(bytes: &[u8], path: &Path) -> Result<(u32, u32), ImportError> {
         })
 }
 
+/// Delete an imported file, given its stored relative path.
+///
+/// Guarded like a write: a relative path read back from the database is data,
+/// and must not be able to name a file outside the data folder. A file that is
+/// already gone is not an error — the goal was for it to be gone.
+pub fn remove(root: &Path, relative: &str) -> Result<(), ImportError> {
+    let path = root.join(relative);
+    guard_inside(root, &path)?;
+    match fs::remove_file(&path) {
+        Ok(()) => Ok(()),
+        Err(error) if error.kind() == io::ErrorKind::NotFound => Ok(()),
+        Err(error) => Err(ImportError::Unwritable { path, error }),
+    }
+}
+
 /// Prove `candidate` is inside `root`.
 ///
 /// The parent is canonicalized rather than the file, because the file may not
@@ -574,5 +589,24 @@ mod tests {
         assert_eq!(sniff(&[]), None);
         assert_eq!(sniff(&[0x89]), None);
         assert_eq!(sniff(b"RIF"), None);
+    }
+
+    #[test]
+    fn remove_refuses_a_path_that_climbs_out_of_the_data_folder() {
+        let dir = tempfile::tempdir().expect("temp dir");
+        let outside = dir.path().join("outside.png");
+        std::fs::write(&outside, b"keep me").expect("write");
+        let root = dir.path().join("data-root");
+        std::fs::create_dir_all(root.join(ASSETS_DIR)).expect("mkdir");
+
+        assert!(matches!(
+            remove(&root, "../outside.png"),
+            Err(ImportError::Escapes { .. })
+        ));
+        assert!(outside.exists(), "the file outside was not touched");
+        assert!(
+            remove(&root, "assets/gone.png").is_ok(),
+            "already gone is fine"
+        );
     }
 }

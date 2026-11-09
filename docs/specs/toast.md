@@ -288,6 +288,19 @@ cargo run -p omnitoaster -- --data-dir ./tmp-data
 
 ## What is implemented (2026-11-09)
 
+**The image library** (FEAT-0025). Settings ▸ Picture Library lists every
+upload with its thumbnail and an editable name — the file's own name to
+start with — and a Remove button. Uploads go through §4's import path
+unchanged and are recorded in the `asset` table with their `label`; the
+same picture uploaded twice keeps its first name. The icon and image
+pickers of Test Toast Content choose from it, with "Upload a New Picture"
+last. Removing a picture in use asks first: the test toast is named, and
+templates are counted from `category.image_id` (they have no names to
+list until Phase 4). A confirmed removal deletes the row — `ON DELETE SET
+NULL` clears every template's reference in the same statement — and then
+the file. All of it runs on the `image-library` thread with its own
+connection.
+
 **Settings ▸ Appearance** (FEAT-0023). Shape, radius, width, opacity, border,
 shadow, background and accent colours, header switches, and the position
 picker with a map of the monitor: nine dots to click for the presets, and the

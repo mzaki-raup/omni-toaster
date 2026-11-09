@@ -30,13 +30,13 @@ pub enum Slot {
 pub enum ImportOutcome {
     /// The user closed the dialog without choosing. Not an error.
     Cancelled,
-    Imported(Slot, Asset),
+    /// Imported, for `slot` if it came from a picker; the string is the
+    /// label it starts with in the library — the file's own name, which the
+    /// user may change.
+    Imported(Option<Slot>, Asset, String),
     /// The file broke one of the import rules; `name` is its file name, for
     /// the message.
-    Refused {
-        name: String,
-        error: ImportError,
-    },
+    Refused { name: String, error: ImportError },
     /// The dialog itself could not be shown.
     DialogFailed(String),
 }
@@ -70,7 +70,7 @@ impl Importer {
     /// Open the dialog on a worker thread and import whatever is chosen.
     ///
     /// `title` and `filter_name` arrive in the user's language.
-    pub fn start(&mut self, slot: Slot, title: String, filter_name: String) {
+    pub fn start(&mut self, slot: Option<Slot>, title: String, filter_name: String) {
         if self.busy {
             return;
         }
@@ -83,7 +83,13 @@ impl Importer {
                 let outcome = match ot_platform::file_dialog::pick_image(&title, &filter_name) {
                     Ok(None) => ImportOutcome::Cancelled,
                     Ok(Some(path)) => match ot_store::assets::import(&root, &path) {
-                        Ok(asset) => ImportOutcome::Imported(slot, asset),
+                        Ok(asset) => ImportOutcome::Imported(
+                            slot,
+                            asset,
+                            path.file_stem()
+                                .map(|stem| stem.to_string_lossy().into_owned())
+                                .unwrap_or_default(),
+                        ),
                         Err(error) => ImportOutcome::Refused {
                             name: path
                                 .file_name()

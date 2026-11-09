@@ -113,8 +113,9 @@ edited once it has shipped; a correction is a new migration.
 | File | Phase | Contents |
 |---|---|---|
 | `001_init.sql` | 0 | `settings`, `location`, `category`, `reminder`, `snooze_log`, `notification_log`, `asset`, `weather_cache` |
-| `002_locale_keys.sql` | 4 | the `category` key columns, `authored_lang`, built-in key identifiers |
-| `003_jakim.sql` | 5 | `jakim_zones`, `jakim_prayer_cache` |
+| `002_asset_label.sql` | 2 | `asset.label`, the name a picture has in the image library |
+| `003_locale_keys.sql` | 4 | the `category` key columns, `authored_lang`, built-in key identifiers |
+| `004_jakim.sql` | 5 | `jakim_zones`, `jakim_prayer_cache` |
 
 Every migration is tested on both a fresh database and an existing one
 ([.claude/rules/testing.md](../.claude/rules/testing.md)).

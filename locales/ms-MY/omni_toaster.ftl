@@ -133,6 +133,8 @@ tray-quit-confirm-stay = Teruskan Berjalan
 settings-window-title = Tetapan
 settings-section-general = Umum
 settings-section-appearance = Penampilan
+# Bahagian pustaka gambar: gambar dimuat naik sekali dan digunakan oleh mana-mana pemberitahuan.
+settings-section-pictures = Pustaka Gambar
 
 ## Tetapan ▸ Penampilan. Huruf Besar Setiap Perkataan untuk label, huruf biasa
 ## untuk petunjuk.
@@ -159,10 +161,7 @@ settings-toast-map-hint = Klik titik untuk memilih kedudukan, atau seret untuk m
 settings-toast-test-content = Kandungan Toast Ujian
 settings-toast-test-content-hint = Ini hanya mengubah pratonton dan toast ujian. Setiap pemberitahuan membawa ikon, imej dan warna aksennya sendiri.
 settings-toast-icon = Ikon
-settings-toast-icon-choose = Pilih Ikon
 settings-toast-image = Imej
-settings-toast-image-choose = Pilih Imej
-settings-toast-image-remove = Buang
 settings-toast-image-border = Sempadan Sekeliling Imej
 settings-toast-own-accent = Warna Aksen Sendiri
 # Tajuk dialog Buka Windows.
@@ -170,6 +169,36 @@ settings-toast-icon-dialog-title = Pilih ikon untuk pengepala toast
 settings-toast-image-dialog-title = Pilih imej untuk toast
 # Penapis jenis fail dalam dialog Buka.
 settings-toast-image-filter = Gambar (PNG, JPEG, WebP)
+# Tetapan > Pustaka Gambar. Baris di bawah tajuk bahagian.
+settings-library-hint = Muat naik gambar sekali dan gunakannya dalam mana-mana pemberitahuan, sebagai ikon atau imejnya.
+# Butang yang membuka dialog fail untuk menambah gambar ke pustaka.
+settings-library-upload = Muat Naik Gambar
+# Item terakhir setiap pemilih ikon dan imej, yang memuat naik gambar dan memilihnya.
+settings-library-upload-new = Muat Naik Gambar Baharu
+# Tajuk dialog Buka apabila memuat naik dari bahagian Pustaka Gambar.
+settings-library-dialog-title = Pilih gambar untuk pustaka
+# Dipaparkan semasa pustaka sedang dibaca.
+settings-library-loading = Memuatkan gambar…
+# Dipaparkan apabila pustaka belum ada gambar.
+settings-library-empty = Belum ada gambar. Muat naik satu untuk digunakan dalam pemberitahuan.
+# Petua pada medan nama di sebelah setiap gambar.
+settings-library-label-hint = Nama gambar ini dalam setiap pemilih
+# Butang yang membuang gambar daripada pustaka.
+settings-library-remove = Buang
+# Ditanya sebelum membuang gambar yang masih digunakan. $label ialah nama gambar.
+settings-library-in-use = “{ $label }” masih digunakan. Buang juga? Apa-apa yang menggunakannya akan kembali kepada ikon aplikasi atau tanpa imej.
+# Baris di bawah soalan itu, apabila toast ujian di bawah Penampilan memaparkan gambar tersebut.
+settings-library-used-by-test-toast = Toast ujian menggunakannya.
+# Baris di bawah soalan itu, apabila templat pemberitahuan menggunakan gambar tersebut.
+settings-library-used-by-templates = Templat pemberitahuan yang menggunakannya akan kehilangannya.
+# Mengesahkan pembuangan itu.
+settings-library-remove-anyway = Buang Juga
+# Membatalkan pembuangan itu.
+settings-library-keep = Simpan
+# Item pertama pemilih ikon: tiada gambar sendiri, jadi ikon aplikasi.
+settings-library-none-icon = Ikon Aplikasi
+# Item pertama pemilih imej: tiada imej.
+settings-library-none-image = Tiada Imej
 settings-language = Bahasa
 # Di bawah pemilih bahasa. Penukaran berlaku serta-merta, jadi petunjuk ini
 # menerangkan satu-satunya perkara yang pengguna tidak dapat teka: apa yang
@@ -191,7 +220,14 @@ settings-status-paused-until-resumed = Pemberitahuan dijeda sehingga anda menyam
 settings-status-resumed = Pemberitahuan dihidupkan semula.
 settings-status-tray-failed = Ikon dulang tidak dapat dibuat, jadi menutup tetingkap ini ialah satu-satunya jalan keluar: { $reason }
 settings-status-language-failed = Bahasa tidak dapat ditukar: { $reason }
-settings-status-image-imported = Gambar telah ditambah pada toast ujian.
+# Baris status selepas muat naik. $label ialah nama gambar dalam pustaka.
+settings-status-library-added = “{ $label }” telah ditambah ke pustaka gambar.
+# Baris status apabila gambar yang dimuat naik sudah ada dalam pustaka. $label ialah namanya yang sedia ada.
+settings-status-library-already-there = Gambar itu sudah ada dalam pustaka, sebagai “{ $label }”.
+# Baris status selepas gambar dibuang daripada pustaka.
+settings-status-library-removed = Gambar telah dibuang daripada pustaka.
+# Baris status apabila pustaka tidak dapat dibaca atau diubah. $reason ialah punca teknikalnya.
+settings-status-library-failed = Pustaka gambar tidak dapat dikemas kini: { $reason }
 settings-status-dialog-failed = Dialog fail tidak dapat dibuka: { $reason }
 settings-status-saved = Tetapan anda telah disimpan.
 settings-status-autostart-on = OmniToaster akan mula dengan Windows.

@@ -81,7 +81,7 @@ Last updated: 2026-11-08
 | Shadow | Pending | Off, soft, strong |
 | Header | Pending | Icon, title, app name, timestamp |
 | Text | Pending | Bold and italic |
-| Image | Pending | Magic-byte validation, pixel limit, thumbnail cache |
+| Image | In-Progress | Magic-byte validation, pixel limit and the image library are verified in the app; thumbnails are decoded on demand and held as textures, not yet cached on disk |
 | Stacking | Pending | 1–5 visible, configurable gap |
 | DPI and multi-monitor positioning | Pending | |
 | Ellipsis rules | Pending | Nothing overflows the toast |

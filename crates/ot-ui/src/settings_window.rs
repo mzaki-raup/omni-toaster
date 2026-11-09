@@ -34,6 +34,9 @@ pub enum Section {
     General,
     /// The toast's look and placement, with a live preview (Phase 2).
     Appearance,
+    /// The image library: pictures uploaded once and used by any
+    /// notification (Phase 2, `docs/specs/toast.md` §8.1).
+    Pictures,
 }
 
 impl Section {
@@ -42,11 +45,12 @@ impl Section {
         match self {
             Self::General => "settings-section-general",
             Self::Appearance => "settings-section-appearance",
+            Self::Pictures => "settings-section-pictures",
         }
     }
 
-    pub fn all() -> [Self; 2] {
-        [Self::General, Self::Appearance]
+    pub fn all() -> [Self; 3] {
+        [Self::General, Self::Appearance, Self::Pictures]
     }
 }
 
@@ -130,8 +134,15 @@ pub enum Status {
     /// it says *until when* rather than only that something happened.
     Paused,
     Resumed,
-    /// A picture was imported for the toast.
-    ImageImported,
+    /// A picture went into the library under this label.
+    LibraryAdded {
+        label: String,
+    },
+    /// The same picture was already there, under this label.
+    LibraryAlreadyThere {
+        label: String,
+    },
+    LibraryRemoved,
     /// A file broke an import rule; the message names the file and the rule.
     ImportRefused {
         key: &'static str,
@@ -167,7 +178,15 @@ impl Status {
         match self {
             Self::Paused => ot_i18n::text("settings-status-paused-until-resumed"),
             Self::Resumed => ot_i18n::text("settings-status-resumed"),
-            Self::ImageImported => ot_i18n::text("settings-status-image-imported"),
+            Self::LibraryAdded { label } => ot_i18n::text_with(
+                "settings-status-library-added",
+                &[("label", label.clone().into())],
+            ),
+            Self::LibraryAlreadyThere { label } => ot_i18n::text_with(
+                "settings-status-library-already-there",
+                &[("label", label.clone().into())],
+            ),
+            Self::LibraryRemoved => ot_i18n::text("settings-status-library-removed"),
             Self::ImportRefused { key, name } => {
                 ot_i18n::text_with(key, &[("name", name.clone().into())])
             }
@@ -218,6 +237,11 @@ pub struct SettingsWindow {
     images: crate::images::Images,
     /// The file dialog and the import behind it, also off the UI thread.
     importer: crate::images::Importer,
+    /// The image library, on a thread of its own with its own connection.
+    library: crate::library::Library,
+    /// A removal waiting for the user's word because something uses the
+    /// picture: its hash, and whether any template does.
+    confirm_remove: Option<(String, bool)>,
     /// The test toast's own icon and image, under Test Toast Content. In
     /// memory only: every notification carries its own pictures, so these
     /// are never a global setting.
@@ -291,6 +315,8 @@ impl SettingsWindow {
             prefs: ot_toast::Prefs::from_table(&settings_toast),
             images: crate::images::Images::new(&root_path),
             importer: crate::images::Importer::new(&root_path),
+            library: crate::library::Library::new(&root_path),
+            confirm_remove: None,
             test_icon: None,
             test_image: None,
             test_image_border: false,
@@ -883,12 +909,12 @@ impl SettingsWindow {
         ui.add_space(layout::ROW_GAP);
     }
 
-    /// One picture row: choose a file, or remove the one chosen.
+    /// One picture row: the library's pictures to choose from, with "Upload
+    /// a New Picture" at the end of the list (`docs/specs/toast.md` §8.1).
     ///
-    /// Choosing opens the Windows dialog **on a worker thread**, which then
-    /// imports the file there too; the result arrives at frame start. Both
-    /// buttons wait while that is under way, so a second dialog cannot open
-    /// behind the first.
+    /// Uploading opens the Windows dialog **on a worker thread**, which
+    /// imports the file there too; the library records it on its own thread,
+    /// and the picture lands in this row when both have answered.
     fn picture_row(
         &mut self,
         ui: &mut egui::Ui,
@@ -896,56 +922,298 @@ impl SettingsWindow {
         slot: crate::images::Slot,
     ) {
         use crate::images::Slot;
-        let (label_key, choose_key, title_key) = match slot {
+        let (label_key, none_key, title_key) = match slot {
             Slot::Icon => (
                 "settings-toast-icon",
-                "settings-toast-icon-choose",
+                "settings-library-none-icon",
                 "settings-toast-icon-dialog-title",
             ),
             Slot::Image => (
                 "settings-toast-image",
-                "settings-toast-image-choose",
+                "settings-library-none-image",
                 "settings-toast-image-dialog-title",
             ),
         };
-        let chosen = match slot {
-            Slot::Icon => self.test_icon.is_some(),
-            Slot::Image => self.test_image.is_some(),
+        // Asking for a thumbnail already decoded, or on its way, is a set
+        // lookup, so this costs nothing once they are in.
+        for entry in self.library.pictures().unwrap_or_default() {
+            self.images.request(&entry.picture.relative_path);
+        }
+        let current = match slot {
+            Slot::Icon => self.test_icon.as_deref(),
+            Slot::Image => self.test_image.as_deref(),
         };
+        let shown = current
+            .and_then(|path| self.library.label_of(path))
+            .map_or_else(|| ot_i18n::text(none_key), str::to_owned);
         let height = layout::field_height(ui);
         let busy = self.importer.is_busy();
+        let library = &self.library;
+        let images = &self.images;
+        let mut choice: Option<Option<String>> = None;
+        let mut upload = false;
         layout::labelled_row(ui, columns, &ot_i18n::text(label_key), |ui| {
-            // The folder for the verb that opens a file, as everywhere else.
-            let choose = format!("\u{1F4C2}  {}", ot_i18n::text(choose_key));
-            let button = egui::Button::new(choose).min_size(egui::vec2(0.0, height));
-            if ui.add_enabled(!busy, button).clicked() {
-                self.importer.start(
-                    slot,
-                    ot_i18n::text(title_key),
-                    ot_i18n::text("settings-toast-image-filter"),
-                );
+            egui::ComboBox::from_id_salt(label_key)
+                .width(columns.field)
+                .height(height * 12.0)
+                .selected_text(shown)
+                .show_ui(ui, |ui| {
+                    if ui
+                        .selectable_label(current.is_none(), ot_i18n::text(none_key))
+                        .clicked()
+                    {
+                        choice = Some(None);
+                    }
+                    for entry in library.pictures().unwrap_or_default() {
+                        let path = entry.picture.relative_path.as_str();
+                        let selected = current == Some(path);
+                        let text = egui::RichText::new(&entry.picture.label);
+                        let button = match images.picture(path) {
+                            Some(picture) => egui::Button::selectable(
+                                selected,
+                                (
+                                    egui::Image::new(egui::load::SizedTexture::new(
+                                        picture.texture,
+                                        picture.size,
+                                    ))
+                                    .max_size(egui::vec2(height, height)),
+                                    text,
+                                ),
+                            ),
+                            None => egui::Button::selectable(selected, text),
+                        };
+                        if ui.add(button).clicked() {
+                            choice = Some(Some(path.to_owned()));
+                        }
+                    }
+                    ui.separator();
+                    // The folder for the verb that opens a file, as everywhere
+                    // else.
+                    let label = format!(
+                        "\u{1F4C2}  {}",
+                        ot_i18n::text("settings-library-upload-new")
+                    );
+                    if ui
+                        .add_enabled(!busy, egui::Button::selectable(false, label))
+                        .clicked()
+                    {
+                        upload = true;
+                    }
+                });
+        });
+        if let Some(choice) = choice {
+            match slot {
+                Slot::Icon => self.test_icon = choice,
+                Slot::Image => self.test_image = choice,
             }
-            if chosen {
-                ui.add_space(layout::OPTION_GAP);
-                // The trash can for Remove, the same glyph as every other
-                // Remove (.claude/rules/ui.md).
-                let remove = format!(
-                    "\u{1F5D1}  {}",
-                    ot_i18n::text("settings-toast-image-remove")
+        }
+        if upload {
+            self.importer.start(
+                Some(slot),
+                ot_i18n::text(title_key),
+                ot_i18n::text("settings-toast-image-filter"),
+            );
+        }
+        ui.add_space(layout::ROW_GAP);
+    }
+
+    /// Settings ▸ Picture Library: upload a picture once, name it, use it in
+    /// any notification, remove it (`docs/specs/toast.md` §8.1).
+    fn pictures_pane(&mut self, ui: &mut egui::Ui) {
+        let tokens = self.theme.tokens();
+        for entry in self.library.pictures().unwrap_or_default() {
+            self.images.request(&entry.picture.relative_path);
+        }
+        let height = layout::field_height(ui);
+        let busy = self.importer.is_busy();
+        let mut upload = false;
+        let mut rename: Option<(String, String)> = None;
+        let mut remove: Option<String> = None;
+        let mut confirmed: Option<bool> = None;
+        // Named in the question, so the user knows what they would lose.
+        let used_here = self
+            .confirm_remove
+            .as_ref()
+            .is_some_and(|(sha256, _)| self.used_by_test_toast(sha256));
+
+        egui::ScrollArea::vertical()
+            .auto_shrink([false, false])
+            .show(ui, |ui| {
+                ui.label(
+                    egui::RichText::new(ot_i18n::text("settings-library-hint"))
+                        .color(tokens.text_dim),
                 );
-                let button = egui::Button::new(remove).min_size(egui::vec2(0.0, height));
+                ui.add_space(layout::ROW_GAP);
+                let label = format!("\u{1F4C2}  {}", ot_i18n::text("settings-library-upload"));
+                let button = egui::Button::new(label).min_size(egui::vec2(0.0, height));
                 if ui.add_enabled(!busy, button).clicked() {
-                    // The imported file stays in assets/: it is
-                    // content-addressed, so another notification may use the
-                    // same picture, and keeping it costs nothing.
-                    match slot {
-                        Slot::Icon => self.test_icon = None,
-                        Slot::Image => self.test_image = None,
+                    upload = true;
+                }
+                ui.add_space(layout::PANE_GAP);
+                ui.separator();
+                ui.add_space(layout::PANE_GAP);
+
+                let images = &self.images;
+                let confirm_remove = self.confirm_remove.as_ref();
+                match self.library.pictures_mut() {
+                    None => {
+                        ui.label(
+                            egui::RichText::new(ot_i18n::text("settings-library-loading"))
+                                .color(tokens.text_dim),
+                        );
+                    }
+                    Some([]) => {
+                        ui.label(
+                            egui::RichText::new(ot_i18n::text("settings-library-empty"))
+                                .color(tokens.text_dim),
+                        );
+                    }
+                    Some(entries) => {
+                        let thumb = height * 1.6;
+                        for entry in entries {
+                            ui.spacing_mut().interact_size.y = height;
+                            ui.horizontal(|ui| {
+                                ui.set_min_height(thumb);
+                                let (slot, _) = ui.allocate_exact_size(
+                                    egui::vec2(thumb, thumb),
+                                    egui::Sense::hover(),
+                                );
+                                if let Some(picture) = images.picture(&entry.picture.relative_path)
+                                {
+                                    let fitted = egui::Rect::from_center_size(
+                                        slot.center(),
+                                        picture.size * (thumb / picture.size.max_elem()).min(1.0),
+                                    );
+                                    egui::Image::new(egui::load::SizedTexture::new(
+                                        picture.texture,
+                                        picture.size,
+                                    ))
+                                    .paint_at(ui, fitted);
+                                }
+                                ui.with_layout(
+                                    egui::Layout::right_to_left(egui::Align::Center),
+                                    |ui| {
+                                        // The trash can for Remove, the same
+                                        // glyph as every other Remove.
+                                        let label = format!(
+                                            "\u{1F5D1}  {}",
+                                            ot_i18n::text("settings-library-remove")
+                                        );
+                                        let button = egui::Button::new(label)
+                                            .min_size(egui::vec2(0.0, height));
+                                        if ui.add(button).clicked() {
+                                            remove = Some(entry.picture.sha256.clone());
+                                        }
+                                        let field = egui::TextEdit::singleline(&mut entry.edit)
+                                            .desired_width(ui.available_width())
+                                            .min_size(egui::vec2(0.0, height))
+                                            .vertical_align(egui::Align::Center);
+                                        let response = ui.add(field).on_hover_text(ot_i18n::text(
+                                            "settings-library-label-hint",
+                                        ));
+                                        if response.lost_focus()
+                                            && entry.edit != entry.picture.label
+                                        {
+                                            rename = Some((
+                                                entry.picture.sha256.clone(),
+                                                entry.edit.clone(),
+                                            ));
+                                        }
+                                    },
+                                );
+                            });
+                            if let Some((sha256, templates)) = confirm_remove
+                                && *sha256 == entry.picture.sha256
+                            {
+                                ui.add_space(layout::ROW_GAP);
+                                egui::Frame::new()
+                                    .fill(tokens.surface_raised)
+                                    .inner_margin(layout::ROW_GAP)
+                                    .show(ui, |ui| {
+                                        // As wide as the row it belongs to.
+                                        ui.set_min_width(ui.available_width());
+                                        ui.label(ot_i18n::text_with(
+                                            "settings-library-in-use",
+                                            &[("label", entry.picture.label.clone().into())],
+                                        ));
+                                        if used_here {
+                                            ui.label(ot_i18n::text(
+                                                "settings-library-used-by-test-toast",
+                                            ));
+                                        }
+                                        if *templates {
+                                            ui.label(ot_i18n::text(
+                                                "settings-library-used-by-templates",
+                                            ));
+                                        }
+                                        ui.add_space(layout::ROW_GAP);
+                                        ui.horizontal_wrapped(|ui| {
+                                            let anyway = egui::Button::new(
+                                                egui::RichText::new(ot_i18n::text(
+                                                    "settings-library-remove-anyway",
+                                                ))
+                                                .color(tokens.danger),
+                                            )
+                                            .min_size(egui::vec2(0.0, height));
+                                            if ui.add(anyway).clicked() {
+                                                confirmed = Some(true);
+                                            }
+                                            let keep = egui::Button::new(ot_i18n::text(
+                                                "settings-library-keep",
+                                            ))
+                                            .min_size(egui::vec2(0.0, height));
+                                            if ui.add(keep).clicked() {
+                                                confirmed = Some(false);
+                                            }
+                                        });
+                                    });
+                            }
+                            ui.add_space(layout::ROW_GAP);
+                        }
                     }
                 }
+            });
+
+        if upload {
+            self.importer.start(
+                None,
+                ot_i18n::text("settings-library-dialog-title"),
+                ot_i18n::text("settings-toast-image-filter"),
+            );
+        }
+        if let Some((sha256, label)) = rename {
+            self.library.rename(sha256, label);
+        }
+        if let Some(sha256) = remove {
+            let used_here = self.used_by_test_toast(&sha256);
+            self.library.remove(sha256, false, used_here);
+        }
+        match confirmed {
+            Some(true) => {
+                if let Some((sha256, _)) = self.confirm_remove.take() {
+                    let used_here = self.used_by_test_toast(&sha256);
+                    self.library.remove(sha256, true, used_here);
+                }
             }
-        });
-        ui.add_space(layout::ROW_GAP);
+            Some(false) => self.confirm_remove = None,
+            None => {}
+        }
+    }
+
+    /// Whether the test toast shows this picture, as its icon or its image.
+    /// The database cannot know: the test toast is never saved.
+    fn used_by_test_toast(&self, sha256: &str) -> bool {
+        let Some(path) = self
+            .library
+            .pictures()
+            .unwrap_or_default()
+            .iter()
+            .find(|entry| entry.picture.sha256 == sha256)
+            .map(|entry| entry.picture.relative_path.as_str())
+        else {
+            return false;
+        };
+        self.test_icon.as_deref() == Some(path) || self.test_image.as_deref() == Some(path)
     }
 
     /// Take whatever the import and decode threads have finished.
@@ -953,19 +1221,11 @@ impl SettingsWindow {
         if let Some(outcome) = self.importer.drain() {
             match outcome {
                 crate::images::ImportOutcome::Cancelled => {}
-                crate::images::ImportOutcome::Imported(slot, asset) => {
-                    tracing::info!(
-                        path = asset.relative_path,
-                        ?slot,
-                        "a toast picture was imported"
-                    );
-                    match slot {
-                        crate::images::Slot::Icon => self.test_icon = Some(asset.relative_path),
-                        crate::images::Slot::Image => self.test_image = Some(asset.relative_path),
-                    }
-                    // Test content is not saved, so nothing follows to
-                    // overwrite this message the way a deferred save did.
-                    self.status = Status::ImageImported;
+                crate::images::ImportOutcome::Imported(slot, asset, label) => {
+                    tracing::info!(path = asset.relative_path, ?slot, "a picture was imported");
+                    // Into the library first; the picker gets it when the
+                    // library has answered.
+                    self.library.add(asset, label, slot);
                 }
                 crate::images::ImportOutcome::Refused { name, error } => {
                     tracing::warn!(%error, "a picture was refused");
@@ -977,6 +1237,50 @@ impl SettingsWindow {
                 crate::images::ImportOutcome::DialogFailed(reason) => {
                     self.status = Status::Failed {
                         key: "settings-status-dialog-failed",
+                        reason,
+                    };
+                }
+            }
+        }
+        for reply in self.library.drain() {
+            match reply {
+                crate::library::Reply::Added {
+                    slot,
+                    relative_path,
+                    label,
+                    new,
+                } => {
+                    match slot {
+                        Some(crate::images::Slot::Icon) => self.test_icon = Some(relative_path),
+                        Some(crate::images::Slot::Image) => self.test_image = Some(relative_path),
+                        None => {}
+                    }
+                    // Test content is not saved, so nothing follows to
+                    // overwrite this message the way a deferred save did.
+                    self.status = if new {
+                        Status::LibraryAdded { label }
+                    } else {
+                        Status::LibraryAlreadyThere { label }
+                    };
+                }
+                crate::library::Reply::InUse { sha256, templates } => {
+                    self.confirm_remove = Some((sha256, templates > 0));
+                }
+                crate::library::Reply::Removed { relative_path } => {
+                    // Whatever showed it falls back: the app icon in the
+                    // header, no image in the body.
+                    if self.test_icon.as_deref() == Some(relative_path.as_str()) {
+                        self.test_icon = None;
+                    }
+                    if self.test_image.as_deref() == Some(relative_path.as_str()) {
+                        self.test_image = None;
+                    }
+                    self.confirm_remove = None;
+                    self.status = Status::LibraryRemoved;
+                }
+                crate::library::Reply::Failed(reason) => {
+                    self.status = Status::Failed {
+                        key: "settings-status-library-failed",
                         reason,
                     };
                 }
@@ -1054,6 +1358,7 @@ impl eframe::App for SettingsWindow {
             .show(ctx, |ui| match self.section {
                 Section::General => self.general_pane(ui),
                 Section::Appearance => self.appearance_pane(ui),
+                Section::Pictures => self.pictures_pane(ui),
             });
 
         if self.confirming_quit {
@@ -1315,18 +1620,34 @@ mod tests {
             "settings-toast-position-y",
             "settings-toast-map-hint",
             "settings-toast-image",
-            "settings-toast-image-choose",
-            "settings-toast-image-remove",
             "settings-toast-test-content",
             "settings-toast-test-content-hint",
             "settings-toast-icon",
-            "settings-toast-icon-choose",
             "settings-toast-icon-dialog-title",
             "settings-toast-image-border",
             "settings-toast-own-accent",
             "settings-toast-image-dialog-title",
             "settings-toast-image-filter",
-            "settings-status-image-imported",
+            // Settings ▸ Picture Library.
+            "settings-library-hint",
+            "settings-library-upload",
+            "settings-library-upload-new",
+            "settings-library-dialog-title",
+            "settings-library-loading",
+            "settings-library-empty",
+            "settings-library-label-hint",
+            "settings-library-remove",
+            "settings-library-in-use",
+            "settings-library-used-by-test-toast",
+            "settings-library-used-by-templates",
+            "settings-library-remove-anyway",
+            "settings-library-keep",
+            "settings-library-none-icon",
+            "settings-library-none-image",
+            "settings-status-library-added",
+            "settings-status-library-already-there",
+            "settings-status-library-removed",
+            "settings-status-library-failed",
             "settings-status-dialog-failed",
             "error-import-too-large",
             "error-import-not-an-image",

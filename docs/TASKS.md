@@ -302,22 +302,25 @@ shortcut (`docs/specs/toast.md` §3).
 - **Notes:** Synthetic clicks never form double-clicks, so any double-click path stays an in-app check. Snapshots are a floor, not a substitute for looking: the phase's exit criteria say *in the running app*.
 
 ### FEAT-0025 · The image library
-- **State:** Pending · **Spec:** docs/specs/toast.md §8.1 · **Phase:** 2
+- **State:** Completed · **Spec:** docs/specs/toast.md §8.1 · **Phase:** 2
 - **Branch:** feat/phase-2-toast
 - **Scheduled:** in Phase 2, by the owner's decision (2026-11-10). Phase 2 does not close until this is `Completed`
 - **Depends on:** FEAT-0021
+- **Verified:** the gate (194 tests), and the running app on a scratch data folder in both languages, Dark and Light, at the default and narrow widths
 - **Source:** the owner, 2026-11-10 — upload pictures once and use them in notification templates: a meeting picture, a mosque, an alarm, the hourly announcement
-- [ ] A library of uploaded pictures: upload through FEAT-0021's import path unchanged, list with thumbnails, a label the user gives each one, remove
-- [ ] The `asset` table records each upload with its label, so the library is a query rather than a folder listing — `docs/05-data-model-and-storage.md` now carries the `label` column, which needs a migration
-- [ ] One list for both uses: any picture may be an icon in one template and an image in another
-- [ ] Removing a picture still in use asks first and names the templates that use it; they then fall back to the app icon or no image rather than pointing at a missing file
-- [ ] The Test Toast Content pickers choose from the library, with "Upload a New Picture" at the end of the list
-- [ ] Test: two uploads of the same file are one library entry; a label round-trips; removal of a used picture is refused without confirmation; the list survives a restart
-- [ ] Gate: fmt · clippy -D warnings · test --workspace --locked -j 4 · deny check · --self-test
-- [ ] App: upload three pictures, label them, use two in the test toast, remove one in use and see the warning — in both languages
-- [ ] Docs: spec · README · CHANGELOG · CHECKLIST
+- [x] A library of uploaded pictures: upload through FEAT-0021's import path unchanged, list with thumbnails, a label the user gives each one, remove
+- [x] The `asset` table records each upload with its label, so the library is a query rather than a folder listing — `docs/05-data-model-and-storage.md` now carries the `label` column, which needs a migration: `002_asset_label.sql`
+- [x] One list for both uses: any picture may be an icon in one template and an image in another
+- [x] Removing a picture still in use asks first and names the templates that use it; they then fall back to the app icon or no image rather than pointing at a missing file
+- [x] The Test Toast Content pickers choose from the library, with "Upload a New Picture" at the end of the list
+- [x] Test: two uploads of the same file are one library entry; a label round-trips; removal of a used picture is refused without confirmation; the list survives a restart — plus an unused picture removed without asking, the file going with its row, a removed path that climbs out of the data folder refused, and a version 1 database migrating with its rows kept
+- [x] Gate: fmt · clippy -D warnings · test --workspace --locked -j 4 (194 tests) · deny check · --self-test
+- [x] App: upload three pictures, label them, use two in the test toast, remove one in use and see the warning — in both languages. Done on a fresh scratch folder: three uploads through the Windows dialog, each with its thumbnail and its file name as its label; one renamed, and an upload of the same file again reported as already there *under the new name*, with still three files in `assets/`; a restart brought the list back, rename included; the icon and image pickers listed the library with thumbnails and Upload a New Picture last; with one as the icon and one as the image, Remove on the icon asked first and said the test toast uses it, in English and in Malay; Keep It kept it, Remove Anyway deleted the row and the file, and the preview fell back to the app icon while the image stayed; the real test toast matched the preview. Light theme and the 560 px minimum width looked at too
+- [x] Docs: spec · docs/04 · docs/05 · README with screenshots in both languages · CHANGELOG · CHECKLIST · GOTCHAS
 - **Notes:** The asset store was built content-addressed for exactly this: the same picture uploaded twice is already one file. What this adds is the *list* — names, thumbnails, and knowing what uses what.
   **The template pickers themselves arrive with each template's phase** — reminder types in Phase 4, the Azan per prayer in Phase 5, the hourly announcement in Phase 7. This item builds the library they all choose from, and the Test Toast Content pickers are its first user.
+  **Templates are not named yet.** Only the test toast uses a picture in Phase 2, and it is named in the question. A template is a `category` row, which has no name until Phase 4 gives it its keys, so the question says that templates use it without listing them; Phase 4 lists them by name when it has names to list.
+  **Only `category.image_id` is checked**, because that is the only picture column the schema has. The template's icon column arrives with Phase 4 and joins `templates_using` then.
 
 ## v0.1.0 — Planned
 

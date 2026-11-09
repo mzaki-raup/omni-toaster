@@ -138,6 +138,8 @@ tray-quit-confirm-stay = Keep Running
 settings-window-title = Settings
 settings-section-general = General
 settings-section-appearance = Appearance
+# The section holding the image library: pictures uploaded once and used by any notification.
+settings-section-pictures = Picture Library
 
 ## Settings ▸ Appearance. Title Case for the labels, sentence case for the
 ## hints.
@@ -164,10 +166,7 @@ settings-toast-map-hint = Click a dot to choose a position, or drag to place the
 settings-toast-test-content = Test Toast Content
 settings-toast-test-content-hint = These only change the preview and the test toast. Every notification carries its own icon, image and accent colour.
 settings-toast-icon = Icon
-settings-toast-icon-choose = Choose an Icon
 settings-toast-image = Image
-settings-toast-image-choose = Choose an Image
-settings-toast-image-remove = Remove
 settings-toast-image-border = Border Around the Image
 settings-toast-own-accent = Own Accent Colour
 # The titles of the Windows Open dialog.
@@ -175,6 +174,36 @@ settings-toast-icon-dialog-title = Choose an icon for the toast header
 settings-toast-image-dialog-title = Choose an image for the toast
 # The file-type filter in the Open dialog.
 settings-toast-image-filter = Pictures (PNG, JPEG, WebP)
+# Settings > Picture Library. The line under the section title.
+settings-library-hint = Upload a picture once and use it in any notification, as its icon or its image.
+# The button that opens the file dialog to add a picture to the library.
+settings-library-upload = Upload a Picture
+# The last item of every icon and image picker, which uploads a picture and chooses it.
+settings-library-upload-new = Upload a New Picture
+# The title of the Open dialog when uploading from the Picture Library section.
+settings-library-dialog-title = Choose a picture for the library
+# Shown while the library is being read.
+settings-library-loading = Loading the pictures…
+# Shown when the library has no pictures yet.
+settings-library-empty = No pictures yet. Upload one to use it in a notification.
+# Tooltip on the name field beside each picture.
+settings-library-label-hint = The name this picture goes by in every picker
+# The button that removes a picture from the library.
+settings-library-remove = Remove
+# Asked before removing a picture something still uses. $label is the picture's name.
+settings-library-in-use = “{ $label }” is still in use. Remove it anyway? Whatever uses it falls back to the app icon or to no image.
+# A line under that question, when the test toast under Appearance shows the picture.
+settings-library-used-by-test-toast = The test toast uses it.
+# A line under that question, when notification templates use the picture.
+settings-library-used-by-templates = Notification templates that use it will lose it.
+# Confirms that removal.
+settings-library-remove-anyway = Remove Anyway
+# Cancels that removal.
+settings-library-keep = Keep It
+# The first item of the icon picker: no picture of its own, so the app's icon.
+settings-library-none-icon = App Icon
+# The first item of the image picker: no image.
+settings-library-none-image = No Image
 settings-language = Language
 # Under the language picker. The switch is immediate, so the hint explains the
 # only part a user cannot guess: what "Same as Windows" follows.
@@ -195,7 +224,14 @@ settings-status-paused-until-resumed = Notifications are paused until you resume
 settings-status-resumed = Notifications are on again.
 settings-status-tray-failed = The tray icon could not be created, so closing this window is the only way out: { $reason }
 settings-status-language-failed = The language could not be changed: { $reason }
-settings-status-image-imported = The picture was added to the test toast.
+# Status line after an upload. $label is the picture's name in the library.
+settings-status-library-added = “{ $label }” was added to the picture library.
+# Status line when the uploaded picture was already in the library. $label is its existing name.
+settings-status-library-already-there = That picture is already in the library, as “{ $label }”.
+# Status line after a picture was removed from the library.
+settings-status-library-removed = The picture was removed from the library.
+# Status line when the library could not be read or changed. $reason is the technical cause.
+settings-status-library-failed = The picture library could not be updated: { $reason }
 settings-status-dialog-failed = The file dialog could not be opened: { $reason }
 settings-status-saved = Your settings are saved.
 settings-status-autostart-on = OmniToaster will start with Windows.

@@ -9,6 +9,7 @@
 pub mod appearance;
 pub mod images;
 pub mod layout;
+pub mod library;
 pub mod settings_window;
 pub mod theme;
 

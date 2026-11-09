@@ -42,6 +42,7 @@ bottom.
 |---|---|
 | **General** | Language (System · English · Bahasa Melayu), theme, start with Windows, pause controls, single-instance notice |
 | **Appearance** | Toast shape, corner radius, size, colours, transparency, glass effect, shadow — with the live preview |
+| **Picture Library** | Pictures uploaded once and used by any notification: thumbnail, name, Remove, and a question before removing one in use |
 | **Animation** | In and out animation per direction, duration, reduced-motion switch |
 | **Notifications** | Display duration, stacking, screen and corner, quiet hours |
 | **Reminders** | The reminder list and editor, categories, lead offsets, snooze defaults |
