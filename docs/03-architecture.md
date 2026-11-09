@@ -47,8 +47,10 @@ Dependency direction is one way only:
 
 ```
 omnitoaster ─► ot-ui ─► ot-toast ─┐
-     │          │                 ├─► ot-core ◄─ ot-i18n
-     │          └─────────────────┘        ▲
+     │          │  │              ├─► ot-core ◄─ ot-i18n
+     │          │  └──────────────┘        ▲
+     │          ├─► ot-i18n ───────────────┤
+     │          └─► ot-platform ───────────┤
      ├─► ot-sched ─► ot-store ─────────────┤
      ├─► ot-prayer ────────────────────────┤
      ├─► ot-weather ───────────────────────┤
@@ -59,6 +61,16 @@ omnitoaster ─► ot-ui ─► ot-toast ─┐
 `ot-core` depends on nothing of ours. No library crate depends on `ot-ui`, and
 no service crate (`ot-sched`, `ot-prayer`, `ot-weather`, `ot-media`) depends on
 another service crate — they meet only in the binary, through the event bus.
+
+**`ot-ui` depends on `ot-platform` and `ot-i18n`**, which the first drawing of
+this diagram did not allow for. The theme reads the Windows setting itself
+(`ot_platform::system_theme`) and owns the five-second recheck, and the window
+loads the Windows UI font (`ot_platform::ui_font`, ADR-014); every string it
+draws comes from Fluent. Passing a reading and a bundle in from the binary
+would have moved that policy into `main` for no gain. The rule that matters is
+unchanged: **Windows code lives in `ot-platform`**, behind an interface named
+for the capability, and `ot-ui` calls it rather than reaching for `windows` or
+`winreg` itself.
 
 ## Runtime shape
 

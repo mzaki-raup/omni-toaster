@@ -7,7 +7,19 @@ Format: [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) · Versioning:
 
 ## Unreleased
 
-- (nothing yet)
+### Added
+
+- The settings window (FEAT-0014): a left rail, the General pane — language, theme and Start with Windows — and a status line. Every string comes from Fluent in both languages, the fields line up in one column, and a narrow window moves each label above its field instead of squeezing it. Closing the window ends the app until the tray menu lands.
+- `ot_core::settings` (FEAT-0014): `config/settings.toml`, the source of truth for configuration (ADR-007). A broken file is reported and the defaults used rather than stopping the app, an unknown key is refused instead of silently ignored, and a save goes through a temporary file so a crash cannot leave half of one.
+- The language chosen in Settings is honoured at the next start, read out of `config/settings.toml` before localization comes up. `--lang` still wins over it, and the stored choice over the Windows locale.
+- `ot_platform::ui_font` (FEAT-0014): Segoe UI and Consolas, read from the Windows font folder — what the app draws with now that no font is bundled (ADR-014).
+- Screenshots of Settings ▸ General in both languages, the first the project has.
+- Filed CR-0002: in Light mode the window's title bar stays dark, because that is Windows chrome and needs `DWMWA_USE_IMMERSIVE_DARK_MODE`.
+
+### Changed
+
+- `eframe` joins the workspace with `default-features = false` and only `glow` and `accesskit` (ADR-014). `BSL-1.0` is now an allowed licence: it arrives with it, through `arboard`'s Windows clipboard, and is permissive.
+- `/tmp-data/` is git-ignored. Every rule tells a session to develop against it, and it holds a database and logs.
 
 ## 0.5.0 — 2026-11-09
 

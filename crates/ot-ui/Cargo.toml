@@ -13,5 +13,10 @@ publish.workspace = true
 workspace = true
 
 [dependencies]
+eframe.workspace = true
 egui.workspace = true
+ot-core = { path = "../ot-core" }
+ot-i18n = { path = "../ot-i18n" }
 ot-platform = { path = "../ot-platform" }
+thiserror.workspace = true
+tracing.workspace = true

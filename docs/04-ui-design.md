@@ -53,10 +53,19 @@ bottom.
 | **Logs and Updates** | Log folder, retention, crash reports, update channel and the update check |
 | **About** | Version, licence, the JAKIM attribution, third-party notices |
 
+General is the only pane that exists so far: language, theme and Start with
+Windows, with the status line under it. The others are listed above as the
+design, not as something the window has; an empty tab promises a screen that
+is not there, so a pane appears when its phase lands.
+
 Rules for every pane:
 
 - A row that holds more than one control lines its controls up on one middle
-  line. Labels sit on the field's middle line, not above it.
+  line. Labels sit on the field's middle line, not above it — **except** when
+  the pane is too narrow for a label and a usable field side by side, where
+  the label moves above its field rather than the field being squeezed or run
+  off the edge. `ot_ui::layout::columns` decides that once per pane, so every
+  row of a form divides the same way and the fields line up in one column.
 - A field is wide enough for the values it holds. A value is never squeezed
   into a weaker control (a yes/no as a text field, a fixed set as free text) or
   into a stronger one the user has to fight (a free name as a dropdown).

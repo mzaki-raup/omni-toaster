@@ -45,6 +45,12 @@ allow = [
     "Unicode-3.0",
     "MPL-2.0",
     "CC0-1.0",
+    # Boost: permissive, OSI-approved and FSF-free, with no attribution
+    # requirement for a binary. It arrives with the settings window, through
+    # eframe → egui-winit → arboard → clipboard-win, which is how egui reads
+    # and writes the Windows clipboard. Permissive, so the policy above admits
+    # it without an ADR.
+    "BSL-1.0",
 ]
 confidence-threshold = 0.9
 exceptions = []

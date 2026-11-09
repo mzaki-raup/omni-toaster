@@ -78,9 +78,15 @@ fn main() -> ExitCode {
     // Localization comes up before anything that can fail with a message,
     // because the startup errors are the only strings a user can see before
     // the settings window exists and they must be in their own language.
+    // --lang wins, then the user's stored choice, then Windows. The stored
+    // choice is read straight out of the data folder because the folder has
+    // not been validated yet and its failure messages are themselves
+    // localized (ot_core::settings::stored_language).
     let language = match value_of(&args, "--lang") {
         Ok(Some(tag)) => Language::from_os_locale(&tag),
-        Ok(None) => match ot_platform::user_locale() {
+        Ok(None) => match ot_core::settings::stored_language(data_dir.as_deref())
+            .or_else(ot_platform::user_locale)
+        {
             Some(tag) => Language::from_os_locale(&tag),
             None => Language::English,
         },
@@ -232,8 +238,10 @@ fn main() -> ExitCode {
 
     tracing::info!("startup complete");
 
-    // Keep the instance guard held so a second launch can be observed being
-    // refused. Debug only; Phase 1's settings window makes it unnecessary.
+    // Hold the instance guard without a window, so a second launch can be
+    // observed being refused and so the command line can be exercised where
+    // no window can open at all — CI runs as a service, in session 0. Debug
+    // only, and it is what keeps every test in tests/cli.rs headless.
     #[cfg(debug_assertions)]
     if let Ok(Some(text)) = value_of(&args, "--hold-ms")
         && let Ok(ms) = text.parse::<u64>()
@@ -241,6 +249,30 @@ fn main() -> ExitCode {
         println!("Holding:     {ms} ms");
         let _ = std::io::Write::flush(&mut std::io::stdout());
         std::thread::sleep(std::time::Duration::from_millis(ms));
+        drop(guard);
+        return ExitCode::SUCCESS;
+    }
+
+    // The settings window. It blocks until the user closes it, which for now
+    // ends the process: Quit belongs to the tray menu (FEAT-0015), and until
+    // that exists there would be no way to stop a process that outlived its
+    // only window (docs/specs/tray-and-settings.md §6).
+    let settings = match ot_core::Settings::load(&root) {
+        Ok(settings) => settings,
+        Err(error) => {
+            // The file is the user's to edit, so a typo in it must not lock
+            // them out of the app that would let them fix it.
+            tracing::warn!(%error, "the settings file could not be read; using the defaults");
+            eprintln!("({error})");
+            ot_core::Settings::default()
+        }
+    };
+
+    if let Err(error) = ot_ui::settings_window::run(root, settings) {
+        tracing::error!(%error, "the settings window could not be opened");
+        eprintln!("OmniToaster cannot show its window: {error}");
+        drop(guard);
+        return ExitCode::FAILURE;
     }
 
     drop(guard);
