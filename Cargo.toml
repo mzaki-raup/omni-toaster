@@ -7,10 +7,13 @@ members = ["crates/*"]
 [workspace.package]
 version = "0.7.0"
 edition = "2024"
-# 1.85 is edition 2024's floor, but `time` 0.3.47 - the version that fixes
-# RUSTSEC-2026-0009, reached through tracing-appender - requires 1.88. Claiming
-# 1.85 while depending on 1.88 would be a false promise.
-rust-version = "1.88"
+# 1.85 is edition 2024's floor, but the versions that carry security fixes we
+# need are above it and the MSRV follows them rather than the other way round:
+# `time` 0.3.47 (RUSTSEC-2026-0009, through tracing-appender) needs 1.88, and
+# `rusqlite` 0.41 - the first to bundle SQLite 3.54, which fixes
+# RUSTSEC-2026-0459 - needs 1.89. Claiming a floor we do not build on would be
+# a false promise.
+rust-version = "1.89"
 license = "MIT"
 repository = "https://git.zacx.net/owner/omni-toaster"
 authors = ["owner <owner@zacx.net>"]
@@ -49,7 +52,7 @@ fluent-syntax = "0.12.0"
 
 # Storage (ADR-007). `bundled` compiles SQLite from source so the portable exe
 # carries its own engine and cannot meet a missing or old system sqlite3.dll.
-rusqlite = { version = "0.40.2", features = ["bundled"] }
+rusqlite = { version = "0.41.1", features = ["bundled"] }
 
 # Embeds the icon and the version metadata into OmniToaster.exe at build time.
 winresource = "0.1.34"
