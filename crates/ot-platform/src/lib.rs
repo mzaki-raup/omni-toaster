@@ -13,10 +13,12 @@ pub mod autostart;
 pub mod locale;
 pub mod single_instance;
 pub mod system_theme;
+pub mod tray;
 pub mod ui_font;
 
 pub use autostart::{Autostart, AutostartError};
 pub use locale::user_locale;
 pub use single_instance::{InstanceError, InstanceGuard, Role};
 pub use system_theme::{SystemTheme, system_theme};
+pub use tray::{Labels, PauseWindow, Tray, TrayCommand, TrayError};
 pub use ui_font::{Font, FontError};

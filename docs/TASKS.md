@@ -198,7 +198,7 @@ window to open; FEAT-0016 needs both so it has something to re-render.
 - **Verified:** the gate, plus the running app driven on a scratch `--data-dir` — both languages, Dark, Light and System, at the default size and at the minimum
 - [x] An eframe window: a left rail of sections, a content pane, a status line
 - [x] The **General** pane only: language, theme, start with Windows, and the status line. The other panes belong to later phases and must not be stubbed in as empty tabs
-- [ ] Closing the window does not quit the app. **Deliberately not yet:** closing ends the process, because Quit lives in the tray menu and until FEAT-0015 exists there would be no way to stop a process that outlived its only window. The line is marked in `main.rs`
+- [x] Closing the window does not quit the app — closed by FEAT-0015, which gave it a tray to be reached from. Checked in the running app: the window was closed and the process was still there afterwards, drawing frames
 - [x] Every string through Fluent in both catalogues; Title Case for labels, sentence case for hints
 - [x] Test: the General pane's strings all resolve; no literal reaches a widget — `the_general_pane_names_only_keys_that_exist_in_both_catalogues` walks every key the window can ask for, in both catalogues
 - [x] Gate: fmt · clippy -D warnings · test --workspace --locked -j 4 (110 tests) · deny check · --self-test
@@ -225,20 +225,34 @@ window to open; FEAT-0016 needs both so it has something to re-render.
 - **Notes:** The window is light and its title bar is dark, which is the most visible thing wrong with the first screen the product has. Getting the handle means plumbing `raw-window-handle` out of eframe's `CreationContext`, which is why it is its own item rather than a line in FEAT-0014.
 
 ### FEAT-0015 · Tray icon and menu
-- **State:** Pending · **Spec:** docs/specs/tray-and-settings.md §3, §4 · **Phase:** 1
-- **Branch:** feat/phase-1-shell
+- **State:** In-Progress · **Spec:** docs/specs/tray-and-settings.md §3, §4 · **Phase:** 1
+- **Branch:** feat/tray-icon
 - **Depends on:** FEAT-0014
-- [ ] `tray-icon` + `muda`, using the generated `assets/icon/` sizes
-- [ ] Left-click opens or focuses the settings window
-- [ ] Right-click menu: Open Settings · Pause All Notifications (30 min · 1 hour · until resumed) · Test Toast · Snooze Last · Quit — each with a glyph, the same glyph for the same verb
-- [ ] The menu is **rebuilt** on a language change rather than created once
-- [ ] Pause state and its expiry visible in the tooltip and the status line; Quit confirms while a pause is active
-- [ ] A stale icon left by a killed process is removed on the next start
-- [ ] Test: the menu's labels all resolve in both languages; the pause windows compute the right expiry, including across midnight
-- [ ] Gate: fmt · clippy -D warnings · test --workspace --locked -j 4 · deny check · --self-test
-- [ ] App: every menu item, both languages, and the icon at 100% and 200% DPI
-- [ ] Docs: spec · README (screenshot) · CHANGELOG · CHECKLIST · GOTCHAS
+- **Verified:** the gate, plus the running app — the icon is created, closing the window hides it and the process keeps drawing frames
+- [x] `tray-icon` + `muda`, using the icon already embedded in the exe. `muda` arrives **through** `tray-icon` and is used as `tray_icon::menu`, so the two cannot drift apart; adding it separately would have pinned a second version of the same types
+- [ ] Left-click opens or focuses the settings window. **Written and not clicked from here** — see the App box
+- [x] Right-click menu: Open Settings · Pause All Notifications (30 min · 1 hour · until resumed) · Test Toast · Snooze Last · Quit — each with a glyph, the same glyph for the same verb, chosen in code rather than written into the locale files
+- [x] The menu is **rebuilt** on a language change rather than created once — and on a pause starting or lapsing, which changes which items belong in it
+- [x] Pause state and its expiry visible in the tooltip and the status line; Quit confirms while a pause is active
+- [ ] A stale icon left by a killed process is removed on the next start. **Not done and not faked:** `tray-icon` removes the icon when it is dropped, which a killed process never does. Windows clears the ghost when someone next moves the pointer over it, and doing better needs a stable `GUID` identity on the `Shell_NotifyIcon` call, which this crate does not expose. Filed as CR-0003
+- [x] Test: the menu's labels all resolve in both languages — every tray key is in the window's key-coverage test; the pause windows compute the right expiry, including across midnight (`a_pause_started_before_midnight_ends_the_next_day`)
+- [x] Gate: fmt · clippy -D warnings · test --workspace --locked -j 4 (119 tests) · deny check · --self-test
+- [ ] App: every menu item, both languages, and the icon at 100% and 200% DPI. **This is the owner's to do.** Windows 11 puts a new tray icon in the hidden-icons overflow, and that flyout cannot be reached from this session — not by clicking (the chevron has no findable position), not through UI Automation (the notification area is a XAML island that exposes nothing), and not by Win+B. What *was* checked here: the icon is created without error in both languages (a failure would show in the status line and it does not), closing the window hides it rather than quitting, and the process keeps drawing while hidden
+- [x] Docs: spec · CHANGELOG · CHECKLIST · GOTCHAS. **README screenshot waits** on the menu being photographable, which is the same blocker as the App box
 - **Notes:** Test Toast and Snooze Last have nothing to act on until Phases 2 and 4; they are present and disabled rather than hidden, so the menu's shape does not change under the user later. Pause suppresses toasts and announcements but **never Azan** — that is Settings ▸ Prayer's job.
+  **The tray shares the window's thread.** It is created inside the eframe app, so winit's message pump delivers its clicks, and the window asks to be repainted every 120 ms because nothing wakes egui when an event lands in the tray's channel. The question that decided the design was whether a *hidden* window still gets updated: it does. Measured with a temporary counter — 18 frames in the 6 seconds after the window was closed, about 3 a second, Windows throttling it from the 8 the interval asks for. That is far inside what a menu click needs, so there is no second thread and no second message loop.
+  **Labels cross the crate boundary as strings.** `ot-platform` owns Windows, not language: the caller resolves every Fluent key and hands over a `Labels`, which is also what makes a language change an ordinary rebuild rather than a special case. The same trade appears in `PauseWindow` versus `ot_core::PauseFor` — two enums naming the same three things so that `ot-platform` need not know about clocks. `the_pause_windows_map_across_the_crate_boundary_without_crossing_over` is there because swapping two of them would mute the app for the wrong length of time and nothing else would notice.
+
+### CR-0003 · A killed worker leaves a ghost tray icon
+- **State:** Pending · **Spec:** docs/specs/tray-and-settings.md §3 · **Phase:** 1
+- **Source:** FEAT-0015 — the box it could not tick
+- [ ] Spec first: say what identity the icon takes and what the next start does with a stale one
+- [ ] Give the icon a stable `GUID` so Windows recognises the new instance as the same icon and replaces it, instead of leaving the dead one until the pointer passes over it
+- [ ] Test: two runs in a row produce one icon, not two
+- [ ] Gate: fmt · clippy -D warnings · test --workspace --locked -j 4 · deny check · --self-test
+- [ ] App: kill the process, start it again, confirm one icon
+- [ ] Docs: spec · CHANGELOG · GOTCHAS
+- **Notes:** `tray-icon` 0.24 has no way to pass a `GUID` to `Shell_NotifyIcon`, so this is either a patch upstream or the one Win32 call made directly in `ot-platform`. Worth doing before Phase 8, when the supervisor starts restarting workers and every crash would otherwise leave another ghost.
 
 ### FEAT-0016 · Live language switch
 - **State:** Pending · **Spec:** docs/10-i18n.md · **Phase:** 1

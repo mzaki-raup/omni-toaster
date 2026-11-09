@@ -7,6 +7,15 @@ Format: [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) · Versioning:
 
 ## Unreleased
 
+### Added
+
+- The tray icon and its menu (FEAT-0015): Open Settings, Pause All Notifications for 30 minutes, an hour or until resumed, Test Toast and Snooze Last (present and disabled until Phases 2 and 4), and Quit. Every item carries a glyph, chosen per verb in code rather than written into the locale files, and the menu is rebuilt on a language change and when a pause starts or lapses.
+- `ot_core::pause` (FEAT-0015): the pause state and its arithmetic, including a pause started before midnight ending on the next day. Azan is never suppressed by a pause.
+- The paused state is shown in the tray tooltip and in the settings status line, with the time it lapses — an app someone has forgotten they muted is the worst outcome of a pause.
+- Quitting while a pause is running asks first, rather than leaving someone waiting for notifications that will never come.
+- Closing the settings window now hides it instead of ending the app (FEAT-0014's last open box). Quit lives in the tray menu.
+- Filed CR-0003: a killed process leaves a ghost tray icon until the pointer passes over it, which needs a stable `GUID` on the `Shell_NotifyIcon` call that `tray-icon` does not expose.
+
 - (nothing yet)
 
 ## 0.6.0 — 2026-11-09

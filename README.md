@@ -13,12 +13,20 @@ starts with Windows, recovers from crashes, and keeps every byte of its data in
 an `OmniToasterData/` folder next to the executable.
 
 **Status:** Phase 1 (Shell), in progress. The app starts in English or Malay,
-keeps its data in a portable folder, refuses to run twice, and opens a
-**settings window** with the General pane: language, theme and Start with
-Windows. There is still no tray icon and no toast, so closing the window ends
-the app for now. `--data-dir`, `--self-test`, `--version`, `--help`, `--lang`
-and `--worker` all work. See [PROPOSAL.md](PROPOSAL.md) §13 for the phase plan
-and [docs/CHECKLIST.md](docs/CHECKLIST.md) for progress.
+keeps its data in a portable folder, refuses to run twice, lives in the
+**system tray**, and opens a **settings window** with the General pane:
+language, theme and Start with Windows. Closing the window hides it; Quit is
+in the tray menu, which also pauses all notifications for half an hour, an
+hour or until you resume them. There is still no toast — that is Phase 2.
+`--data-dir`, `--self-test`, `--version`, `--help`, `--lang` and `--worker`
+all work.
+
+> On Windows 11 a new tray icon starts in the **hidden-icons overflow**,
+> behind the chevron at the left of the notification area. Drag it onto the
+> taskbar to keep it in sight.
+
+See [PROPOSAL.md](PROPOSAL.md) §13 for the phase plan and
+[docs/CHECKLIST.md](docs/CHECKLIST.md) for progress.
 
 ---
 

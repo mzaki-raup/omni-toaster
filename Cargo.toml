@@ -70,6 +70,13 @@ eframe = { version = "0.33.3", default-features = false, features = [
     "accesskit",
 ] }
 
+# The tray icon and its menu (FEAT-0015). `gtk` and `libxdo` are Linux-only
+# default features; this is a Windows tray, and dropping them keeps the Linux
+# clippy run from wanting system libraries it has no business needing. `muda`
+# arrives through tray-icon and is used through `tray_icon::menu`, so the two
+# cannot drift apart.
+tray-icon = { version = "0.24.2", default-features = false }
+
 # `config/settings.toml` is the source of truth for configuration (ADR-007).
 toml = "1.2.1"
 serde = { version = "1.0.229", features = ["derive"] }
