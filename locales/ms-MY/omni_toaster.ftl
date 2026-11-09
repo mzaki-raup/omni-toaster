@@ -51,6 +51,36 @@ language-system = Sama seperti Windows
 language-en-us = English
 language-ms-my = Bahasa Melayu
 
+## Ikon dulang dan menunya. Huruf Besar Setiap Perkataan untuk setiap item,
+## kerana ia item menu. Glif di hadapan setiap satu dipilih dalam kod.
+
+tray-open-settings = Buka Tetapan
+tray-pause = Jeda Semua Pemberitahuan
+tray-pause-30 = Selama 30 Minit
+tray-pause-60 = Selama 1 Jam
+tray-pause-until-resumed = Sehingga Saya Sambung Semula
+tray-resume = Sambung Semula Pemberitahuan
+tray-test-toast = Uji Toast
+tray-snooze-last = Tunda Yang Terakhir
+tray-quit = Keluar daripada OmniToaster
+
+## Teks apung dulang. Huruf biasa: ia petunjuk, bukan label. Ia membawa
+## keadaan jeda, kerana aplikasi yang pengguna lupa telah disenyapkan ialah
+## akibat paling buruk sesuatu jeda.
+
+tray-tooltip-idle = OmniToaster sedang berjalan.
+# $time ialah masa jeda itu tamat, diformat oleh ot_i18n.
+tray-tooltip-paused-until = Pemberitahuan dijeda sehingga { $time }.
+tray-tooltip-paused-until-resumed = Pemberitahuan dijeda sehingga anda menyambungnya semula.
+
+## Keluar semasa jeda sedang berjalan. Huruf biasa untuk teks; butang
+## menggunakan Huruf Besar Setiap Perkataan dan menyatakan tindakannya.
+
+tray-quit-confirm-title = Keluar daripada OmniToaster?
+tray-quit-confirm-body = Pemberitahuan sedang dijeda. Keluar sekarang akan menutup OmniToaster sepenuhnya, dan tiada apa-apa akan dihantar sehingga anda memulakannya semula.
+tray-quit-confirm-quit = Tetap Keluar
+tray-quit-confirm-stay = Teruskan Berjalan
+
 ## Tetingkap tetapan: tajuknya, bahagian dalam rel kiri, dan panel Umum.
 ## Huruf Besar Setiap Perkataan untuk label, huruf biasa untuk petunjuk.
 
@@ -70,6 +100,11 @@ settings-startup-elsewhere = Salinan OmniToaster yang lain ditetapkan untuk mula
 ## tinggal, jadi setiap mesej menyatakan apa yang kini benar.
 
 settings-status-ready = Sedia.
+# $time ialah masa jeda itu tamat, diformat oleh ot_i18n.
+settings-status-paused-until = Pemberitahuan dijeda sehingga { $time }.
+settings-status-paused-until-resumed = Pemberitahuan dijeda sehingga anda menyambungnya semula.
+settings-status-resumed = Pemberitahuan dihidupkan semula.
+settings-status-tray-failed = Ikon dulang tidak dapat dibuat, jadi menutup tetingkap ini ialah satu-satunya jalan keluar: { $reason }
 settings-status-saved = Tetapan anda telah disimpan.
 settings-status-autostart-on = OmniToaster akan mula dengan Windows.
 settings-status-autostart-off = OmniToaster tidak akan mula dengan Windows.

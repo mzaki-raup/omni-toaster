@@ -9,12 +9,23 @@
 //! defect, and `the_general_pane_names_only_keys_that_exist` is what catches
 //! one.
 
-use ot_core::{DataRoot, Settings};
+use std::time::Duration;
+
+use ot_core::{DataRoot, Pause, PauseFor, Settings};
 use ot_i18n::Language;
-use ot_platform::Autostart;
+use ot_platform::{Autostart, PauseWindow, Tray, TrayCommand};
 
 use crate::layout;
 use crate::theme::{Theme, ThemeMode};
+
+/// How often the window wakes to look at the tray's channels.
+///
+/// The tray posts into a channel; nothing wakes egui when it does, so the
+/// window asks to be repainted on this interval. Short enough that a menu
+/// click feels immediate, long enough that an idle app is not spinning —
+/// at 120 ms an idle OmniToaster does eight almost-empty frames a second,
+/// and its window is usually hidden.
+const TRAY_POLL: Duration = Duration::from_millis(120);
 
 /// The window's sections. One for now; the rail exists so the second costs
 /// nothing but a variant.
@@ -97,12 +108,40 @@ pub enum Status {
     AutostartOn,
     AutostartOff,
     AutostartElsewhere,
-    Failed { key: &'static str, reason: String },
+    /// Notifications are paused. The text is built from the pause itself, so
+    /// it says *until when* rather than only that something happened.
+    Paused,
+    Resumed,
+    Failed {
+        key: &'static str,
+        reason: String,
+    },
 }
 
 impl Status {
+    /// The line to show. `pause` is passed in because the paused line says
+    /// until when, which is state rather than a message.
+    fn text_with_pause(&self, pause: Pause) -> String {
+        match self {
+            Self::Paused => match pause {
+                Pause::Until(moment) => ot_i18n::text_with(
+                    "settings-status-paused-until",
+                    &[("time", formatted_time(moment).into())],
+                ),
+                // Running should not reach here, but saying "paused" of a
+                // running app would be worse than saying the open-ended line.
+                Pause::UntilResumed | Pause::Running => {
+                    ot_i18n::text("settings-status-paused-until-resumed")
+                }
+            },
+            other => other.text(),
+        }
+    }
+
     fn text(&self) -> String {
         match self {
+            Self::Paused => ot_i18n::text("settings-status-paused-until-resumed"),
+            Self::Resumed => ot_i18n::text("settings-status-resumed"),
             Self::Ready => ot_i18n::text("settings-status-ready"),
             Self::Saved => ot_i18n::text("settings-status-saved"),
             Self::AutostartOn => ot_i18n::text("settings-status-autostart-on"),
@@ -133,6 +172,19 @@ pub struct SettingsWindow {
     /// Whether the palette has reached the egui context yet. Applying it is a
     /// style clone, so it happens when it changes and not every frame.
     applied: bool,
+    /// The tray icon, held for as long as the app runs — dropping it takes
+    /// the icon out of the notification area. `None` when it could not be
+    /// created, which is reported rather than hidden.
+    tray: Option<Tray>,
+    /// Whether notifications are suppressed, and until when.
+    pause: Pause,
+    /// Set when the user has asked to quit and the close is ours to let
+    /// through, rather than a window close that only hides.
+    quitting: bool,
+    /// Set when Quit was asked for while a pause is running: the window comes
+    /// back with a confirmation rather than the app going quiet for good
+    /// while the user still thinks it is only muted.
+    confirming_quit: bool,
 }
 
 impl SettingsWindow {
@@ -154,6 +206,25 @@ impl SettingsWindow {
                 },
             ),
         };
+        let pause = Pause::default();
+        let (tray, status) =
+            match Tray::new(&tray_labels(pause), pause.is_active(chrono::Local::now())) {
+                Ok(tray) => (Some(tray), status),
+                Err(error) => {
+                    // The app still works without it, but the user has lost the
+                    // only way to reach it once the window is closed, so this is
+                    // said out loud rather than logged and forgotten.
+                    tracing::error!(%error, "the tray icon could not be created");
+                    (
+                        None,
+                        Status::Failed {
+                            key: "settings-status-tray-failed",
+                            reason: error.to_string(),
+                        },
+                    )
+                }
+            };
+
         Self {
             root,
             settings,
@@ -163,6 +234,10 @@ impl SettingsWindow {
             autostart,
             status,
             applied: false,
+            tray,
+            pause,
+            quitting: false,
+            confirming_quit: false,
         }
     }
 
@@ -319,6 +394,118 @@ impl SettingsWindow {
         );
     }
 
+    /// Act on everything the tray has to say, and keep the menu in step.
+    fn handle_tray(&mut self, ctx: &egui::Context) {
+        let now = chrono::Local::now();
+        // A lapsed pause clears itself, and the menu goes back to offering a
+        // pause rather than a resume.
+        let mut menu_is_stale = self.pause.lapse(now);
+
+        let commands = match &self.tray {
+            Some(tray) => tray.drain(),
+            None => Vec::new(),
+        };
+
+        for command in commands {
+            match command {
+                TrayCommand::OpenSettings => self.show_window(ctx),
+                TrayCommand::Pause(window) => {
+                    self.pause = Pause::start(pause_window(window), now);
+                    self.status = Status::Paused;
+                    menu_is_stale = true;
+                }
+                TrayCommand::Resume => {
+                    self.pause = Pause::Running;
+                    self.status = Status::Resumed;
+                    menu_is_stale = true;
+                }
+                // Present and disabled in the menu until Phases 2 and 4, so
+                // neither can arrive; if one does, it is a defect worth a
+                // line rather than a silent no-op.
+                TrayCommand::TestToast | TrayCommand::SnoozeLast => {
+                    tracing::warn!(?command, "a disabled tray item was clicked");
+                }
+                TrayCommand::Quit => {
+                    if self.pause.is_active(now) {
+                        // Quitting silently while muted leaves someone
+                        // waiting for notifications that will never come
+                        // (docs/specs/tray-and-settings.md §6).
+                        self.confirming_quit = true;
+                        self.show_window(ctx);
+                    } else {
+                        self.quit(ctx);
+                    }
+                }
+            }
+        }
+
+        if menu_is_stale {
+            self.rebuild_tray(now);
+        }
+    }
+
+    /// Rebuild the menu and the tooltip for the current language and pause.
+    fn rebuild_tray(&mut self, now: chrono::DateTime<chrono::Local>) {
+        let paused = self.pause.is_active(now);
+        let labels = tray_labels(self.pause);
+        if let Some(tray) = self.tray.as_mut()
+            && let Err(error) = tray.rebuild(&labels, paused)
+        {
+            tracing::warn!(%error, "the tray menu could not be rebuilt");
+            self.status = Status::Failed {
+                key: "settings-status-tray-failed",
+                reason: error.to_string(),
+            };
+        }
+    }
+
+    fn show_window(&self, ctx: &egui::Context) {
+        ctx.send_viewport_cmd(egui::ViewportCommand::Visible(true));
+        ctx.send_viewport_cmd(egui::ViewportCommand::Focus);
+    }
+
+    fn hide_window(&self, ctx: &egui::Context) {
+        ctx.send_viewport_cmd(egui::ViewportCommand::Visible(false));
+    }
+
+    fn quit(&mut self, ctx: &egui::Context) {
+        self.quitting = true;
+        ctx.send_viewport_cmd(egui::ViewportCommand::Close);
+    }
+
+    /// The confirmation shown when Quit is asked for while paused.
+    fn quit_confirmation(&mut self, ctx: &egui::Context) {
+        let tokens = self.theme.tokens();
+        let mut answered = None;
+        egui::Modal::new(egui::Id::new("confirm-quit")).show(ctx, |ui| {
+            ui.set_max_width(layout::FIELD_MAX_WIDTH);
+            ui.heading(ot_i18n::text("tray-quit-confirm-title"));
+            ui.add_space(layout::ROW_GAP);
+            ui.label(
+                egui::RichText::new(ot_i18n::text("tray-quit-confirm-body")).color(tokens.text),
+            );
+            ui.add_space(layout::PANE_GAP);
+            ui.horizontal_wrapped(|ui| {
+                if ui.button(ot_i18n::text("tray-quit-confirm-quit")).clicked() {
+                    answered = Some(true);
+                }
+                ui.add_space(layout::OPTION_GAP);
+                if ui.button(ot_i18n::text("tray-quit-confirm-stay")).clicked() {
+                    answered = Some(false);
+                }
+            });
+        });
+
+        match answered {
+            Some(true) => {
+                self.confirming_quit = false;
+                self.quit(ctx);
+            }
+            Some(false) => self.confirming_quit = false,
+            None => {}
+        }
+    }
+
     fn status_line(&self, ui: &mut egui::Ui) {
         let tokens = self.theme.tokens();
         let colour = if self.status.is_failure() {
@@ -327,13 +514,27 @@ impl SettingsWindow {
             tokens.text_dim
         };
         ui.horizontal_wrapped(|ui| {
-            ui.label(egui::RichText::new(self.status.text()).color(colour));
+            ui.label(egui::RichText::new(self.status.text_with_pause(self.pause)).color(colour));
         });
     }
 }
 
 impl eframe::App for SettingsWindow {
     fn update(&mut self, ctx: &egui::Context, _frame: &mut eframe::Frame) {
+        // Nothing wakes egui when a tray event lands in its channel, so the
+        // window asks to be woken. This is also what keeps the process
+        // answering the tray while the window is hidden.
+        ctx.request_repaint_after(TRAY_POLL);
+        self.handle_tray(ctx);
+
+        // Closing the window hides it; only the tray's Quit ends the app
+        // (docs/specs/tray-and-settings.md §6). Without this the one way to
+        // stop OmniToaster would also be the way to glance at its settings.
+        if ctx.input(|i| i.viewport().close_requested()) && !self.quitting {
+            ctx.send_viewport_cmd(egui::ViewportCommand::CancelClose);
+            self.hide_window(ctx);
+        }
+
         // System mode re-reads Windows on its own schedule. Applying the
         // palette clones the style, so it happens when the answer changed and
         // not on every frame (`.claude/rules/ui.md`).
@@ -367,7 +568,67 @@ impl eframe::App for SettingsWindow {
             .show(ctx, |ui| match self.section {
                 Section::General => self.general_pane(ui),
             });
+
+        if self.confirming_quit {
+            self.quit_confirmation(ctx);
+        }
     }
+}
+
+/// `ot-platform` names the pause windows without `ot-core`'s clock types, so
+/// the two enums meet here, in the crate that depends on both.
+fn pause_window(window: PauseWindow) -> PauseFor {
+    match window {
+        PauseWindow::ThirtyMinutes => PauseFor::ThirtyMinutes,
+        PauseWindow::OneHour => PauseFor::OneHour,
+        PauseWindow::UntilResumed => PauseFor::UntilResumed,
+    }
+}
+
+/// Every tray label, resolved in the active language.
+///
+/// Built fresh each time the menu is built, which is what makes a language
+/// change a rebuild rather than a special case — `ot-platform` is handed
+/// strings and never sees a Fluent key.
+fn tray_labels(pause: Pause) -> ot_platform::Labels {
+    ot_platform::Labels {
+        open_settings: ot_i18n::text("tray-open-settings"),
+        pause: ot_i18n::text("tray-pause"),
+        pause_30: ot_i18n::text(PauseFor::ThirtyMinutes.name_key()),
+        pause_60: ot_i18n::text(PauseFor::OneHour.name_key()),
+        pause_until_resumed: ot_i18n::text(PauseFor::UntilResumed.name_key()),
+        resume: ot_i18n::text("tray-resume"),
+        test_toast: ot_i18n::text("tray-test-toast"),
+        snooze_last: ot_i18n::text("tray-snooze-last"),
+        quit: ot_i18n::text("tray-quit"),
+        tooltip: tooltip_for(pause),
+    }
+}
+
+/// The hover text: the paused notice, or the app's name.
+///
+/// A paused app must say so where the user will see it, because the worst
+/// outcome of a pause is forgetting it is on
+/// (`docs/specs/tray-and-settings.md` §4). The next reminder or prayer takes
+/// this place once there is one (Phases 4 and 5).
+fn tooltip_for(pause: Pause) -> String {
+    match pause {
+        Pause::Running => ot_i18n::text("tray-tooltip-idle"),
+        Pause::UntilResumed => ot_i18n::text("tray-tooltip-paused-until-resumed"),
+        Pause::Until(moment) => ot_i18n::text_with(
+            "tray-tooltip-paused-until",
+            &[("time", formatted_time(moment).into())],
+        ),
+    }
+}
+
+/// A time of day through the one formatter. Nothing else may format one
+/// (`docs/10-i18n.md`).
+fn formatted_time(moment: chrono::DateTime<chrono::Local>) -> String {
+    let prefs = ot_i18n::format::TimePrefs::for_language(
+        ot_i18n::current_language().unwrap_or(Language::English),
+    );
+    ot_i18n::format::format_time(&moment.naive_local(), prefs)
 }
 
 /// The fonts, installed into a fresh `FontDefinitions`.
@@ -472,10 +733,31 @@ mod tests {
             "settings-status-autostart-on",
             "settings-status-autostart-off",
             "settings-status-autostart-failed",
+            "settings-status-tray-failed",
+            "settings-status-paused-until",
+            "settings-status-paused-until-resumed",
+            "settings-status-resumed",
+            // The tray menu, its tooltip and the quit confirmation. They go
+            // through this crate, so a missing one would draw its key in the
+            // one surface a user always has (FEAT-0015).
+            "tray-open-settings",
+            "tray-pause",
+            "tray-resume",
+            "tray-test-toast",
+            "tray-snooze-last",
+            "tray-quit",
+            "tray-tooltip-idle",
+            "tray-tooltip-paused-until",
+            "tray-tooltip-paused-until-resumed",
+            "tray-quit-confirm-title",
+            "tray-quit-confirm-body",
+            "tray-quit-confirm-quit",
+            "tray-quit-confirm-stay",
         ];
         keys.extend(Section::all().map(Section::name_key));
         keys.extend(LanguageChoice::all().map(LanguageChoice::name_key));
         keys.extend(ThemeMode::all().map(ThemeMode::name_key));
+        keys.extend(PauseFor::all().map(PauseFor::name_key));
         keys
     }
 
@@ -518,6 +800,22 @@ mod tests {
     }
 
     #[test]
+    fn the_pause_windows_map_across_the_crate_boundary_without_crossing_over() {
+        // `ot-platform` names the windows without ot-core's clock types, so
+        // the two enums are translated by hand; swapping two would mute the
+        // app for the wrong length of time and nothing would complain.
+        assert_eq!(
+            pause_window(PauseWindow::ThirtyMinutes),
+            PauseFor::ThirtyMinutes
+        );
+        assert_eq!(pause_window(PauseWindow::OneHour), PauseFor::OneHour);
+        assert_eq!(
+            pause_window(PauseWindow::UntilResumed),
+            PauseFor::UntilResumed
+        );
+    }
+
+    #[test]
     fn the_status_line_distinguishes_a_failure_from_a_notice() {
         assert!(
             Status::Failed {
@@ -532,6 +830,8 @@ mod tests {
             Status::AutostartOn,
             Status::AutostartOff,
             Status::AutostartElsewhere,
+            Status::Paused,
+            Status::Resumed,
         ] {
             assert!(!quiet.is_failure(), "{quiet:?} is not a failure");
         }

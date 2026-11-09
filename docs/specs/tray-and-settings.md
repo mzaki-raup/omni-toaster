@@ -22,6 +22,19 @@ state is a tray icon and nothing else on screen.
 - **Left-click:** open or focus the settings window.
 - **Right-click menu:** Open Settings · Pause All Notifications (30 minutes · 1
   hour · until resumed) · Test Toast · Snooze Last · Quit.
+- While a pause is running, the pause submenu is replaced by **Resume
+  Notifications**, rather than both being present and one of them dead. The
+  menu is rebuilt when the pause starts or lapses, which is the same path a
+  language change takes.
+- Test Toast and Snooze Last are **present and disabled** until Phases 2 and 4
+  give them something to act on, so the menu's shape does not change under the
+  user later.
+
+**Windows 11 puts a new tray icon in the hidden-icons overflow**, behind the
+chevron, until the user drags it onto the taskbar. That is the user's choice
+to make and the app must not fiddle with it, but it means the first run looks
+like nothing happened — so the first-run experience cannot depend on the icon
+being visible, and anyone verifying the tray has to look in the overflow.
 - **Tooltip:** the next reminder or prayer — "Zohor · 13:19" — formatted by
   `ot_i18n`.
 - Every label is localized and updates **immediately** on a language change,
@@ -57,6 +70,14 @@ sections and the rules for every pane are in
 [04-ui-design.md](../04-ui-design.md). Closing the window does not quit the
 app; Quit is only in the tray menu, and it asks for confirmation when a pause
 is active.
+
+The window and the tray share one thread and one event loop: the tray is
+created inside the eframe app, so winit's message pump delivers its clicks,
+and the window asks to be repainted on a short interval because nothing wakes
+egui when an event lands in the tray's channel. A hidden window keeps being
+updated — Windows throttles it to a few frames a second, which is well inside
+what a menu click needs — so the app stays answerable with nothing on screen,
+without a second thread and its own message loop.
 
 The status line is where non-modal truth lives: the current prayer source and
 last fetch time, the voice fallback state, a paused notice, the last error.

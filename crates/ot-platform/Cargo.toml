@@ -16,3 +16,8 @@ workspace = true
 thiserror.workspace = true
 tracing.workspace = true
 windows = { version = "0.62.2", features = ["Win32_Globalization", "Win32_Foundation", "Win32_System_Threading", "Win32_System_Registry", "Win32_Security", "Win32_System_SystemInformation"] }
+
+# The tray is Windows-only, so the crate that draws it is too: this keeps the
+# Linux clippy run from pulling gtk and libxdo for a tray it never builds.
+[target.'cfg(windows)'.dependencies]
+tray-icon.workspace = true

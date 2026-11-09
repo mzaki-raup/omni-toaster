@@ -55,6 +55,36 @@ language-system = Same as Windows
 language-en-us = English
 language-ms-my = Bahasa Melayu
 
+## The tray icon and its menu. Title Case for every item, because they are
+## menu items. The glyph in front of each one is chosen in code, not here.
+
+tray-open-settings = Open Settings
+tray-pause = Pause All Notifications
+tray-pause-30 = For 30 Minutes
+tray-pause-60 = For 1 Hour
+tray-pause-until-resumed = Until I Resume
+tray-resume = Resume Notifications
+tray-test-toast = Test Toast
+tray-snooze-last = Snooze Last
+tray-quit = Quit OmniToaster
+
+## The tray tooltip. Sentence case: it is a hint, not a label. It carries the
+## paused state, because an app someone has forgotten they muted is the worst
+## outcome of a pause.
+
+tray-tooltip-idle = OmniToaster is running.
+# $time is the moment the pause lapses, formatted by ot_i18n.
+tray-tooltip-paused-until = Notifications are paused until { $time }.
+tray-tooltip-paused-until-resumed = Notifications are paused until you resume them.
+
+## Quitting while a pause is running. Sentence case for the body; the buttons
+## are Title Case, and each says what it does rather than Yes or No.
+
+tray-quit-confirm-title = Quit OmniToaster?
+tray-quit-confirm-body = Notifications are paused. Quitting now closes OmniToaster altogether, and nothing will be delivered until you start it again.
+tray-quit-confirm-quit = Quit Anyway
+tray-quit-confirm-stay = Keep Running
+
 ## The settings window: its title, the sections in the left rail, and the
 ## General pane. Title Case for the labels, sentence case for the hints.
 
@@ -74,6 +104,11 @@ settings-startup-elsewhere = Another copy of OmniToaster is set to start with Wi
 ## lives, so each message says what is now true rather than what was clicked.
 
 settings-status-ready = Ready.
+# $time is the moment the pause lapses, formatted by ot_i18n.
+settings-status-paused-until = Notifications are paused until { $time }.
+settings-status-paused-until-resumed = Notifications are paused until you resume them.
+settings-status-resumed = Notifications are on again.
+settings-status-tray-failed = The tray icon could not be created, so closing this window is the only way out: { $reason }
 settings-status-saved = Your settings are saved.
 settings-status-autostart-on = OmniToaster will start with Windows.
 settings-status-autostart-off = OmniToaster will not start with Windows.
