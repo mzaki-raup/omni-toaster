@@ -430,6 +430,21 @@ of it, then 0004, 0005 and 0006 in any order.
 - **Notes:** 66 occurrences across 32 files, done as a literal replacement with no regex or escapes — the only kind of scripted edit this project trusts (`docs/GOTCHAS.md`). The real defect was that the product had **two** spellings: the exe, the data folder, the package, `docs/CHANGELOG.md` and `docs/CHECKLIST.md` already said `OmniToaster`, while the proposal, the specs and every user-visible string said `Omni Toaster`. Two things were deliberately left alone: `Feasibility Study.txt`, which records the owner's own original words and is a historical input rather than a document we maintain; and the released `0.1.0` section of `docs/CHANGELOG.md`, which belongs to the release workflow and is never hand-edited — it happens to contain no occurrence anyway, since its entries are commit subjects. **v0.1.0 shipped with the old spelling** and cannot be changed retrospectively; v0.2.0 carries the fix.
   **A second mistake, found afterwards and worth more than the first:** this was committed as `style:`, which `scripts/next-release.ps1` lists in `$NoReleaseTypes` — no version bump and **no line in the release notes**. So the rename reached users in v0.2.0 carried by the `feat(store)` commit in the same push, and v0.2.0's notes do not mention it. Released sections are never hand-edited, so that cannot be corrected now. A change to user-visible text is `fix:` or `feat:` however cosmetic the diff looks; `docs/09` and `docs/GOTCHAS.md` now say so. The same review also found `docs/09`'s bump table wrongly listing `refactor:` and `build:` as patch bumps when the script treats both as no-release.
 
+### BUG-0003 · A path dependency pinned `0.4.0`, so the first minor release could not resolve
+- **State:** Completed · **Spec:** docs/08-decisions.md (ADR-001) · **Phase:** 0
+- **Branch:** bug/path-dep-pins-a-version
+- **Source:** the v0.5.0 release run went red immediately after Phase 1's merge — `failed to select a version for the requirement ot-platform = "^0.4.0"`, candidate versions found which didn't match: 0.5.0
+- **Verified:** the gate, plus a simulated version bump to 0.5.0 that now resolves and builds
+- [x] Test first: `crates/omnitoaster/tests/manifests.rs` reads every manifest in the workspace and fails on any dependency line carrying both a `path` and a `version`, naming file and line. It failed on the offending line before the fix
+- [x] Fix: `crates/omnitoaster/Cargo.toml` takes `ot-platform` by path alone, like its three siblings
+- [x] Proved against a real bump: `[workspace.package] version` set to `0.5.0` in a scratch copy, `cargo build` resolves and compiles, then reverted
+- [x] Gate: fmt · clippy -D warnings · test --workspace --locked -j 4 · deny check · --self-test
+- [ ] App: not applicable — a manifest defect with no runtime behaviour. The release run going green is the proof, and it is the step that failed
+- [x] Docs: CHANGELOG · GOTCHAS · docs/09-ci-cd-and-releases.md
+- **Notes:** The version lives once, in `[workspace.package] version` (ADR-001), and `scripts/update-version.ps1` moves it. The pin kept the literal `0.4.0` while the crate it pointed at moved with the workspace.
+  **Why it stayed hidden through four releases:** `version = "0.4.0"` is a caret requirement, so it accepted 0.4.1 and every patch release resolved. The first **minor** bump is what breaks it — and that is the release least likely to be watched for a resolver error, since nothing about the change touches the manifest. v0.5.0 is the release that found it; v0.1.0 to v0.4.1 were all patch or same-minor bumps from a version the pin accepted.
+  The failure surfaces inside `scripts/build-and-package.ps1`, which made it look like a packaging fault. It is not: the script reported a `cargo build` exit code 101 faithfully, and PowerShell's error rendering mangled the throwing line into `. XITCODE -ne 0) { … }`, which is cosmetic and not a defect in the script.
+
 ### BUG-0002 · The GitHub mirror handoff skips silently, so no release reaches GitHub
 - **State:** In-Progress · **Spec:** docs/09-ci-cd-and-releases.md · **Phase:** 0
 - **Blocked on:** the owner — the fix needs two forge secrets only they can set

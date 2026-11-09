@@ -114,8 +114,14 @@ was green yesterday can fail today with no change of its own.
 
 Semantic versioning. The version lives **once**, under `[workspace.package]` in
 the root `Cargo.toml`, and is moved only by `scripts/update-version.ps1` —
-never by hand. The release pipeline decides the number from the Conventional
-Commit types since the previous tag:
+never by hand. **Once** means no crate repeats it: a dependency on a sibling
+crate is `{ path = "../ot-thing" }` and never carries a `version`, which a
+version bump would leave behind — a pinned `^0.4.0` accepts every patch
+release and then fails to resolve on the first minor one (BUG-0003).
+`crates/omnitoaster/tests/manifests.rs` fails the gate on such a line.
+
+The release pipeline decides the number from the Conventional Commit types
+since the previous tag:
 
 | Commit type | Bump | Appears in the notes under |
 |---|---|---|
