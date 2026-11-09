@@ -16,6 +16,10 @@ Format: [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) · Versioning:
 - Screenshots of Settings ▸ General in both languages, the first the project has.
 - Filed CR-0002: in Light mode the window's title bar stays dark, because that is Windows chrome and needs `DWMWA_USE_IMMERSIVE_DARK_MODE`.
 
+### Fixed
+
+- `a_second_instance_bows_out_instead_of_starting` no longer hangs: its third instance now short-circuits before the settings window like the others, so the suite stays headless. CI run 39 was cancelled by it.
+
 ### Changed
 
 - `eframe` joins the workspace with `default-features = false` and only `glow` and `accesskit` (ADR-014). `BSL-1.0` is now an allowed licence: it arrives with it, through `arboard`'s Windows clipboard, and is permissive.

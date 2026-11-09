@@ -218,8 +218,14 @@ fn a_second_instance_bows_out_instead_of_starting() {
     // nothing but does open a database.
     std::thread::sleep(std::time::Duration::from_millis(1500));
 
+    // `--hold-ms 0` on every instance here, not just the first: since
+    // FEAT-0014 a start that reaches the end of startup opens the settings
+    // window and blocks until it is closed, and `output()` would then wait
+    // for ever. The flag short-circuits before the window, which is what
+    // keeps this test headless — CI runs as a service in session 0, where no
+    // window can open at all (docs/GOTCHAS.md).
     let second = Command::new(exe())
-        .args(["--data-dir"])
+        .args(["--hold-ms", "0", "--data-dir"])
         .arg(&data)
         .output()
         .expect("run the second instance");
@@ -247,7 +253,7 @@ fn a_second_instance_bows_out_instead_of_starting() {
     // And once the first has gone, a fresh start works again — a killed or
     // finished process must not lock the app out.
     let third = Command::new(exe())
-        .args(["--data-dir"])
+        .args(["--hold-ms", "0", "--data-dir"])
         .arg(&data)
         .output()
         .expect("run after the first exited");
