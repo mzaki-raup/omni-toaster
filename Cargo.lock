@@ -2321,6 +2321,7 @@ version = "0.8.0"
 name = "ot-platform"
 version = "0.8.0"
 dependencies = [
+ "egui",
  "thiserror 2.0.21",
  "tracing",
  "tray-icon",

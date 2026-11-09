@@ -245,6 +245,16 @@ cargo run -p omnitoaster -- --data-dir ./tmp-data
 
 ## What is implemented (2026-11-09)
 
+**Placement** (FEAT-0022, in part). The nine presets and the custom point, in
+`ot_toast::placement`, worked out against the chosen monitor's work area with
+no screen in sight so the arithmetic can be tested against a table — including
+a monitor with a **negative** origin, which is the case a routine written
+against the primary monitor's rect gets wrong. `ot_platform::monitors` asks
+Windows for the work areas and reports them in points. The work area is read
+every frame rather than cached, so a monitor unplugged mid-toast falls back to
+the primary one. The two ways of *setting* a custom point are controls, and
+land with the Appearance pane.
+
 **The header and the body** (FEAT-0020). The category mark, the title, and
 the app name and time on the header's right-hand side; the body beneath,
 wrapped at word boundaries and truncated with an ellipsis when even wrapping

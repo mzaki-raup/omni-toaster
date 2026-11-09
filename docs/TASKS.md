@@ -234,25 +234,26 @@ shortcut (`docs/specs/toast.md` §3).
 - **Notes:** The first feature in the project that takes a file from outside. Every step above is a requirement from `docs/06-security-and-privacy.md`, not a suggestion, and the decoder choice has to keep the static build and `cargo deny` clean.
 
 ### FEAT-0022 · Placement, DPI, monitors and stacking
-- **State:** Pending · **Spec:** docs/specs/toast.md §7 · **Phase:** 2
+- **State:** In-Progress · **Spec:** docs/specs/toast.md §7 · **Phase:** 2
 - **Branch:** feat/phase-2-toast
 - **Depends on:** FEAT-0019
-- [ ] A chosen screen, worked out from **that monitor's work area** and never from the primary monitor's rect
-- [ ] **The nine presets** of `docs/specs/toast.md` §7.1 — four corners, four edges and the centre — with Bottom Right the default, a 16 px DPI-scaled margin against an edge, and no margin on an axis the preset centres on
-- [ ] **A custom point** (§7.2): set by dragging the preview onto a map of the chosen monitor *and* by typing X and Y in percent, the two driving one value
-- [ ] A custom point is stored as a **fraction of the work area**, not as pixels, so it means the same place after a resolution change, a taskbar move, or a move to another monitor
-- [ ] The fraction addresses the toast's **anchor corner** — the corner nearest the point — so a toast placed near an edge grows inward rather than off the screen
-- [ ] A custom point is clamped so the whole toast stays inside the work area, clamped **at paint time** against the monitor in use rather than once at save time
-- [ ] **One custom point, not one per monitor** (the owner's call, 2026-11-09): it is a fraction, so it already means the same place on any screen, and moving the toast to another monitor keeps it in the same relative spot there
-- [ ] Never covers the taskbar; stacks toward the centre of the work area, per §7.3's table
-- [ ] When the chosen monitor disappears, toasts move to the primary one and say so in the log
+- **Verified:** the gate, plus three live toasts whose window rects were read back from Win32 and matched the arithmetic to the pixel
+- [x] A chosen screen, worked out from **that monitor's work area** and never from the primary monitor's rect
+- [x] **The nine presets** of `docs/specs/toast.md` §7.1 — four corners, four edges and the centre — with Bottom Right the default, a 16 px DPI-scaled margin against an edge, and no margin on an axis the preset centres on
+- [ ] **A custom point** (§7.2): set by dragging the preview onto a map of the chosen monitor *and* by typing X and Y in percent, the two driving one value. **The model and the arithmetic are done**; the two ways of setting it are controls, so they land with the Appearance pane in FEAT-0023
+- [x] A custom point is stored as a **fraction of the work area**, not as pixels, so it means the same place after a resolution change, a taskbar move, or a move to another monitor
+- [x] The fraction addresses the toast's **anchor corner** — the corner nearest the point — so a toast placed near an edge grows inward rather than off the screen
+- [x] A custom point is clamped so the whole toast stays inside the work area, clamped **at paint time** against the monitor in use rather than once at save time
+- [x] **One custom point, not one per monitor** (the owner's call, 2026-11-09): it is a fraction, so it already means the same place on any screen, and moving the toast to another monitor keeps it in the same relative spot there
+- [x] Never covers the taskbar; stacks toward the centre of the work area, per §7.3's table
+- [x] When the chosen monitor disappears, toasts move to the primary one and say so in the log
 - [ ] 1–5 visible with a configurable gap; the surplus queues and appears as earlier ones retire
-- [ ] Correct from 100% to 250% DPI, including a DPI change mid-session and a monitor unplugged while a toast is visible
-- [ ] Test: the placement arithmetic against a table of work areas, positions and DPI scales, including a monitor whose origin is negative — the second-monitor case that catches a primary-rect assumption
-- [ ] Test: each of the nine presets lands against the edges it names and is centred on the axes it centres on — `Top` centred horizontally against the top, `Left` centred vertically against the left, `Centre` centred on both
-- [ ] Test: a custom fraction resolves to the same relative place on a 1920×1080 and a 3840×2160 work area, and a fraction of 1.0 still leaves the whole toast inside it
+- [ ] Correct from 100% to 250% DPI, including a DPI change mid-session and a monitor unplugged while a toast is visible. **Not checked:** this machine has one monitor at 100% (`\.\DISPLAY2`, work area 1920×984 at scale 1.0), so a DPI change and an unplug are the owner's to make. The work area is re-read every frame rather than cached, which is what makes an unplug survivable
+- [x] Test: the placement arithmetic against a table of work areas, positions and DPI scales, including a monitor whose origin is negative — the second-monitor case that catches a primary-rect assumption
+- [x] Test: each of the nine presets lands against the edges it names and is centred on the axes it centres on — `Top` centred horizontally against the top, `Left` centred vertically against the left, `Centre` centred on both
+- [x] Test: a custom fraction resolves to the same relative place on a 1920×1080 and a 3840×2160 work area, and a fraction of 1.0 still leaves the whole toast inside it
 - [ ] Gate: fmt · clippy -D warnings · test --workspace --locked -j 4 · deny check · --self-test
-- [ ] App: each of the nine presets at 100%, 150% and 200%; a custom point placed by dragging and by typing; a stack of five; **a second monitor and a 250% display are checks this machine may not be able to make**, and whatever cannot be made is recorded as not made
+- [ ] App: each of the nine presets at 100%, 150% and 200%; a custom point placed by dragging and by typing; a stack of five; **a second monitor and a 250% display are checks this machine cannot make** — it has one monitor at 100%, which is now a recorded fact rather than a guess. What was checked: three live toasts at the default Bottom Right, their window rects read back from Win32 — right edge 1904 (1920 − 16), bottom 968 (984 − 16), stacking upward 128 apart (120 + 8), none over the taskbar. Picking the other presets needs the Appearance pane (FEAT-0023)
 - [ ] Docs: spec · CHANGELOG · CHECKLIST · GOTCHAS
 - **Notes:** All monitor and work-area queries are Win32, so they live in `ot-platform` behind a capability-named interface, with the arithmetic in `ot-toast` where it can be tested without a screen.
   **Nine presets — four corners, four edges and the centre — and a custom point are the owner's requirement, asked for on 2026-11-09**, and `docs/specs/toast.md` §7 was rewritten to carry it before any of it was built. The spec previously said only "a chosen screen and corner".

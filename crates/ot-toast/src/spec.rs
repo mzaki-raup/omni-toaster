@@ -36,6 +36,8 @@ pub const PERSISTENT_CAP_SECS: f32 = 600.0;
 pub const MAX_VISIBLE: IntRange = IntRange::new(1, 5, 3);
 /// Buttons on a toast.
 pub const ACTIONS: IntRange = IntRange::new(1, 3, 2);
+/// Between one toast and the next in a stack.
+pub const STACK_GAP: Range = Range::new(0.0, 40.0, 8.0);
 /// Animation duration, in milliseconds.
 pub const ANIMATION_MS: IntRange = IntRange::new(150, 1000, 350);
 
@@ -260,6 +262,12 @@ impl Default for Style {
 #[serde(default, deny_unknown_fields)]
 pub struct Behaviour {
     pub duration_secs: f32,
+    /// Where toasts appear: one of the nine presets, or a custom point
+    /// (`docs/specs/toast.md` §7). A global setting, carried on every spec
+    /// so the renderer needs nothing but the spec.
+    pub position: crate::placement::Position,
+    /// Between stacked toasts.
+    pub stack_gap: f32,
     /// A persistent toast waits to be acknowledged, up to
     /// [`PERSISTENT_CAP_SECS`].
     pub persistent: bool,
@@ -271,6 +279,8 @@ impl Default for Behaviour {
     fn default() -> Self {
         Self {
             duration_secs: DURATION_SECS.default,
+            position: crate::placement::Position::default(),
+            stack_gap: STACK_GAP.default,
             persistent: false,
             max_visible: MAX_VISIBLE.default,
             actions: ACTIONS.default,
@@ -319,6 +329,7 @@ impl ToastSpec {
         self.behaviour.max_visible =
             MAX_VISIBLE.clamp(self.behaviour.max_visible, "behaviour.max_visible");
         self.behaviour.actions = ACTIONS.clamp(self.behaviour.actions, "behaviour.actions");
+        self.behaviour.stack_gap = STACK_GAP.clamp(self.behaviour.stack_gap, "behaviour.stack_gap");
         self
     }
 

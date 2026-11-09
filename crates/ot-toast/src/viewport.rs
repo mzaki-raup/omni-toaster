@@ -84,14 +84,26 @@ pub fn builder(spec: &ToastSpec, title: &str) -> egui::ViewportBuilder {
 pub fn show_all(
     ctx: &egui::Context,
     toasts: &Toasts,
+    work_area: egui::Rect,
     paint: impl Fn(&mut egui::Ui, &ToastSpec) + Send + Sync + Clone + 'static,
 ) {
-    for toast in toasts.visible() {
+    for (index, toast) in toasts.visible().iter().enumerate() {
         let spec = toast.spec.clone();
         let paint = paint.clone();
+        let size = egui::vec2(spec.style.width, spec.style.height.unwrap_or(AUTO_HEIGHT));
+        // Worked out every frame against the work area in use, rather than
+        // once when the toast appeared: the monitor can change underneath it
+        // (`docs/specs/toast.md` §7.2).
+        let at = crate::placement::place(
+            work_area,
+            size,
+            spec.behaviour.position,
+            index,
+            spec.behaviour.stack_gap,
+        );
         ctx.show_viewport_deferred(
             toast.id.viewport_id(),
-            builder(&spec, WINDOW_TITLE),
+            builder(&spec, WINDOW_TITLE).with_position(at),
             move |ctx, _class| {
                 // No frame of egui's own: the toast paints its own
                 // background, its own corners and its own shadow, and a panel
