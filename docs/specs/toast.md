@@ -245,6 +245,15 @@ cargo run -p omnitoaster -- --data-dir ./tmp-data
 
 ## What is implemented (2026-11-09)
 
+**The header and the body** (FEAT-0020). The category mark, the title, and
+the app name and time on the header's right-hand side; the body beneath,
+wrapped at word boundaries and truncated with an ellipsis when even wrapping
+cannot fit it. The app's own labels are laid out first and get their room; the
+title is user text and is what truncates. The timestamp is formatted by the
+caller, because a spec holds text and never keys. Body emphasis is bold or
+italic for the body **as a whole** — a markup language inside a notification
+body waits until something asks for it.
+
 **The renderer** (FEAT-0019). Shape, radius, solid and gradient background,
 opacity, border, shadow and an accent bar down the leading edge, all from the
 spec and nothing else. A gradient is a mesh painted over a rounded fill,
@@ -267,7 +276,6 @@ hand is as real an input as a slider. Each clamp logs the field and both
 values. A non-finite value takes the field's default instead, because
 `f32::clamp` keeps a NaN and a NaN width draws a toast of no size.
 
-A toast currently shows its frame and its title. The header, the body text and
-the ellipsis rules are FEAT-0020; images are FEAT-0021; where the toast
+Images are FEAT-0021; where the toast
 appears is FEAT-0022, which is also where the nine presets and the custom
 point of §7 are built.

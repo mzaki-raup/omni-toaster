@@ -17,3 +17,10 @@ egui.workspace = true
 serde.workspace = true
 toml.workspace = true
 tracing.workspace = true
+
+# Test-only: a real font, so a layout test measures something. With
+# `default_fonts` off (ADR-014) egui's own default set is empty and every
+# glyph is zero-width, which makes a layout assertion pass without laying
+# anything out.
+[dev-dependencies]
+ot-platform = { path = "../ot-platform" }

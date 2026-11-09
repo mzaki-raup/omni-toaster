@@ -530,6 +530,11 @@ impl SettingsWindow {
             let mut spec = self.test_spec();
             spec.style.shape = shape;
             spec.content.title = ot_i18n::text(shape.name_key());
+            // The third sample carries a long body, so a screenshot shows
+            // the wrap and the ellipsis as well as the frame.
+            if index == 2 {
+                spec.content.body = format!("{} {}", spec.content.body, spec.content.body);
+            }
             // One of each shadow, and a gradient and a border on the later
             // ones, so a single screenshot shows the whole of FEAT-0019.
             spec.style.shadow = ot_toast::Shadow::all()[index % 3];
@@ -550,7 +555,9 @@ impl SettingsWindow {
         spec.content.body = ot_i18n::text("toast-test-body");
         spec.content.app_name = ot_i18n::text("toast-app-name");
         spec.content.show_icon = true;
-        spec.content.show_timestamp = true;
+        // Formatted here: ot-i18n owns the one formatter that may turn a
+        // time into text, and a spec holds text rather than keys.
+        spec.content.timestamp = Some(formatted_time(chrono::Local::now()));
         spec.clamped()
     }
 
@@ -579,18 +586,9 @@ impl SettingsWindow {
             let rect = ui.max_rect();
             let content = ot_toast::render::frame(ui.painter(), rect, spec);
 
-            // FEAT-0020 lays the header and the body out properly. Until
-            // then the title is drawn in the content rect, which is enough
-            // to show that the frame leaves room for it.
-            if !spec.content.title.is_empty() {
-                ui.painter().text(
-                    content.left_center(),
-                    egui::Align2::LEFT_CENTER,
-                    &spec.content.title,
-                    egui::FontId::proportional(16.0),
-                    tokens.text,
-                );
-            }
+            // The colours come from the theme through here, so the renderer
+            // itself still hard-codes none.
+            ot_toast::content::draw(ui.painter(), content, spec, tokens.text, tokens.text_dim);
         });
     }
 

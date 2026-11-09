@@ -201,8 +201,18 @@ pub struct Content {
     /// one, so a portable folder can move between machines
     /// (`docs/05-data-model-and-storage.md`).
     pub image: Option<String>,
+    /// The category's mark in the header. The image that fills it arrives
+    /// with FEAT-0021; until then the slot is the accent colour.
     pub show_icon: bool,
-    pub show_timestamp: bool,
+    /// Already formatted by the caller, like every other string here: a spec
+    /// holds text, never keys, and `ot-i18n` owns the one formatter that may
+    /// turn a time into text (`docs/10-i18n.md`).
+    pub timestamp: Option<String>,
+    /// Emphasis for the body, as a whole rather than per segment. A markup
+    /// language inside a notification body is a thing to add when something
+    /// asks for it, not before.
+    pub body_bold: bool,
+    pub body_italic: bool,
 }
 
 /// What it looks like.

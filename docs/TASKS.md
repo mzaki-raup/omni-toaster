@@ -203,18 +203,21 @@ shortcut (`docs/specs/toast.md` §3).
   **`Color32` stores premultiplied alpha**, so reading a channel back after `from_rgba_unmultiplied` gives the premultiplied value and not the one that went in — 0x3b at 40% reads as 24. The test compares against the colour egui itself would build rather than against the channels; the first version of it failed for this reason and the behaviour was right all along.
 
 ### FEAT-0020 · Header, text and the ellipsis rules
-- **State:** Pending · **Spec:** docs/specs/toast.md §4 · **Phase:** 2
+- **State:** In-Progress · **Spec:** docs/specs/toast.md §4 · **Phase:** 2
 - **Branch:** feat/phase-2-toast
 - **Depends on:** FEAT-0019
-- [ ] Header: icon, title, app name, timestamp, each toggleable, the timestamp through `ot_i18n`'s one formatter
-- [ ] Body text with bold and italic
-- [ ] Boxes size to content in both languages; a long word wraps or truncates with an ellipsis, and **nothing overflows the toast**
-- [ ] An ellipsis is for user text that can be any length, never for the app's own labels while there is room
-- [ ] Test: the longest Malay strings in every slot; a single unbroken 200-character word; the pseudo-locale (about 40% longer) catching what Malay does not
-- [ ] Gate: fmt · clippy -D warnings · test --workspace --locked -j 4 · deny check · --self-test
-- [ ] App: a long Malay title, a long body and a long app name together, at each DPI
-- [ ] Docs: spec · CHANGELOG · CHECKLIST
+- **Verified:** the gate, plus both languages photographed with a body long enough to wrap
+- [x] Header: icon, title, app name, timestamp, each toggleable, the timestamp through `ot_i18n`'s one formatter — **formatted by the caller**, because a spec holds text and never keys, and `ot-i18n` owns the only thing that may turn a time into text. Visible in the captures: English reads `9:37 pm`, Malay `21:37`
+- [x] Body text with bold and italic. **As a whole, not per segment:** a markup language inside a notification body is a thing to add when something asks for it
+- [x] Boxes size to content in both languages; a long word wraps or truncates with an ellipsis, and **nothing overflows the toast**
+- [x] An ellipsis is for user text that can be any length, never for the app's own labels while there is room — the app name and the time are laid out first and get their room; the title takes what is left and is the thing that truncates
+- [x] Test: the longest Malay strings in every slot; a single unbroken 200-character word; the pseudo-locale (about 40% longer) catching what Malay does not
+- [x] Gate: fmt · clippy -D warnings · test --workspace --locked -j 4 (151 tests) · deny check · --self-test
+- [ ] App: a long Malay title, a long body and a long app name together, at each DPI. **Both languages are done at 100%** with a body long enough to wrap twice; the three-scale sweep was run for FEAT-0019's frame and is worth repeating once the content is final rather than twice
+- [x] Docs: spec · CHANGELOG · GOTCHAS
 - **Notes:** Malay runs up to 30% wider than English, so the Malay layout is the one that decides the design, not the English one.
+  **`break_anywhere` is not the answer to a long word.** It sounds like it — a 200-character word has nowhere to wrap — but it applies to *everything*, so ordinary prose came out broken mid-word: "with your curren / t settings". egui already breaks a word that cannot fit a line of its own, so the flag is off and both cases are covered.
+  **The first version of these tests proved nothing.** `FontDefinitions::default()` is empty in this build, because `default_fonts` is off (ADR-014) — so every glyph measured zero wide, nothing ever wrapped, and the assertions passed on text that had not been laid out. The test context now installs the machine's own UI font, and `the_test_context_has_a_font_that_measures_something` is there so the same mistake cannot come back quietly.
 
 ### FEAT-0021 · Images on a toast
 - **State:** Pending · **Spec:** docs/specs/toast.md §4, docs/06-security-and-privacy.md · **Phase:** 2
