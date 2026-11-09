@@ -235,6 +235,7 @@ shortcut (`docs/specs/toast.md` §3).
 - [ ] A custom point is stored as a **fraction of the work area**, not as pixels, so it means the same place after a resolution change, a taskbar move, or a move to another monitor
 - [ ] The fraction addresses the toast's **anchor corner** — the corner nearest the point — so a toast placed near an edge grows inward rather than off the screen
 - [ ] A custom point is clamped so the whole toast stays inside the work area, clamped **at paint time** against the monitor in use rather than once at save time
+- [ ] **One custom point, not one per monitor** (the owner's call, 2026-11-09): it is a fraction, so it already means the same place on any screen, and moving the toast to another monitor keeps it in the same relative spot there
 - [ ] Never covers the taskbar; stacks toward the centre of the work area, per §7.3's table
 - [ ] When the chosen monitor disappears, toasts move to the primary one and say so in the log
 - [ ] 1–5 visible with a configurable gap; the surplus queues and appears as earlier ones retire

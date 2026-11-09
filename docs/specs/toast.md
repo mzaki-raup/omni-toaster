@@ -162,6 +162,11 @@ A custom point is **clamped so the whole toast stays inside the work area**.
 Clamping happens at paint time against the monitor in use, not once at save
 time, because the monitor can change underneath it.
 
+**There is one custom point, not one per monitor.** It is a fraction, so it
+already means the same place on any screen, and a user who wants one place to
+look should not have to say where twice. Moving the toast to another monitor
+keeps it in the same relative spot there.
+
 ### 7.3 Stacking direction
 
 Stacking runs **toward the centre of the work area**, away from the nearest
