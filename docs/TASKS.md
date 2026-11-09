@@ -185,17 +185,22 @@ shortcut (`docs/specs/toast.md` §3).
   **The surplus queues rather than being dropped**, and a queued toast starts its countdown when it *appears*, not when it was pushed. Otherwise a toast that waited behind four others would arrive already expired and flash past unread.
 
 ### FEAT-0019 · Shape, radius, colour, opacity, border and shadow
-- **State:** Pending · **Spec:** docs/specs/toast.md §4 · **Phase:** 2
+- **State:** In-Progress · **Spec:** docs/specs/toast.md §4 · **Phase:** 2
 - **Branch:** feat/phase-2-toast
 - **Depends on:** FEAT-0018
-- [ ] Rectangle, rounded rectangle and pill, each drawn from the `ToastSpec` alone
-- [ ] Corner radius 0–40, solid and gradient backgrounds, opacity 40–100%, border 0–4 px, shadow off / soft / strong
-- [ ] Nothing hard-codes a colour: the palette comes from the theme and the spec's accent overrides exactly what the template says it does
-- [ ] Test: `egui_kittest` snapshots per shape, in both languages, with the longest Malay strings
-- [ ] Gate: fmt · clippy -D warnings · test --workspace --locked -j 4 · deny check · --self-test
-- [ ] App: every shape at 100%, 150% and 200% DPI, in both languages, with no overflow — **this is half of the phase's exit criteria** and is checked in the running app, not in a snapshot
-- [ ] Docs: spec · README (screenshot) · CHANGELOG · CHECKLIST · GOTCHAS
-- **Notes:** Settles the spec's first open question — whether pill earns its place beside rounded rectangle, or is radius 40 under another name. The answer goes in the spec either way.
+- **Verified:** the gate, plus every shape photographed at three UI scales in Malay
+- [x] Rectangle, rounded rectangle and pill, each drawn from the `ToastSpec` alone
+- [x] Corner radius 0–40, solid and gradient backgrounds, opacity 40–100%, border 0–4 px, shadow off / soft / strong
+- [x] Nothing hard-codes a colour: the palette comes from the theme and the spec's accent overrides exactly what the template says it does
+- [ ] Test: `egui_kittest` snapshots per shape, in both languages, with the longest Malay strings — **FEAT-0024's job**, which is the item that brings `egui_kittest` in. What this item has instead is the arithmetic: opacity, the content rect per shape, and the shadow settings
+- [x] Gate: fmt · clippy -D warnings · test --workspace --locked -j 4 (145 tests) · deny check · --self-test
+- [ ] App: every shape at 100%, 150% and 200% DPI, in both languages, with no overflow. **Done for Malay, which is the language that decides a layout** — all three shapes at all three scales, nothing overflowing, the longest label fitting, the accent scaling with the rest. Two gaps: English has only been seen at 100%, and the scales come from `--ui-scale`, which scales the window *and* its content exactly as display scaling does but is not literally the Windows setting. Changing that setting is the owner's, and it is what closes this box
+- [x] Docs: spec · CHANGELOG · GOTCHAS. **README screenshot waits** for FEAT-0020's header and body: a screenshot of a toast showing only its title would be out of date within the phase
+- **Notes:** Settles the spec's first open question — whether pill earns its place beside rounded rectangle, or is radius 40 under another name. FEAT-0017 answered it in the model; this item is where it shows: a pill stays a pill at 120 px and at 240 px, which a fixed radius does not.
+  **A pill insets its content further than a rectangle**, because its ends are round and text inset by the same padding would have its first glyph clipped by the curve.
+  **The accent is a bar down the leading edge** rather than a repaint of the whole toast: it is the one place a category's colour shows without taking the rest of the palette with it.
+  **A gradient is a mesh over a rounded fill.** egui has no rounded gradient fill, so the shape is filled with the end colour first and the mesh paints the body inset by the corner radius — anything the mesh does not reach keeps the fill, which is what makes the corners survive.
+  **`Color32` stores premultiplied alpha**, so reading a channel back after `from_rgba_unmultiplied` gives the premultiplied value and not the one that went in — 0x3b at 40% reads as 24. The test compares against the colour egui itself would build rather than against the channels; the first version of it failed for this reason and the behaviour was right all along.
 
 ### FEAT-0020 · Header, text and the ellipsis rules
 - **State:** Pending · **Spec:** docs/specs/toast.md §4 · **Phase:** 2

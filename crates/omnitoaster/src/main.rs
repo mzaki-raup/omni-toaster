@@ -49,6 +49,11 @@ const KNOWN_FLAGS: &[&str] = &[
     // a session with no mouse on the notification area can reach. Debug only.
     #[cfg(debug_assertions)]
     "--test-toast",
+    // Scales the UI as a larger display scaling would, for checking a layout
+    // at 150% and 200% without changing the machine's own display settings.
+    // Debug only.
+    #[cfg(debug_assertions)]
+    "--ui-scale",
 ];
 
 fn main() -> ExitCode {
@@ -278,7 +283,15 @@ fn main() -> ExitCode {
     #[cfg(not(debug_assertions))]
     let test_toast = false;
 
-    if let Err(error) = ot_ui::settings_window::run(root, settings, test_toast) {
+    #[cfg(debug_assertions)]
+    let ui_scale = value_of(&args, "--ui-scale")
+        .ok()
+        .flatten()
+        .and_then(|text| text.parse::<f32>().ok());
+    #[cfg(not(debug_assertions))]
+    let ui_scale = None;
+
+    if let Err(error) = ot_ui::settings_window::run(root, settings, test_toast, ui_scale) {
         tracing::error!(%error, "the settings window could not be opened");
         eprintln!("OmniToaster cannot show its window: {error}");
         drop(guard);

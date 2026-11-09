@@ -515,14 +515,43 @@ impl SettingsWindow {
     /// carries text, never keys, which is what lets a template hold a user's
     /// own words beside a built-in default.
     pub fn show_test_toast(&mut self) {
+        let spec = self.test_spec();
+        let id = self.toasts.push(spec);
+        tracing::info!(?id, "a test toast was fired");
+    }
+
+    /// Fire one toast of each shape, for looking at the renderer.
+    ///
+    /// A development seam, like `--hold-ms`: it is how a session that cannot
+    /// click the tray gets every shape on screen at once, and it exercises
+    /// stacking while it is there.
+    pub fn show_shape_samples(&mut self) {
+        for (index, shape) in ot_toast::Shape::all().into_iter().enumerate() {
+            let mut spec = self.test_spec();
+            spec.style.shape = shape;
+            spec.content.title = ot_i18n::text(shape.name_key());
+            // One of each shadow, and a gradient and a border on the later
+            // ones, so a single screenshot shows the whole of FEAT-0019.
+            spec.style.shadow = ot_toast::Shadow::all()[index % 3];
+            if index == 1 {
+                spec.style.background_to = Some(ot_toast::Rgba::new(0x12, 0x2a, 0x4a, 0xff));
+            }
+            if index == 2 {
+                spec.style.border = 2.0;
+            }
+            let id = self.toasts.push(spec);
+            tracing::info!(?id, ?shape, "a sample toast was fired");
+        }
+    }
+
+    fn test_spec(&self) -> ot_toast::ToastSpec {
         let mut spec = ot_toast::ToastSpec::default();
         spec.content.title = ot_i18n::text("toast-test-title");
         spec.content.body = ot_i18n::text("toast-test-body");
         spec.content.app_name = ot_i18n::text("toast-app-name");
         spec.content.show_icon = true;
         spec.content.show_timestamp = true;
-        let id = self.toasts.push(spec);
-        tracing::info!(?id, "a test toast was fired");
+        spec.clamped()
     }
 
     /// Retire what has had its time, and draw what is left.
@@ -544,25 +573,24 @@ impl SettingsWindow {
 
         let tokens = self.theme.tokens();
         ot_toast::viewport::show_all(ctx, &self.toasts, move |ui, spec| {
-            // FEAT-0019 replaces this with the renderer. For now the toast is
-            // its own background colour at its own opacity, which is enough
-            // to prove the window is borderless, transparent and on top.
-            let (r, g, b, a) = spec.style.background.parts();
-            let fill =
-                egui::Color32::from_rgba_unmultiplied(r, g, b, (f32::from(a) * spec.alpha()) as u8);
+            // The whole toast comes from the spec: the renderer reads no
+            // setting and no category, which is what keeps the preview and
+            // the real thing from diverging (docs/specs/toast.md §3).
             let rect = ui.max_rect();
-            ui.painter().rect_filled(
-                rect,
-                egui::CornerRadius::same(spec.drawn_radius(rect.height()) as u8),
-                fill,
-            );
-            ui.painter().text(
-                rect.center(),
-                egui::Align2::CENTER_CENTER,
-                &spec.content.title,
-                egui::FontId::proportional(16.0),
-                tokens.text,
-            );
+            let content = ot_toast::render::frame(ui.painter(), rect, spec);
+
+            // FEAT-0020 lays the header and the body out properly. Until
+            // then the title is drawn in the content rect, which is enough
+            // to show that the frame leaves room for it.
+            if !spec.content.title.is_empty() {
+                ui.painter().text(
+                    content.left_center(),
+                    egui::Align2::LEFT_CENTER,
+                    &spec.content.title,
+                    egui::FontId::proportional(16.0),
+                    tokens.text,
+                );
+            }
         });
     }
 
@@ -783,11 +811,16 @@ fn font_definitions() -> Result<egui::FontDefinitions, ot_platform::FontError> {
 /// Blocks the calling thread, which is the UI thread: eframe owns the event
 /// loop. Everything that can block belongs on another thread
 /// (`.claude/rules/threads-and-scheduling.md`).
-pub fn run(root: DataRoot, settings: Settings, test_toast: bool) -> Result<(), WindowError> {
+pub fn run(
+    root: DataRoot,
+    settings: Settings,
+    test_toast: bool,
+    ui_scale: Option<f32>,
+) -> Result<(), WindowError> {
     let fonts = font_definitions().map_err(WindowError::Fonts)?;
     let mut window = SettingsWindow::new(root, settings);
     if test_toast {
-        window.show_test_toast();
+        window.show_shape_samples();
     }
     let visuals = window.theme().visuals();
 
@@ -806,6 +839,14 @@ pub fn run(root: DataRoot, settings: Settings, test_toast: bool) -> Result<(), W
         options,
         Box::new(move |cc| {
             cc.egui_ctx.set_fonts(fonts);
+            if let Some(scale) = ui_scale {
+                // What a larger display scaling does to a layout: every
+                // point becomes more pixels, so the same window holds fewer
+                // points of content. It is the layout half of the DPI check
+                // and not the whole of it - the window's own physical size
+                // still comes from the monitor.
+                cc.egui_ctx.set_zoom_factor(scale);
+            }
             // Before the first frame, so no frame draws in egui's own colours.
             cc.egui_ctx.set_visuals(visuals);
             Ok(Box::new(window))

@@ -245,6 +245,14 @@ cargo run -p omnitoaster -- --data-dir ./tmp-data
 
 ## What is implemented (2026-11-09)
 
+**The renderer** (FEAT-0019). Shape, radius, solid and gradient background,
+opacity, border, shadow and an accent bar down the leading edge, all from the
+spec and nothing else. A gradient is a mesh painted over a rounded fill,
+because egui has no rounded gradient fill; a pill insets its content further
+than a rectangle, because its round ends would clip the first glyph. Checked
+in the running app: every shape at 100%, 150% and 200%, in Malay, with nothing
+overflowing.
+
 **The viewport** (FEAT-0018). One deferred viewport per toast, keyed on the
 toast's own id so it keeps one window instead of getting a new one each frame.
 Several live at once, which is what stacking needs. Hovering pauses the
@@ -259,5 +267,7 @@ hand is as real an input as a slider. Each clamp logs the field and both
 values. A non-finite value takes the field's default instead, because
 `f32::clamp` keeps a NaN and a NaN width draws a toast of no size.
 
-The renderer is FEAT-0019: a toast is currently its own background colour,
-its corners and its title, which is enough to prove the window is right.
+A toast currently shows its frame and its title. The header, the body text and
+the ellipsis rules are FEAT-0020; images are FEAT-0021; where the toast
+appears is FEAT-0022, which is also where the nine presets and the custom
+point of §7 are built.
