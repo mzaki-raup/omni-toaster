@@ -7,6 +7,7 @@
 //! may depend on.
 
 pub mod appearance;
+pub mod images;
 pub mod layout;
 pub mod settings_window;
 pub mod theme;

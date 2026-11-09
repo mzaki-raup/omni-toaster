@@ -103,7 +103,7 @@ pub fn frame(painter: &egui::Painter, rect: egui::Rect, spec: &ToastSpec) -> egu
             ne: 0,
             se: 0,
         },
-        colour(spec.style.accent, alpha),
+        colour(spec.accent(), alpha),
     );
 
     content_rect(rect, spec)

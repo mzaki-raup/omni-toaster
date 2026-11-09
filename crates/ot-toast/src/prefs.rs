@@ -78,6 +78,10 @@ impl Prefs {
     /// it shows. The result is clamped, so nothing downstream has to ask
     /// whether it is sane.
     pub fn spec(&self, mut content: Content) -> ToastSpec {
+        // The icon, the image, the title and the body are the notification's
+        // own and pass through untouched: every notification may carry
+        // different ones (docs/specs/toast.md §8). These prefs are the global
+        // *style* only, plus whether the header shows an icon at all.
         content.show_icon = self.header.icon;
         if !self.header.app_name {
             content.app_name.clear();

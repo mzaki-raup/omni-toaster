@@ -322,7 +322,14 @@ fn position_map(
 }
 
 /// Draw the preview: the same spec, the same two painters, as a real toast.
-pub fn preview(ui: &mut egui::Ui, columns: Columns, spec: &ot_toast::ToastSpec, tokens: Tokens) {
+pub fn preview(
+    ui: &mut egui::Ui,
+    columns: Columns,
+    spec: &ot_toast::ToastSpec,
+    tokens: Tokens,
+    icon: Option<ot_toast::content::Picture>,
+    image: Option<ot_toast::content::Picture>,
+) {
     let height = spec.style.height.unwrap_or(ot_toast::viewport::AUTO_HEIGHT);
     // The preview is drawn at the toast's real size, so what fits here fits
     // there. A narrow window gets a scrollbar rather than a shrunken lie.
@@ -331,7 +338,15 @@ pub fn preview(ui: &mut egui::Ui, columns: Columns, spec: &ot_toast::ToastSpec, 
         ui.add_space(columns.label);
         let (rect, _) = ui.allocate_exact_size(size, egui::Sense::hover());
         let content = ot_toast::render::frame(ui.painter(), rect, spec);
-        ot_toast::content::draw(ui.painter(), content, spec, tokens.text, tokens.text_dim);
+        ot_toast::content::draw(
+            ui.painter(),
+            content,
+            spec,
+            tokens.text,
+            tokens.text_dim,
+            icon,
+            image,
+        );
     });
 }
 

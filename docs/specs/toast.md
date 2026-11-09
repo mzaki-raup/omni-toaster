@@ -194,11 +194,47 @@ edge, so a stack never walks off the screen:
 ## 8. Templates
 
 Each category — Azan per prayer, weather per condition, each reminder type —
-has a template carrying title, body, image, accent colour, sound and style
-overrides, inheriting from a global default. Built-in default text exists in
-both languages, and the editor offers "Use default text" to restore the
-built-in text in the current language. Only user-written text is stored
-([05-data-model-and-storage.md](../05-data-model-and-storage.md)).
+has a template carrying title, body, **icon**, **image**, **accent colour**,
+sound and style overrides, inheriting from a global default. Built-in default
+text exists in both languages, and the editor offers "Use default text" to
+restore the built-in text in the current language. Only user-written text is
+stored ([05-data-model-and-storage.md](../05-data-model-and-storage.md)).
+
+**Every notification can differ** in title, body, icon, image and accent
+colour; Settings ▸ Appearance holds only the *global style* every notification
+inherits — shape, size, opacity, shadow, the default accent, and where toasts
+appear. The two pictures mean different things and are never interchangeable:
+
+| | Where | When absent |
+|---|---|---|
+| **Icon** | The header, beside the title | The app's own icon |
+| **Image** | Inside the content, beside the body text, with an optional border | No image; the body takes the full width |
+| **Accent** | The bar down the leading edge | The default from Settings ▸ Appearance |
+
+### 8.1 The image library
+
+Pictures are uploaded **once** into a library and then **reused** by any
+template that wants them — a meeting picture for the meeting reminder, a
+mosque for each Azan, an alarm clock for alarms, a clock face for the hourly
+announcement. A template refers to a picture in the library; it never carries
+a copy of its own.
+
+- **Upload** goes through the import path of §4 and
+  `docs/06-security-and-privacy.md` unchanged: size first, magic bytes, a
+  bounded decode, a content-hashed copy under `OmniToasterData/assets/`.
+  Because the copy is named by its hash, the same picture uploaded twice is
+  stored once.
+- Each entry has a **label** the user gives it ("Mosque", "Meeting"), so a
+  template's picker reads as a list of names with thumbnails rather than a
+  list of hashes.
+- The library is **one list for both uses**: any picture may serve as an icon
+  in one template and an image in another.
+- **Removing** a picture that a template still uses asks first and names the
+  templates; the templates then fall back as the table above says, rather
+  than pointing at a file that is gone.
+- Every picker that chooses a picture — the icon and image of every template —
+  chooses **from the library**, with "Upload a New Picture" at the end of the
+  list so nobody has to leave the editor to add one.
 
 ## 9. Fluent keys
 

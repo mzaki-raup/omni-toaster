@@ -96,7 +96,8 @@ reminder          (id, category_id, title, body, trigger_type, trigger_json,
                    recurrence_json, next_fire_at, status, created_at, updated_at)
 snooze_log        (id, reminder_id, snoozed_until, count)
 notification_log  (id, reminder_id, fired_at, action, source)
-asset             (id, sha256 PK, kind, relative_path, bytes, created_at)
+asset             (id, sha256 PK, kind, relative_path, bytes, created_at,
+                   label)                                   -- the name the user gave it in the image library
 weather_cache     (location_id, fetched_at, payload_json)
 jakim_zones       (zone_code PK, state_en, state_ms, area_en, area_ms, lat, lon)
 jakim_prayer_cache (zone_code, date, hijri, imsak, fajr, syuruk, dhuha,

@@ -225,12 +225,12 @@ shortcut (`docs/specs/toast.md` §3).
 - **Depends on:** FEAT-0020
 - **Verified:** the gate — nine tests over the import path, one per rule it enforces
 - [x] The import path in the order security.md fixes it: size limit **before reading**, format by **magic bytes** not extension, canonicalized source and destination, copy in under a content-hashed name, bounded decode at 4096 × 4096
-- [ ] A thumbnail cached under the data folder and treated as derived data, never as the source of truth
-- [ ] Decoding and resizing happen off the UI thread; the result arrives through a bounded channel drained at frame start. **`import` is blocking and documented as worker-thread work**, but nothing calls it yet: the file picker is a control and lands with the Appearance pane (FEAT-0023), which is also what makes the App box reachable
+- [x] A thumbnail cached under the data folder and treated as derived data, never as the source of truth
+- [x] Decoding and resizing happen off the UI thread; the result arrives through a bounded channel drained at frame start. The Windows Open dialog runs on a worker thread too, because `IFileOpenDialog::Show` runs its own modal loop on whatever thread calls it; the import follows on the same thread. Checked: the settings window kept drawing frames while the dialog was open
 - [x] An oversize, corrupt or mislabelled file is rejected with a localized message naming the reason — it must not hang or exhaust memory
 - [x] Test: a `.png` that is not a PNG is refused; a 6 MB file is refused before it is read; a traversal path cannot land outside `OmniToasterData/assets/`; a decode bomb is bounded
 - [x] Gate: fmt · clippy -D warnings · test --workspace --locked -j 4 (174 tests) · deny check · --self-test
-- [ ] App: import a real image, see it on a toast, and see a rejected one explain itself in both languages. **Waits on the file picker** (FEAT-0023). The rules themselves are proven by test rather than by clicking: a fake PNG, an oversize file, a decode bomb, a traversal and a RIFF that is not a WebP
+- [ ] App: import a real image, see it on a toast, and see a rejected one explain itself in both languages. **Two of three done:** a picture chosen through the dialog was imported, decoded and drawn — as the header icon and as the body image, separately — on the preview and on a real toast. The refusal message has not been seen on screen: the scripted dialog proved too unreliable to deliver a chosen file, and the rules are proven by test instead (a fake PNG, an oversize file, a decode bomb, a traversal, a RIFF that is not a WebP)
 - [ ] Docs: spec · CHANGELOG · CHECKLIST · GOTCHAS
 - **Notes:** The first feature in the project that takes a file from outside. Every step above is a requirement from `docs/06-security-and-privacy.md`, not a suggestion, and the decoder choice has to keep the static build and `cargo deny` clean.
   **The decoder is `image` with default features off and only `png`, `jpeg` and `webp` on** (the owner's call, 2026-11-09). Pure Rust, so `+crt-static` and the portable exe are unaffected; MIT/Apache-2.0, so `deny.toml` needed nothing; and the exe carries no decoder for a format the app refuses anyway, which makes the attack surface the three formats we validate rather than the twenty the crate can read. `sha2` comes with it for the content-hashed names the schema already expects.
@@ -277,7 +277,9 @@ shortcut (`docs/specs/toast.md` §3).
 - [x] Gate: fmt · clippy -D warnings · test --workspace --locked -j 4 (180 tests) · deny check · --self-test
 - [x] App: change a style, look at the preview, fire the real toast, compare them side by side. **Done at width 478 and 77% opacity** — same size, same layout, same text positions, same header, mark and accent bar. The only difference is what shows *through* them at 77%: the window behind the preview and the desktop behind the toast, which is correct for a translucent toast
 - [ ] Docs: spec · CHANGELOG · CHECKLIST done. **README screenshot waits** for the image picker, so the pane is photographed once, complete
-- **Still to come on this item:** the image picker, which is also what FEAT-0021 is waiting on, and a look at the pane in Malay and at the narrow minimum
+- **Corrected by the owner, 2026-11-10: icon is icon, image is image, and both belong to the notification.** The first version of this pane had one global "Image" setting drawn in the header's icon slot — wrong twice over. `Content` now carries an **icon** (header, beside the title, the app's own icon when absent), an **image** (inside the content, beside the body, with an optional border), and an **accent** that overrides the default; every notification may carry different ones. Appearance keeps only global style, and a **Test Toast Content** section — in memory, never saved — lets the preview and the test toast show real pictures. Checked on screen: the icon and image in their places on the preview and on a real toast, the image kept wide rather than squashed, the notification's green accent replacing the default blue with nothing written to `settings.toml`.
+  **The image border is drawn in the theme's dim-text colour**, not the toast's border colour. The border colour was tried and measured: `#3a3a42` on `#26262c` was findable at 300% zoom and not at 100%, so the switch changed nothing anyone would see. The dim-colour version was not re-photographed, because the scripted dialog could not reliably load a picture a second time.
+- **Still to come on this item:** a look at the pane in Malay and at the narrow minimum
 - **Notes:** The preview is the reason `ToastSpec` exists. Building one from a reminder plus its template is one function used by both the preview and the scheduler, so there is one path and not two.
   **`Prefs` lives in `ot-toast`, and `settings.toml` carries it as a raw `[toast]` table.** `ot-core` depends on nothing in the workspace, so it cannot name `Style` or `Behaviour`; it holds the table and `ot_toast::Prefs` reads it. A table that does not fit falls back to the defaults with a line in the log, so a hand-edit cannot stop toasts appearing.
   **Saved on release, not on change.** A slider drag changes the prefs every frame; they are written when the pointer comes up, or a sweep across the range would rewrite the file a hundred times.
@@ -296,6 +298,23 @@ shortcut (`docs/specs/toast.md` §3).
 - [ ] App: not applicable — this item is the evidence for the others
 - [ ] Docs: spec · CHANGELOG · CHECKLIST · GOTCHAS
 - **Notes:** Synthetic clicks never form double-clicks, so any double-click path stays an in-app check. Snapshots are a floor, not a substitute for looking: the phase's exit criteria say *in the running app*.
+
+### FEAT-0025 · The image library
+- **State:** Pending · **Spec:** docs/specs/toast.md §8.1 · **Phase:** 2
+- **Branch:** feat/phase-2-toast
+- **Depends on:** FEAT-0021
+- **Source:** the owner, 2026-11-10 — upload pictures once and use them in notification templates: a meeting picture, a mosque, an alarm, the hourly announcement
+- [ ] A library of uploaded pictures: upload through FEAT-0021's import path unchanged, list with thumbnails, a label the user gives each one, remove
+- [ ] The `asset` table records each upload with its label, so the library is a query rather than a folder listing — `docs/05-data-model-and-storage.md` now carries the `label` column, which needs a migration
+- [ ] One list for both uses: any picture may be an icon in one template and an image in another
+- [ ] Removing a picture still in use asks first and names the templates that use it; they then fall back to the app icon or no image rather than pointing at a missing file
+- [ ] The Test Toast Content pickers choose from the library, with "Upload a New Picture" at the end of the list
+- [ ] Test: two uploads of the same file are one library entry; a label round-trips; removal of a used picture is refused without confirmation; the list survives a restart
+- [ ] Gate: fmt · clippy -D warnings · test --workspace --locked -j 4 · deny check · --self-test
+- [ ] App: upload three pictures, label them, use two in the test toast, remove one in use and see the warning — in both languages
+- [ ] Docs: spec · README · CHANGELOG · CHECKLIST
+- **Notes:** The asset store was built content-addressed for exactly this: the same picture uploaded twice is already one file. What this adds is the *list* — names, thumbnails, and knowing what uses what.
+  **The template pickers themselves arrive with each template's phase** — reminder types in Phase 4, the Azan per prayer in Phase 5, the hourly announcement in Phase 7. This item builds the library they all choose from, and the Test Toast Content pickers are its first user.
 
 ## v0.1.0 — Planned
 

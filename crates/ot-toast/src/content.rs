@@ -28,8 +28,26 @@ const ICON_GAP: f32 = 8.0;
 /// The side of the square the category mark occupies.
 const ICON_SIDE: f32 = 20.0;
 
+/// The largest the body image is drawn, in points. It sits beside the body
+/// text and never pushes the toast taller than its content allows.
+const IMAGE_SIDE: f32 = 72.0;
+
+/// A decoded picture: its texture, and its size so it can be fitted without
+/// being stretched.
+#[derive(Debug, Clone, Copy, PartialEq)]
+pub struct Picture {
+    pub texture: egui::TextureId,
+    pub size: egui::Vec2,
+}
+
 /// Draw the content inside `rect`, which is what
 /// [`render::frame`](crate::render::frame) returned.
+///
+/// Two pictures, kept apart because they mean different things
+/// (`docs/specs/toast.md` §4): the **icon** in the header, beside the title,
+/// and the **image** inside the content, beside the body. Every notification
+/// may carry its own of each. The caller resolves which icon applies — the
+/// notification's own, or the app's — so this draws what it is given.
 ///
 /// `text_colour` and `dim` come from the theme through the caller, so the
 /// renderer still hard-codes no colour.
@@ -39,6 +57,8 @@ pub fn draw(
     spec: &ToastSpec,
     text_colour: egui::Color32,
     dim: egui::Color32,
+    icon: Option<Picture>,
+    image: Option<Picture>,
 ) {
     if rect.width() <= 0.0 || rect.height() <= 0.0 {
         return;
@@ -60,17 +80,27 @@ pub fn draw(
         .as_ref()
         .map_or(0.0, |galley| galley.size().x + ICON_GAP);
 
-    // The category mark.
+    // The icon.
     let mut title_left = rect.left();
     if spec.content.show_icon {
         let side = ICON_SIDE.min(rect.height());
-        let icon =
+        let slot =
             egui::Rect::from_min_size(egui::pos2(rect.left(), cursor), egui::vec2(side, side));
-        painter.rect_filled(
-            icon,
-            egui::CornerRadius::same((side / 4.0) as u8),
-            render::colour(spec.style.accent, alpha),
-        );
+        match icon {
+            Some(picture) => {
+                draw_picture(painter, slot, picture, alpha);
+            }
+            // Only while a picture is still on its way: it was decoded off
+            // the UI thread and arrives through a channel, and a toast does
+            // not wait for it to appear.
+            None => {
+                painter.rect_filled(
+                    slot,
+                    egui::CornerRadius::same((side / 4.0) as u8),
+                    render::colour(spec.accent(), alpha),
+                );
+            }
+        }
         title_left += side + ICON_GAP;
     }
 
@@ -94,14 +124,48 @@ pub fn draw(
         painter.galley(at, galley, dim);
     }
 
-    // The body: user text again, wrapped, and truncated when even wrapping
-    // cannot fit it.
-    if spec.content.body.is_empty() {
-        return;
-    }
     cursor += HEADER_GAP;
     let remaining = rect.bottom() - cursor;
     if remaining <= 0.0 {
+        return;
+    }
+
+    // The image, against the right-hand edge of the content, as tall as the
+    // body has room for. The body text takes the width that is left.
+    let mut body_width = rect.width();
+    if let Some(picture) = image {
+        let side = IMAGE_SIDE.min(remaining).min(rect.width() / 3.0);
+        if side > 0.0 {
+            let slot = egui::Rect::from_min_size(
+                egui::pos2(rect.right() - side, cursor),
+                egui::vec2(side, side),
+            );
+            let drawn = draw_picture(painter, slot, picture, alpha);
+            if spec.content.image_border {
+                // Around the picture as drawn, not around its slot, so a
+                // wide image is framed tightly rather than boxed with empty
+                // bars above and below it.
+                //
+                // In the theme's dim colour, not the toast's border colour.
+                // That was tried first and measured: #3a3a42 on #26262c is a
+                // frame you can find at 300% zoom and not at 100%, so turning
+                // the option on changed nothing anyone would notice. Dim text
+                // is meant to be read on this surface in both themes, which
+                // is exactly the contrast a frame needs.
+                painter.rect_stroke(
+                    drawn,
+                    egui::CornerRadius::ZERO,
+                    egui::Stroke::new(1.0_f32, dim),
+                    egui::StrokeKind::Outside,
+                );
+            }
+            body_width = (rect.width() - side - ICON_GAP).max(0.0);
+        }
+    }
+
+    // The body: user text again, wrapped, and truncated when even wrapping
+    // cannot fit it.
+    if spec.content.body.is_empty() || body_width <= 0.0 {
         return;
     }
     let rows = (remaining / (BODY_SIZE * 1.3)).floor().max(1.0) as usize;
@@ -109,10 +173,37 @@ pub fn draw(
         spec.content.body.clone(),
         body_font(spec),
         text_colour,
-        rect.width(),
+        body_width,
         rows,
     ));
     painter.galley(egui::pos2(rect.left(), cursor), galley, text_colour);
+}
+
+/// Draw a picture inside `slot`, scaled to fit and centred, never stretched.
+/// Returns where it was actually drawn.
+fn draw_picture(
+    painter: &egui::Painter,
+    slot: egui::Rect,
+    picture: Picture,
+    alpha: f32,
+) -> egui::Rect {
+    let fitted = fit(slot, picture.size);
+    painter.image(
+        picture.texture,
+        fitted,
+        egui::Rect::from_min_max(egui::pos2(0.0, 0.0), egui::pos2(1.0, 1.0)),
+        fade(egui::Color32::WHITE, alpha),
+    );
+    fitted
+}
+
+/// The largest rect of `size`'s shape that fits in `bounds`, centred in it.
+fn fit(bounds: egui::Rect, size: egui::Vec2) -> egui::Rect {
+    if size.x <= 0.0 || size.y <= 0.0 {
+        return bounds;
+    }
+    let scale = (bounds.width() / size.x).min(bounds.height() / size.y);
+    egui::Rect::from_center_size(bounds.center(), size * scale)
 }
 
 /// The font the body draws in, with its emphasis applied.
@@ -255,6 +346,8 @@ mod tests {
                 spec,
                 egui::Color32::WHITE,
                 egui::Color32::GRAY,
+                None,
+                None,
             );
             let mut out = collected.lock().expect("the collector");
             out.push(content);
@@ -406,7 +499,62 @@ mod tests {
                 &spec,
                 egui::Color32::WHITE,
                 egui::Color32::GRAY,
+                None,
+                None,
             );
+        });
+    }
+
+    #[test]
+    fn a_picture_is_fitted_into_its_slot_and_never_stretched() {
+        // A wide image in a square slot keeps its shape: it shrinks to the
+        // slot's width and is centred, rather than being squashed square.
+        let slot = egui::Rect::from_min_size(egui::pos2(0.0, 0.0), egui::vec2(72.0, 72.0));
+        let wide = fit(slot, egui::vec2(200.0, 100.0));
+        assert_eq!(wide.width(), 72.0);
+        assert_eq!(wide.height(), 36.0, "the 2:1 shape survives");
+        assert_eq!(wide.center(), slot.center());
+
+        let tall = fit(slot, egui::vec2(50.0, 100.0));
+        assert_eq!(tall.height(), 72.0);
+        assert_eq!(tall.width(), 36.0);
+        assert!(slot.contains_rect(tall) && slot.contains_rect(wide));
+
+        // A picture with no size is not a division by zero.
+        assert_eq!(fit(slot, egui::Vec2::ZERO), slot);
+    }
+
+    #[test]
+    fn an_image_and_an_icon_are_drawn_without_escaping_the_toast() {
+        // Both pictures at once, beside the longest Malay text: the image
+        // takes the right of the body and the text the rest, and nothing
+        // leaves the content rect.
+        let ctx = ctx();
+        let spec = spec_with(
+            "Waktu Solat Zohor",
+            &pseudo("Waktu Zohor telah masuk bagi zon WLY01."),
+        );
+        let picture = |side: f32| Picture {
+            texture: egui::TextureId::Managed(0),
+            size: egui::vec2(side, side),
+        };
+        let _ = ctx.run(Default::default(), |ctx| {
+            let painter = ctx.layer_painter(egui::LayerId::background());
+            let rect = egui::Rect::from_min_size(
+                egui::pos2(0.0, 0.0),
+                egui::vec2(spec.style.width, 120.0),
+            );
+            let content = render::content_rect(rect, &spec);
+            draw(
+                &painter,
+                content,
+                &spec,
+                egui::Color32::WHITE,
+                egui::Color32::GRAY,
+                Some(picture(64.0)),
+                Some(picture(512.0)),
+            );
+            assert!(rect.contains_rect(content));
         });
     }
 

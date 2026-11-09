@@ -161,6 +161,20 @@ settings-toast-position-custom = Custom Point
 settings-toast-position-x = From Left
 settings-toast-position-y = From Top
 settings-toast-map-hint = Click a dot to choose a position, or drag to place the toast anywhere on the screen.
+settings-toast-test-content = Test Toast Content
+settings-toast-test-content-hint = These only change the preview and the test toast. Every notification carries its own icon, image and accent colour.
+settings-toast-icon = Icon
+settings-toast-icon-choose = Choose an Icon
+settings-toast-image = Image
+settings-toast-image-choose = Choose an Image
+settings-toast-image-remove = Remove
+settings-toast-image-border = Border Around the Image
+settings-toast-own-accent = Own Accent Colour
+# The titles of the Windows Open dialog.
+settings-toast-icon-dialog-title = Choose an icon for the toast header
+settings-toast-image-dialog-title = Choose an image for the toast
+# The file-type filter in the Open dialog.
+settings-toast-image-filter = Pictures (PNG, JPEG, WebP)
 settings-language = Language
 # Under the language picker. The switch is immediate, so the hint explains the
 # only part a user cannot guess: what "Same as Windows" follows.
@@ -181,6 +195,8 @@ settings-status-paused-until-resumed = Notifications are paused until you resume
 settings-status-resumed = Notifications are on again.
 settings-status-tray-failed = The tray icon could not be created, so closing this window is the only way out: { $reason }
 settings-status-language-failed = The language could not be changed: { $reason }
+settings-status-image-imported = The picture was added to the test toast.
+settings-status-dialog-failed = The file dialog could not be opened: { $reason }
 settings-status-saved = Your settings are saved.
 settings-status-autostart-on = OmniToaster will start with Windows.
 settings-status-autostart-off = OmniToaster will not start with Windows.

@@ -192,6 +192,86 @@ pub fn import(root: &Path, source: &Path) -> Result<Asset, ImportError> {
     })
 }
 
+/// A decoded, shrunken copy of an imported image, ready to draw.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct Thumbnail {
+    pub width: u32,
+    pub height: u32,
+    /// RGBA, row by row, `width * height * 4` bytes.
+    pub rgba: Vec<u8>,
+}
+
+/// Decode an imported image and shrink it to fit `max_side`.
+///
+/// Derived data, never the source of truth: it is rebuilt from the asset
+/// whenever it is needed. Blocking, and like `import` it belongs on a worker
+/// thread. The decode is bounded the same way the import was, because the
+/// file on disk is only as trustworthy as whoever last wrote to the folder.
+pub fn thumbnail(
+    root: &Path,
+    relative_path: &str,
+    max_side: u32,
+) -> Result<Thumbnail, ImportError> {
+    let path = root.join(relative_path);
+    guard_inside(root, &path)?;
+
+    let bytes = fs::read(&path).map_err(|error| ImportError::Unreadable {
+        path: path.clone(),
+        error,
+    })?;
+    decode(&bytes, &path, max_side)
+}
+
+/// Decode an image already in memory, with the same limits as a file: the
+/// format from its magic bytes, the size from its header, and a bounded
+/// decode. `path` only names it in an error.
+pub fn decode(bytes: &[u8], path: &Path, max_side: u32) -> Result<Thumbnail, ImportError> {
+    let path = path.to_path_buf();
+    if sniff(bytes).is_none() {
+        return Err(ImportError::NotAnImage { path });
+    }
+    let (width, height) = dimensions(bytes, &path)?;
+    if width > MAX_PIXELS || height > MAX_PIXELS {
+        return Err(ImportError::TooManyPixels {
+            path,
+            width,
+            height,
+        });
+    }
+
+    let mut reader = image::ImageReader::new(io::Cursor::new(bytes))
+        .with_guessed_format()
+        .map_err(|error| ImportError::Undecodable {
+            path: path.clone(),
+            reason: error.to_string(),
+        })?;
+    // The header was checked above; the limits make the decoder hold to it
+    // even if the header lied.
+    let mut limits = image::Limits::default();
+    limits.max_image_width = Some(MAX_PIXELS);
+    limits.max_image_height = Some(MAX_PIXELS);
+    reader.limits(limits);
+
+    let decoded = reader.decode().map_err(|error| ImportError::Undecodable {
+        path: path.clone(),
+        reason: error.to_string(),
+    })?;
+    // Only ever shrink. `DynamicImage::thumbnail` scales to *fit*, which
+    // includes scaling up: a 16 px icon came back 64 px wide, four times the
+    // memory and blurred for nothing.
+    let max = max_side.max(1);
+    let small = if decoded.width() <= max && decoded.height() <= max {
+        decoded.to_rgba8()
+    } else {
+        decoded.thumbnail(max, max).to_rgba8()
+    };
+    Ok(Thumbnail {
+        width: small.width(),
+        height: small.height(),
+        rgba: small.into_raw(),
+    })
+}
+
 /// What these bytes actually are, or `None` for anything else.
 pub fn sniff(bytes: &[u8]) -> Option<Format> {
     for (magic, format) in SIGNATURES {
@@ -465,6 +545,28 @@ mod tests {
                 "{error} has no key"
             );
         }
+    }
+
+    #[test]
+    fn a_thumbnail_of_an_imported_image_decodes_to_rgba_within_its_bound() {
+        let root = scratch();
+        let source = scratch();
+        let file = write(source.path(), "picture.png", TINY_PNG);
+        let asset = import(root.path(), &file).expect("imports");
+
+        let thumb = thumbnail(root.path(), &asset.relative_path, 64).expect("decodes");
+        assert_eq!((thumb.width, thumb.height), (1, 1));
+        assert_eq!(thumb.rgba.len(), 4, "one RGBA pixel");
+    }
+
+    #[test]
+    fn a_thumbnail_will_not_read_outside_the_data_folder() {
+        // The relative path comes from settings.toml, which a person can
+        // edit; it must not be a way to read any file on the machine.
+        let root = scratch();
+        let error = thumbnail(root.path(), "../../Windows/win.ini", 64)
+            .expect_err("a traversal is refused");
+        assert!(matches!(error, ImportError::Escapes { .. }), "{error}");
     }
 
     #[test]

@@ -156,6 +156,20 @@ settings-toast-position-custom = Titik Tersuai
 settings-toast-position-x = Dari Kiri
 settings-toast-position-y = Dari Atas
 settings-toast-map-hint = Klik titik untuk memilih kedudukan, atau seret untuk meletakkan toast di mana-mana pada skrin.
+settings-toast-test-content = Kandungan Toast Ujian
+settings-toast-test-content-hint = Ini hanya mengubah pratonton dan toast ujian. Setiap pemberitahuan membawa ikon, imej dan warna aksennya sendiri.
+settings-toast-icon = Ikon
+settings-toast-icon-choose = Pilih Ikon
+settings-toast-image = Imej
+settings-toast-image-choose = Pilih Imej
+settings-toast-image-remove = Buang
+settings-toast-image-border = Sempadan Sekeliling Imej
+settings-toast-own-accent = Warna Aksen Sendiri
+# Tajuk dialog Buka Windows.
+settings-toast-icon-dialog-title = Pilih ikon untuk pengepala toast
+settings-toast-image-dialog-title = Pilih imej untuk toast
+# Penapis jenis fail dalam dialog Buka.
+settings-toast-image-filter = Gambar (PNG, JPEG, WebP)
 settings-language = Bahasa
 # Di bawah pemilih bahasa. Penukaran berlaku serta-merta, jadi petunjuk ini
 # menerangkan satu-satunya perkara yang pengguna tidak dapat teka: apa yang
@@ -177,6 +191,8 @@ settings-status-paused-until-resumed = Pemberitahuan dijeda sehingga anda menyam
 settings-status-resumed = Pemberitahuan dihidupkan semula.
 settings-status-tray-failed = Ikon dulang tidak dapat dibuat, jadi menutup tetingkap ini ialah satu-satunya jalan keluar: { $reason }
 settings-status-language-failed = Bahasa tidak dapat ditukar: { $reason }
+settings-status-image-imported = Gambar telah ditambah pada toast ujian.
+settings-status-dialog-failed = Dialog fail tidak dapat dibuka: { $reason }
 settings-status-saved = Tetapan anda telah disimpan.
 settings-status-autostart-on = OmniToaster akan mula dengan Windows.
 settings-status-autostart-off = OmniToaster tidak akan mula dengan Windows.

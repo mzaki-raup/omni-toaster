@@ -199,12 +199,27 @@ pub struct Content {
     /// The app's own name in the header. Localized by the caller, like
     /// everything else here: a spec holds text, never keys.
     pub app_name: String,
+    /// The small picture in the **header**, beside the title. Each
+    /// notification may carry its own; `None` draws the app's own icon.
     /// A relative path under `OmniToasterData/assets/`, never an absolute
     /// one, so a portable folder can move between machines
     /// (`docs/05-data-model-and-storage.md`).
+    pub icon: Option<String>,
+    /// The larger picture **inside the content**, beside the body text.
+    /// Separate from the icon: a prayer toast can carry a mosque in its body
+    /// and the app's mark in its header. Relative, like the icon.
     pub image: Option<String>,
-    /// The category's mark in the header. The image that fills it arrives
-    /// with FEAT-0021; until then the slot is the accent colour.
+    /// Whether the image is framed. It travels with the image rather than
+    /// being a global style, because the right answer differs per picture: a
+    /// photo usually wants a border to stand off the background, and a logo
+    /// on a transparent background usually does not. Off by default.
+    pub image_border: bool,
+    /// This notification's own accent colour, overriding the one in
+    /// Settings ▸ Appearance. `None` uses that one. Per notification, like
+    /// the icon and the image: a prayer and a reminder are told apart at a
+    /// glance by their colour (`docs/specs/toast.md` §8).
+    pub accent: Option<Rgba>,
+    /// Whether the header shows an icon at all.
     pub show_icon: bool,
     /// Already formatted by the caller, like every other string here: a spec
     /// holds text, never keys, and `ot-i18n` owns the one formatter that may
@@ -336,6 +351,11 @@ impl ToastSpec {
     /// The radius this spec's shape actually draws with, at `height`.
     pub fn drawn_radius(&self, height: f32) -> f32 {
         self.style.shape.radius_for(self.style.radius, height)
+    }
+
+    /// The accent this toast draws with: its own, or the default.
+    pub fn accent(&self) -> Rgba {
+        self.content.accent.unwrap_or(self.style.accent)
     }
 
     /// Opacity as the 0.0–1.0 the renderer wants.
@@ -500,6 +520,16 @@ duration_secs = 900.0
         .expect("encodes");
         let back: ToastSpec = toml::from_str(&text).expect("decodes");
         assert_eq!(back.style.accent, colour);
+    }
+
+    #[test]
+    fn a_notifications_own_accent_overrides_the_default_and_absent_falls_back() {
+        let mut spec = ToastSpec::default();
+        assert_eq!(spec.accent(), spec.style.accent, "no override: the default");
+        let prayer_green = Rgba::new(0x1f, 0x9d, 0x55, 0xff);
+        spec.content.accent = Some(prayer_green);
+        assert_eq!(spec.accent(), prayer_green, "the notification's own wins");
+        assert_ne!(spec.accent(), spec.style.accent);
     }
 
     #[test]

@@ -2382,6 +2382,7 @@ dependencies = [
  "ot-core",
  "ot-i18n",
  "ot-platform",
+ "ot-store",
  "ot-toast",
  "thiserror 2.0.21",
  "tracing",

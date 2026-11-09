@@ -16,7 +16,7 @@ use ot_i18n::Language;
 use ot_platform::{Autostart, PauseWindow, Tray, TrayCommand};
 
 use crate::layout;
-use crate::theme::{Theme, ThemeMode};
+use crate::theme::{Theme, ThemeMode, Tokens};
 
 /// How often the window wakes to look at the tray's channels.
 ///
@@ -130,6 +130,13 @@ pub enum Status {
     /// it says *until when* rather than only that something happened.
     Paused,
     Resumed,
+    /// A picture was imported for the toast.
+    ImageImported,
+    /// A file broke an import rule; the message names the file and the rule.
+    ImportRefused {
+        key: &'static str,
+        name: String,
+    },
     Failed {
         key: &'static str,
         reason: String,
@@ -160,6 +167,10 @@ impl Status {
         match self {
             Self::Paused => ot_i18n::text("settings-status-paused-until-resumed"),
             Self::Resumed => ot_i18n::text("settings-status-resumed"),
+            Self::ImageImported => ot_i18n::text("settings-status-image-imported"),
+            Self::ImportRefused { key, name } => {
+                ot_i18n::text_with(key, &[("name", name.clone().into())])
+            }
             Self::Ready => ot_i18n::text("settings-status-ready"),
             Self::Saved => ot_i18n::text("settings-status-saved"),
             Self::AutostartOn => ot_i18n::text("settings-status-autostart-on"),
@@ -172,7 +183,7 @@ impl Status {
     }
 
     fn is_failure(&self) -> bool {
-        matches!(self, Self::Failed { .. })
+        matches!(self, Self::Failed { .. } | Self::ImportRefused { .. })
     }
 }
 
@@ -203,6 +214,17 @@ pub struct SettingsWindow {
     toasts: ot_toast::Toasts,
     /// Settings ▸ Appearance, which the preview and every real toast read.
     prefs: ot_toast::Prefs,
+    /// Toast pictures, decoded off the UI thread.
+    images: crate::images::Images,
+    /// The file dialog and the import behind it, also off the UI thread.
+    importer: crate::images::Importer,
+    /// The test toast's own icon and image, under Test Toast Content. In
+    /// memory only: every notification carries its own pictures, so these
+    /// are never a global setting.
+    test_icon: Option<String>,
+    test_image: Option<String>,
+    test_image_border: bool,
+    test_accent: Option<ot_toast::Rgba>,
     /// Set when the prefs changed and have not been written yet. A slider
     /// drag changes them every frame; they are saved when the pointer is
     /// released, not sixty times a second.
@@ -221,6 +243,7 @@ impl SettingsWindow {
     pub fn new(root: DataRoot, settings: Settings) -> Self {
         let language = LanguageChoice::parse(settings.general.language.as_deref());
         let settings_toast = settings.toast.clone();
+        let root_path = root.path().to_path_buf();
         let theme = Theme::new(ThemeMode::parse(&settings.general.theme));
         let (autostart, status) = match ot_platform::autostart::status() {
             Ok(state @ Autostart::EnabledElsewhere { .. }) => (state, Status::AutostartElsewhere),
@@ -266,6 +289,12 @@ impl SettingsWindow {
             quitting: false,
             toasts: ot_toast::Toasts::new(),
             prefs: ot_toast::Prefs::from_table(&settings_toast),
+            images: crate::images::Images::new(&root_path),
+            importer: crate::images::Importer::new(&root_path),
+            test_icon: None,
+            test_image: None,
+            test_image_border: false,
+            test_accent: None,
             prefs_dirty: false,
             confirming_quit: false,
         }
@@ -571,8 +600,42 @@ impl SettingsWindow {
             // Formatted here: ot-i18n owns the one formatter that may turn a
             // time into text, and a spec holds text rather than keys.
             timestamp: Some(formatted_time(chrono::Local::now())),
+            // The test toast's own pictures, like any notification's: chosen
+            // under Test Toast Content and never part of the global style.
+            icon: self.test_icon.clone(),
+            image: self.test_image.clone(),
+            image_border: self.test_image_border,
+            accent: self.test_accent,
             ..ot_toast::Content::default()
         })
+    }
+
+    /// Ask for the pictures a toast needs and hand back the ones decoded.
+    ///
+    /// The header shows the notification's own icon, or the app's when it
+    /// brings none; the body shows its image, if it has one.
+    fn pictures_for(
+        &mut self,
+        content: &ot_toast::Content,
+    ) -> (
+        Option<ot_toast::content::Picture>,
+        Option<ot_toast::content::Picture>,
+    ) {
+        let icon = content
+            .icon
+            .clone()
+            .unwrap_or_else(|| crate::images::APP_ICON.to_string());
+        self.images.request(&icon);
+        if let Some(image) = content.image.as_deref() {
+            self.images.request(image);
+        }
+        (
+            self.images.picture(&icon),
+            content
+                .image
+                .as_deref()
+                .and_then(|path| self.images.picture(path)),
+        )
     }
 
     /// Retire what has had its time, and draw what is left.
@@ -598,6 +661,17 @@ impl SettingsWindow {
         // a screen that is not there (docs/specs/toast.md §7.4).
         let work_area = primary_work_area();
 
+        let contents: Vec<ot_toast::Content> = self
+            .toasts
+            .visible()
+            .iter()
+            .map(|toast| toast.spec.content.clone())
+            .collect();
+        for content in &contents {
+            let _ = self.pictures_for(content);
+        }
+        let pictures = self.images.pictures();
+
         let tokens = self.theme.tokens();
         ot_toast::viewport::show_all(ctx, &self.toasts, work_area, move |ui, spec| {
             // The whole toast comes from the spec: the renderer reads no
@@ -608,7 +682,26 @@ impl SettingsWindow {
 
             // The colours come from the theme through here, so the renderer
             // itself still hard-codes none.
-            ot_toast::content::draw(ui.painter(), content, spec, tokens.text, tokens.text_dim);
+            let icon_key = spec
+                .content
+                .icon
+                .as_deref()
+                .unwrap_or(crate::images::APP_ICON);
+            let icon = pictures.get(icon_key).copied();
+            let image = spec
+                .content
+                .image
+                .as_deref()
+                .and_then(|path| pictures.get(path).copied());
+            ot_toast::content::draw(
+                ui.painter(),
+                content,
+                spec,
+                tokens.text,
+                tokens.text_dim,
+                icon,
+                image,
+            );
         });
     }
 
@@ -674,7 +767,8 @@ impl SettingsWindow {
                 ui.label(egui::RichText::new(ot_i18n::text("settings-toast-preview")).strong());
                 ui.add_space(layout::ROW_GAP);
                 let spec = self.test_spec();
-                crate::appearance::preview(ui, columns, &spec, tokens);
+                let (icon, image) = self.pictures_for(&spec.content);
+                crate::appearance::preview(ui, columns, &spec, tokens, icon, image);
                 ui.add_space(layout::ROW_GAP);
                 ui.horizontal_wrapped(|ui| {
                     ui.add_space(columns.label);
@@ -688,6 +782,8 @@ impl SettingsWindow {
                         self.show_test_toast();
                     }
                 });
+                ui.add_space(layout::PANE_GAP);
+                self.test_content(ui, columns, tokens);
                 ui.add_space(layout::PANE_GAP);
                 ui.separator();
                 ui.add_space(layout::PANE_GAP);
@@ -718,6 +814,182 @@ impl SettingsWindow {
         }
     }
 
+    /// The test toast's own content: an icon, an image, and whether the image
+    /// is framed.
+    ///
+    /// **Not global settings.** Every notification carries its own icon and
+    /// image (`docs/specs/toast.md` §8); these change only the preview and the
+    /// test toast, so the style around them can be judged with real pictures
+    /// in place. They are held in memory and never written to the settings
+    /// file. A notification's own pictures are chosen where the notification
+    /// is defined.
+    fn test_content(&mut self, ui: &mut egui::Ui, columns: layout::Columns, tokens: Tokens) {
+        ui.label(egui::RichText::new(ot_i18n::text("settings-toast-test-content")).strong());
+        layout::field_hint(
+            ui,
+            columns,
+            &ot_i18n::text("settings-toast-test-content-hint"),
+            tokens.text_dim,
+        );
+        ui.add_space(layout::ROW_GAP);
+        self.picture_row(ui, columns, crate::images::Slot::Icon);
+        self.picture_row(ui, columns, crate::images::Slot::Image);
+
+        if self.test_image.is_some() {
+            layout::labelled_row(
+                ui,
+                columns,
+                &ot_i18n::text("settings-toast-image-border"),
+                |ui| {
+                    ui.checkbox(&mut self.test_image_border, "");
+                },
+            );
+            ui.add_space(layout::ROW_GAP);
+        }
+
+        // The notification's own accent, overriding the one under Accent
+        // Colour below. Off means "use that one", which is what a
+        // notification without an accent of its own gets.
+        let mut own = self.test_accent.is_some();
+        layout::labelled_row(
+            ui,
+            columns,
+            &ot_i18n::text("settings-toast-own-accent"),
+            |ui| {
+                if ui.checkbox(&mut own, "").changed() {
+                    // A green that is plainly not the default blue, so turning
+                    // it on visibly does something.
+                    self.test_accent = own.then(|| ot_toast::Rgba::new(0x1f, 0x9d, 0x55, 0xff));
+                }
+                if let Some(accent) = self.test_accent.as_mut() {
+                    ui.add_space(layout::OPTION_GAP);
+                    let (r, g, b, a) = accent.parts();
+                    let mut colour = egui::Color32::from_rgba_unmultiplied(r, g, b, a);
+                    if egui::color_picker::color_edit_button_srgba(
+                        ui,
+                        &mut colour,
+                        egui::color_picker::Alpha::Opaque,
+                    )
+                    .changed()
+                    {
+                        let [r, g, b, a] = colour.to_srgba_unmultiplied();
+                        *accent = ot_toast::Rgba::new(r, g, b, a);
+                    }
+                    let (r, g, b, _) = accent.parts();
+                    ui.label(format!("#{r:02x}{g:02x}{b:02x}"));
+                }
+            },
+        );
+        ui.add_space(layout::ROW_GAP);
+    }
+
+    /// One picture row: choose a file, or remove the one chosen.
+    ///
+    /// Choosing opens the Windows dialog **on a worker thread**, which then
+    /// imports the file there too; the result arrives at frame start. Both
+    /// buttons wait while that is under way, so a second dialog cannot open
+    /// behind the first.
+    fn picture_row(
+        &mut self,
+        ui: &mut egui::Ui,
+        columns: layout::Columns,
+        slot: crate::images::Slot,
+    ) {
+        use crate::images::Slot;
+        let (label_key, choose_key, title_key) = match slot {
+            Slot::Icon => (
+                "settings-toast-icon",
+                "settings-toast-icon-choose",
+                "settings-toast-icon-dialog-title",
+            ),
+            Slot::Image => (
+                "settings-toast-image",
+                "settings-toast-image-choose",
+                "settings-toast-image-dialog-title",
+            ),
+        };
+        let chosen = match slot {
+            Slot::Icon => self.test_icon.is_some(),
+            Slot::Image => self.test_image.is_some(),
+        };
+        let height = layout::field_height(ui);
+        let busy = self.importer.is_busy();
+        layout::labelled_row(ui, columns, &ot_i18n::text(label_key), |ui| {
+            // The folder for the verb that opens a file, as everywhere else.
+            let choose = format!("\u{1F4C2}  {}", ot_i18n::text(choose_key));
+            let button = egui::Button::new(choose).min_size(egui::vec2(0.0, height));
+            if ui.add_enabled(!busy, button).clicked() {
+                self.importer.start(
+                    slot,
+                    ot_i18n::text(title_key),
+                    ot_i18n::text("settings-toast-image-filter"),
+                );
+            }
+            if chosen {
+                ui.add_space(layout::OPTION_GAP);
+                // The trash can for Remove, the same glyph as every other
+                // Remove (.claude/rules/ui.md).
+                let remove = format!(
+                    "\u{1F5D1}  {}",
+                    ot_i18n::text("settings-toast-image-remove")
+                );
+                let button = egui::Button::new(remove).min_size(egui::vec2(0.0, height));
+                if ui.add_enabled(!busy, button).clicked() {
+                    // The imported file stays in assets/: it is
+                    // content-addressed, so another notification may use the
+                    // same picture, and keeping it costs nothing.
+                    match slot {
+                        Slot::Icon => self.test_icon = None,
+                        Slot::Image => self.test_image = None,
+                    }
+                }
+            }
+        });
+        ui.add_space(layout::ROW_GAP);
+    }
+
+    /// Take whatever the import and decode threads have finished.
+    fn drain_images(&mut self, ctx: &egui::Context) {
+        if let Some(outcome) = self.importer.drain() {
+            match outcome {
+                crate::images::ImportOutcome::Cancelled => {}
+                crate::images::ImportOutcome::Imported(slot, asset) => {
+                    tracing::info!(
+                        path = asset.relative_path,
+                        ?slot,
+                        "a toast picture was imported"
+                    );
+                    match slot {
+                        crate::images::Slot::Icon => self.test_icon = Some(asset.relative_path),
+                        crate::images::Slot::Image => self.test_image = Some(asset.relative_path),
+                    }
+                    // Test content is not saved, so nothing follows to
+                    // overwrite this message the way a deferred save did.
+                    self.status = Status::ImageImported;
+                }
+                crate::images::ImportOutcome::Refused { name, error } => {
+                    tracing::warn!(%error, "a picture was refused");
+                    self.status = Status::ImportRefused {
+                        key: error.name_key(),
+                        name,
+                    };
+                }
+                crate::images::ImportOutcome::DialogFailed(reason) => {
+                    self.status = Status::Failed {
+                        key: "settings-status-dialog-failed",
+                        reason,
+                    };
+                }
+            }
+        }
+        for (relative, error) in self.images.drain(ctx) {
+            self.status = Status::ImportRefused {
+                key: error.name_key(),
+                name: relative,
+            };
+        }
+    }
+
     fn status_line(&self, ui: &mut egui::Ui) {
         let tokens = self.theme.tokens();
         let colour = if self.status.is_failure() {
@@ -738,6 +1010,7 @@ impl eframe::App for SettingsWindow {
         // answering the tray while the window is hidden.
         ctx.request_repaint_after(TRAY_POLL);
         self.handle_tray(ctx);
+        self.drain_images(ctx);
         self.drive_toasts(ctx);
 
         // Closing the window hides it; only the tray's Quit ends the app
@@ -1037,6 +1310,26 @@ mod tests {
             "settings-toast-position-x",
             "settings-toast-position-y",
             "settings-toast-map-hint",
+            "settings-toast-image",
+            "settings-toast-image-choose",
+            "settings-toast-image-remove",
+            "settings-toast-test-content",
+            "settings-toast-test-content-hint",
+            "settings-toast-icon",
+            "settings-toast-icon-choose",
+            "settings-toast-icon-dialog-title",
+            "settings-toast-image-border",
+            "settings-toast-own-accent",
+            "settings-toast-image-dialog-title",
+            "settings-toast-image-filter",
+            "settings-status-image-imported",
+            "settings-status-dialog-failed",
+            "error-import-too-large",
+            "error-import-not-an-image",
+            "error-import-too-many-pixels",
+            "error-import-undecodable",
+            "error-import-escapes",
+            "error-import-unreadable",
             "toast-position-custom-hint",
             "toast-test-title",
             "toast-test-body",
