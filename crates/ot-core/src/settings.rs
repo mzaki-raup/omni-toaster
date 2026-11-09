@@ -28,13 +28,18 @@ pub const SETTINGS_PATH: &[&str] = &["config", "settings.toml"];
 
 /// Everything `config/settings.toml` holds.
 ///
-/// Only the General pane's own values so far. A later phase adds its own
-/// section rather than widening this one, so a field is never silently shared
-/// between two panes.
-#[derive(Debug, Clone, PartialEq, Eq, Default, Serialize, Deserialize)]
+/// Each pane has its own section rather than widening another's, so a field
+/// is never silently shared between two panes.
+#[derive(Debug, Clone, PartialEq, Default, Serialize, Deserialize)]
 #[serde(default, deny_unknown_fields)]
 pub struct Settings {
     pub general: General,
+    /// Settings ▸ Appearance: the toast's style, its placement and its
+    /// header. Held as a raw table because `ot-core` depends on nothing else
+    /// in the workspace; `ot_toast::Prefs` owns the shape and reads it, and a
+    /// table it cannot read falls back to the defaults there rather than
+    /// failing the whole file here.
+    pub toast: toml::Table,
 }
 
 /// Settings ▸ General.

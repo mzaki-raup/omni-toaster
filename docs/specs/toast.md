@@ -245,6 +245,15 @@ cargo run -p omnitoaster -- --data-dir ./tmp-data
 
 ## What is implemented (2026-11-09)
 
+**Settings ▸ Appearance** (FEAT-0023). Shape, radius, width, opacity, border,
+shadow, background and accent colours, header switches, and the position
+picker with a map of the monitor: nine dots to click for the presets, and the
+toast drawn where it will land, which can be dragged anywhere for a custom
+point. The preview is drawn by `Prefs::spec`, `render::frame` and
+`content::draw` — the same function and the same two painters as a real toast
+— and was checked side by side against one. The style is saved to the
+`[toast]` table of `settings.toml` when the pointer is released.
+
 **Placement** (FEAT-0022, in part). The nine presets and the custom point, in
 `ot_toast::placement`, worked out against the chosen monitor's work area with
 no screen in sight so the arithmetic can be tested against a table — including

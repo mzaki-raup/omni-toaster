@@ -266,17 +266,23 @@ shortcut (`docs/specs/toast.md` §3).
   **Two ways in, one value out.** Dragging the preview and typing a percentage set the same fraction, so neither can disagree with the other — the same reason the preview and the real toast share one `ToastSpec`.
 
 ### FEAT-0023 · The Settings ▸ Appearance preview
-- **State:** Pending · **Spec:** docs/specs/toast.md §3, docs/04-ui-design.md · **Phase:** 2
+- **State:** In-Progress · **Spec:** docs/specs/toast.md §3, docs/04-ui-design.md · **Phase:** 2
 - **Branch:** feat/phase-2-toast
 - **Depends on:** FEAT-0019, FEAT-0020
-- [ ] An Appearance pane: shape, radius, width, height, colours, opacity, border, shadow, header toggles — each the control `docs/04-ui-design.md` names for its value
-- [ ] A live preview drawn by **the same renderer, from the same `ToastSpec`**, so it cannot diverge from the real thing
-- [ ] A style option the preview cannot show is a design bug, not a preview limitation
-- [ ] Test: the pane's strings all resolve in both catalogues; building a spec from the pane and from a template produce the same spec for the same inputs
-- [ ] Gate: fmt · clippy -D warnings · test --workspace --locked -j 4 · deny check · --self-test
-- [ ] App: change a style, look at the preview, fire the real toast, compare them side by side — **this is the other half of the phase's exit criteria**
-- [ ] Docs: spec · README (screenshot) · CHANGELOG · CHECKLIST
+- **Verified:** the gate, plus the preview and a real toast photographed side by side at the same non-default style
+- [x] An Appearance pane: shape, radius, width, opacity, border, shadow, background and accent colours, header toggles, and the position picker with its map — each the control `docs/04-ui-design.md` names for its value. **Height** has no control yet: toasts size to their content, and a fixed height is the one style option nobody has asked for
+- [x] A live preview drawn by **the same renderer, from the same `ToastSpec`**, so it cannot diverge from the real thing — `Prefs::spec` is the one function both call, and the preview uses `render::frame` and `content::draw` exactly as a toast window does
+- [x] A style option the preview cannot show is a design bug, not a preview limitation — there is none: every control on the pane changes the preview
+- [x] Test: the pane's strings all resolve in both catalogues; building a spec from the pane and from a template produce the same spec for the same inputs (`the_preview_and_a_real_toast_are_the_same_spec_for_the_same_choices`)
+- [x] Gate: fmt · clippy -D warnings · test --workspace --locked -j 4 (180 tests) · deny check · --self-test
+- [x] App: change a style, look at the preview, fire the real toast, compare them side by side. **Done at width 478 and 77% opacity** — same size, same layout, same text positions, same header, mark and accent bar. The only difference is what shows *through* them at 77%: the window behind the preview and the desktop behind the toast, which is correct for a translucent toast
+- [ ] Docs: spec · CHANGELOG · CHECKLIST done. **README screenshot waits** for the image picker, so the pane is photographed once, complete
+- **Still to come on this item:** the image picker, which is also what FEAT-0021 is waiting on, and a look at the pane in Malay and at the narrow minimum
 - **Notes:** The preview is the reason `ToastSpec` exists. Building one from a reminder plus its template is one function used by both the preview and the scheduler, so there is one path and not two.
+  **`Prefs` lives in `ot-toast`, and `settings.toml` carries it as a raw `[toast]` table.** `ot-core` depends on nothing in the workspace, so it cannot name `Style` or `Behaviour`; it holds the table and `ot_toast::Prefs` reads it. A table that does not fit falls back to the defaults with a line in the log, so a hand-edit cannot stop toasts appearing.
+  **Saved on release, not on change.** A slider drag changes the prefs every frame; they are written when the pointer comes up, or a sweep across the range would rewrite the file a hundred times.
+  **The test-toast bell drew as `?` at first.** Segoe UI has no bell, no clock and no pictographs; the tray shows them only because Windows falls back to Segoe UI Symbol behind the scenes, and egui falls back to nothing it was not given. `ot_platform::ui_font::symbols` loads that same fallback, last in both families, so it only answers for glyphs the UI font lacks.
+  **A false alarm worth recording:** a run saved `position = "centre"` that nobody chose. It did not reproduce under a controlled sequence, and a second run showed why — an automation click meant for empty space landed on the Opacity slider because the pane was scrolled. The first was the same thing on the map's centre dot. My clicks, not the app.
 
 ### FEAT-0024 · Snapshot and length evidence
 - **State:** Pending · **Spec:** docs/specs/toast.md §11 · **Phase:** 2

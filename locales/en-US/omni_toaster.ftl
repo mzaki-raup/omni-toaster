@@ -137,6 +137,30 @@ tray-quit-confirm-stay = Keep Running
 
 settings-window-title = Settings
 settings-section-general = General
+settings-section-appearance = Appearance
+
+## Settings ▸ Appearance. Title Case for the labels, sentence case for the
+## hints.
+
+settings-toast-preview = Preview
+settings-toast-test = Show a Test Toast
+settings-toast-shape = Shape
+settings-toast-radius = Corner Radius
+settings-toast-width = Width
+settings-toast-opacity = Opacity
+settings-toast-border = Border
+settings-toast-shadow = Shadow
+settings-toast-background = Background
+settings-toast-accent = Accent Colour
+settings-toast-header = Header
+settings-toast-header-icon = Icon
+settings-toast-header-app-name = App Name
+settings-toast-header-time = Time
+settings-toast-position = Position
+settings-toast-position-custom = Custom Point
+settings-toast-position-x = From Left
+settings-toast-position-y = From Top
+settings-toast-map-hint = Click a dot to choose a position, or drag to place the toast anywhere on the screen.
 settings-language = Language
 # Under the language picker. The switch is immediate, so the hint explains the
 # only part a user cannot guess: what "Same as Windows" follows.

@@ -132,6 +132,30 @@ tray-quit-confirm-stay = Teruskan Berjalan
 
 settings-window-title = Tetapan
 settings-section-general = Umum
+settings-section-appearance = Penampilan
+
+## Tetapan ▸ Penampilan. Huruf Besar Setiap Perkataan untuk label, huruf biasa
+## untuk petunjuk.
+
+settings-toast-preview = Pratonton
+settings-toast-test = Tunjukkan Toast Ujian
+settings-toast-shape = Bentuk
+settings-toast-radius = Jejari Bucu
+settings-toast-width = Lebar
+settings-toast-opacity = Kelegapan
+settings-toast-border = Sempadan
+settings-toast-shadow = Bayang
+settings-toast-background = Latar Belakang
+settings-toast-accent = Warna Aksen
+settings-toast-header = Pengepala
+settings-toast-header-icon = Ikon
+settings-toast-header-app-name = Nama Aplikasi
+settings-toast-header-time = Masa
+settings-toast-position = Kedudukan
+settings-toast-position-custom = Titik Tersuai
+settings-toast-position-x = Dari Kiri
+settings-toast-position-y = Dari Atas
+settings-toast-map-hint = Klik titik untuk memilih kedudukan, atau seret untuk meletakkan toast di mana-mana pada skrin.
 settings-language = Bahasa
 # Di bawah pemilih bahasa. Penukaran berlaku serta-merta, jadi petunjuk ini
 # menerangkan satu-satunya perkara yang pengguna tidak dapat teka: apa yang

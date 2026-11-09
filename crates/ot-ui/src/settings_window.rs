@@ -27,11 +27,13 @@ use crate::theme::{Theme, ThemeMode};
 /// and its window is usually hidden.
 const TRAY_POLL: Duration = Duration::from_millis(120);
 
-/// The window's sections. One for now; the rail exists so the second costs
-/// nothing but a variant.
+/// The window's sections. Each arrives with the phase that gives it
+/// something to hold; none is stubbed in as an empty tab.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum Section {
     General,
+    /// The toast's look and placement, with a live preview (Phase 2).
+    Appearance,
 }
 
 impl Section {
@@ -39,11 +41,12 @@ impl Section {
     pub fn name_key(self) -> &'static str {
         match self {
             Self::General => "settings-section-general",
+            Self::Appearance => "settings-section-appearance",
         }
     }
 
-    pub fn all() -> [Self; 1] {
-        [Self::General]
+    pub fn all() -> [Self; 2] {
+        [Self::General, Self::Appearance]
     }
 }
 
@@ -198,6 +201,12 @@ pub struct SettingsWindow {
     quitting: bool,
     /// Every toast on screen, and the ones waiting for room.
     toasts: ot_toast::Toasts,
+    /// Settings ▸ Appearance, which the preview and every real toast read.
+    prefs: ot_toast::Prefs,
+    /// Set when the prefs changed and have not been written yet. A slider
+    /// drag changes them every frame; they are saved when the pointer is
+    /// released, not sixty times a second.
+    prefs_dirty: bool,
     /// Set when Quit was asked for while a pause is running: the window comes
     /// back with a confirmation rather than the app going quiet for good
     /// while the user still thinks it is only muted.
@@ -211,6 +220,7 @@ impl SettingsWindow {
     /// from the settings file.
     pub fn new(root: DataRoot, settings: Settings) -> Self {
         let language = LanguageChoice::parse(settings.general.language.as_deref());
+        let settings_toast = settings.toast.clone();
         let theme = Theme::new(ThemeMode::parse(&settings.general.theme));
         let (autostart, status) = match ot_platform::autostart::status() {
             Ok(state @ Autostart::EnabledElsewhere { .. }) => (state, Status::AutostartElsewhere),
@@ -255,6 +265,8 @@ impl SettingsWindow {
             pause,
             quitting: false,
             toasts: ot_toast::Toasts::new(),
+            prefs: ot_toast::Prefs::from_table(&settings_toast),
+            prefs_dirty: false,
             confirming_quit: false,
         }
     }
@@ -549,16 +561,18 @@ impl SettingsWindow {
         }
     }
 
+    /// The test toast's spec, built by the same function as every real
+    /// toast and as the preview, so the three cannot disagree.
     fn test_spec(&self) -> ot_toast::ToastSpec {
-        let mut spec = ot_toast::ToastSpec::default();
-        spec.content.title = ot_i18n::text("toast-test-title");
-        spec.content.body = ot_i18n::text("toast-test-body");
-        spec.content.app_name = ot_i18n::text("toast-app-name");
-        spec.content.show_icon = true;
-        // Formatted here: ot-i18n owns the one formatter that may turn a
-        // time into text, and a spec holds text rather than keys.
-        spec.content.timestamp = Some(formatted_time(chrono::Local::now()));
-        spec.clamped()
+        self.prefs.spec(ot_toast::Content {
+            title: ot_i18n::text("toast-test-title"),
+            body: ot_i18n::text("toast-test-body"),
+            app_name: ot_i18n::text("toast-app-name"),
+            // Formatted here: ot-i18n owns the one formatter that may turn a
+            // time into text, and a spec holds text rather than keys.
+            timestamp: Some(formatted_time(chrono::Local::now())),
+            ..ot_toast::Content::default()
+        })
     }
 
     /// Retire what has had its time, and draw what is left.
@@ -582,11 +596,7 @@ impl SettingsWindow {
         // while a toast is on screen, and a remembered one that has gone
         // falls back to the primary monitor rather than leaving the toast on
         // a screen that is not there (docs/specs/toast.md §7.4).
-        let work_area = ot_platform::monitors::chosen_or_primary(None)
-            .map(|monitor| monitor.work_area_rect())
-            .unwrap_or_else(|| {
-                egui::Rect::from_min_size(egui::Pos2::ZERO, egui::vec2(1920.0, 1032.0))
-            });
+        let work_area = primary_work_area();
 
         let tokens = self.theme.tokens();
         ot_toast::viewport::show_all(ctx, &self.toasts, work_area, move |ui, spec| {
@@ -646,6 +656,65 @@ impl SettingsWindow {
             }
             Some(false) => self.confirming_quit = false,
             None => {}
+        }
+    }
+
+    /// Settings ▸ Appearance: the style, the placement and the preview.
+    fn appearance_pane(&mut self, ui: &mut egui::Ui) {
+        let tokens = self.theme.tokens();
+        let work_area = primary_work_area();
+
+        egui::ScrollArea::vertical()
+            .auto_shrink([false, false])
+            .show(ui, |ui| {
+                let columns = layout::columns(ui);
+
+                // The preview first, so what each control does is visible
+                // while it is being used.
+                ui.label(egui::RichText::new(ot_i18n::text("settings-toast-preview")).strong());
+                ui.add_space(layout::ROW_GAP);
+                let spec = self.test_spec();
+                crate::appearance::preview(ui, columns, &spec, tokens);
+                ui.add_space(layout::ROW_GAP);
+                ui.horizontal_wrapped(|ui| {
+                    ui.add_space(columns.label);
+                    // Field height like every other control, and a glyph
+                    // before the label like every other button. The bell is
+                    // the tray's own glyph for this same verb.
+                    let label = format!("\u{1F514}  {}", ot_i18n::text("settings-toast-test"));
+                    let button = egui::Button::new(label)
+                        .min_size(egui::vec2(0.0, layout::field_height(ui)));
+                    if ui.add(button).clicked() {
+                        self.show_test_toast();
+                    }
+                });
+                ui.add_space(layout::PANE_GAP);
+                ui.separator();
+                ui.add_space(layout::PANE_GAP);
+
+                let mut changed = crate::appearance::style_controls(ui, columns, &mut self.prefs);
+                ui.add_space(layout::PANE_GAP);
+                ui.separator();
+                ui.add_space(layout::PANE_GAP);
+                changed |= crate::appearance::position_controls(
+                    ui,
+                    columns,
+                    &mut self.prefs,
+                    work_area,
+                    tokens,
+                );
+                if changed {
+                    self.prefs_dirty = true;
+                }
+            });
+
+        // Written when the pointer is released, not on every frame of a drag:
+        // a slider moved across its range would otherwise rewrite the file a
+        // hundred times.
+        if self.prefs_dirty && !ui.input(|i| i.pointer.any_down()) {
+            self.prefs_dirty = false;
+            self.settings.toast = self.prefs.to_table();
+            self.save();
         }
     }
 
@@ -711,12 +780,21 @@ impl eframe::App for SettingsWindow {
             .frame(inset)
             .show(ctx, |ui| match self.section {
                 Section::General => self.general_pane(ui),
+                Section::Appearance => self.appearance_pane(ui),
             });
 
         if self.confirming_quit {
             self.quit_confirmation(ctx);
         }
     }
+}
+
+/// The primary monitor's work area, or a plain 1080p one when Windows will
+/// not say - enough for the map to draw something sensible.
+fn primary_work_area() -> egui::Rect {
+    ot_platform::monitors::chosen_or_primary(None)
+        .map(|monitor| monitor.work_area_rect())
+        .unwrap_or_else(|| egui::Rect::from_min_size(egui::Pos2::ZERO, egui::vec2(1920.0, 1032.0)))
 }
 
 /// `ot-platform` names the pause windows without `ot-core`'s clock types, so
@@ -811,6 +889,25 @@ fn font_definitions() -> Result<egui::FontDefinitions, ot_platform::FontError> {
         .or_default();
     mono.push("mono".to_owned());
     mono.push("ui".to_owned());
+
+    // The symbol fallback goes last in both families, so it only ever
+    // answers for a glyph the UI font lacks — a bell, a clock — and never
+    // changes how ordinary text looks.
+    if let Some(symbols) = ot_platform::ui_font::symbols() {
+        fonts.font_data.insert(
+            "symbols".to_owned(),
+            std::sync::Arc::new(egui::FontData::from_owned(symbols.bytes)),
+        );
+        for family in [egui::FontFamily::Proportional, egui::FontFamily::Monospace] {
+            fonts
+                .families
+                .entry(family)
+                .or_default()
+                .push("symbols".to_owned());
+        }
+    } else {
+        tracing::warn!("Segoe UI Symbol is missing; glyphs the UI font lacks will not draw");
+    }
     Ok(fonts)
 }
 
@@ -919,6 +1016,36 @@ mod tests {
         keys.extend(LanguageChoice::all().map(LanguageChoice::name_key));
         keys.extend(ThemeMode::all().map(ThemeMode::name_key));
         keys.extend(PauseFor::all().map(PauseFor::name_key));
+        // Settings ▸ Appearance, and every option its pickers offer.
+        keys.extend([
+            "settings-toast-preview",
+            "settings-toast-test",
+            "settings-toast-shape",
+            "settings-toast-radius",
+            "settings-toast-width",
+            "settings-toast-opacity",
+            "settings-toast-border",
+            "settings-toast-shadow",
+            "settings-toast-background",
+            "settings-toast-accent",
+            "settings-toast-header",
+            "settings-toast-header-icon",
+            "settings-toast-header-app-name",
+            "settings-toast-header-time",
+            "settings-toast-position",
+            "settings-toast-position-custom",
+            "settings-toast-position-x",
+            "settings-toast-position-y",
+            "settings-toast-map-hint",
+            "toast-position-custom-hint",
+            "toast-test-title",
+            "toast-test-body",
+            "toast-app-name",
+        ]);
+        keys.extend(ot_toast::Shape::all().map(ot_toast::Shape::name_key));
+        keys.extend(ot_toast::Shadow::all().map(ot_toast::Shadow::name_key));
+        keys.extend(ot_toast::Position::presets().map(ot_toast::Position::name_key));
+        keys.push(ot_toast::Position::Custom { x: 0.0, y: 0.0 }.name_key());
         keys
     }
 
