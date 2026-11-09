@@ -1131,7 +1131,11 @@ fn formatted_time(moment: chrono::DateTime<chrono::Local>) -> String {
 /// egui's `default_fonts` is off (ADR-014), so this is the only text the app
 /// has: a failure here means a window of blank rectangles, which is why it is
 /// an error the caller reports rather than something to log and continue past.
-fn font_definitions() -> Result<egui::FontDefinitions, ot_platform::FontError> {
+///
+/// Public so the layout tests install the same fonts the window draws with:
+/// with `default_fonts` off, a context without these measures every glyph as
+/// zero wide, and a layout test on it proves nothing (`docs/GOTCHAS.md`).
+pub fn font_definitions() -> Result<egui::FontDefinitions, ot_platform::FontError> {
     let proportional = ot_platform::ui_font::proportional()?;
     let monospace = ot_platform::ui_font::monospace()?;
     tracing::info!(

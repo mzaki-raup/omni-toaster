@@ -23,3 +23,6 @@ ot-store = { path = "../ot-store" }
 ot-toast = { path = "../ot-toast" }
 thiserror.workspace = true
 tracing.workspace = true
+
+[dev-dependencies]
+egui_kittest.workspace = true

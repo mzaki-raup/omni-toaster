@@ -100,6 +100,10 @@ sha2 = "0.11.1"
 
 # Test-only.
 tempfile = "3.27.0"
+# Headless layout tests of the real UI (FEAT-0024). Default features off: no
+# `wgpu`, no `snapshot`, so no GPU is needed and none is pulled in - the owner
+# chose layout tests over pixel snapshots.
+egui_kittest = { version = "0.33.3", default-features = false }
 
 [workspace.lints.rust]
 # A crate-wide allow is forbidden by the project rules, so lints that must hold

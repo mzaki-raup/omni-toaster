@@ -287,21 +287,24 @@ shortcut (`docs/specs/toast.md` §3).
   **A false alarm worth recording:** a run saved `position = "centre"` that nobody chose. It did not reproduce under a controlled sequence, and a second run showed why — an automation click meant for empty space landed on the Opacity slider because the pane was scrolled. The first was the same thing on the map's centre dot. My clicks, not the app.
 
 ### FEAT-0024 · Snapshot and length evidence
-- **State:** Pending · **Spec:** docs/specs/toast.md §11 · **Phase:** 2
+- **State:** Completed · **Spec:** docs/specs/toast.md §11 · **Phase:** 2
 - **Branch:** feat/phase-2-toast
 - **Depends on:** FEAT-0019, FEAT-0020, FEAT-0023
-- [ ] `egui_kittest` snapshots for every shape, in both languages, with the longest Malay strings
-- [ ] A pseudo-locale (about 40% longer than English) built and used to catch layout breakage Malay does not
-- [ ] The snapshots run in CI and fail on a visual change, so a layout regression is caught by the gate rather than by a user
-- [ ] Test: that is what this item is
-- [ ] Gate: fmt · clippy -D warnings · test --workspace --locked -j 4 · deny check · --self-test
-- [ ] App: not applicable — this item is the evidence for the others
-- [ ] Docs: spec · CHANGELOG · CHECKLIST · GOTCHAS
+- **Verified:** the gate; the detection proven able to fail
+- [x] `egui_kittest` **layout tests** for every shape, in both languages, with the longest Malay strings: the real UI driven headlessly, asserting that every widget's rect stays inside its toast or its pane, at 100%, 150% and 200%
+- [x] A pseudo-locale (about 40% longer than English) built and used to catch layout breakage Malay does not — `ot_i18n::set_pseudo`, run by the Appearance layout test as a third language, and `pseudo()` in the toast's own tests
+- [x] The layout tests run in CI and fail on an overflow, so a layout regression is caught by the gate rather than by a user
+- **Decided by the owner, 2026-11-10: layout tests, not pixel snapshots.** Pixel snapshots need `egui_kittest`'s `wgpu` feature — a large GPU dependency tree that lengthens every CI build on this machine and may find no adapter under the CI service account in session 0. Layout tests catch the thing the exit criteria are about, overflow, with no GPU at all; colour and paint regressions stay a matter for the running app and its screenshots
+- [x] Test: that is what this item is — in `ot-toast`, the content rect of every shape and the width of every line at 1×, 1.5× and 2×; in `crates/ot-ui/tests/layout.rs`, the Appearance controls in English, Malay and the pseudo-locale, at the default and narrow pane widths, at 1×, 1.5× and 2×, plus a test that the detection catches a widget that really overflows
+- [x] Gate: fmt · clippy -D warnings · test --workspace --locked -j 4 · deny check (with `egui_kittest` and no `wgpu`) · --self-test
+- [x] App: not applicable — this item is the evidence for the others
+- [x] Docs: spec · CHANGELOG · GOTCHAS. CHECKLIST moves with the phase, not with this item
 - **Notes:** Synthetic clicks never form double-clicks, so any double-click path stays an in-app check. Snapshots are a floor, not a substitute for looking: the phase's exit criteria say *in the running app*.
 
 ### FEAT-0025 · The image library
 - **State:** Pending · **Spec:** docs/specs/toast.md §8.1 · **Phase:** 2
 - **Branch:** feat/phase-2-toast
+- **Scheduled:** in Phase 2, by the owner's decision (2026-11-10). Phase 2 does not close until this is `Completed`
 - **Depends on:** FEAT-0021
 - **Source:** the owner, 2026-11-10 — upload pictures once and use them in notification templates: a meeting picture, a mosque, an alarm, the hourly announcement
 - [ ] A library of uploaded pictures: upload through FEAT-0021's import path unchanged, list with thumbnails, a label the user gives each one, remove

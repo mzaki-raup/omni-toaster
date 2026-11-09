@@ -23,4 +23,5 @@ tracing.workspace = true
 # glyph is zero-width, which makes a layout assertion pass without laying
 # anything out.
 [dev-dependencies]
+egui_kittest.workspace = true
 ot-platform = { path = "../ot-platform" }

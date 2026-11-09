@@ -387,19 +387,24 @@ mod tests {
             ),
             (&"A".repeat(200), &"B".repeat(200)),
         ];
-        for (title, body) in cases {
-            let spec = spec_with(title, body);
-            let rects = laid_out(&spec, spec.style.width, 120.0);
-            let content = rects.first().copied().expect("a content rect");
-            let frame = egui::Rect::from_min_size(
-                egui::pos2(0.0, 0.0),
-                egui::vec2(spec.style.width, 120.0),
-            );
-            assert!(
-                frame.contains_rect(content),
-                "the content rect escaped the toast for {:?}",
-                &title[..title.len().min(30)]
-            );
+        // Every shape: a pill insets its content further than a rectangle,
+        // and that is exactly the inset a shape-blind test would not see.
+        for shape in crate::spec::Shape::all() {
+            for (title, body) in cases {
+                let mut spec = spec_with(title, body);
+                spec.style.shape = shape;
+                let rects = laid_out(&spec, spec.style.width, 120.0);
+                let content = rects.first().copied().expect("a content rect");
+                let frame = egui::Rect::from_min_size(
+                    egui::pos2(0.0, 0.0),
+                    egui::vec2(spec.style.width, 120.0),
+                );
+                assert!(
+                    frame.contains_rect(content),
+                    "the content rect escaped a {shape:?} toast for {:?}",
+                    &title[..title.len().min(30)]
+                );
+            }
         }
     }
 
@@ -426,30 +431,37 @@ mod tests {
         // 200-character word, which egui breaks even with `break_anywhere`
         // off. That flag is deliberately off — it applies to everything, so
         // ordinary prose comes out broken mid-word.
-        let ctx = ctx();
+        //
+        // At 100%, 150% and 200%: text is laid out in points but snapped to
+        // physical pixels, so a line that fits at one scale is not
+        // automatically a line that fits at another (FEAT-0024).
         let width = 240.0_f32;
-        for text in [
-            "This is what a toast looks like with your current settings.",
-            "Beginilah rupa toast dengan tetapan anda sekarang.",
-            &"x".repeat(200),
-            &pseudo("Waktu Zohor telah masuk bagi zon WLY01."),
-        ] {
-            let _ = ctx.run(Default::default(), |ctx| {
-                let painter = ctx.layer_painter(egui::LayerId::background());
-                let galley = painter.layout_job(truncating_job(
-                    text.to_string(),
-                    egui::FontId::proportional(BODY_SIZE),
-                    egui::Color32::WHITE,
-                    width,
-                    3,
-                ));
-                assert!(
-                    galley.size().x <= width + 0.5,
-                    "{:?} laid out {}px wide in {width}px",
-                    &text[..text.len().min(30)],
-                    galley.size().x
-                );
-            });
+        for scale in [1.0_f32, 1.5, 2.0] {
+            let ctx = ctx();
+            ctx.set_pixels_per_point(scale);
+            for text in [
+                "This is what a toast looks like with your current settings.",
+                "Beginilah rupa toast dengan tetapan anda sekarang.",
+                &"x".repeat(200),
+                &pseudo("Waktu Zohor telah masuk bagi zon WLY01."),
+            ] {
+                let _ = ctx.run(Default::default(), |ctx| {
+                    let painter = ctx.layer_painter(egui::LayerId::background());
+                    let galley = painter.layout_job(truncating_job(
+                        text.to_string(),
+                        egui::FontId::proportional(BODY_SIZE),
+                        egui::Color32::WHITE,
+                        width,
+                        3,
+                    ));
+                    assert!(
+                        galley.size().x <= width + 0.5,
+                        "{:?} laid out {}px wide in {width}px at {scale}x",
+                        &text[..text.len().min(30)],
+                        galley.size().x
+                    );
+                });
+            }
         }
     }
 

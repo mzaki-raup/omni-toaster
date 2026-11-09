@@ -15,6 +15,7 @@
 use std::borrow::Cow;
 use std::path::Path;
 use std::path::PathBuf;
+use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::{Arc, PoisonError, RwLock};
 
 use i18n_embed::LanguageLoader as _;
@@ -308,7 +309,7 @@ pub fn text(key: &str) -> String {
         tracing::warn!(key, "no translation found in either language");
         return key.to_string();
     }
-    loader.get(key)
+    padded(loader.get(key))
 }
 
 /// Look up `key`, substituting named arguments.
@@ -324,7 +325,7 @@ pub fn text_with(key: &str, args: &[(&str, Cow<'_, str>)]) -> String {
         .iter()
         .map(|(name, value)| (*name, fluent_bundle::FluentValue::from(value.as_ref())))
         .collect();
-    strip_isolates(&loader.get_args_concrete(key, map))
+    padded(strip_isolates(&loader.get_args_concrete(key, map)))
 }
 
 /// Fluent wraps every substituted value in Unicode isolating marks (U+2068 and
@@ -413,6 +414,32 @@ pub fn probe_language(language: Language) -> Result<(), I18nError> {
 pub fn current_language() -> Option<Language> {
     let guard = ACTIVE.read().unwrap_or_else(PoisonError::into_inner);
     guard.as_ref().map(|active| active.language)
+}
+
+/// Whether every looked-up string is served as the pseudo-locale.
+static PSEUDO: AtomicBool = AtomicBool::new(false);
+
+/// Serve every string about 40% longer than the active language has it — the
+/// pseudo-locale `docs/10-i18n.md` asks layouts to be tested with, to find
+/// breakage Malay does not reach yet. Process-wide, like the language, and
+/// meant for layout tests; the app never turns it on.
+pub fn set_pseudo(on: bool) {
+    PSEUDO.store(on, Ordering::Relaxed);
+}
+
+/// `text` as the pseudo-locale would show it: bracketed, so a clipped end is
+/// visible, and padded by two fifths of its length.
+pub fn pseudo(text: &str) -> String {
+    let padding = "\u{b7}".repeat((text.chars().count() * 2 / 5).max(1));
+    format!("[{text}{padding}]")
+}
+
+fn padded(text: String) -> String {
+    if PSEUDO.load(Ordering::Relaxed) {
+        pseudo(&text)
+    } else {
+        text
+    }
 }
 
 /// Initialise the global loader for a test, tolerating a sibling test having
@@ -727,6 +754,18 @@ mod tests {
     }
 
     /// The raw pattern text for a key, straight from the embedded file.
+    #[test]
+    fn the_pseudo_locale_is_about_two_fifths_longer_and_bracketed() {
+        let english = "Start with Windows";
+        let long = pseudo(english);
+        assert!(long.starts_with('[') && long.ends_with(']'));
+        assert!(long.contains(english), "the original text stays readable");
+        // 18 characters, 7 of padding, 2 brackets.
+        assert_eq!(long.chars().count(), 18 + 7 + 2);
+        // Even a one-letter string grows, or it could never overflow.
+        assert!(pseudo("a").chars().count() > 1 + 2);
+    }
+
     fn bundled_text(tag: &str, key: &str) -> String {
         let path = format!("{tag}/omni_toaster.ftl");
         let file = Localizations::get(&path).expect("embedded");

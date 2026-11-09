@@ -256,8 +256,15 @@ start ([.claude/rules/threads-and-scheduling.md](../../.claude/rules/threads-and
 
 ## 11. Verification
 
-- Snapshot tests per shape, in both languages, with the longest Malay strings.
-- A pseudo-locale build (~40% longer) to catch layout breakage.
+- Layout tests, not pixel snapshots (the owner's decision, FEAT-0024): every
+  shape's content rect and every line of its text stay inside the toast at
+  100%, 150% and 200%, with the longest Malay strings and the pseudo-locale;
+  and `crates/ot-ui/tests/layout.rs` drives the real Appearance controls with
+  `egui_kittest` — no window, no GPU — and fails if any widget runs past the
+  pane, in English, Malay and the pseudo-locale, at the default width and the
+  narrow minimum. Colour and paint are checked in the running app.
+- The pseudo-locale (~40% longer) is `ot_i18n::set_pseudo`: every looked-up
+  string bracketed and padded, for layout tests; the app never turns it on.
 - Every shape at 100%, 150% and 200% DPI with no overflow — **in the running
   app**, because this is what Phase 2's exit criteria ask for.
 - Each animation at 60 fps on the reference machine, and its fallback forced.
