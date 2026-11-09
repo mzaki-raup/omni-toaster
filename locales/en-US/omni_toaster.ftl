@@ -55,6 +55,42 @@ language-system = Same as Windows
 language-en-us = English
 language-ms-my = Bahasa Melayu
 
+## Toasts. Sentence case for the body, Title Case for the actions. Only
+## built-in labels live here: a user's own reminder text is never a key.
+
+toast-app-name = OmniToaster
+toast-test-title = Test Toast
+toast-test-body = This is what a toast looks like with your current settings.
+toast-action-snooze = Snooze
+toast-action-dismiss = Dismiss
+toast-action-open = Open
+
+## Where a toast appears: nine presets — four corners, four edges and the
+## centre — plus the custom point. Shown in Settings ▸ Appearance. Title Case,
+## because they are list items.
+
+toast-position-top-left = Top Left
+toast-position-top = Top
+toast-position-top-right = Top Right
+toast-position-left = Left
+toast-position-centre = Centre
+toast-position-right = Right
+toast-position-bottom-left = Bottom Left
+toast-position-bottom = Bottom
+toast-position-bottom-right = Bottom Right
+toast-position-custom = Custom Position
+# Under the position picker, when Custom Position is chosen.
+toast-position-custom-hint = Drag the preview to place it, or type the distance from the left and top edges as a percentage.
+
+## Toast shapes and shadows, shown in Settings ▸ Appearance.
+
+toast-shape-rectangle = Rectangle
+toast-shape-rounded = Rounded Rectangle
+toast-shape-pill = Pill
+toast-shadow-off = Off
+toast-shadow-soft = Soft
+toast-shadow-strong = Strong
+
 ## The tray icon and its menu. Title Case for every item, because they are
 ## menu items. The glyph in front of each one is chosen in code, not here.
 

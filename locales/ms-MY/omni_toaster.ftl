@@ -51,6 +51,42 @@ language-system = Sama seperti Windows
 language-en-us = English
 language-ms-my = Bahasa Melayu
 
+## Toast. Huruf biasa untuk teks, Huruf Besar Setiap Perkataan untuk tindakan.
+## Hanya label terbina dalam ada di sini: teks peringatan pengguna bukan kunci.
+
+toast-app-name = OmniToaster
+toast-test-title = Toast Ujian
+toast-test-body = Beginilah rupa toast dengan tetapan anda sekarang.
+toast-action-snooze = Tunda
+toast-action-dismiss = Tolak
+toast-action-open = Buka
+
+## Tempat toast muncul: sembilan kedudukan pratetap — empat bucu, empat tepi
+## dan tengah — serta kedudukan tersuai. Ditunjukkan dalam
+## Tetapan ▸ Penampilan.
+
+toast-position-top-left = Kiri Atas
+toast-position-top = Atas
+toast-position-top-right = Kanan Atas
+toast-position-left = Kiri
+toast-position-centre = Tengah
+toast-position-right = Kanan
+toast-position-bottom-left = Kiri Bawah
+toast-position-bottom = Bawah
+toast-position-bottom-right = Kanan Bawah
+toast-position-custom = Kedudukan Tersuai
+# Di bawah pemilih kedudukan, apabila Kedudukan Tersuai dipilih.
+toast-position-custom-hint = Seret pratonton untuk meletakkannya, atau taipkan jarak dari tepi kiri dan atas dalam peratus.
+
+## Bentuk dan bayang toast, ditunjukkan dalam Tetapan ▸ Penampilan.
+
+toast-shape-rectangle = Segi Empat Tepat
+toast-shape-rounded = Segi Empat Bucu Bulat
+toast-shape-pill = Pil
+toast-shadow-off = Mati
+toast-shadow-soft = Lembut
+toast-shadow-strong = Kuat
+
 ## Ikon dulang dan menunya. Huruf Besar Setiap Perkataan untuk setiap item,
 ## kerana ia item menu. Glif di hadapan setiap satu dipilih dalam kod.
 

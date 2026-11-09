@@ -2349,6 +2349,7 @@ dependencies = [
 name = "ot-toast"
 version = "0.8.0"
 dependencies = [
+ "egui",
  "serde",
  "toml 1.2.1+spec-1.1.0",
  "tracing",
@@ -2364,6 +2365,7 @@ dependencies = [
  "ot-core",
  "ot-i18n",
  "ot-platform",
+ "ot-toast",
  "thiserror 2.0.21",
  "tracing",
 ]

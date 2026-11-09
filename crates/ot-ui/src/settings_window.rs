@@ -196,6 +196,8 @@ pub struct SettingsWindow {
     /// Set when the user has asked to quit and the close is ours to let
     /// through, rather than a window close that only hides.
     quitting: bool,
+    /// Every toast on screen, and the ones waiting for room.
+    toasts: ot_toast::Toasts,
     /// Set when Quit was asked for while a pause is running: the window comes
     /// back with a confirmation rather than the app going quiet for good
     /// while the user still thinks it is only muted.
@@ -252,6 +254,7 @@ impl SettingsWindow {
             tray,
             pause,
             quitting: false,
+            toasts: ot_toast::Toasts::new(),
             confirming_quit: false,
         }
     }
@@ -465,10 +468,11 @@ impl SettingsWindow {
                     self.status = Status::Resumed;
                     menu_is_stale = true;
                 }
-                // Present and disabled in the menu until Phases 2 and 4, so
-                // neither can arrive; if one does, it is a defect worth a
-                // line rather than a silent no-op.
-                TrayCommand::TestToast | TrayCommand::SnoozeLast => {
+                TrayCommand::TestToast => self.show_test_toast(),
+                // Still disabled in the menu until Phase 4, so it cannot
+                // arrive; if it does, that is a defect worth a line rather
+                // than a silent no-op.
+                TrayCommand::SnoozeLast => {
                     tracing::warn!(?command, "a disabled tray item was clicked");
                 }
                 TrayCommand::Quit => {
@@ -503,6 +507,63 @@ impl SettingsWindow {
                 reason: error.to_string(),
             };
         }
+    }
+
+    /// Fire one toast with the current style, for the tray's Test Toast.
+    ///
+    /// The content is localized here rather than in `ot-toast`: a `ToastSpec`
+    /// carries text, never keys, which is what lets a template hold a user's
+    /// own words beside a built-in default.
+    pub fn show_test_toast(&mut self) {
+        let mut spec = ot_toast::ToastSpec::default();
+        spec.content.title = ot_i18n::text("toast-test-title");
+        spec.content.body = ot_i18n::text("toast-test-body");
+        spec.content.app_name = ot_i18n::text("toast-app-name");
+        spec.content.show_icon = true;
+        spec.content.show_timestamp = true;
+        let id = self.toasts.push(spec);
+        tracing::info!(?id, "a test toast was fired");
+    }
+
+    /// Retire what has had its time, and draw what is left.
+    fn drive_toasts(&mut self, ctx: &egui::Context) {
+        for id in self.toasts.tick() {
+            // A retired toast's viewport has to be told to close: egui keeps
+            // a deferred viewport alive until nobody asks for it, and the
+            // window would otherwise linger empty.
+            ctx.send_viewport_cmd_to(id.viewport_id(), egui::ViewportCommand::Close);
+        }
+        if self.toasts.is_empty() {
+            return;
+        }
+
+        // `ViewportBuilder` cannot take a window out of Alt+Tab, so the
+        // style is set on the real window once it exists (FEAT-0018). Cheap
+        // and idempotent: it changes nothing after the first frame.
+        ot_platform::toast_window::make_unobtrusive(ot_toast::viewport::WINDOW_TITLE);
+
+        let tokens = self.theme.tokens();
+        ot_toast::viewport::show_all(ctx, &self.toasts, move |ui, spec| {
+            // FEAT-0019 replaces this with the renderer. For now the toast is
+            // its own background colour at its own opacity, which is enough
+            // to prove the window is borderless, transparent and on top.
+            let (r, g, b, a) = spec.style.background.parts();
+            let fill =
+                egui::Color32::from_rgba_unmultiplied(r, g, b, (f32::from(a) * spec.alpha()) as u8);
+            let rect = ui.max_rect();
+            ui.painter().rect_filled(
+                rect,
+                egui::CornerRadius::same(spec.drawn_radius(rect.height()) as u8),
+                fill,
+            );
+            ui.painter().text(
+                rect.center(),
+                egui::Align2::CENTER_CENTER,
+                &spec.content.title,
+                egui::FontId::proportional(16.0),
+                tokens.text,
+            );
+        });
     }
 
     fn show_window(&self, ctx: &egui::Context) {
@@ -572,6 +633,7 @@ impl eframe::App for SettingsWindow {
         // answering the tray while the window is hidden.
         ctx.request_repaint_after(TRAY_POLL);
         self.handle_tray(ctx);
+        self.drive_toasts(ctx);
 
         // Closing the window hides it; only the tray's Quit ends the app
         // (docs/specs/tray-and-settings.md §6). Without this the one way to
@@ -721,9 +783,12 @@ fn font_definitions() -> Result<egui::FontDefinitions, ot_platform::FontError> {
 /// Blocks the calling thread, which is the UI thread: eframe owns the event
 /// loop. Everything that can block belongs on another thread
 /// (`.claude/rules/threads-and-scheduling.md`).
-pub fn run(root: DataRoot, settings: Settings) -> Result<(), WindowError> {
+pub fn run(root: DataRoot, settings: Settings, test_toast: bool) -> Result<(), WindowError> {
     let fonts = font_definitions().map_err(WindowError::Fonts)?;
-    let window = SettingsWindow::new(root, settings);
+    let mut window = SettingsWindow::new(root, settings);
+    if test_toast {
+        window.show_test_toast();
+    }
     let visuals = window.theme().visuals();
 
     let options = eframe::NativeOptions {

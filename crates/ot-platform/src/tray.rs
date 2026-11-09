@@ -250,10 +250,10 @@ mod platform {
             menu.append(&submenu).map_err(to_menu_error)?;
         }
 
-        // Present and disabled rather than hidden: the menu's shape must not
-        // change under the user when Phases 2 and 4 give these something to
-        // do (FEAT-0015).
-        let test_toast = MenuItem::new(with_glyph(glyph::TEST, &labels.test_toast), false, None);
+        // Test Toast works from Phase 2 (FEAT-0018). Snooze Last is present
+        // and disabled rather than hidden until Phase 4, so the menu's shape
+        // does not change under the user when it starts working.
+        let test_toast = MenuItem::new(with_glyph(glyph::TEST, &labels.test_toast), true, None);
         let snooze_last =
             MenuItem::new(with_glyph(glyph::SNOOZE, &labels.snooze_last), false, None);
         menu.append(&test_toast).map_err(to_menu_error)?;

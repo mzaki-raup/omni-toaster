@@ -13,6 +13,7 @@ pub mod autostart;
 pub mod locale;
 pub mod single_instance;
 pub mod system_theme;
+pub mod toast_window;
 pub mod tray;
 pub mod ui_font;
 

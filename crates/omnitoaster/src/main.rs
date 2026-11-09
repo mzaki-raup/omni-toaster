@@ -44,6 +44,11 @@ const KNOWN_FLAGS: &[&str] = &[
     // the guard cannot be tested across processes at all. Debug only.
     #[cfg(debug_assertions)]
     "--hold-ms",
+    // Fires one toast at startup, so the renderer can be looked at without a
+    // tray click. The tray's Test Toast is the real trigger; this is the one
+    // a session with no mouse on the notification area can reach. Debug only.
+    #[cfg(debug_assertions)]
+    "--test-toast",
 ];
 
 fn main() -> ExitCode {
@@ -268,7 +273,12 @@ fn main() -> ExitCode {
         }
     };
 
-    if let Err(error) = ot_ui::settings_window::run(root, settings) {
+    #[cfg(debug_assertions)]
+    let test_toast = args.iter().any(|a| a == "--test-toast");
+    #[cfg(not(debug_assertions))]
+    let test_toast = false;
+
+    if let Err(error) = ot_ui::settings_window::run(root, settings, test_toast) {
         tracing::error!(%error, "the settings window could not be opened");
         eprintln!("OmniToaster cannot show its window: {error}");
         drop(guard);

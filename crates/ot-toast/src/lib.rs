@@ -8,5 +8,7 @@
 //! may depend on.
 
 pub mod spec;
+pub mod viewport;
 
 pub use spec::{Behaviour, Content, Rgba, Shadow, Shape, Style, ToastSpec};
+pub use viewport::{Disposition, LiveToast, ToastId, Toasts};

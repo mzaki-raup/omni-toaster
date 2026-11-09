@@ -13,6 +13,7 @@ publish.workspace = true
 workspace = true
 
 [dependencies]
+egui.workspace = true
 serde.workspace = true
 toml.workspace = true
 tracing.workspace = true

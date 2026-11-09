@@ -7,7 +7,16 @@
 
 Everything the user sees when a notification fires. A toast is a borderless,
 transparent, always-on-top viewport that never steals focus and never appears
-in the taskbar or in Alt+Tab. It is **not** a Windows Action Center notification
+in the taskbar or in Alt+Tab.
+
+**Those last two need a Win32 call, not only a viewport builder** (FEAT-0018).
+`egui::ViewportBuilder` gives borderless, transparent, topmost and unfocused,
+but it leaves `WS_EX_TOOLWINDOW` clear and `WS_EX_APPWINDOW` set — a toast in
+Alt+Tab with a taskbar button. `with_taskbar(false)` removes the taskbar
+*button* through the shell's taskbar list; Alt+Tab membership is decided by
+the extended style, so `ot_platform::toast_window` sets the style on the real
+window once it exists. The window is found by title within this process, and
+the title is the app's own name so a language switch cannot move it. It is **not** a Windows Action Center notification
 — the app paints its own, which is what makes the customization possible
 ([01-vision-and-scope.md](../01-vision-and-scope.md) non-goals).
 
@@ -52,7 +61,7 @@ renders without going through a `ToastSpec` is a defect.
 | Header | Icon, title, app name, timestamp | Each toggleable |
 | Body | Text (bold and italic), image | Image max 5 MB; PNG, JPG, WebP |
 | Actions | Snooze, Dismiss, Open | 1–3 buttons |
-| Position | Corner or edge, with a monitor choice | Respects the work area |
+| Position | One of nine presets, or a custom point, with a monitor choice | Respects the work area; a custom point is clamped into it |
 | Stacking | Max visible 1–5, with a gap | |
 
 **Minimums and maximums are enforced in the model, not only in the UI.** A
@@ -95,12 +104,87 @@ the fallback is automatic and logged, never a visible stutter.
 
 ## 7. Placement, DPI and monitors
 
-- A chosen screen and corner, stacking toward the screen centre, never covering
-  the taskbar (the work area, not the full monitor rect).
+A toast is placed on **a chosen monitor**, at **one of nine presets or at a
+custom point**, inside that monitor's **work area** — never the full monitor
+rect, so a toast never covers the taskbar.
+
+### 7.1 The nine presets
+
+**Four corners, four edges and the centre.** The same nine serve every
+monitor:
+
+```
+┌─────────────────────────────────────────────┐
+│ Top Left            Top            Top Right │
+│                                              │
+│ Left              Centre              Right  │
+│                                              │
+│ Bottom Left       Bottom       Bottom Right  │
+└─────────────────────────────────────────────┘
+```
+
+| Preset | Horizontally | Vertically |
+|---|---|---|
+| **Top Left** | against the left edge | against the top edge |
+| **Top** | centred | against the top edge |
+| **Top Right** | against the right edge | against the top edge |
+| **Left** | against the left edge | centred |
+| **Centre** | centred | centred |
+| **Right** | against the right edge | centred |
+| **Bottom Left** | against the left edge | against the bottom edge |
+| **Bottom** | centred | against the bottom edge |
+| **Bottom Right** | against the right edge | against the bottom edge |
+
+`Bottom Right` is the default: it is where Windows puts its own notifications,
+so it is where people already look.
+
+"Against an edge" means a **margin of 16 px** from it, scaled with the
+monitor's DPI like every other measurement. "Centred" means centred on that
+axis, with no margin involved.
+
+### 7.2 A custom point
+
+The user may place the toast anywhere in the work area instead. The point is
+set two ways, and both drive the same value:
+
+- by **dragging the preview** in Settings ▸ Appearance onto a small map of the
+  chosen monitor;
+- by typing **X and Y** beside it, in percent.
+
+**Stored as a fraction of the work area, not as pixels.** A point kept as
+`(1850, 1010)` is wrong the moment the screen resolution changes, the taskbar
+moves, or the toast is shown on a different monitor; a point kept as
+`(0.96, 0.94)` means the same place on any of them. The fraction addresses the
+toast's **anchor corner**, which is the corner nearest the point, so a toast
+placed near the bottom-right grows up and left rather than off the screen.
+
+A custom point is **clamped so the whole toast stays inside the work area**.
+Clamping happens at paint time against the monitor in use, not once at save
+time, because the monitor can change underneath it.
+
+### 7.3 Stacking direction
+
+Stacking runs **toward the centre of the work area**, away from the nearest
+edge, so a stack never walks off the screen:
+
+| Position | Toasts stack |
+|---|---|
+| `Top Left`, `Top`, `Top Right` | downward |
+| `Bottom Left`, `Bottom`, `Bottom Right` | upward |
+| `Left`, `Centre`, `Right` | downward |
+| A custom point | away from whichever horizontal edge the anchor is nearer; downward when it is in the vertical middle |
+
+### 7.4 Everything else
+
 - Correct at 100%–250% DPI, per monitor, including a DPI change mid-session and
-  a monitor being unplugged while a toast is visible.
+  a monitor being unplugged while a toast is visible. When the chosen monitor
+  disappears, toasts move to the primary monitor and say so in the log — they
+  are not left on a screen that is no longer there.
 - When more toasts fire than `max visible`, the surplus queues and shows as the
   earlier ones retire.
+- The position, the custom point and the monitor choice are global settings,
+  not per-category: a user who wants to know where to look should only have to
+  learn one place.
 
 ## 8. Templates
 
@@ -115,7 +199,10 @@ built-in text in the current language. Only user-written text is stored
 
 Prefix `toast-`. Built-in labels and actions only: `toast-action-snooze`,
 `toast-action-dismiss`, `toast-action-open`, `toast-snoozed-until`,
-`toast-app-name`. Per-category default titles and bodies live under their own
+`toast-app-name`. The nine positions are `toast-position-` plus the preset's
+own name — `top-left`, `top`, `top-right`, `left`, `centre`, `right`,
+`bottom-left`, `bottom`, `bottom-right` — and the custom option is
+`toast-position-custom`. Per-category default titles and bodies live under their own
 prefix (`prayer-`, `weather-`, `reminder-`). User text is never a key.
 
 ## 10. Threading
@@ -153,6 +240,13 @@ cargo run -p omnitoaster -- --data-dir ./tmp-data
 
 ## What is implemented (2026-11-09)
 
+**The viewport** (FEAT-0018). One deferred viewport per toast, keyed on the
+toast's own id so it keeps one window instead of getting a new one each frame.
+Several live at once, which is what stacking needs. Hovering pauses the
+countdown, and the surplus beyond `max visible` queues rather than being
+dropped — a queued toast starts its countdown when it appears, not when it was
+pushed, or one that waited behind four others would arrive already expired.
+
 **`ToastSpec` and its limits** (FEAT-0017). The model in `ot_toast::spec`,
 with every limit in §4's table enforced by `ToastSpec::clamped` rather than by
 the UI: the model is what the renderer trusts, and a settings file edited by
@@ -160,4 +254,5 @@ hand is as real an input as a slider. Each clamp logs the field and both
 values. A non-finite value takes the field's default instead, because
 `f32::clamp` keeps a NaN and a NaN width draws a toast of no size.
 
-Nothing renders yet — the viewport is FEAT-0018 and the renderer FEAT-0019.
+The renderer is FEAT-0019: a toast is currently its own background colour,
+its corners and its title, which is enough to prove the window is right.

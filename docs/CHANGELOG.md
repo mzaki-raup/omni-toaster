@@ -10,9 +10,10 @@ Format: [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) · Versioning:
 ### Added
 
 - `ot_toast::spec` (FEAT-0017): `ToastSpec`, the only thing the toast renderer will draw, so the Settings preview and a real toast cannot diverge. Every limit in the toast spec's table — width, height, radius, opacity, border, duration, visible count, actions — is enforced on the model rather than in the UI, so a `settings.toml` edited by hand to width 20 is clamped with a logged warning instead of reaching the renderer. A non-finite value takes the field's default, because `f32::clamp` keeps a NaN.
+- The toast viewport (FEAT-0018): a borderless, transparent, always-on-top window that never takes focus and appears in neither the taskbar nor Alt+Tab. One per toast, several at once, with the surplus beyond the visible count queuing rather than being dropped and hovering pausing the countdown. The tray's Test Toast is enabled now that it has something to show, and a debug-only `--test-toast` fires one at startup.
+- `ot_platform::toast_window`: the Win32 call that actually keeps a toast out of Alt+Tab. `ViewportBuilder::with_taskbar(false)` removes the taskbar button but leaves the extended style alone, so the window stayed in Alt+Tab with `WS_EX_APPWINDOW` set.
 - Phase 2 is filed as FEAT-0017 to FEAT-0024 under task version v0.2.0.
-
-- (nothing yet)
+- Toast placement is specified as **nine presets plus a custom point** (`docs/specs/toast.md` §7, FEAT-0022): four corners, four edges and the centre of the chosen monitor's work area, with Bottom Right the default, or any point the user drags the preview to or types as a percentage. A custom point is stored as a fraction of the work area rather than as pixels, so it means the same place after a resolution change or on another monitor, and it addresses the toast's anchor corner so a toast near an edge grows inward. The nine position names are in both catalogues.
 
 ## 0.8.0 — 2026-11-09
 

@@ -167,17 +167,22 @@ shortcut (`docs/specs/toast.md` §3).
   **The spec's first open question is answered here:** a pill is its own shape, not radius 40 under another name. Its radius is half its height, so it stays a pill as the toast grows; a fixed 40 stops being half the height the moment it does. `a_pill_stays_a_pill_at_any_height_and_a_rectangle_stays_square` is the test, and `docs/specs/toast.md` §12 now records the answer.
 
 ### FEAT-0018 · The toast viewport
-- **State:** Pending · **Spec:** docs/specs/toast.md §1, §7 · **Phase:** 2
+- **State:** In-Progress · **Spec:** docs/specs/toast.md §1, §7 · **Phase:** 2
 - **Branch:** feat/phase-2-toast
 - **Depends on:** FEAT-0017
-- [ ] A borderless, transparent, always-on-top viewport that **never steals focus** and appears in neither the taskbar nor Alt+Tab
-- [ ] Opening and closing one on demand, with more than one alive at once
-- [ ] It is not a Windows Action Center notification: the app paints its own
-- [ ] Test: the viewport builder carries the flags the spec names, so a later edit that drops one fails rather than being noticed by a user
-- [ ] Gate: fmt · clippy -D warnings · test --workspace --locked -j 4 · deny check · --self-test
-- [ ] App: a toast appears over a full-screen window, takes no focus from what is being typed into, and is absent from Alt+Tab
-- [ ] Docs: spec · CHANGELOG · GOTCHAS
+- **Verified:** the gate, plus the real window's extended style read back from Win32 while a toast was on screen
+- [x] A borderless, transparent, always-on-top viewport that **never steals focus** and appears in neither the taskbar nor Alt+Tab
+- [x] Opening and closing one on demand, with more than one alive at once — a deferred viewport per toast, keyed on the toast's own id so it keeps one window rather than getting a new one each frame
+- [x] It is not a Windows Action Center notification: the app paints its own
+- [x] Test: the viewport builder carries the flags the spec names, so a later edit that drops one fails rather than being noticed by a user. Plus the queue, the hover pause and dismissal, which are the behaviours around it
+- [x] Gate: fmt · clippy -D warnings · test --workspace --locked -j 4 (139 tests) · deny check · --self-test
+- [ ] App: a toast appears over a full-screen window, takes no focus from what is being typed into, and is absent from Alt+Tab. **Two of the three are done:** the window's extended style was read back from Win32 with a toast on screen — `WS_EX_TOPMOST` set, `WS_EX_TOOLWINDOW` set, `WS_EX_APPWINDOW` clear, `WS_EX_NOACTIVATE` set, and the foreground window was not the toast. **Over a full-screen window** needs someone to put one there, so it stays open
+- [x] Docs: spec · CHANGELOG · GOTCHAS
 - **Notes:** eframe's second viewport is the obvious route; whether an always-on-top no-focus window is reachable through `ViewportBuilder` alone or needs a Win32 call in `ot-platform` is the thing to establish first, and the answer belongs in the spec.
+  **Answered: `ViewportBuilder` gets most of the way and not all of it.** Measured on the built window — borderless, transparent, topmost and unfocused all came out right, but `WS_EX_TOOLWINDOW` was **clear** and `WS_EX_APPWINDOW` was **set**, which is a toast in Alt+Tab and a taskbar button. `with_taskbar(false)` removes the taskbar *button* through the shell's taskbar list; Alt+Tab membership is decided by the extended style, so the style is what has to change. `ot_platform::toast_window::make_unobtrusive` sets it on the real window, found by title within this process. The spec's §1 now says so rather than leaving the next person to find it with Alt+Tab.
+  **The title is the app's own name and never changes with the language**, which is what makes that lookup safe: a toast window is found by a string that a language switch cannot move.
+  **Hovering pauses the countdown** (§6), which means a paused toast is one whose clock is not running rather than one running slowly — `elapsed()` adds nothing while the pointer is over it.
+  **The surplus queues rather than being dropped**, and a queued toast starts its countdown when it *appears*, not when it was pushed. Otherwise a toast that waited behind four others would arrive already expired and flash past unread.
 
 ### FEAT-0019 · Shape, radius, colour, opacity, border and shadow
 - **State:** Pending · **Spec:** docs/specs/toast.md §4 · **Phase:** 2
@@ -224,15 +229,26 @@ shortcut (`docs/specs/toast.md` §3).
 - **State:** Pending · **Spec:** docs/specs/toast.md §7 · **Phase:** 2
 - **Branch:** feat/phase-2-toast
 - **Depends on:** FEAT-0019
-- [ ] A chosen screen and corner or edge, worked out from **that monitor's work area** and never from the primary monitor's rect
-- [ ] Never covers the taskbar; stacks toward the screen centre
+- [ ] A chosen screen, worked out from **that monitor's work area** and never from the primary monitor's rect
+- [ ] **The nine presets** of `docs/specs/toast.md` §7.1 — four corners, four edges and the centre — with Bottom Right the default, a 16 px DPI-scaled margin against an edge, and no margin on an axis the preset centres on
+- [ ] **A custom point** (§7.2): set by dragging the preview onto a map of the chosen monitor *and* by typing X and Y in percent, the two driving one value
+- [ ] A custom point is stored as a **fraction of the work area**, not as pixels, so it means the same place after a resolution change, a taskbar move, or a move to another monitor
+- [ ] The fraction addresses the toast's **anchor corner** — the corner nearest the point — so a toast placed near an edge grows inward rather than off the screen
+- [ ] A custom point is clamped so the whole toast stays inside the work area, clamped **at paint time** against the monitor in use rather than once at save time
+- [ ] Never covers the taskbar; stacks toward the centre of the work area, per §7.3's table
+- [ ] When the chosen monitor disappears, toasts move to the primary one and say so in the log
 - [ ] 1–5 visible with a configurable gap; the surplus queues and appears as earlier ones retire
 - [ ] Correct from 100% to 250% DPI, including a DPI change mid-session and a monitor unplugged while a toast is visible
-- [ ] Test: the placement arithmetic against a table of work areas, corners and DPI scales, including a monitor whose origin is negative — the second-monitor case that catches a primary-rect assumption
+- [ ] Test: the placement arithmetic against a table of work areas, positions and DPI scales, including a monitor whose origin is negative — the second-monitor case that catches a primary-rect assumption
+- [ ] Test: each of the nine presets lands against the edges it names and is centred on the axes it centres on — `Top` centred horizontally against the top, `Left` centred vertically against the left, `Centre` centred on both
+- [ ] Test: a custom fraction resolves to the same relative place on a 1920×1080 and a 3840×2160 work area, and a fraction of 1.0 still leaves the whole toast inside it
 - [ ] Gate: fmt · clippy -D warnings · test --workspace --locked -j 4 · deny check · --self-test
-- [ ] App: each corner at 100%, 150% and 200%; a stack of five; **a second monitor and a 250% display are checks this machine may not be able to make**, and whatever cannot be made is recorded as not made
+- [ ] App: each of the nine presets at 100%, 150% and 200%; a custom point placed by dragging and by typing; a stack of five; **a second monitor and a 250% display are checks this machine may not be able to make**, and whatever cannot be made is recorded as not made
 - [ ] Docs: spec · CHANGELOG · CHECKLIST · GOTCHAS
 - **Notes:** All monitor and work-area queries are Win32, so they live in `ot-platform` behind a capability-named interface, with the arithmetic in `ot-toast` where it can be tested without a screen.
+  **Nine presets — four corners, four edges and the centre — and a custom point are the owner's requirement, asked for on 2026-11-09**, and `docs/specs/toast.md` §7 was rewritten to carry it before any of it was built. The spec previously said only "a chosen screen and corner".
+  **The custom point is a fraction, not a pixel pair.** `(1850, 1010)` is wrong the moment the resolution changes, the taskbar moves or the toast appears on another monitor; `(0.96, 0.94)` means the same place on all of them. The fraction addresses the anchor *corner* rather than the toast's top-left, which is what keeps a toast placed near the bottom-right growing up and left instead of off the screen.
+  **Two ways in, one value out.** Dragging the preview and typing a percentage set the same fraction, so neither can disagree with the other — the same reason the preview and the real toast share one `ToastSpec`.
 
 ### FEAT-0023 · The Settings ▸ Appearance preview
 - **State:** Pending · **Spec:** docs/specs/toast.md §3, docs/04-ui-design.md · **Phase:** 2
