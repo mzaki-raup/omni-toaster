@@ -248,7 +248,7 @@ shortcut (`docs/specs/toast.md` §3).
 - [x] Never covers the taskbar; stacks toward the centre of the work area, per §7.3's table
 - [x] When the chosen monitor disappears, toasts move to the primary one and say so in the log
 - [ ] 1–5 visible with a configurable gap; the surplus queues and appears as earlier ones retire
-- [ ] Correct from 100% to 250% DPI, including a DPI change mid-session and a monitor unplugged while a toast is visible. **Not checked:** this machine has one monitor at 100% (`\.\DISPLAY2`, work area 1920×984 at scale 1.0), so a DPI change and an unplug are the owner's to make. The work area is re-read every frame rather than cached, which is what makes an unplug survivable
+- [ ] Correct from 100% to 250% DPI, including a DPI change mid-session and a monitor unplugged while a toast is visible. **Not checked:** this machine has one monitor at 100% (`\\.\DISPLAY2`, work area 1920×984 at scale 1.0), so a DPI change and an unplug are the owner's to make. The work area is re-read every frame rather than cached, which is what makes an unplug survivable
 - [x] Test: the placement arithmetic against a table of work areas, positions and DPI scales, including a monitor whose origin is negative — the second-monitor case that catches a primary-rect assumption
 - [x] Test: each of the nine presets lands against the edges it names and is centred on the axes it centres on — `Top` centred horizontally against the top, `Left` centred vertically against the left, `Centre` centred on both
 - [x] Test: a custom fraction resolves to the same relative place on a 1920×1080 and a 3840×2160 work area, and a fraction of 1.0 still leaves the whole toast inside it
