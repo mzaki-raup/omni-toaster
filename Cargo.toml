@@ -54,6 +54,14 @@ rusqlite = { version = "0.40.2", features = ["bundled"] }
 # Embeds the icon and the version metadata into OmniToaster.exe at build time.
 winresource = "0.1.34"
 
+# The UI (ADR-003). eframe arrives with the settings window; egui alone is
+# enough for the theme.
+#
+# `default_fonts` is off (ADR-014): it bundles the Ubuntu font, whose licence
+# is not on the allow list, and OmniToaster draws with the Windows UI font
+# instead. The settings window loads that font itself.
+egui = { version = "0.33.3", default-features = false }
+
 # Test-only.
 tempfile = "3.27.0"
 

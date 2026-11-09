@@ -55,6 +55,13 @@ language-system = Same as Windows
 language-en-us = English
 language-ms-my = Bahasa Melayu
 
+## Theme names, shown in Settings ▸ General ▸ Theme, in the order the
+## picker shows them. Dark is the default; System follows Windows.
+
+settings-theme-system = System
+settings-theme-dark = Dark
+settings-theme-light = Light
+
 ## Date, time and number patterns. Only ot_i18n::format_datetime reads
 ## these; nothing else formats a date or a number
 ## (docs/10-i18n.md).

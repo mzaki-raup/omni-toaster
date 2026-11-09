@@ -348,3 +348,28 @@ the two would fight. Don't run local cargo commands while a CI job is running,
 because it is the same machine. `.github/` jobs are guarded so Forgejo Actions,
 which also reads `.github/workflows/`, does not try to run them.
 [09-ci-cd-and-releases.md](09-ci-cd-and-releases.md) has the pipeline.
+
+## ADR-014 · No bundled UI font: egui's `default_fonts` is off
+
+**Status:** Accepted · **Phase:** 1
+
+**Context.** `egui` enables its `default_fonts` feature by default, which pulls
+in `epaint_default_fonts` — Ubuntu Light, Hack and Noto Emoji — under
+`OFL-1.1 AND Ubuntu-font-1.0`. Neither licence is on the project's allow list,
+so adding `egui` to `ot-ui` failed `cargo deny check` on the licence pass. The
+fonts also add about a megabyte to a portable exe that is meant to stay small,
+and Ubuntu Light is not the font a Windows app should be drawing in.
+
+**Decision.** `egui` is taken with `default-features = false`. OmniToaster
+draws in the Windows UI font, loaded from the system at startup by the
+settings window (FEAT-0014). An icon font, when one is needed, is a bundled
+asset with its own entry in `THIRD_PARTY_NOTICES.md` and its licence added to
+`deny.toml` deliberately rather than inherited from a default feature.
+
+**Consequences.** Any crate adding an `egui` feature must keep
+`default-features = false`, or the font licences come back. A build that cannot
+find the system font has no glyphs at all, so the loader must fail loudly
+rather than render an empty window. The unmaintained-`ttf-parser` advisory
+(RUSTSEC-2026-0192) still applies, because `epaint` rasterises through
+`ab_glyph` whichever font it is given; it is ignored in `deny.toml` with the
+reason that the app only ever parses fonts it chooses to load.

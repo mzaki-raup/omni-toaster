@@ -63,7 +63,7 @@ Last updated: 2026-11-08
 |---|---|---|
 | Single instance | Completed | FEAT-0011. Named mutex per role; proven across two real processes, not just within one |
 | Start with Windows | In-Progress | FEAT-0012. Write, read-back and the moved-folder refresh all verified against the real registry; the enable toggle and the reboot check wait on the settings window |
-| The three themes | Pending | FEAT-0013 |
+| The three themes | In-Progress | FEAT-0013. The palette, the three modes and the `AppsUseLightTheme` poll are done and tested; nothing renders until FEAT-0014, so the look has not been seen on screen |
 | Settings window | Pending | FEAT-0014 |
 | Tray icon and menu | Pending | FEAT-0015 |
 | Live language switch | Pending | FEAT-0016 |

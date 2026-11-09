@@ -173,17 +173,23 @@ window to open; FEAT-0016 needs both so it has something to re-render.
 - **Notes:** The **one** registry write the app is allowed (ADR-004), so the test must prove nothing else is written. Tests touch the real HKCU hive, so they use a value name scoped to the test run and remove it afterwards — never the production `OmniToaster` value, or running the suite would disable a user's autostart.
 
 ### FEAT-0013 · The three themes and system detection
-- **State:** Pending · **Spec:** docs/04-ui-design.md · **Phase:** 1
+- **State:** In-Progress · **Spec:** docs/04-ui-design.md · **Phase:** 1
 - **Branch:** feat/phase-1-shell
-- [ ] `ot_platform::system_theme` reading `AppsUseLightTheme`, rechecked every 5 seconds so a Windows change is followed without a restart
-- [ ] `ot_ui::theme` with the semantic tokens from `docs/04-ui-design.md` — `surface`, `surface_raised`, `text`, `text_dim`, `accent`, `border`, `danger` — for Dark and Light
-- [ ] Dark is the default; System follows Windows; nothing hard-codes a colour
-- [ ] Hover changes fill or border only — never size, position or glyph scale
-- [ ] Test: each mode resolves to the expected palette; System follows a change in the detected value; every token is defined in both palettes
-- [ ] Gate: fmt · clippy -D warnings · test --workspace --locked -j 4 · deny check · --self-test
-- [ ] App: switch all three modes and change the Windows setting with System selected
-- [ ] Docs: spec · README · CHANGELOG · CHECKLIST · GOTCHAS
+- **Verified:** the gate, a cross-check of the reading against the live registry, and the System path driven through every reading
+- [x] `ot_platform::system_theme` reading `AppsUseLightTheme`, rechecked every 5 seconds so a Windows change is followed without a restart
+- [x] `ot_ui::theme` with the semantic tokens from `docs/04-ui-design.md` — `surface`, `surface_raised`, `text`, `text_dim`, `accent`, `border`, `danger` — for Dark and Light
+- [x] Dark is the default; System follows Windows; nothing hard-codes a colour
+- [x] Hover changes fill or border only — never size, position or glyph scale
+- [x] Test: each mode resolves to the expected palette; System follows a change in the detected value; every token is defined in both palettes
+- [x] Gate: fmt · clippy -D warnings · test --workspace --locked -j 4 · deny check · --self-test
+- [ ] App: switch all three modes and change the Windows setting with System selected. **Nothing renders yet** — there is no window until FEAT-0014, so this cannot be looked at and stays open
+- [ ] Docs: spec · README · CHANGELOG · CHECKLIST · GOTCHAS — README waits until a themed screen exists to describe
 - **Notes:** The recheck is a poll because Windows offers no cheap notification for this worth a message loop here. 5 seconds is the spec's number.
+  **`AppsUseLightTheme`, not `SystemUsesLightTheme`**: the second is the taskbar and Start menu, the two can differ, and following the wrong one would put OmniToaster in light mode while every other app stayed dark. The name reads backwards from how it is spoken about — 1 means light — so the test cross-checks the reading against `reg query` rather than only asserting it does not panic.
+  A reading Windows declines (an older build, a profile that never set it) is not an error: it falls back to Dark, the app's default. Guessing light would flash a white window at someone who chose dark everywhere.
+  `poll` is split from a pure `resolve(mode, reading)` plus a private `adopt(reading)`, so the test can drive System through Light, Dark and absent without changing the machine's own Windows setting — a test that only read the live value could not prove the app follows a change.
+  `widget.expansion = 0.0` on all five widget states: egui grows widgets under the pointer by default, which `.claude/rules/ui.md` forbids outright, and it is the kind of thing only a human notices, so it is asserted.
+  Adding `egui` failed `cargo deny` twice over — `epaint_default_fonts` ships the Ubuntu font under licences not on the allow list, and `ab_glyph` reaches the unmaintained `ttf-parser`. ADR-014 turns `default_fonts` off rather than allowing a font licence the app does not need; the advisory is ignored with its reason.
 
 ### FEAT-0014 · The settings window
 - **State:** Pending · **Spec:** docs/04-ui-design.md · **Phase:** 1

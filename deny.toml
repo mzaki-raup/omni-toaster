@@ -20,6 +20,14 @@ ignore = [
     # not linked into the shipped exe, so it never sees runtime input of any
     # kind. Revisit when i18n-embed moves to `toml`.
     { id = "RUSTSEC-2026-0374", reason = "unmaintained build-time TOML parser inside the i18n-embed proc-macro; no upgrade exists and it is not in the shipped binary" },
+    # `ttf-parser` is flagged unmaintained, not vulnerable, and the advisory
+    # says "No safe upgrade is available": egui 0.33 reaches it through
+    # `ab_glyph`, and nothing in epaint has moved to `skrifa` yet. The only
+    # fonts it parses are the ones OmniToaster loads on purpose — the Windows
+    # UI font and, later, the bundled icon font. The app never opens a font
+    # file a user hands it, so there is no untrusted input path into it.
+    # Revisit when epaint changes rasteriser.
+    { id = "RUSTSEC-2026-0192", reason = "unmaintained font parser reached through egui; no upgrade exists and it only ever parses fonts the app chooses to load" },
 ]
 
 [licenses]

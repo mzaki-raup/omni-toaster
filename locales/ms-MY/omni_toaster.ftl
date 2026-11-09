@@ -51,6 +51,13 @@ language-system = Sama seperti Windows
 language-en-us = English
 language-ms-my = Bahasa Melayu
 
+## Nama tema, ditunjukkan dalam Tetapan ▸ Umum ▸ Tema, mengikut susunan
+## pemilihnya. Gelap ialah tetapan lalai; Sistem mengikut Windows.
+
+settings-theme-system = Sistem
+settings-theme-dark = Gelap
+settings-theme-light = Cerah
+
 ## Pola tarikh, masa dan nombor. Hanya ot_i18n::format_datetime membaca
 ## pola ini; tiada tempat lain memformat tarikh atau nombor
 ## (docs/10-i18n.md).

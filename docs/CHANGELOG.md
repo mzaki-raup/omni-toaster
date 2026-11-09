@@ -11,6 +11,13 @@ Format: [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) · Versioning:
 
 - `ot_platform::single_instance` (FEAT-0011): a named, session-scoped mutex per role, so a second launch bows out with a localized notice and exit 0 instead of starting a second tray icon and a second scheduler. The supervisor and worker take different names so they cannot block each other.
 - `ot_platform::autostart` (FEAT-0012): the single HKCU `Run` value, written only when enabled, refreshed at startup when the folder has moved, and read back from the registry rather than from `settings.toml` so a value removed elsewhere shows as off.
+- `ot_platform::system_theme` and `ot_ui::theme` (FEAT-0013): the three themes — Dark by default, Light, and System, which reads the Windows `AppsUseLightTheme` setting every five seconds and follows a change without a restart. The palette is the seven semantic tokens from `docs/04-ui-design.md` for both appearances; nothing hard-codes a colour, and hover changes a control's fill or border but never its size.
+- Theme names in both locales: `settings-theme-system`, `settings-theme-dark`, `settings-theme-light`.
+
+### Changed
+
+- `egui` is taken with `default-features = false` (ADR-014). Its `default_fonts` feature bundles the Ubuntu font under licences the project does not allow; OmniToaster will draw in the Windows UI font instead, loaded from the system by the settings window.
+- `deny.toml` ignores RUSTSEC-2026-0192 (`ttf-parser` unmaintained, no upgrade available). `egui` reaches it through `ab_glyph`, and the only fonts it parses are the ones the app chooses to load — there is no path for a user-supplied font file to reach it.
 
 ### Fixed
 

@@ -21,6 +21,18 @@ a toast's own accent colour overrides the token only where the template says
 so. Hover changes a control's fill or border — it never grows, moves or scales
 a glyph.
 
+`ot_ui::theme` owns this: `ThemeMode` is what the user chose, `Appearance` is
+what it resolves to, and `Tokens` is the palette. System re-reads Windows every
+`ot_platform::system_theme::POLL_INTERVAL` rather than once per frame, and a
+reading Windows declines falls back to Dark, never to Light.
+
+## Typography
+
+No font is bundled (ADR-014). Text draws in the Windows UI font, loaded from
+the system at startup — egui's `default_fonts` is off, so nothing renders
+until that load succeeds and a failure to find the font is a startup error,
+not an empty window.
+
 ## The Settings window
 
 A left rail of sections, a content pane on the right, and a status line at the
