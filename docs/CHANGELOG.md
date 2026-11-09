@@ -7,22 +7,17 @@ Format: [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) · Versioning:
 
 ## Unreleased
 
+- (nothing yet)
+
+## 0.8.0 — 2026-11-09
+
 ### Added
 
-- The language can be changed while the app runs (FEAT-0016): the settings window, its title bar and the tray menu all follow, with no restart. Measured at 2.4 ms from click to both surfaces switched, against an exit criterion of one second; the switch logs its own duration.
-- `ot_i18n::set_language`, and `Same as Windows` is resolved against Windows each time it is chosen rather than once at startup.
+- Switch the language while the app runs (159ac6c2)
 
 ### Security
 
-- `rusqlite` 0.40.2 → 0.41.1 and `libsqlite3-sys` 0.38.2 → 0.39.1, which bundles SQLite 3.54.1 and fixes CVE-2026-119375 / RUSTSEC-2026-0459 (BUG-0004). SQLite before 3.54.0 can return uninitialized page-cache memory when a database is opened alongside a `-wal` whose page size differs. Only a process that opens a database someone less trusted could have written is exposed, and OmniToaster opens one database — the one it created, in its own folder — so no release was exposed in a way that mattered. The vulnerable code is out of the binary regardless.
-- The declared MSRV is 1.89, which `rusqlite` 0.41 requires.
-
-### Changed
-
-- The active Fluent loader is an `RwLock` rather than a `OnceLock`, which could be set once and so could not be switched. The new loader is built before the write lock is taken, so a switch cannot stall a frame that is drawing, and vice versa. A user's locale overrides survive a switch.
-- The hint under the language picker says what `Same as Windows` follows, instead of saying the choice takes effect at the next start — it no longer does.
-
-- (nothing yet)
+- Bundle SQLite 3.54.1, which fixes CVE-2026-119375 (038d2e96)
 
 ## 0.7.0 — 2026-11-09
 

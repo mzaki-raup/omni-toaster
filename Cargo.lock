@@ -2239,7 +2239,7 @@ dependencies = [
 
 [[package]]
 name = "omnitoaster"
-version = "0.7.0"
+version = "0.8.0"
 dependencies = [
  "chrono",
  "ot-core",
@@ -2286,7 +2286,7 @@ dependencies = [
 
 [[package]]
 name = "ot-core"
-version = "0.7.0"
+version = "0.8.0"
 dependencies = [
  "chrono",
  "serde",
@@ -2300,7 +2300,7 @@ dependencies = [
 
 [[package]]
 name = "ot-i18n"
-version = "0.7.0"
+version = "0.8.0"
 dependencies = [
  "chrono",
  "fluent-bundle",
@@ -2315,11 +2315,11 @@ dependencies = [
 
 [[package]]
 name = "ot-media"
-version = "0.7.0"
+version = "0.8.0"
 
 [[package]]
 name = "ot-platform"
-version = "0.7.0"
+version = "0.8.0"
 dependencies = [
  "thiserror 2.0.21",
  "tracing",
@@ -2329,15 +2329,15 @@ dependencies = [
 
 [[package]]
 name = "ot-prayer"
-version = "0.7.0"
+version = "0.8.0"
 
 [[package]]
 name = "ot-sched"
-version = "0.7.0"
+version = "0.8.0"
 
 [[package]]
 name = "ot-store"
-version = "0.7.0"
+version = "0.8.0"
 dependencies = [
  "rusqlite",
  "tempfile",
@@ -2347,11 +2347,11 @@ dependencies = [
 
 [[package]]
 name = "ot-toast"
-version = "0.7.0"
+version = "0.8.0"
 
 [[package]]
 name = "ot-ui"
-version = "0.7.0"
+version = "0.8.0"
 dependencies = [
  "chrono",
  "eframe",
@@ -2365,7 +2365,7 @@ dependencies = [
 
 [[package]]
 name = "ot-weather"
-version = "0.7.0"
+version = "0.8.0"
 
 [[package]]
 name = "owned_ttf_parser"

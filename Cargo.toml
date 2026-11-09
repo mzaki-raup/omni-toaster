@@ -5,7 +5,7 @@ members = ["crates/*"]
 # The version lives here and only here. scripts/update-version.ps1 moves it;
 # never edit it by hand (docs/09-ci-cd-and-releases.md, ADR-001).
 [workspace.package]
-version = "0.7.0"
+version = "0.8.0"
 edition = "2024"
 # 1.85 is edition 2024's floor, but the versions that carry security fixes we
 # need are above it and the MSRV follows them rather than the other way round:
