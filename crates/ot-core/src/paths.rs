@@ -61,6 +61,22 @@ pub struct DataRoot {
     root: PathBuf,
 }
 
+/// Where the data folder would be with no `--data-dir`: `OmniToasterData/`
+/// beside the executable.
+///
+/// Works out the path and nothing else — it creates no folder and proves
+/// nothing writable, which is what lets startup read a setting out of the
+/// folder before it has decided whether the folder is usable.
+pub fn default_root() -> Result<PathBuf, PathError> {
+    let exe = std::env::current_exe().map_err(|source| PathError::ExeLocationUnknown { source })?;
+    // An executable always has a parent; if it somehow does not, treat the
+    // current directory as the base rather than panicking.
+    Ok(exe
+        .parent()
+        .unwrap_or_else(|| Path::new("."))
+        .join(DATA_DIR_NAME))
+}
+
 impl DataRoot {
     /// Resolve the data root, create its subtree and prove it is writable.
     ///
@@ -69,15 +85,7 @@ impl DataRoot {
     pub fn resolve(data_dir: Option<&Path>) -> Result<Self, PathError> {
         let root = match data_dir {
             Some(dir) => dir.to_path_buf(),
-            None => {
-                let exe = std::env::current_exe()
-                    .map_err(|source| PathError::ExeLocationUnknown { source })?;
-                // An executable always has a parent; if it somehow does not,
-                // treat the current directory as the base rather than panicking.
-                exe.parent()
-                    .unwrap_or_else(|| Path::new("."))
-                    .join(DATA_DIR_NAME)
-            }
+            None => default_root()?,
         };
 
         fs::create_dir_all(&root).map_err(|source| PathError::NotCreatable {

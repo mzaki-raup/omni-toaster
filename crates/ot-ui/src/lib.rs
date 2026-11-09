@@ -6,6 +6,9 @@
 //! See `docs/03-architecture.md` for where this crate sits and which crates it
 //! may depend on.
 
+pub mod layout;
+pub mod settings_window;
 pub mod theme;
 
+pub use settings_window::{SettingsWindow, WindowError};
 pub use theme::{Appearance, Theme, ThemeMode, Tokens};

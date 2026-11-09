@@ -218,8 +218,14 @@ fn a_second_instance_bows_out_instead_of_starting() {
     // nothing but does open a database.
     std::thread::sleep(std::time::Duration::from_millis(1500));
 
+    // `--hold-ms 0` on every instance here, not just the first: since
+    // FEAT-0014 a start that reaches the end of startup opens the settings
+    // window and blocks until it is closed, and `output()` would then wait
+    // for ever. The flag short-circuits before the window, which is what
+    // keeps this test headless — CI runs as a service in session 0, where no
+    // window can open at all (docs/GOTCHAS.md).
     let second = Command::new(exe())
-        .args(["--data-dir"])
+        .args(["--hold-ms", "0", "--data-dir"])
         .arg(&data)
         .output()
         .expect("run the second instance");
@@ -247,7 +253,7 @@ fn a_second_instance_bows_out_instead_of_starting() {
     // And once the first has gone, a fresh start works again — a killed or
     // finished process must not lock the app out.
     let third = Command::new(exe())
-        .args(["--data-dir"])
+        .args(["--hold-ms", "0", "--data-dir"])
         .arg(&data)
         .output()
         .expect("run after the first exited");
@@ -260,19 +266,26 @@ fn a_second_instance_bows_out_instead_of_starting() {
 }
 
 #[test]
-fn worker_is_accepted_but_does_nothing_yet() {
+fn worker_is_accepted_and_reaches_startup() {
     let temp = tempfile::tempdir().expect("temp dir");
     let output = Command::new(exe())
-        .args(["--worker", "--data-dir"])
+        .args(["--worker", "--hold-ms", "0", "--data-dir"])
         .arg(temp.path().join("data-root"))
         .output()
         .expect("run");
 
-    // Phase 8 gives it behaviour; for now it must simply not be rejected as
-    // unknown, so the supervisor work can land without a CLI change.
+    // `--hold-ms` is what keeps this headless. Since FEAT-0014 a plain
+    // `--worker` opens the settings window and blocks until it is closed, and
+    // no test may do that: CI runs as a service in session 0, where no window
+    // can open at all. The window is checked in the running app instead.
     assert!(
         output.status.success(),
         "--worker should be accepted: {}",
         String::from_utf8_lossy(&output.stderr)
+    );
+    let stdout = String::from_utf8_lossy(&output.stdout);
+    assert!(
+        stdout.contains("Data folder:") && stdout.contains("Holding:"),
+        "--worker should reach startup: {stdout}"
     );
 }

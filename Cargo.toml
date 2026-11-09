@@ -61,6 +61,18 @@ winresource = "0.1.34"
 # is not on the allow list, and OmniToaster draws with the Windows UI font
 # instead. The settings window loads that font itself.
 egui = { version = "0.33.3", default-features = false }
+# `glow` is the renderer; `accesskit` is what gives the settings window to a
+# screen reader, and it is an egui default we deliberately keep. `persistence`
+# stays off: window geometry is ours to store under OmniToasterData/, not
+# eframe's to put wherever it likes (ADR-004).
+eframe = { version = "0.33.3", default-features = false, features = [
+    "glow",
+    "accesskit",
+] }
+
+# `config/settings.toml` is the source of truth for configuration (ADR-007).
+toml = "1.2.1"
+serde = { version = "1.0.229", features = ["derive"] }
 
 # Test-only.
 tempfile = "3.27.0"

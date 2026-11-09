@@ -31,6 +31,7 @@ ot-core = { path = "../ot-core" }
 ot-i18n = { path = "../ot-i18n" }
 ot-platform = { path = "../ot-platform" }
 ot-store = { path = "../ot-store" }
+ot-ui = { path = "../ot-ui" }
 tracing.workspace = true
 
 [dev-dependencies]

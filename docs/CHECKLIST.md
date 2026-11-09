@@ -64,7 +64,7 @@ Last updated: 2026-11-08
 | Single instance | Completed | FEAT-0011. Named mutex per role; proven across two real processes, not just within one |
 | Start with Windows | In-Progress | FEAT-0012. Write, read-back and the moved-folder refresh all verified against the real registry; the enable toggle and the reboot check wait on the settings window |
 | The three themes | In-Progress | FEAT-0013. The palette, the three modes and the `AppsUseLightTheme` poll are done and tested; nothing renders until FEAT-0014, so the look has not been seen on screen |
-| Settings window | Pending | FEAT-0014 |
+| Settings window | In-Progress | FEAT-0014. The window, the General pane and the status line are done and checked in both languages, all three themes, at the default size and at the minimum; closing it still ends the app, which the tray menu fixes, and the Start with Windows click needs the owner |
 | Tray icon and menu | Pending | FEAT-0015 |
 | Live language switch | Pending | FEAT-0016 |
 

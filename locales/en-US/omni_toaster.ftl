@@ -55,6 +55,32 @@ language-system = Same as Windows
 language-en-us = English
 language-ms-my = Bahasa Melayu
 
+## The settings window: its title, the sections in the left rail, and the
+## General pane. Title Case for the labels, sentence case for the hints.
+
+settings-window-title = Settings
+settings-section-general = General
+settings-language = Language
+# Under the language picker. The window re-renders in the new language only
+# after a restart until the live switch lands.
+settings-language-hint = The window changes language the next time OmniToaster starts.
+settings-theme = Theme
+settings-startup = Start with Windows
+settings-startup-hint = OmniToaster starts when you sign in. Moving the folder is fine — the setting follows it.
+# Shown when the registry value points at a different copy of OmniToaster.
+settings-startup-elsewhere = Another copy of OmniToaster is set to start with Windows, so this one is not.
+
+## The settings status line. Sentence case; this is where non-modal truth
+## lives, so each message says what is now true rather than what was clicked.
+
+settings-status-ready = Ready.
+settings-status-saved = Your settings are saved.
+settings-status-autostart-on = OmniToaster will start with Windows.
+settings-status-autostart-off = OmniToaster will not start with Windows.
+# $reason is the underlying error, in English, from the operating system.
+settings-status-save-failed = Your settings could not be saved: { $reason }
+settings-status-autostart-failed = The startup setting could not be changed: { $reason }
+
 ## Theme names, shown in Settings ▸ General ▸ Theme, in the order the
 ## picker shows them. Dark is the default; System follows Windows.
 

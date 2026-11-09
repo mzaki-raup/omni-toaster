@@ -192,18 +192,37 @@ window to open; FEAT-0016 needs both so it has something to re-render.
   Adding `egui` failed `cargo deny` twice over — `epaint_default_fonts` ships the Ubuntu font under licences not on the allow list, and `ab_glyph` reaches the unmaintained `ttf-parser`. ADR-014 turns `default_fonts` off rather than allowing a font licence the app does not need; the advisory is ignored with its reason.
 
 ### FEAT-0014 · The settings window
-- **State:** Pending · **Spec:** docs/04-ui-design.md · **Phase:** 1
-- **Branch:** feat/phase-1-shell
+- **State:** In-Progress · **Spec:** docs/04-ui-design.md · **Phase:** 1
+- **Branch:** feat/settings-window
 - **Depends on:** FEAT-0013
-- [ ] An eframe window: a left rail of sections, a content pane, a status line
-- [ ] The **General** pane only: language, theme, start with Windows, and the status line. The other panes belong to later phases and must not be stubbed in as empty tabs
-- [ ] Closing the window does not quit the app
-- [ ] Every string through Fluent in both catalogues; Title Case for labels, sentence case for hints
-- [ ] Test: the General pane's strings all resolve; no literal reaches a widget
+- **Verified:** the gate, plus the running app driven on a scratch `--data-dir` — both languages, Dark, Light and System, at the default size and at the minimum
+- [x] An eframe window: a left rail of sections, a content pane, a status line
+- [x] The **General** pane only: language, theme, start with Windows, and the status line. The other panes belong to later phases and must not be stubbed in as empty tabs
+- [ ] Closing the window does not quit the app. **Deliberately not yet:** closing ends the process, because Quit lives in the tray menu and until FEAT-0015 exists there would be no way to stop a process that outlived its only window. The line is marked in `main.rs`
+- [x] Every string through Fluent in both catalogues; Title Case for labels, sentence case for hints
+- [x] Test: the General pane's strings all resolve; no literal reaches a widget — `the_general_pane_names_only_keys_that_exist_in_both_catalogues` walks every key the window can ask for, in both catalogues
+- [x] Gate: fmt · clippy -D warnings · test --workspace --locked -j 4 (110 tests) · deny check · --self-test
+- [x] App: `--data-dir ./tmp-data` — the window opens; the language and theme pickers both work and persist; Dark, Light and System were each selected and each drew correctly; the stored language is honoured at the next start; the layout holds at 880×560 and at the 560×400 minimum, in English and in Malay
+- [ ] App, the part that could not be done from here: the **Start with Windows** checkbox. Clicking it writes the HKCU `Run` value, which this session's permission guard refuses as persistence. The code path is the one FEAT-0012 already proved against the real registry; the click itself needs the owner
+- [x] Docs: spec · README · CHANGELOG · CHECKLIST · GOTCHAS · screenshots
+- **Notes:** `egui_kittest` covers widget snapshots, but synthetic clicks never form double-clicks, so any double-click path is exercised in the running app. The window is where FEAT-0011's "focus the existing instance" lands — still FEAT-0015's job, since the tray is what raises it.
+  **Three pieces had to come with it.** `ot_core::settings` reads and writes `config/settings.toml`, which did not exist yet and is the spec's source of truth for configuration (ADR-007); `ot_platform::ui_font` loads Segoe UI and Consolas out of the Windows font folder, because ADR-014 turned egui's bundled fonts off and without a font nothing renders at all; and `ot_ui::layout` holds the measurements and the one row helper, so the rules in `.claude/rules/ui.md` are implemented once rather than per pane.
+  **The language choice is honoured at startup**, which needed the stored value to be read *before* `ot_i18n::init` — the data folder's own failure messages are localized, and the choice lives in that folder. `ot_core::settings::stored_language` reads it without creating or validating anything, and treats every failure as "no choice recorded". Changing the language still needs a restart (the hint says so); the live switch is FEAT-0016.
+  **`--worker` now opens a window**, so `worker_is_accepted_but_does_nothing_yet` was renamed and given `--hold-ms 0`. No test may open the window: CI runs as a service in session 0, where no window can open at all. That is also why `--hold-ms` stays.
+  **That fix was incomplete, and CI found it.** Run 39 hung on `a_second_instance_bows_out_instead_of_starting` and was cancelled — its *third* instance, the one that proves the guard is released after the first exits, had no flag because it had never needed one. Every `Command::new(exe())` in `tests/cli.rs` now carries `--hold-ms`. The local gate had reported 110 passing beforehand, and it was wrong: a copy of the app was still running, so cargo could not replace `target/debug/OmniToaster.exe` ("Access is denied") and the integration tests ran the previous build. Both are now in `docs/GOTCHAS.md`; the suite is run under a `timeout` so a hang is an exit code rather than a number.
+  **Known gap, not fixed here:** in Light mode the window's **title bar stays dark**, because that is Windows chrome and needs `DwmSetWindowAttribute(DWMWA_USE_IMMERSIVE_DARK_MODE)` against the window handle. It is visible in `docs/screenshots/` if you look. Filed as CR-0002 rather than bolted on, since it needs the HWND plumbed out of eframe.
+
+### CR-0002 · The title bar ignores the theme
+- **State:** Pending · **Spec:** docs/04-ui-design.md · **Phase:** 1
+- **Source:** seen while checking FEAT-0014 in the running app
+- [ ] Spec first: `docs/04-ui-design.md` says what the window chrome follows
+- [ ] `ot_platform` sets `DWMWA_USE_IMMERSIVE_DARK_MODE` on the window, behind a capability-named interface, taking the handle rather than finding it
+- [ ] `ot-ui` calls it when the appearance resolves, including when System follows a Windows change while the window is open
+- [ ] Test: the call is made for each appearance; the non-Windows path is a no-op
 - [ ] Gate: fmt · clippy -D warnings · test --workspace --locked -j 4 · deny check · --self-test
-- [ ] App: `--data-dir ./tmp-data` — the window opens, every control works, and it looks right at the default size and narrow, in both languages and all three themes
-- [ ] Docs: spec · README · CHANGELOG · CHECKLIST · GOTCHAS
-- **Notes:** `egui_kittest` covers widget snapshots, but synthetic clicks never form double-clicks, so any double-click path is exercised in the running app. The window is where FEAT-0011's "focus the existing instance" lands.
+- [ ] App: Light with a light title bar, Dark with a dark one, and System following a change in Windows while the window is open
+- [ ] Docs: spec · CHANGELOG · screenshots retaken
+- **Notes:** The window is light and its title bar is dark, which is the most visible thing wrong with the first screen the product has. Getting the handle means plumbing `raw-window-handle` out of eframe's `CreationContext`, which is why it is its own item rather than a line in FEAT-0014.
 
 ### FEAT-0015 · Tray icon and menu
 - **State:** Pending · **Spec:** docs/specs/tray-and-settings.md §3, §4 · **Phase:** 1

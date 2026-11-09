@@ -9,6 +9,8 @@
 
 pub mod logging;
 pub mod paths;
+pub mod settings;
 
 pub use logging::{HostInfo, LogError, LogGuard, RecentLines};
 pub use paths::{DataRoot, PathError};
+pub use settings::{General, Settings, SettingsError};

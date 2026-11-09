@@ -12,13 +12,13 @@ customizable, Windows-style toast notifications for reminders, prayer times
 starts with Windows, recovers from crashes, and keeps every byte of its data in
 an `OmniToasterData/` folder next to the executable.
 
-**Status:** Phase 0 (Foundation), in progress. The Cargo workspace and its
-eleven crates build, and `OmniToaster.exe` reports its version — but it does
-nothing else yet: there is no tray icon, no settings window and no toast. The
-`--data-dir`, `--self-test` and `--worker` flags documented below are specified
-and not yet implemented, so the build and run commands are here for
-contributors rather than for users. See [PROPOSAL.md](PROPOSAL.md) §13 for the
-phase plan and [docs/CHECKLIST.md](docs/CHECKLIST.md) for progress.
+**Status:** Phase 1 (Shell), in progress. The app starts in English or Malay,
+keeps its data in a portable folder, refuses to run twice, and opens a
+**settings window** with the General pane: language, theme and Start with
+Windows. There is still no tray icon and no toast, so closing the window ends
+the app for now. `--data-dir`, `--self-test`, `--version`, `--help`, `--lang`
+and `--worker` all work. See [PROPOSAL.md](PROPOSAL.md) §13 for the phase plan
+and [docs/CHECKLIST.md](docs/CHECKLIST.md) for progress.
 
 ---
 
@@ -188,8 +188,14 @@ for 256 pixels.
 
 ## Screenshots
 
-**Not captured yet.** No code exists, so there is nothing to photograph. The
-places are reserved and the capture procedure is written down in
+Settings ▸ General, the first screen the app has:
+
+![Settings ▸ General in the Dark theme](docs/screenshots/settings-general.png)
+
+The same pane in Bahasa Melayu is
+[settings-general-ms.png](docs/screenshots/settings-general-ms.png). The rest
+are **not captured yet** — the screens do not exist. The places are reserved
+and the capture procedure is written down in
 [docs/screenshots/README.md](docs/screenshots/README.md); each image below is
 taken as its phase lands:
 
@@ -198,7 +204,6 @@ taken as its phase lands:
 | `docs/screenshots/toast-dark.png` | A toast in the Dark theme | Phase 2 |
 | `docs/screenshots/toast-glass.png` | The Acrylic glass effect | Phase 3 |
 | `docs/screenshots/tray-menu.png` | The tray icon and its menu | Phase 1 |
-| `docs/screenshots/settings-general.png` | Settings → General, with the language selector | Phase 1 |
 | `docs/screenshots/settings-toast.png` | The toast style editor and its live preview | Phase 2 |
 | `docs/screenshots/settings-prayer.png` | Settings → Prayer, zone confirmation and source label | Phase 5 |
 | `docs/screenshots/animation-in.gif` | The in and out animations | Phase 3 |

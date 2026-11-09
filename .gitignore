@@ -4,6 +4,10 @@
 
 # OmniToaster portable data folder (never commit runtime data)
 /OmniToasterData/
+# The scratch folder every rule tells a session to develop against
+# (`cargo run -p omnitoaster -- --data-dir ./tmp-data`). Same rule: it is
+# runtime data, and it holds a database and logs.
+/tmp-data/
 
 # Release staging written by scripts/*.ps1
 /release/

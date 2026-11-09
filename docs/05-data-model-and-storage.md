@@ -60,6 +60,28 @@ needs to read inside a transaction. Windows paths in TOML use single-quoted
 literal strings — a double-quoted string processes `\U` and an invalid escape
 fails the whole file.
 
+What it holds so far, written by Settings ▸ General:
+
+```toml
+[general]
+language = "ms-MY"   # absent means follow Windows
+theme = "dark"       # system | dark | light
+```
+
+Each pane adds its own section rather than widening `[general]`. Rules the
+implementation (`ot_core::settings`) keeps to:
+
+- **A broken file never stops the app starting.** It is reported and the
+  defaults are used — the file is the user's to edit, and a typo in it must
+  not lock them out of the app that would let them fix it.
+- **An unknown key is an error**, not something silently ignored, or a typo'd
+  key would look like the app disregarding the user's edit with nothing said.
+- A save goes to a temporary file in the same folder and is renamed over the
+  target, so a crash mid-write cannot leave half a settings file.
+- The language is read out of this file **before** the data folder has been
+  validated, because the folder's own failure messages are localized. That
+  read creates nothing and treats every failure as "no choice recorded".
+
 ## Schema
 
 ```

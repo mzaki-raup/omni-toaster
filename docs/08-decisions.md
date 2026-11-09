@@ -194,7 +194,9 @@ settings need to be human-editable in a portable folder.
 **Decision.** `rusqlite` over `data/omnitoaster.db` for reminders, categories,
 history and caches, with numbered migrations tracked by `PRAGMA user_version`.
 `config/settings.toml` for configuration, mirrored into a `settings` table only
-where the scheduler needs it inside a transaction.
+where the scheduler needs it inside a transaction. The file is read and written
+with `toml` and `serde` derives in `ot_core::settings`, which is the only place
+that touches it.
 
 **Consequences.** All SQL is parameterized. A shipped migration is never
 edited; a correction is a new migration. Windows paths in TOML use
@@ -366,8 +368,14 @@ settings window (FEAT-0014). An icon font, when one is needed, is a bundled
 asset with its own entry in `THIRD_PARTY_NOTICES.md` and its licence added to
 `deny.toml` deliberately rather than inherited from a default feature.
 
-**Consequences.** Any crate adding an `egui` feature must keep
-`default-features = false`, or the font licences come back. A build that cannot
+**Consequences.** Any crate adding an `egui` or `eframe` feature must keep
+`default-features = false`, or the font licences come back. `eframe` is taken
+with `glow` (the renderer) and `accesskit` (which is what gives the settings
+window to a screen reader, and is an egui default worth keeping); `persistence`
+stays off, because window geometry belongs under `OmniToasterData/` and not
+wherever eframe would put it (ADR-004). That dependency set brings the Boost
+licence (BSL-1.0) through `arboard`'s Windows clipboard, which is permissive
+and now on the allow list. A build that cannot
 find the system font has no glyphs at all, so the loader must fail loudly
 rather than render an empty window. The unmaintained-`ttf-parser` advisory
 (RUSTSEC-2026-0192) still applies, because `epaint` rasterises through

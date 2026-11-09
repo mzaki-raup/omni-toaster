@@ -8,10 +8,17 @@ consumers.
 
 ## Status
 
-**Nothing is captured yet.** Phase 0 has not started, so there is no app to
-photograph. Every file listed below is a placeholder name reserved for the
-phase that first produces that screen; the README says plainly that the images
-do not exist yet rather than linking to nothing.
+**Two captured so far:** `settings-general.png` and `settings-general-ms.png`,
+the Settings ▸ General pane in both languages, taken from a release build on a
+scratch `--data-dir` when FEAT-0014 landed. Everything else below is still a
+placeholder name reserved for the phase that first produces that screen; the
+README says plainly that those images do not exist yet rather than linking to
+nothing.
+
+They were captured with `PrintWindow` on the app's own window handle rather
+than a desktop grab, which is what gives a crop with no desktop behind it, and
+quantised with `magick <in> -strip -colors 256 -define png:compression-level=9
+<out>` — both under 10 KB.
 
 ## What we keep
 

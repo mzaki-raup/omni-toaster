@@ -51,6 +51,32 @@ language-system = Sama seperti Windows
 language-en-us = English
 language-ms-my = Bahasa Melayu
 
+## Tetingkap tetapan: tajuknya, bahagian dalam rel kiri, dan panel Umum.
+## Huruf Besar Setiap Perkataan untuk label, huruf biasa untuk petunjuk.
+
+settings-window-title = Tetapan
+settings-section-general = Umum
+settings-language = Bahasa
+# Di bawah pemilih bahasa. Tetingkap hanya bertukar bahasa selepas dimulakan
+# semula sehingga penukaran serta-merta siap.
+settings-language-hint = Tetingkap ini bertukar bahasa pada kali seterusnya OmniToaster dimulakan.
+settings-theme = Tema
+settings-startup = Mula dengan Windows
+settings-startup-hint = OmniToaster dimulakan apabila anda menandatangani masuk. Folder ini boleh dipindahkan — tetapan akan mengikutinya.
+# Ditunjukkan apabila nilai pendaftaran menunjuk ke salinan OmniToaster yang lain.
+settings-startup-elsewhere = Salinan OmniToaster yang lain ditetapkan untuk mula dengan Windows, jadi salinan ini tidak.
+
+## Baris status tetapan. Huruf biasa; di sinilah kebenaran bukan modal
+## tinggal, jadi setiap mesej menyatakan apa yang kini benar.
+
+settings-status-ready = Sedia.
+settings-status-saved = Tetapan anda telah disimpan.
+settings-status-autostart-on = OmniToaster akan mula dengan Windows.
+settings-status-autostart-off = OmniToaster tidak akan mula dengan Windows.
+# $reason ialah ralat asas daripada sistem pengendalian, dalam bahasa Inggeris.
+settings-status-save-failed = Tetapan anda tidak dapat disimpan: { $reason }
+settings-status-autostart-failed = Tetapan permulaan tidak dapat diubah: { $reason }
+
 ## Nama tema, ditunjukkan dalam Tetapan ▸ Umum ▸ Tema, mengikut susunan
 ## pemilihnya. Gelap ialah tetapan lalai; Sistem mengikut Windows.
 
