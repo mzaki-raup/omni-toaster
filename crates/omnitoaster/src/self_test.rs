@@ -50,14 +50,10 @@ pub fn run(data_dir: Option<&Path>) -> usize {
         drop(guard);
 
         let logs = root.join("logs").map_err(|e| e.to_string())?;
-        let any = std::fs::read_dir(&logs)
-            .map_err(|e| e.to_string())?
-            .filter_map(Result::ok)
-            .any(|entry| {
-                entry.file_name().to_string_lossy().starts_with("app")
-                    && entry.metadata().map(|m| m.len() > 0).unwrap_or(false)
-            });
-        if any {
+        // Dropping the guard waits about a second for the background writer
+        // and then gives up silently, so on a busy machine the line can land
+        // after this point. Look until it does, within a bound.
+        if wait_for_app_log(&logs, LOG_WAIT) {
             Ok(())
         } else {
             Err(format!("no non-empty app log in {}", logs.display()))
@@ -136,4 +132,70 @@ fn check(name: &str, body: impl FnOnce() -> Result<(), String>) -> usize {
 /// chrono as a direct dependency of this crate's public surface.
 fn chrono_now() -> chrono::NaiveDateTime {
     chrono::Local::now().naive_local()
+}
+
+/// How long the log check keeps looking for its line. Generous, because it
+/// only matters on a machine busy enough to starve the writer thread; a
+/// healthy run finds the line on the first look.
+const LOG_WAIT: std::time::Duration = std::time::Duration::from_secs(10);
+
+/// Whether `logs` holds a non-empty `app` log file.
+fn has_app_log(logs: &Path) -> bool {
+    std::fs::read_dir(logs).is_ok_and(|entries| {
+        entries.filter_map(Result::ok).any(|entry| {
+            entry.file_name().to_string_lossy().starts_with("app")
+                && entry.metadata().is_ok_and(|m| m.len() > 0)
+        })
+    })
+}
+
+/// Look for a non-empty `app` log in `logs` until one appears or `within`
+/// runs out.
+fn wait_for_app_log(logs: &Path, within: std::time::Duration) -> bool {
+    let deadline = std::time::Instant::now() + within;
+    loop {
+        if has_app_log(logs) {
+            return true;
+        }
+        if std::time::Instant::now() >= deadline {
+            return false;
+        }
+        std::thread::sleep(std::time::Duration::from_millis(50));
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use std::time::Duration;
+
+    #[test]
+    fn a_log_line_that_lands_after_the_guard_lets_go_is_still_found() {
+        // The flake: dropping the log guard waits at most about a second for
+        // the background writer, then gives up without a word. On a loaded
+        // machine the line lands later than that, and a check that looked
+        // once found an empty folder — 4 runs in 20 under load.
+        let dir = tempfile::tempdir().expect("temp dir");
+        let logs = dir.path().to_path_buf();
+        let late = logs.join("app.2026-11-10");
+        let writer = std::thread::spawn(move || {
+            std::thread::sleep(Duration::from_millis(1500));
+            std::fs::write(late, "INFO self-test\n").expect("write");
+        });
+
+        assert!(!has_app_log(&logs), "nothing is there yet");
+        assert!(
+            wait_for_app_log(&logs, Duration::from_secs(10)),
+            "a line written 1.5 s late was not found"
+        );
+        writer.join().expect("writer");
+    }
+
+    #[test]
+    fn a_log_that_never_arrives_still_fails_the_check() {
+        // Waiting must not turn the check into one that cannot fail.
+        let dir = tempfile::tempdir().expect("temp dir");
+        std::fs::write(dir.path().join("app.2026-11-10"), "").expect("an empty log");
+        assert!(!wait_for_app_log(dir.path(), Duration::from_millis(300)));
+    }
 }
