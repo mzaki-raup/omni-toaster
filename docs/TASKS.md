@@ -467,6 +467,20 @@ of it, then 0004, 0005 and 0006 in any order.
 - **Notes:** 66 occurrences across 32 files, done as a literal replacement with no regex or escapes — the only kind of scripted edit this project trusts (`docs/GOTCHAS.md`). The real defect was that the product had **two** spellings: the exe, the data folder, the package, `docs/CHANGELOG.md` and `docs/CHECKLIST.md` already said `OmniToaster`, while the proposal, the specs and every user-visible string said `Omni Toaster`. Two things were deliberately left alone: `Feasibility Study.txt`, which records the owner's own original words and is a historical input rather than a document we maintain; and the released `0.1.0` section of `docs/CHANGELOG.md`, which belongs to the release workflow and is never hand-edited — it happens to contain no occurrence anyway, since its entries are commit subjects. **v0.1.0 shipped with the old spelling** and cannot be changed retrospectively; v0.2.0 carries the fix.
   **A second mistake, found afterwards and worth more than the first:** this was committed as `style:`, which `scripts/next-release.ps1` lists in `$NoReleaseTypes` — no version bump and **no line in the release notes**. So the rename reached users in v0.2.0 carried by the `feat(store)` commit in the same push, and v0.2.0's notes do not mention it. Released sections are never hand-edited, so that cannot be corrected now. A change to user-visible text is `fix:` or `feat:` however cosmetic the diff looks; `docs/09` and `docs/GOTCHAS.md` now say so. The same review also found `docs/09`'s bump table wrongly listing `refactor:` and `build:` as patch bumps when the script treats both as no-release.
 
+### BUG-0006 · The self-test's log check failed on a busy machine
+- **State:** Completed · **Spec:** docs/09-ci-cd-and-releases.md · **Phase:** 0
+- **Branch:** bug/self-test-log-flush
+- **Source:** `self_test_passes_against_a_scratch_data_dir_and_names_every_check` failed once in a full `cargo test --workspace` run on `feat/phase-2-toast` (2026-11-10) with "no non-empty app log", then passed five times alone
+- **Verified:** the reproduction below, before and after, plus the gate
+- [x] Cause: the check writes a line, drops the log guard and reads the folder **once**. `tracing-appender`'s `WorkerGuard` waits at most about 1.1 s (100 ms to send the shutdown, 1 s for the worker) and then returns without a word, so when the writer thread is starved the line lands after the folder was read. `--self-test` runs before `main` starts logging, so the check's own `init` is the one that succeeds; there is no second subscriber in play
+- [x] Reproduced: `--self-test` run 20 times while 32 busy processes ran at AboveNormal priority — **4 of 20 failed** the log check. At Normal priority, 0 of 20: plain CPU load is not enough, the writer has to be starved. (A first attempt leaked its 32 Normal-priority busy processes, so both AboveNormal runs, before and after the fix, also had those 32 underneath: the same load both times)
+- [x] Fix: the check looks for the line until it appears or 10 seconds pass (`wait_for_app_log`). A healthy run finds it on the first look; a line that never arrives still fails
+- [x] Test: `a_log_line_that_lands_after_the_guard_lets_go_is_still_found` (written 1.5 s late, still found) and `a_log_that_never_arrives_still_fails_the_check` (an empty log within the bound is a failure). Written first; they did not compile until the helpers existed. Same load after the fix: **0 of 20**
+- [x] Gate: fmt · clippy -D warnings · test --workspace --locked -j 4 · deny check · --self-test
+- [ ] App: not applicable — the running app is unchanged; the change is to the CI smoke check
+- [x] Docs: CHANGELOG · GOTCHAS · TASKS
+- **Notes:** The same one-second limit applies when the real app exits: under that much load its last log lines can be lost. That is `tracing-appender`'s behaviour and is not changed here; a crash report does not depend on it, because it carries the last lines from memory.
+
 ### BUG-0004 · The bundled SQLite carried CVE-2026-119375
 - **State:** Completed · **Spec:** docs/06-security-and-privacy.md · **Phase:** 1
 - **Branch:** feat/live-language

@@ -7,7 +7,9 @@ Format: [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) · Versioning:
 
 ## Unreleased
 
-- (nothing yet)
+### Fixed
+
+- `--self-test` no longer fails "the log file is written" on a busy machine (BUG-0006). The log writer runs on a background thread and may land its line after the check first looks; the check now keeps looking for up to ten seconds, and still fails if no line arrives.
 
 ## 0.8.0 — 2026-11-09
 
