@@ -32,6 +32,12 @@ Format: [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) · Versioning:
 - A toast's text colour now follows the toast's own background, not the window's theme. In the Light theme the title and body were near-black on the default dark toast, on the preview and on every real toast alike.
 - Dragging on the position map moves the toast with the pointer: the Custom Point row now sits under the map, where appearing mid-drag no longer pushes the map down. Its two fields show one decimal each instead of whatever the drag left.
 
+## 0.8.1 — 2026-11-10
+
+### Fixed
+
+- Wait for the log line instead of looking once (651cb3d7)
+
 ## 0.8.0 — 2026-11-09
 
 ### Added
