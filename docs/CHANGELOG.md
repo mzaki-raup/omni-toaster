@@ -9,6 +9,7 @@ Format: [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) · Versioning:
 
 ### Added
 
+- The debug `--test-toast` samples: the first now carries a long title, a long app name and a long body together, so the header's sharing of one line can be looked at in the running app (FEAT-0020).
 - Settings ▸ Appearance: **Visible at Once** (1–5) and **Gap Between Toasts** (0–40 px). The toast model already honoured both; nothing let the user set them.
 - Settings ▸ Picture Library (FEAT-0025): upload a picture once, give it a name, and use it in any notification as its icon or its image. The same picture uploaded twice is one entry under its first name. Every icon and image picker chooses from the library, with thumbnails and Upload a New Picture at the end of the list. Removing a picture something still uses asks first and says what uses it; whatever used it falls back to the app icon or to no image, and the file is deleted with it. Migration `002_asset_label.sql` adds the name. The library runs on a thread of its own with its own database connection, so the window never waits on SQLite.
 - Layout tests (FEAT-0024): the real Settings ▸ Appearance controls driven headlessly by `egui_kittest` — no window, no GPU — in English, Malay and a pseudo-locale about 40% longer, at 100%, 150% and 200%, at the default and narrow widths, failing the gate if any widget runs past its pane; the toast's own text and content rect checked the same way for every shape. `ot_i18n::set_pseudo` is the pseudo-locale.

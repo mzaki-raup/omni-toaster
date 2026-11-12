@@ -602,6 +602,14 @@ impl SettingsWindow {
             if index == 2 {
                 spec.content.body = format!("{} {}", spec.content.body, spec.content.body);
             }
+            // The first carries a long title, a long app name and a long body
+            // together: the case where the header has to share one line and
+            // the title is what gives way (FEAT-0020).
+            if index == 0 {
+                spec.content.title = format!("{0} {0} {0}", spec.content.title);
+                spec.content.app_name = format!("{0} {0}", spec.content.app_name);
+                spec.content.body = format!("{0} {0} {0}", spec.content.body);
+            }
             // One of each shadow, and a gradient and a border on the later
             // ones, so a single screenshot shows the whole of FEAT-0019.
             spec.style.shadow = ot_toast::Shadow::all()[index % 3];
