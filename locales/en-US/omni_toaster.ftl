@@ -159,6 +159,10 @@ settings-toast-header-app-name = App Name
 settings-toast-header-time = Time
 settings-toast-position = Position
 settings-toast-position-custom = Custom Point
+# How long a toast stays on screen, in seconds (3 to 60).
+settings-toast-duration = Display Duration
+# The hint under that slider.
+settings-toast-duration-hint = Pointing at a toast pauses its countdown until the pointer leaves.
 # How many toasts may be on screen at once (1 to 5); the rest wait their turn.
 settings-toast-max-visible = Visible at Once
 # The space between one toast and the next in a stack, in pixels.

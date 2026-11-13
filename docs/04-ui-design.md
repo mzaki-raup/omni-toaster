@@ -41,7 +41,7 @@ bottom.
 | Section | Contains |
 |---|---|
 | **General** | Language (System · English · Bahasa Melayu), theme, start with Windows, pause controls, single-instance notice |
-| **Appearance** | Toast shape, corner radius, size, colours, transparency, glass effect, shadow, the monitor, the position and stacking — with the live preview |
+| **Appearance** | Toast shape, corner radius, size, colours, transparency, glass effect, shadow, the monitor, the position, the display duration and stacking — with the live preview |
 | **Picture Library** | Pictures uploaded once and used by any notification: thumbnail, name, Remove, and a question before removing one in use |
 | **Animation** | In and out animation per direction, duration, reduced-motion switch |
 | **Notifications** | Display duration, stacking, screen and corner, quiet hours |

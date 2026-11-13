@@ -124,7 +124,8 @@ the fallback is automatic and logged, never a visible stutter.
 
 ## 6. Duration
 
-- Default 8 seconds, range 3–60 seconds.
+- Default 8 seconds, range 3–60 seconds, set in Settings ▸ Appearance ▸
+  Display Duration in whole seconds (FEAT-0026).
 - A persistent option for urgent types (Alarm, Azan), capped at 10 minutes.
 - Hovering pauses the countdown.
 

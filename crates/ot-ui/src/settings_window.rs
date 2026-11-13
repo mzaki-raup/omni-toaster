@@ -1681,6 +1681,8 @@ mod tests {
             "settings-toast-monitor-option-primary",
             "settings-toast-monitor-unnamed",
             "settings-toast-monitor-missing",
+            "settings-toast-duration",
+            "settings-toast-duration-hint",
             "settings-toast-max-visible",
             "settings-toast-stack-gap",
             "settings-toast-position-x",

@@ -239,6 +239,28 @@ pub fn position_controls(
         ui.add_space(layout::ROW_GAP);
     }
 
+    // How long a toast stays, in whole seconds within the spec's limits
+    // (`docs/specs/toast.md` §6); the model clamps a hand-edited file too.
+    changed |= slider_row(
+        ui,
+        columns,
+        "settings-toast-duration",
+        &mut prefs.behaviour.duration_secs,
+        ot_toast::spec::DURATION_SECS,
+        " s",
+        true,
+    );
+    // The slider row ends with its own gap; the hint belongs directly under
+    // the slider, as every other hint sits under its field.
+    ui.add_space(-layout::ROW_GAP);
+    layout::field_hint(
+        ui,
+        columns,
+        &ot_i18n::text("settings-toast-duration-hint"),
+        tokens.text_dim,
+    );
+    ui.add_space(layout::ROW_GAP);
+
     // How many show at once, and how far apart; the rest queue
     // (`docs/specs/toast.md` §7).
     let visible = ot_toast::spec::MAX_VISIBLE;

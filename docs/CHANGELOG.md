@@ -9,6 +9,7 @@ Format: [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) · Versioning:
 
 ### Added
 
+- Settings ▸ Appearance ▸ **Display Duration** (FEAT-0026): how long a toast stays, 3 to 60 seconds in whole seconds (8 by default). Pointing at a toast still pauses its countdown.
 - Settings ▸ Appearance ▸ **Monitor** (FEAT-0022): toasts go to the primary monitor by default, or to one you choose from those attached, listed by number, name and size. A chosen monitor is remembered by its device path, so it survives a reboot and being plugged into the same port again; when it is not connected it is shown as such and toasts go to the primary monitor.
 - The debug `--test-toast` samples: the first now carries a long title, a long app name and a long body together, so the header's sharing of one line can be looked at in the running app (FEAT-0020).
 - Settings ▸ Appearance: **Visible at Once** (1–5) and **Gap Between Toasts** (0–40 px). The toast model already honoured both; nothing let the user set them.

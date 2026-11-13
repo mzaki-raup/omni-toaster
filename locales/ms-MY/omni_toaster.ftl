@@ -154,6 +154,10 @@ settings-toast-header-app-name = Nama Aplikasi
 settings-toast-header-time = Masa
 settings-toast-position = Kedudukan
 settings-toast-position-custom = Titik Tersuai
+# Berapa lama toast kekal pada skrin, dalam saat (3 hingga 60).
+settings-toast-duration = Tempoh Paparan
+# Petunjuk di bawah peluncur itu.
+settings-toast-duration-hint = Menuding pada toast menjeda kiraan masanya sehingga penuding beralih.
 # Berapa banyak toast boleh dipaparkan serentak (1 hingga 5); yang lain menunggu giliran.
 settings-toast-max-visible = Dipaparkan Serentak
 # Ruang antara satu toast dengan toast seterusnya dalam timbunan, dalam piksel.
