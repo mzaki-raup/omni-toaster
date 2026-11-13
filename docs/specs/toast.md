@@ -64,7 +64,7 @@ renders without going through a `ToastSpec` is a defect.
 | Opacity | Percent — fades the whole toast, text included (CR-0005) | 70%–100% |
 | Glass effect | None, Blur, Acrylic, Mica-like | Windows 10 1809+; solid fallback otherwise |
 | Border | Width and colour | 0–4 px |
-| Shadow | Off, soft, strong | |
+| Shadow | On or off — Windows' own shadow, which it draws only for the Rectangle shape (CR-0006) | Greyed out for a rounded rectangle or a pill |
 | Header | Icon, title, app name, timestamp | Each toggleable |
 | Body | Text (bold and italic), image | Image max 5 MB; PNG, JPG, WebP |
 | Actions | Snooze, Dismiss, Open | 1–3 buttons |

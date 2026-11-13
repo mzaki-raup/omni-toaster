@@ -78,7 +78,7 @@ Last updated: 2026-11-08
 | Corner radius | Pending | 0–40 px |
 | Colours | Pending | Solid and gradient |
 | Opacity | Pending | 40–100 % |
-| Shadow | Pending | Off, soft, strong |
+| Shadow | Pending | On or off; Windows' own, Rectangle only (CR-0006) |
 | Header | Pending | Icon, title, app name, timestamp |
 | Text | Pending | Bold and italic |
 | Image | In-Progress | Magic-byte validation, pixel limit and the image library are verified in the app; thumbnails are decoded on demand and held as textures, not yet cached on disk |

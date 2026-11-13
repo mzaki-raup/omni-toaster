@@ -151,27 +151,27 @@ impl Shape {
     }
 }
 
-/// How much shadow sits under a toast.
+/// Whether a toast casts a shadow (CR-0006).
+///
+/// Windows' own shadow, which it draws only for a window without a region —
+/// the Rectangle shape. A rounded rectangle or a pill is cut to its shape
+/// (BUG-0007), and Windows draws no shadow for a cut window, so for those
+/// this setting does nothing and the settings say so.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Default, Serialize, Deserialize)]
 #[serde(rename_all = "kebab-case")]
 pub enum Shadow {
     Off,
+    /// `soft` and `strong` are what a settings file held before CR-0006,
+    /// and both still mean a shadow.
     #[default]
-    Soft,
-    Strong,
+    #[serde(alias = "soft", alias = "strong")]
+    On,
 }
 
 impl Shadow {
-    pub fn all() -> [Self; 3] {
-        [Self::Off, Self::Soft, Self::Strong]
-    }
-
-    pub fn name_key(self) -> &'static str {
-        match self {
-            Self::Off => "toast-shadow-off",
-            Self::Soft => "toast-shadow-soft",
-            Self::Strong => "toast-shadow-strong",
-        }
+    /// Whether a toast of `shape` actually shows a shadow.
+    pub fn shows(self, shape: Shape) -> bool {
+        self == Self::On && shape == Shape::Rectangle
     }
 }
 
@@ -552,12 +552,23 @@ duration_secs = 900.0
     }
 
     #[test]
-    fn every_shape_and_shadow_names_a_key_and_none_share_one() {
-        let keys: Vec<&str> = Shape::all()
-            .iter()
-            .map(|s| s.name_key())
-            .chain(Shadow::all().iter().map(|s| s.name_key()))
-            .collect();
+    fn a_shadow_shows_only_on_a_rectangle_and_old_settings_still_read() {
+        assert!(Shadow::On.shows(Shape::Rectangle));
+        assert!(!Shadow::On.shows(Shape::RoundedRectangle));
+        assert!(!Shadow::On.shows(Shape::Pill));
+        assert!(!Shadow::Off.shows(Shape::Rectangle));
+
+        // Before CR-0006 a settings file said soft or strong.
+        for old in ["soft", "strong"] {
+            let table: toml::Table = toml::from_str(&format!("shadow = '{old}'")).expect("toml");
+            let read: Shadow = table["shadow"].clone().try_into().expect(old);
+            assert_eq!(read, Shadow::On, "{old}");
+        }
+    }
+
+    #[test]
+    fn every_shape_names_a_key_and_none_share_one() {
+        let keys: Vec<&str> = Shape::all().iter().map(|s| s.name_key()).collect();
         let mut unique = keys.clone();
         unique.sort_unstable();
         unique.dedup();

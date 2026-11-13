@@ -31,6 +31,7 @@ Format: [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) · Versioning:
 
 ### Changed
 
+- Shadow is now on or off, and it is Windows' own shadow, which Windows draws only for the Rectangle shape; for the other shapes the setting is greyed out with the reason (CR-0006). Before, no real toast showed a shadow at all — only the preview did. A saved Soft or Strong reads as On.
 - Opacity fades the whole toast, text included, so it is see-through rather than darkened, and its range is now 70–100% (was 40–100%) so text stays readable (CR-0005). A setting below 70% is raised to 70%.
 - The accent bar sits on the side of the toast that faces the screen's edge, and that side is square (CR-0004): on the right at the default Bottom Right, on top at Top, along the top and bottom at Centre — following the rounded corners there — and for a custom point, on the side of the ninth of the screen it is in.
 

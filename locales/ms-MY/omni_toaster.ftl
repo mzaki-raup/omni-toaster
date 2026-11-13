@@ -88,14 +88,11 @@ error-import-undecodable = { $name } tidak dapat dibaca sebagai gambar. Ia mungk
 error-import-escapes = { $name } tidak dapat disalin ke dalam folder OmniToaster.
 error-import-unreadable = { $name } tidak dapat dibaca.
 
-## Bentuk dan bayang toast, ditunjukkan dalam Tetapan ▸ Penampilan.
+## Bentuk toast, ditunjukkan dalam Tetapan ▸ Penampilan.
 
 toast-shape-rectangle = Segi Empat Tepat
 toast-shape-rounded = Segi Empat Bucu Bulat
 toast-shape-pill = Pil
-toast-shadow-off = Mati
-toast-shadow-soft = Lembut
-toast-shadow-strong = Kuat
 
 ## Ikon dulang dan menunya. Huruf Besar Setiap Perkataan untuk setiap item,
 ## kerana ia item menu. Glif di hadapan setiap satu dipilih dalam kod.
@@ -147,6 +144,8 @@ settings-toast-width = Lebar
 settings-toast-opacity = Kelegapan
 settings-toast-border = Sempadan
 settings-toast-shadow = Bayang
+# Di bawah kotak semak Bayang apabila ia dikelabukan kerana bentuknya bukan Segi Empat Tepat.
+settings-toast-shadow-hint = Windows melukis bayang hanya untuk bentuk Segi Empat Tepat.
 settings-toast-background = Latar Belakang
 settings-toast-accent = Warna Aksen
 settings-toast-header = Pengepala

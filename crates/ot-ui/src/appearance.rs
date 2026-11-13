@@ -13,7 +13,12 @@ use crate::layout::{self, Columns};
 use crate::theme::Tokens;
 
 /// The style controls. Returns whether anything changed.
-pub fn style_controls(ui: &mut egui::Ui, columns: Columns, prefs: &mut Prefs) -> bool {
+pub fn style_controls(
+    ui: &mut egui::Ui,
+    columns: Columns,
+    prefs: &mut Prefs,
+    tokens: Tokens,
+) -> bool {
     let mut changed = false;
     let width = columns.field;
     let style = &mut prefs.style;
@@ -74,23 +79,27 @@ pub fn style_controls(ui: &mut egui::Ui, columns: Columns, prefs: &mut Prefs) ->
         true,
     );
 
+    // Windows draws a shadow only for an uncut window, which is the
+    // Rectangle shape (CR-0006). Greyed out rather than hidden for the
+    // others, with the reason under it, so the form does not jump.
+    let shadow_possible = style.shape == Shape::Rectangle;
     layout::labelled_row(ui, columns, &ot_i18n::text("settings-toast-shadow"), |ui| {
-        egui::ComboBox::from_id_salt("toast-shadow")
-            .width(width)
-            .height(layout::field_height(ui))
-            .selected_text(ot_i18n::text(style.shadow.name_key()))
-            .show_ui(ui, |ui| {
-                for shadow in Shadow::all() {
-                    changed |= ui
-                        .selectable_value(
-                            &mut style.shadow,
-                            shadow,
-                            ot_i18n::text(shadow.name_key()),
-                        )
-                        .changed();
-                }
-            });
+        ui.add_enabled_ui(shadow_possible, |ui| {
+            let mut on = style.shadow == Shadow::On;
+            if ui.checkbox(&mut on, "").changed() {
+                style.shadow = if on { Shadow::On } else { Shadow::Off };
+                changed = true;
+            }
+        });
     });
+    if !shadow_possible {
+        layout::field_hint(
+            ui,
+            columns,
+            &ot_i18n::text("settings-toast-shadow-hint"),
+            tokens.text_dim,
+        );
+    }
     ui.add_space(layout::ROW_GAP);
 
     changed |= colour_row(

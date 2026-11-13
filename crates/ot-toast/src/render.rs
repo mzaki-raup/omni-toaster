@@ -10,26 +10,18 @@
 //! it is a finding, not a shortcut (`.claude/rules/ui.md`).
 
 use crate::placement::AccentEdge;
-use crate::spec::{Rgba, Shadow, Shape, ToastSpec};
+use crate::spec::{Rgba, Shape, ToastSpec};
 
-/// How far the shadow reaches, per setting. The soft one is a hint of depth;
-/// the strong one is for a toast that has to be noticed over a busy desktop.
-const SHADOW_BLUR: [f32; 3] = [0.0, 12.0, 28.0];
+/// The shadow the Settings preview draws for a Rectangle toast with its
+/// shadow on. A real toast's shadow is Windows' own, drawn outside the
+/// window (CR-0006); this is the nearest egui comes to it, and it falls
+/// outside a real toast's window, so only the preview ever shows it.
+const SHADOW_BLUR: f32 = 16.0;
 /// How far it is offset downward, which is what makes it read as a shadow
 /// rather than a glow.
-const SHADOW_OFFSET: [f32; 3] = [0.0, 4.0, 8.0];
+const SHADOW_OFFSET: f32 = 4.0;
 /// How thick the accent bar is, in points.
 const ACCENT_WIDTH: f32 = 4.0;
-
-impl Shadow {
-    fn blur(self) -> f32 {
-        SHADOW_BLUR[self as usize]
-    }
-
-    fn offset(self) -> f32 {
-        SHADOW_OFFSET[self as usize]
-    }
-}
 
 /// An egui colour from the spec's own, with the toast's opacity applied.
 ///
@@ -60,10 +52,10 @@ pub fn frame(painter: &egui::Painter, rect: egui::Rect, spec: &ToastSpec) -> egu
     let radii = corner_radii(spec, rect.height());
     let corner = to_corner(radii);
 
-    if spec.style.shadow != Shadow::Off {
+    if spec.style.shadow.shows(spec.style.shape) {
         let shadow = egui::epaint::Shadow {
-            offset: [0, spec.style.shadow.offset().round() as i8],
-            blur: spec.style.shadow.blur().round() as u8,
+            offset: [0, SHADOW_OFFSET.round() as i8],
+            blur: SHADOW_BLUR.round() as u8,
             spread: 0,
             color: colour(Rgba::new(0, 0, 0, 0x60), alpha),
         };
@@ -299,14 +291,6 @@ mod tests {
                 "at {alpha}"
             );
         }
-    }
-
-    #[test]
-    fn a_shadow_setting_that_is_off_reaches_nothing() {
-        assert_eq!(Shadow::Off.blur(), 0.0);
-        assert_eq!(Shadow::Off.offset(), 0.0);
-        assert!(Shadow::Strong.blur() > Shadow::Soft.blur());
-        assert!(Shadow::Strong.offset() > Shadow::Soft.offset());
     }
 
     #[test]

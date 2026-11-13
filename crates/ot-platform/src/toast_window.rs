@@ -48,10 +48,15 @@ pub fn make_unobtrusive(prefix: &str) -> usize {
 /// composites against the desktop on any driver: the whole toast, text
 /// included, as the owner chose (CR-0005).
 ///
+/// `shadow` asks for Windows' own drop shadow, which the compositor draws
+/// only for a window with no region — so only when every radius is zero
+/// (CR-0006). Windows would also round such a window's corners on its own;
+/// it is told not to.
+///
 /// Called every frame for every toast, so it does nothing unless the window,
-/// its size, the radii or the opacity changed since the last call.
-pub fn set_shape(title: &str, radii: [i32; 4], opacity: u8) {
-    platform::set_shape(title, radii, opacity);
+/// its size, the radii, the opacity or the shadow changed since the last call.
+pub fn set_shape(title: &str, radii: [i32; 4], opacity: u8, shadow: bool) {
+    platform::set_shape(title, radii, opacity, shadow);
 }
 
 /// Drop what [`set_shape`] remembers about a toast that has gone.
@@ -65,11 +70,17 @@ mod platform {
     use std::sync::Mutex;
 
     use windows::Win32::Foundation::{COLORREF, HWND, LPARAM, RECT};
+    use windows::Win32::Graphics::Dwm::{
+        DWMNCRP_DISABLED, DWMNCRP_ENABLED, DWMWA_NCRENDERING_POLICY,
+        DWMWA_WINDOW_CORNER_PREFERENCE, DWMWCP_DONOTROUND, DwmExtendFrameIntoClientArea,
+        DwmSetWindowAttribute,
+    };
     use windows::Win32::Graphics::Gdi::{
         CombineRgn, CreateEllipticRgn, CreateRectRgn, DeleteObject, HRGN, RGN_AND, RGN_DIFF,
         RGN_OR, SetWindowRgn,
     };
     use windows::Win32::System::Threading::GetCurrentProcessId;
+    use windows::Win32::UI::Controls::MARGINS;
     use windows::Win32::UI::WindowsAndMessaging::{
         EnumWindows, GWL_EXSTYLE, GetClientRect, GetWindowLongPtrW, GetWindowTextW,
         GetWindowThreadProcessId, IsWindow, IsWindowVisible, LWA_ALPHA, SetLayeredWindowAttributes,
@@ -86,8 +97,8 @@ mod platform {
         found: Option<HWND>,
     }
 
-    /// The window, client size, radii and opacity last applied per toast.
-    type Applied = (isize, [i32; 2], [i32; 4], u8);
+    /// The window, client size, radii, opacity and shadow last applied.
+    type Applied = (isize, [i32; 2], [i32; 4], u8, bool);
 
     /// Lets `set_shape` skip both the enumeration and the region rebuild on
     /// every frame where nothing changed.
@@ -124,7 +135,7 @@ mod platform {
         unsafe_code,
         reason = "Win32 calls; each one's contract is argued at the call"
     )]
-    pub(super) fn set_shape(title: &str, radii: [i32; 4], opacity: u8) {
+    pub(super) fn set_shape(title: &str, radii: [i32; 4], opacity: u8, shadow: bool) {
         let mut shapes = SHAPES
             .lock()
             .unwrap_or_else(std::sync::PoisonError::into_inner);
@@ -170,7 +181,7 @@ mod platform {
             return;
         }
         let size = [client.right - client.left, client.bottom - client.top];
-        let applied = (window.0 as isize, size, radii, opacity);
+        let applied = (window.0 as isize, size, radii, opacity, shadow);
         if shapes.get(title) == Some(&applied) {
             return;
         }
@@ -204,11 +215,43 @@ mod platform {
             }
         }
         shapes.insert(title.to_owned(), applied);
+        // Windows' shadow, for an uncut window only: the compositor draws
+        // none for a window with a region.
+        let shadow = shadow && region.is_none();
+        let (policy, margin) = if shadow {
+            (DWMNCRP_ENABLED, 1)
+        } else {
+            (DWMNCRP_DISABLED, 0)
+        };
+        let margins = MARGINS {
+            cxLeftWidth: margin,
+            cxRightWidth: margin,
+            cyTopHeight: margin,
+            cyBottomHeight: margin,
+        };
+        // SAFETY: each attribute is passed as a pointer to a live value of
+        // the documented type with its size; the margins likewise.
+        unsafe {
+            let _ = DwmSetWindowAttribute(
+                window,
+                DWMWA_NCRENDERING_POLICY,
+                std::ptr::from_ref(&policy).cast(),
+                u32::try_from(size_of_val(&policy)).unwrap_or(0),
+            );
+            let _ = DwmSetWindowAttribute(
+                window,
+                DWMWA_WINDOW_CORNER_PREFERENCE,
+                std::ptr::from_ref(&DWMWCP_DONOTROUND).cast(),
+                u32::try_from(size_of_val(&DWMWCP_DONOTROUND)).unwrap_or(0),
+            );
+            let _ = DwmExtendFrameIntoClientArea(window, &margins);
+        }
         tracing::debug!(
             title,
             ?size,
             ?radii,
             opacity,
+            shadow,
             "a toast window was cut to its shape"
         );
     }
@@ -327,7 +370,7 @@ mod platform {
         0
     }
 
-    pub(super) fn set_shape(_title: &str, _radii: [i32; 4], _opacity: u8) {}
+    pub(super) fn set_shape(_title: &str, _radii: [i32; 4], _opacity: u8, _shadow: bool) {}
 
     pub(super) fn forget(_title: &str) {}
 }
@@ -354,6 +397,7 @@ mod tests {
             "a window title nothing in this process has",
             [12, 0, 12, 0],
             200,
+            true,
         );
         forget("a window title nothing in this process has");
     }

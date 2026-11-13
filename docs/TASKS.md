@@ -350,7 +350,7 @@ shortcut (`docs/specs/toast.md` §3).
 - [x] Docs: spec · ADR-015 · CHANGELOG · GOTCHAS
 - **Notes:** The cost, said plainly: a region's edge is whole pixels, not smoothed, so a curve is stair-stepped where a transparent window would have anti-aliased it. It reads as a clean edge at 100% and is plain at 3× zoom. A shadow outside the shape cannot show — but none could before either, since the window is the toast's own size.
   **Opacity had the same root**, and was settled by the owner as CR-0005: the whole window fades, from 70%.
-  **The Shadow setting has no visible effect on a real toast, and never had.** The window is exactly the toast's size, so a shadow drawn around the toast falls outside it; with the region, nothing outside the shape can show either. Only the Settings preview shows a shadow, which breaks the rule that the preview is the real thing. Raised with the owner, 2026-11-14.
+  **The Shadow setting has no visible effect on a real toast, and never had.** The window is exactly the toast's size, so a shadow drawn around the toast falls outside it; with the region, nothing outside the shape can show either. Only the Settings preview shows a shadow, which breaks the rule that the preview is the real thing. Settled by the owner as CR-0006.
 
 ### CR-0004 · The accent bar sits on the side the toast sits against
 - **State:** Completed · **Spec:** docs/specs/toast.md §4.1 · **Phase:** 2
@@ -383,6 +383,21 @@ shortcut (`docs/specs/toast.md` §3).
 - [x] App: three real toasts and the Appearance preview at 70%, Light theme, over the app's own white window
 - [x] Docs: spec §4 · ADR-015 · CHANGELOG · README
 - **Notes:** The preview fades shape by shape (egui has no whole-picture opacity), so where shapes overlap it is not exactly the real toast. The visible case is the shadow: the preview paints one under the toast, and it shows through a faded background, darker than the real toast (81 against 103). The real toast has no visible shadow at all — see the note on the Shadow setting under BUG-0007.
+
+### CR-0006 · Shadow is On or Off, and only a Rectangle shows one
+- **State:** Completed · **Spec:** docs/specs/toast.md §4 · **Phase:** 2
+- **Branch:** feat/phase-2-toast
+- **Source:** the owner, 2026-11-14, after two native Windows shadows were tried on live toasts and captured: "On/Off, Rectangle only"
+- **Verified:** the gate, and real toasts captured over the app's own white window at 100% and 70%
+- [x] Before: Off, Soft and Strong, painted by egui around the toast — outside the window, so **no real toast ever showed a shadow**; only the Settings preview did
+- [x] Tried: the compositor's own shadow (frame extended by one pixel, non-client rendering on) draws a soft shadow — but only for a window **without a region**, so for the Rectangle alone; Windows also rounded that window's corners unasked. The classic `CS_DROPSHADOW` showed nothing
+- [x] Now: a Shadow checkbox. On a Rectangle toast it turns on Windows' own shadow, with the corners kept square (`DWMWCP_DONOTROUND`); for a rounded rectangle or a pill the checkbox is greyed out with the reason under it, in both languages. The preview draws egui's nearest equivalent for a Rectangle only
+- [x] A settings file saying `soft` or `strong` still reads, as On
+- [x] Test: `a_shadow_shows_only_on_a_rectangle_and_old_settings_still_read`; the Off/Soft/Strong keys and their test went with the picker
+- [x] Gate: fmt · clippy -D warnings · test --workspace --locked -j 4 · deny check · --self-test
+- [x] App: the three samples — the Rectangle with a soft shadow on its left and bottom and square corners, the other two cut and unshadowed; the shadowed Rectangle at 70% opacity keeps its shadow, fading with it; the greyed checkbox and its hint in English and Malay
+- [x] Docs: spec §4 · ADR-015 · CHANGELOG · README · GOTCHAS
+- **Notes:** The preview's shadow is egui's and the real one is Windows', so the two are alike rather than identical; Windows' shadow cannot be sized, which is why Soft and Strong could not survive.
 
 ## v0.1.0 — Planned
 

@@ -76,7 +76,8 @@ everything about them is a setting:
 
 - **Shape:** rectangle, rounded rectangle or pill, with a corner radius of 0–40 px
 - **Size:** width 280–600 px (default 360), height auto or fixed
-- **Colour:** solid or gradient background, border width and colour, shadow off/soft/strong
+- **Colour:** solid or gradient background, border width and colour, and a shadow
+  for the Rectangle shape
 - **Transparency:** 70–100 % opacity; the whole toast fades, text included
 - **Glass:** none, Blur, Acrylic or Mica-like
 - **Animations:** eight-plus in presets — slide from right, slide from bottom,

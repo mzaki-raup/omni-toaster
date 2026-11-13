@@ -626,7 +626,6 @@ impl SettingsWindow {
             }
             // One of each shadow, and a gradient and a border on the later
             // ones, so a single screenshot shows the whole of FEAT-0019.
-            spec.style.shadow = ot_toast::Shadow::all()[index % 3];
             if index == 1 {
                 spec.style.background_to = Some(ot_toast::Rgba::new(0x12, 0x2a, 0x4a, 0xff));
             }
@@ -764,7 +763,8 @@ impl SettingsWindow {
                 .map(|radius| (radius * pixels).round() as i32);
             // Opacity fades the whole window, text included (CR-0005).
             let opacity = (spec.alpha() * 255.0).round().clamp(0.0, 255.0) as u8;
-            ot_platform::toast_window::set_shape(&id.window_title(), radii, opacity);
+            let shadow = spec.style.shadow.shows(spec.style.shape);
+            ot_platform::toast_window::set_shape(&id.window_title(), radii, opacity, shadow);
 
             // The colours come from the theme through here, so the renderer
             // itself still hard-codes none.
@@ -877,7 +877,8 @@ impl SettingsWindow {
                 ui.separator();
                 ui.add_space(layout::PANE_GAP);
 
-                let mut changed = crate::appearance::style_controls(ui, columns, &mut self.prefs);
+                let mut changed =
+                    crate::appearance::style_controls(ui, columns, &mut self.prefs, tokens);
                 ui.add_space(layout::PANE_GAP);
                 ui.separator();
                 ui.add_space(layout::PANE_GAP);
@@ -1664,6 +1665,7 @@ mod tests {
             "settings-toast-opacity",
             "settings-toast-border",
             "settings-toast-shadow",
+            "settings-toast-shadow-hint",
             "settings-toast-background",
             "settings-toast-accent",
             "settings-toast-header",
@@ -1726,7 +1728,6 @@ mod tests {
             "toast-app-name",
         ]);
         keys.extend(ot_toast::Shape::all().map(ot_toast::Shape::name_key));
-        keys.extend(ot_toast::Shadow::all().map(ot_toast::Shadow::name_key));
         keys.extend(ot_toast::Position::presets().map(ot_toast::Position::name_key));
         keys.push(ot_toast::Position::Custom { x: 0.0, y: 0.0 }.name_key());
         keys

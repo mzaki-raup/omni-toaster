@@ -405,7 +405,9 @@ costs nothing where a driver supports it.
 whole pixels, so a curve is stair-stepped rather than anti-aliased. Nothing
 outside the shape can show, so a drop shadow beyond the toast is not possible
 this way — none was visible before either, the window being the toast's own
-size. Opacity uses the window's alpha (`WS_EX_LAYERED`), which Windows
+size; a shadow is therefore Windows' own (frame extended by one pixel), which
+the compositor draws only for an uncut window, so only a Rectangle toast has
+one (CR-0006). Opacity uses the window's alpha (`WS_EX_LAYERED`), which Windows
 composites against the desktop on any driver; it fades the text with the
 background, so the owner set its floor at 70% (CR-0005). Painting the toast's
 colours translucent instead only blended them against black.

@@ -93,14 +93,11 @@ error-import-undecodable = { $name } could not be read as a picture. It may be d
 error-import-escapes = { $name } could not be copied into the OmniToaster folder.
 error-import-unreadable = { $name } could not be read.
 
-## Toast shapes and shadows, shown in Settings ▸ Appearance.
+## Toast shapes, shown in Settings ▸ Appearance.
 
 toast-shape-rectangle = Rectangle
 toast-shape-rounded = Rounded Rectangle
 toast-shape-pill = Pill
-toast-shadow-off = Off
-toast-shadow-soft = Soft
-toast-shadow-strong = Strong
 
 ## The tray icon and its menu. Title Case for every item, because they are
 ## menu items. The glyph in front of each one is chosen in code, not here.
@@ -152,6 +149,8 @@ settings-toast-width = Width
 settings-toast-opacity = Opacity
 settings-toast-border = Border
 settings-toast-shadow = Shadow
+# Under the Shadow checkbox when it is greyed out because the shape is not Rectangle.
+settings-toast-shadow-hint = Windows draws a shadow only for the Rectangle shape.
 settings-toast-background = Background
 settings-toast-accent = Accent Colour
 settings-toast-header = Header

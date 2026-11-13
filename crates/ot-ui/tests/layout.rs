@@ -54,7 +54,7 @@ fn overflowing(width: f32, scale: f32) -> Vec<String> {
         .with_pixels_per_point(scale)
         .build_ui(|ui| {
             let columns = ot_ui::layout::columns(ui);
-            ot_ui::appearance::style_controls(ui, columns, &mut prefs);
+            ot_ui::appearance::style_controls(ui, columns, &mut prefs, ot_ui::Tokens::DARK);
             ot_ui::appearance::position_controls(
                 ui,
                 columns,
