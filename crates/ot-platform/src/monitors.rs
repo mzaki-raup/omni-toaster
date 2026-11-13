@@ -375,12 +375,20 @@ mod tests {
 
     #[cfg(windows)]
     #[test]
-    fn every_attached_monitor_has_an_id_and_a_number() {
+    fn every_attached_monitor_has_an_id_and_the_number_its_name_carries() {
         // The id is what a choice is remembered by; an empty one could never
         // be found again.
         for monitor in monitors() {
             assert!(!monitor.id.is_empty(), "{}", monitor.name);
-            assert!(monitor.number > 0, "{}", monitor.name);
+            // `\\.\DISPLAY2` is display 2. Not every monitor is named that
+            // way: a service with no desktop session — the CI runner — sees a
+            // virtual one under another name, which has no number at all.
+            let expected = monitor
+                .name
+                .strip_prefix(r"\\.\DISPLAY")
+                .and_then(|digits| digits.parse().ok())
+                .unwrap_or(0);
+            assert_eq!(monitor.number, expected, "{}", monitor.name);
             assert!(
                 monitor.size[0] > 0 && monitor.size[1] > 0,
                 "{}",
