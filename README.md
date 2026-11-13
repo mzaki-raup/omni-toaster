@@ -91,7 +91,10 @@ everything about them is a setting:
 - **Picture Library:** upload a picture once — a mosque, a meeting, an alarm
   clock — name it, and use it in any notification as its icon or its image.
   Removing a picture still in use asks first
-- **Position and stacking:** any corner or edge, a chosen monitor, 1–5 visible at once
+- **Position and stacking:** nine presets or a point of your own, on the primary
+  monitor or one you choose, 1–5 visible at once
+- **Accent bar:** on the side of the toast that faces the screen's edge, with
+  that side square
 
 ## Prayer times
 

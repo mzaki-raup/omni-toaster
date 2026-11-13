@@ -243,7 +243,7 @@ shortcut (`docs/specs/toast.md` §3).
 - **Branch:** feat/phase-2-toast
 - **Depends on:** FEAT-0019
 - **Verified:** the gate, plus three live toasts whose window rects were read back from Win32 and matched the arithmetic to the pixel
-- [x] A chosen screen, worked out from **that monitor's work area** and never from the primary monitor's rect
+- [x] A chosen screen, worked out from **that monitor's work area** and never from the primary monitor's rect. **Ticked too early:** the arithmetic took a chosen monitor, but nothing let anyone choose one, so every toast went to the primary monitor. The owner's second-monitor check caught it on 2026-11-13; the box below is the missing half
 - [x] **The nine presets** of `docs/specs/toast.md` §7.1 — four corners, four edges and the centre — with Bottom Right the default, a 16 px DPI-scaled margin against an edge, and no margin on an axis the preset centres on
 - [x] **A custom point** (§7.2): set by dragging the preview onto a map of the chosen monitor *and* by typing X and Y in percent, the two driving one value. Both checked in the app (2026-11-10): typing 25 and 10 put a real toast's top-left at (480, 98), exactly 25% and 10% of the 1920×984 work area; dragging on the map stored the release point (60.9%, 66.5%) and a real toast's bottom-right landed at (1170, 654), the same point. Two defects found and fixed on the way: the Custom Point row appeared *above* the map mid-drag and pushed the map down under the pointer, and the two fields showed different decimal counts
 - [x] A custom point is stored as a **fraction of the work area**, not as pixels, so it means the same place after a resolution change, a taskbar move, or a move to another monitor
@@ -251,7 +251,8 @@ shortcut (`docs/specs/toast.md` §3).
 - [x] A custom point is clamped so the whole toast stays inside the work area, clamped **at paint time** against the monitor in use rather than once at save time
 - [x] **One custom point, not one per monitor** (the owner's call, 2026-11-09): it is a fraction, so it already means the same place on any screen, and moving the toast to another monitor keeps it in the same relative spot there
 - [x] Never covers the taskbar; stacks toward the centre of the work area, per §7.3's table
-- [x] When the chosen monitor disappears, toasts move to the primary one and say so in the log
+- [x] **Settings ▸ Appearance ▸ Monitor** (2026-11-13): Primary Monitor by default — whichever Windows calls primary at the time — or any attached monitor, listed by number, its own (EDID) name and its size, so two identical monitors can be told apart. A choice is remembered by the monitor's **device path**, which survives a reboot and a re-plug, not by `\\.\DISPLAY2`, which Windows renumbers. A chosen monitor that is not connected stays chosen and is shown as "(Not Connected)" while toasts go to the primary one. The position map draws the chosen monitor. Checked: this machine's one monitor listed as "1: Display 1 (3840 × 2160), Primary" (it reports no name); choosing it saved `\\?\DISPLAY#MS_0001#…`; a saved monitor that is not here showed as "DELL U2720Q (Tidak Disambungkan)" in Malay and a test toast landed at the primary monitor's bottom right. The monitor list is read at most once a second rather than every frame
+- [x] When the chosen monitor disappears, toasts move to the primary one and say so in the log — **once**, when it goes and when it comes back, not on every frame
 - [x] 1–5 visible with a configurable gap; the surplus queues and appears as earlier ones retire. The model had both but no control set them; Settings ▸ Appearance now has Visible at Once (1–5) and Gap Between Toasts (0–40 px). Checked: at 5 and 16 px, five real toasts stood 136 px apart (120 + 16) and both values reached `settings.toml`; with seven fired, five showed and the log shows a window created for each queued toast at the moment one retired
 - [ ] Correct from 100% to 250% DPI, including a DPI change mid-session and a monitor unplugged while a toast is visible. **Not checked:** this machine has one monitor at 100% (`\\.\DISPLAY2`, work area 1920×984 at scale 1.0), so a DPI change and an unplug are the owner's to make. The work area is re-read every frame rather than cached, which is what makes an unplug survivable
 - [x] Test: the placement arithmetic against a table of work areas, positions and DPI scales, including a monitor whose origin is negative — the second-monitor case that catches a primary-rect assumption
@@ -334,6 +335,39 @@ shortcut (`docs/specs/toast.md` §3).
 - [x] App: Light theme, default background — preview and real toast both show light text on the dark toast; Dark unchanged
 - [x] Docs: spec · CHANGELOG · GOTCHAS
 - **Notes:** The spec said nothing about text colour, so the rule is new: a toast follows its own background, not the window. A light background chosen by the user now gets dark text rather than white on white.
+
+### BUG-0007 · Rounded and pill toasts had black corners
+- **State:** Completed · **Spec:** docs/specs/toast.md §1 · **Phase:** 2
+- **Branch:** feat/phase-2-toast
+- **Source:** the owner's DPI check, 2026-11-13: "why the rounded rectangle and pill not transparent on the corner? There is black background on it"
+- **Verified:** the gate, and the samples captured on screen with the app's own white settings window behind them: corner pixels (247, 247, 250) where they had been (0, 0, 0)
+- [x] Cause found, not guessed: eframe chooses **one** OpenGL pixel format for every window, from the settings window's options; the toast windows ask to be transparent, and eframe logs "Cannot create transparent window: the GL config does not support it" for each one. Asking for transparency on the settings window too was tried: the driver on this machine (Intel Iris Xe) still returned a format without it, and the corners stayed black — so no OpenGL option fixes this here
+- [x] Fix: each toast window is cut to its painted shape with a Win32 window region (`ot_platform::toast_window::set_shape`), corner by corner, from the same `render::corner_radii` the painter uses, in that window's own pixels. Windows then leaves the corners out on any driver. The cut is rebuilt only when the window, its size or its radii change
+- [x] Each toast window's title carries its id (`OmniToaster 7`), so a toast is cut to its own shape; the Alt+Tab fix matches the `OmniToaster` prefix
+- [x] Test: shaping a window that does not exist yet is a quiet no-op (the window opens a frame after it is asked for); the radii themselves are `ot-toast`'s tests under CR-0004
+- [x] Gate: fmt · clippy -D warnings · test --workspace --locked -j 4 (203 tests) · deny check · --self-test
+- [x] App: the three samples over the app's own white window — the pill's and the rounded rectangle's corners show the window behind; at 3× zoom the edge is stair-stepped but clean, with no dark fringe
+- [x] Docs: spec · ADR-015 · CHANGELOG · GOTCHAS
+- **Notes:** The cost, said plainly: a region's edge is whole pixels, not smoothed, so a curve is stair-stepped where a transparent window would have anti-aliased it. It reads as a clean edge at 100% and is plain at 3× zoom. A shadow outside the shape cannot show — but none could before either, since the window is the toast's own size.
+  **Opacity has the same root.** With no transparent pixel format, a toast below 100% opacity is blended against black inside its own window rather than against the desktop. Not fixed here; it needs window-level alpha (`WS_EX_LAYERED`), which fades the text with the background — a design question for the owner.
+
+### CR-0004 · The accent bar sits on the side the toast sits against
+- **State:** Completed · **Spec:** docs/specs/toast.md §4.1 · **Phase:** 2
+- **Branch:** feat/phase-2-toast
+- **Source:** the owner, 2026-11-13, with two follow-up decisions the same day: at Centre the bars **wrap the corners**; a custom point takes the edge of **the ninth of the screen it falls in**
+- **Verified:** the gate, and the three samples looked at in Top, Centre, Left, Bottom and Bottom Right
+- [x] Left column (Top Left, Left, Bottom Left): the bar down the left, the left side square, the right side rounded or a pill's half-round end
+- [x] Right column (Top Right, Right, Bottom Right): the same, mirrored. Bottom Right is the default, so this is what most toasts now look like
+- [x] Top: a bar along the top, the top square, the bottom corners rounded. Bottom: mirrored
+- [x] Centre: bars along the top and the bottom, each following the rounded corners round and stopping where the curve ends; every corner keeps its rounding. A pill's corners are its whole ends, so at Centre its two bars meet in a ring
+- [x] A custom point: the edge of the preset whose ninth of the work area it falls in; the middle third includes its boundaries
+- [x] A pill's text is inset for the curve only on a round side; the square side needs only the padding
+- [x] The old behaviour is gone: `the_accent_bar_sits_on_the_side_the_toast_sits_against` asserts Bottom Right's bar is on the right, where every toast used to have it on the left
+- [x] Test: the edge for every preset and for custom points in each ninth; each corner's radius per position; a pill against the right edge round on the left only, with its text inset on that side
+- [x] Gate: fmt · clippy -D warnings · test --workspace --locked -j 4 (203 tests) · deny check · --self-test
+- [x] App: the three samples at Top, Centre, Left, Bottom and Bottom Right, captured; at Centre the rounded rectangle's bars visibly stop where its corners end
+- [x] Docs: spec §4.1 and §8 · CHANGELOG
+- **Notes:** The window region of BUG-0007 is cut from the same corner radii, so a square side is square on screen too, not only in the painting.
 
 ## v0.1.0 — Planned
 

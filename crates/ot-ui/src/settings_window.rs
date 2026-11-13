@@ -9,7 +9,7 @@
 //! defect, and `the_general_pane_names_only_keys_that_exist` is what catches
 //! one.
 
-use std::time::Duration;
+use std::time::{Duration, Instant};
 
 use ot_core::{DataRoot, Pause, PauseFor, Settings};
 use ot_i18n::Language;
@@ -17,6 +17,11 @@ use ot_platform::{Autostart, PauseWindow, Tray, TrayCommand};
 
 use crate::layout;
 use crate::theme::{Theme, ThemeMode, Tokens};
+
+/// How long the list of monitors is trusted before it is read again. Asking
+/// Windows every frame is wasted work; a monitor unplugged mid-toast is
+/// noticed within this long, and the toast moves to the primary one.
+const MONITOR_REFRESH: Duration = Duration::from_secs(1);
 
 /// How often the window wakes to look at the tray's channels.
 ///
@@ -257,6 +262,12 @@ pub struct SettingsWindow {
     /// back with a confirmation rather than the app going quiet for good
     /// while the user still thinks it is only muted.
     confirming_quit: bool,
+    /// The attached monitors, and when they were last asked for.
+    monitors: Vec<ot_platform::monitors::Monitor>,
+    monitors_read: Option<Instant>,
+    /// Whether the chosen monitor was missing last time, so falling back to
+    /// the primary one is logged once, not every frame.
+    monitor_missing: bool,
 }
 
 impl SettingsWindow {
@@ -323,6 +334,9 @@ impl SettingsWindow {
             test_accent: None,
             prefs_dirty: false,
             confirming_quit: false,
+            monitors: Vec::new(),
+            monitors_read: None,
+            monitor_missing: false,
         }
     }
 
@@ -672,6 +686,35 @@ impl SettingsWindow {
         )
     }
 
+    /// The work area of the monitor toasts go on: the chosen one, or the
+    /// primary one when none is chosen or the chosen one is not connected.
+    /// A plain 1080p one when Windows will not say, so the map still draws.
+    fn work_area(&mut self) -> egui::Rect {
+        if self
+            .monitors_read
+            .is_none_or(|read| read.elapsed() >= MONITOR_REFRESH)
+        {
+            self.monitors = ot_platform::monitors::monitors();
+            self.monitors_read = Some(Instant::now());
+        }
+        let wanted = self.prefs.monitor.as_ref().map(|choice| choice.id.as_str());
+        let Some((monitor, missing)) = ot_platform::monitors::pick(&self.monitors, wanted) else {
+            return egui::Rect::from_min_size(egui::Pos2::ZERO, egui::vec2(1920.0, 1032.0));
+        };
+        if missing != self.monitor_missing {
+            if missing {
+                tracing::warn!(
+                    wanted,
+                    "the chosen monitor is not connected; toasts go to the primary one"
+                );
+            } else {
+                tracing::info!("toasts are on the chosen monitor again");
+            }
+            self.monitor_missing = missing;
+        }
+        monitor.work_area_rect()
+    }
+
     /// Retire what has had its time, and draw what is left.
     fn drive_toasts(&mut self, ctx: &egui::Context) {
         for id in self.toasts.tick() {
@@ -679,6 +722,7 @@ impl SettingsWindow {
             // a deferred viewport alive until nobody asks for it, and the
             // window would otherwise linger empty.
             ctx.send_viewport_cmd_to(id.viewport_id(), egui::ViewportCommand::Close);
+            ot_platform::toast_window::forget(&id.window_title());
         }
         if self.toasts.is_empty() {
             return;
@@ -689,11 +733,10 @@ impl SettingsWindow {
         // and idempotent: it changes nothing after the first frame.
         ot_platform::toast_window::make_unobtrusive(ot_toast::viewport::WINDOW_TITLE);
 
-        // The work area is read fresh each frame: a monitor can be unplugged
-        // while a toast is on screen, and a remembered one that has gone
-        // falls back to the primary monitor rather than leaving the toast on
-        // a screen that is not there (docs/specs/toast.md §7.4).
-        let work_area = primary_work_area();
+        // A monitor can be unplugged while a toast is on screen: a chosen one
+        // that has gone falls back to the primary monitor rather than leaving
+        // the toast on a screen that is not there (docs/specs/toast.md §7.4).
+        let work_area = self.work_area();
 
         let contents: Vec<ot_toast::Content> = self
             .toasts
@@ -706,12 +749,20 @@ impl SettingsWindow {
         }
         let pictures = self.images.pictures();
 
-        ot_toast::viewport::show_all(ctx, &self.toasts, work_area, move |ui, spec| {
+        ot_toast::viewport::show_all(ctx, &self.toasts, work_area, move |ui, spec, id| {
             // The whole toast comes from the spec: the renderer reads no
             // setting and no category, which is what keeps the preview and
             // the real thing from diverging (docs/specs/toast.md §3).
             let rect = ui.max_rect();
             let content = ot_toast::render::frame(ui.painter(), rect, spec);
+
+            // The window is cut to the corners just painted, so nothing
+            // outside them shows (BUG-0007). In this window's own pixels:
+            // a toast on a 150% monitor has corners half as large again.
+            let pixels = ui.ctx().pixels_per_point();
+            let radii = ot_toast::render::corner_radii(spec, rect.height())
+                .map(|radius| (radius * pixels).round() as i32);
+            ot_platform::toast_window::set_shape(&id.window_title(), radii);
 
             // The colours come from the theme through here, so the renderer
             // itself still hard-codes none.
@@ -791,7 +842,7 @@ impl SettingsWindow {
     /// Settings ▸ Appearance: the style, the placement and the preview.
     fn appearance_pane(&mut self, ui: &mut egui::Ui) {
         let tokens = self.theme.tokens();
-        let work_area = primary_work_area();
+        let work_area = self.work_area();
 
         egui::ScrollArea::vertical()
             .auto_shrink([false, false])
@@ -832,6 +883,7 @@ impl SettingsWindow {
                     ui,
                     columns,
                     &mut self.prefs,
+                    &self.monitors,
                     work_area,
                     tokens,
                 );
@@ -1377,14 +1429,6 @@ impl eframe::App for SettingsWindow {
     }
 }
 
-/// The primary monitor's work area, or a plain 1080p one when Windows will
-/// not say - enough for the map to draw something sensible.
-fn primary_work_area() -> egui::Rect {
-    ot_platform::monitors::chosen_or_primary(None)
-        .map(|monitor| monitor.work_area_rect())
-        .unwrap_or_else(|| egui::Rect::from_min_size(egui::Pos2::ZERO, egui::vec2(1920.0, 1032.0)))
-}
-
 /// `ot-platform` names the pause windows without `ot-core`'s clock types, so
 /// the two enums meet here, in the crate that depends on both.
 fn pause_window(window: PauseWindow) -> PauseFor {
@@ -1626,6 +1670,13 @@ mod tests {
             "settings-toast-header-time",
             "settings-toast-position",
             "settings-toast-position-custom",
+            "settings-toast-monitor",
+            "settings-toast-monitor-hint",
+            "settings-toast-monitor-primary",
+            "settings-toast-monitor-option",
+            "settings-toast-monitor-option-primary",
+            "settings-toast-monitor-unnamed",
+            "settings-toast-monitor-missing",
             "settings-toast-max-visible",
             "settings-toast-stack-gap",
             "settings-toast-position-x",

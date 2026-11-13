@@ -1,6 +1,6 @@
 # Spec — Toasts
 
-**Status:** approved · **Last updated:** 2026-11-08 · **Source:** [PROPOSAL.md](../../PROPOSAL.md) §8.4–8.6
+**Status:** approved · **Last updated:** 2026-11-13 · **Source:** [PROPOSAL.md](../../PROPOSAL.md) §8.4–8.6
 **Owner crates:** `ot-toast`, `ot-ui` · **Phases:** 2 (core), 3 (glass and animations)
 
 ## 1. Purpose
@@ -16,7 +16,14 @@ Alt+Tab with a taskbar button. `with_taskbar(false)` removes the taskbar
 *button* through the shell's taskbar list; Alt+Tab membership is decided by
 the extended style, so `ot_platform::toast_window` sets the style on the real
 window once it exists. The window is found by title within this process, and
-the title is the app's own name so a language switch cannot move it. It is **not** a Windows Action Center notification
+the title is the app's own name so a language switch cannot move it.
+
+**The window is cut to the toast's shape** (BUG-0007, ADR-015). A rounded or
+pill toast leaves its corners unpainted, and the graphics driver may offer no
+transparent window to show the desktop through them, so each toast window is
+given a Win32 window region from the same corner radii the renderer paints
+with. Each toast's window title carries its id (`OmniToaster 7`) so each can
+be cut to its own shape. The cut edge is whole pixels. It is **not** a Windows Action Center notification
 — the app paints its own, which is what makes the customization possible
 ([01-vision-and-scope.md](../01-vision-and-scope.md) non-goals).
 
@@ -71,6 +78,25 @@ warning.
 **Text:** boxes size to content in both languages. A long word wraps, or
 truncates with an ellipsis. Nothing overflows the toast. Layouts are checked
 with the longest Malay string ([10-i18n.md](../10-i18n.md)).
+
+### 4.1 The accent bar
+
+The bar sits on **the side of the toast that faces the edge of the screen**,
+and that side is square; the other sides keep the shape's rounding, or a
+pill's round end (CR-0004, the owner's design):
+
+| Position | Bar | Square | Rounded |
+|---|---|---|---|
+| Top Left, Left, Bottom Left | down the left | the left side | the right side |
+| Top Right, Right, Bottom Right | down the right | the right side | the left side |
+| Top | along the top | the top | the bottom corners |
+| Bottom | along the bottom | the bottom | the top corners |
+| Centre | along the top and the bottom | — | every corner |
+| A custom point | as the preset whose ninth of the work area it falls in | | |
+
+At Centre each bar follows the rounded corners round and stops where the
+curve ends. A pill's corners are its whole ends, so its two bars meet in a
+ring. A pill's text is inset for the curve on its round side or sides only.
 
 **Images:** validated by magic bytes, not by extension. Decoded with a pixel
 limit of 4096 × 4096. Resized to a cached thumbnail. An oversize or corrupt
@@ -187,6 +213,12 @@ edge, so a stack never walks off the screen:
   are not left on a screen that is no longer there.
 - When more toasts fire than `max visible`, the surplus queues and shows as the
   earlier ones retire.
+- **The monitor choice** is Settings ▸ Appearance ▸ Monitor: Primary Monitor
+  (the default, whichever Windows calls primary at the time) or an attached
+  monitor, listed by display number, its own name and its size. A choice is
+  remembered by the monitor's device path, which survives a reboot and a
+  re-plug; the `\\.\DISPLAYn` name does not. A chosen monitor that is not
+  connected stays chosen and is shown as not connected.
 - The position, the custom point and the monitor choice are global settings,
   not per-category: a user who wants to know where to look should only have to
   learn one place.
@@ -209,7 +241,7 @@ appear. The two pictures mean different things and are never interchangeable:
 |---|---|---|
 | **Icon** | The header, beside the title | The app's own icon |
 | **Image** | Inside the content, beside the body text, with an optional border | No image; the body takes the full width |
-| **Accent** | The bar down the leading edge | The default from Settings ▸ Appearance |
+| **Accent** | The bar on the side facing the screen edge (§4.1) | The default from Settings ▸ Appearance |
 
 ### 8.1 The image library
 

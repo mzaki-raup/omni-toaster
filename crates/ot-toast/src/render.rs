@@ -9,6 +9,7 @@
 //! spec's defaults come from the theme. A hand-painted rect with a literal in
 //! it is a finding, not a shortcut (`.claude/rules/ui.md`).
 
+use crate::placement::AccentEdge;
 use crate::spec::{Rgba, Shadow, Shape, ToastSpec};
 
 /// How far the shadow reaches, per setting. The soft one is a hint of depth;
@@ -17,6 +18,8 @@ const SHADOW_BLUR: [f32; 3] = [0.0, 12.0, 28.0];
 /// How far it is offset downward, which is what makes it read as a shadow
 /// rather than a glow.
 const SHADOW_OFFSET: [f32; 3] = [0.0, 4.0, 8.0];
+/// How thick the accent bar is, in points.
+const ACCENT_WIDTH: f32 = 4.0;
 
 impl Shadow {
     fn blur(self) -> f32 {
@@ -48,8 +51,8 @@ pub fn colour(rgba: Rgba, alpha: f32) -> egui::Color32 {
 /// a pill, whose round ends would otherwise clip the first and last glyph.
 pub fn frame(painter: &egui::Painter, rect: egui::Rect, spec: &ToastSpec) -> egui::Rect {
     let alpha = spec.alpha();
-    let radius = spec.drawn_radius(rect.height());
-    let corner = egui::CornerRadius::same(radius.round().clamp(0.0, 255.0) as u8);
+    let radii = corner_radii(spec, rect.height());
+    let corner = to_corner(radii);
 
     if spec.style.shadow != Shadow::Off {
         let shadow = egui::epaint::Shadow {
@@ -91,36 +94,137 @@ pub fn frame(painter: &egui::Painter, rect: egui::Rect, spec: &ToastSpec) -> egu
         );
     }
 
-    // An accent bar down the leading edge: the one place a category's colour
-    // shows without repainting the whole toast.
-    let accent_width = 4.0_f32.min(rect.width());
-    let accent = egui::Rect::from_min_size(rect.min, egui::vec2(accent_width, rect.height()));
-    painter.rect_filled(
-        accent,
-        egui::CornerRadius {
-            nw: corner.nw,
-            sw: corner.sw,
-            ne: 0,
-            se: 0,
-        },
+    accent_bar(
+        painter,
+        rect,
+        radii,
+        spec.behaviour.position.accent_edge(),
         colour(spec.accent(), alpha),
     );
 
     content_rect(rect, spec)
 }
 
+/// The radius of each corner in points, `[nw, ne, sw, se]`.
+///
+/// The shape's own radius everywhere except the side the toast sits against,
+/// which is square and carries the accent bar (`docs/specs/toast.md` §4.1).
+/// The renderer, the Settings preview and the toast window's region all take
+/// their corners from here, so the window is cut to exactly what is painted.
+pub fn corner_radii(spec: &ToastSpec, height: f32) -> [f32; 4] {
+    let r = spec.drawn_radius(height);
+    match spec.behaviour.position.accent_edge() {
+        AccentEdge::Left => [0.0, r, 0.0, r],
+        AccentEdge::Right => [r, 0.0, r, 0.0],
+        AccentEdge::Top => [0.0, 0.0, r, r],
+        AccentEdge::Bottom => [r, r, 0.0, 0.0],
+        AccentEdge::TopAndBottom => [r, r, r, r],
+    }
+}
+
+fn to_corner([nw, ne, sw, se]: [f32; 4]) -> egui::CornerRadius {
+    let byte = |r: f32| r.round().clamp(0.0, 255.0) as u8;
+    egui::CornerRadius {
+        nw: byte(nw),
+        ne: byte(ne),
+        sw: byte(sw),
+        se: byte(se),
+    }
+}
+
+/// The accent bar along `edge`. A side bar sits on a square side, so it is a
+/// plain strip; at the centre the top and bottom bars follow the rounded
+/// corners round, as a stroke along the outline.
+fn accent_bar(
+    painter: &egui::Painter,
+    rect: egui::Rect,
+    [nw, ne, sw, se]: [f32; 4],
+    edge: AccentEdge,
+    colour: egui::Color32,
+) {
+    let width = ACCENT_WIDTH.min(rect.width()).min(rect.height());
+    let strip = |strip: egui::Rect| {
+        painter.rect_filled(strip, 0, colour);
+    };
+    match edge {
+        AccentEdge::Left => strip(egui::Rect::from_min_max(
+            rect.min,
+            egui::pos2(rect.min.x + width, rect.max.y),
+        )),
+        AccentEdge::Right => strip(egui::Rect::from_min_max(
+            egui::pos2(rect.max.x - width, rect.min.y),
+            rect.max,
+        )),
+        AccentEdge::Top => strip(egui::Rect::from_min_max(
+            rect.min,
+            egui::pos2(rect.max.x, rect.min.y + width),
+        )),
+        AccentEdge::Bottom => strip(egui::Rect::from_min_max(
+            egui::pos2(rect.min.x, rect.max.y - width),
+            rect.max,
+        )),
+        AccentEdge::TopAndBottom => {
+            let stroke = egui::Stroke::new(width, colour);
+            painter.add(egui::Shape::line(
+                outline(rect, nw.max(ne), width, true),
+                stroke,
+            ));
+            painter.add(egui::Shape::line(
+                outline(rect, sw.max(se), width, false),
+                stroke,
+            ));
+        }
+    }
+}
+
+/// The top or bottom edge of the outline, with its two corners, inset by
+/// half the stroke so the whole stroke lies inside the shape.
+fn outline(rect: egui::Rect, radius: f32, width: f32, top: bool) -> Vec<egui::Pos2> {
+    const STEPS: usize = 16;
+    let inset = width / 2.0;
+    // A corner too tight to follow is drawn as the straight edge it nearly is.
+    let r = radius.max(inset);
+    let y = if top { rect.min.y + r } else { rect.max.y - r };
+    let left = egui::pos2(rect.min.x + r, y);
+    let right = egui::pos2(rect.max.x - r, y);
+    // Angles in screen space (y down): π is left, 3π/2 is up, π/2 is down.
+    let (first, second, from, to) = if top {
+        (
+            left,
+            right,
+            std::f32::consts::PI,
+            2.0 * std::f32::consts::PI,
+        )
+    } else {
+        (right, left, 0.0, std::f32::consts::PI)
+    };
+    let half = (to - from) / 2.0;
+    let mut points = Vec::with_capacity(2 * (STEPS + 1));
+    for (centre, start) in [(first, from), (second, from + half)] {
+        for step in 0..=STEPS {
+            let angle = start + half * step as f32 / STEPS as f32;
+            points.push(centre + (r - inset) * egui::vec2(angle.cos(), angle.sin()));
+        }
+    }
+    points
+}
+
 /// Where the content goes inside the frame.
 pub fn content_rect(rect: egui::Rect, spec: &ToastSpec) -> egui::Rect {
     let padding = 12.0 + spec.style.border;
     // A pill's ends are round, so text has to start inside the curve rather
-    // than inside the bounding box.
-    let side = match spec.style.shape {
-        Shape::Pill => padding + rect.height() / 4.0,
+    // than inside the bounding box — on each side that is round. The side
+    // against the screen edge is square (CR-0004) and needs only the padding.
+    let [nw, ne, sw, se] = corner_radii(spec, rect.height());
+    let side = |round: bool| match spec.style.shape {
+        Shape::Pill if round => padding + rect.height() / 4.0,
         _ => padding,
     };
+    let left = side(nw.max(sw) > 0.0);
+    let right = side(ne.max(se) > 0.0);
     egui::Rect::from_min_max(
-        rect.min + egui::vec2(side.max(8.0), padding),
-        rect.max - egui::vec2(side.max(8.0), padding),
+        rect.min + egui::vec2(left.max(8.0), padding),
+        rect.max - egui::vec2(right.max(8.0), padding),
     )
 }
 
@@ -256,5 +360,35 @@ mod tests {
         let rect = egui::Rect::from_min_size(egui::pos2(0.0, 0.0), egui::vec2(10.0, 10.0));
         let content = content_rect(rect, &ToastSpec::default());
         assert!(content.width().is_finite() && content.height().is_finite());
+    }
+
+    #[test]
+    fn the_side_against_the_screen_edge_is_square_and_the_rest_keep_their_rounding() {
+        use crate::placement::Position;
+        let mut spec = ToastSpec::default();
+        spec.style.shape = Shape::RoundedRectangle;
+        let r = spec.drawn_radius(120.0);
+        assert!(r > 0.0);
+        let table = [
+            (Position::BottomRight, [r, 0.0, r, 0.0]),
+            (Position::Left, [0.0, r, 0.0, r]),
+            (Position::Top, [0.0, 0.0, r, r]),
+            (Position::Bottom, [r, r, 0.0, 0.0]),
+            (Position::Centre, [r, r, r, r]),
+        ];
+        for (position, radii) in table {
+            spec.behaviour.position = position;
+            assert_eq!(corner_radii(&spec, 120.0), radii, "{position:?}");
+        }
+
+        // A pill against the right edge is round on the left only, with the
+        // full half-height radius: a D, not a stadium.
+        spec.style.shape = Shape::Pill;
+        spec.behaviour.position = Position::Right;
+        assert_eq!(corner_radii(&spec, 120.0), [60.0, 0.0, 60.0, 0.0]);
+        // And its text is inset for the curve on the round side only.
+        let rect = egui::Rect::from_min_size(egui::Pos2::ZERO, egui::vec2(360.0, 120.0));
+        let content = content_rect(rect, &spec);
+        assert!(content.left() - rect.left() > rect.right() - content.right());
     }
 }

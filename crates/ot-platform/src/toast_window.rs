@@ -17,47 +17,91 @@
 //! `WS_EX_APPWINDOW` on it. Alt+Tab membership is decided by the extended
 //! style, so the style is what has to change.
 //!
-//! The windows are found by title within **this process**: a toast's title is
-//! the app's own name and never changes with the language, and nothing else
-//! in the process carries it. A window belonging to another process is never
-//! touched.
+//! The windows are found by title within **this process**: a toast's title
+//! starts with the app's own name, which never changes with the language, and
+//! nothing else in the process carries it. A window belonging to another
+//! process is never touched.
+//!
+//! **Corners.** The toast is also cut to its painted shape with a window
+//! region (BUG-0007). eframe draws every window through one OpenGL pixel
+//! format, and the driver on the reference machine offers none that the
+//! desktop compositor treats as transparent — eframe logs "Cannot create
+//! transparent window" — so the unpainted corners of a rounded toast came out
+//! black. A region makes Windows itself leave those pixels out, on any driver.
+//! Its edge is whole pixels, not smoothed: the cost of working everywhere.
 
-/// Make every toast window in this process unobtrusive.
+/// Make every toast window in this process unobtrusive: every window whose
+/// title starts with `prefix`.
 ///
 /// Returns how many windows were changed, which is zero on every frame after
 /// the first — the call is cheap enough to make each frame and idempotent
 /// enough that doing so is not a mistake.
-pub fn make_unobtrusive(title: &str) -> usize {
-    platform::make_unobtrusive(title)
+pub fn make_unobtrusive(prefix: &str) -> usize {
+    platform::make_unobtrusive(prefix)
+}
+
+/// Cut the toast window titled exactly `title` to a rectangle whose corners
+/// have these radii, `[nw, ne, sw, se]`, in physical pixels. All zero means
+/// no region at all: a plain rectangle.
+///
+/// Called every frame for every toast, so it does nothing unless the window,
+/// its size or the radii changed since the last call for that title.
+pub fn set_shape(title: &str, radii: [i32; 4]) {
+    platform::set_shape(title, radii);
+}
+
+/// Drop what [`set_shape`] remembers about a toast that has gone.
+pub fn forget(title: &str) {
+    platform::forget(title);
 }
 
 #[cfg(windows)]
 mod platform {
-    use windows::Win32::Foundation::{HWND, LPARAM};
+    use std::collections::HashMap;
+    use std::sync::Mutex;
+
+    use windows::Win32::Foundation::{HWND, LPARAM, RECT};
+    use windows::Win32::Graphics::Gdi::{
+        CombineRgn, CreateEllipticRgn, CreateRectRgn, DeleteObject, HRGN, RGN_AND, RGN_DIFF,
+        RGN_OR, SetWindowRgn,
+    };
     use windows::Win32::System::Threading::GetCurrentProcessId;
     use windows::Win32::UI::WindowsAndMessaging::{
-        EnumWindows, GWL_EXSTYLE, GetWindowLongPtrW, GetWindowTextW, GetWindowThreadProcessId,
-        IsWindowVisible, SetWindowLongPtrW, WS_EX_APPWINDOW, WS_EX_NOACTIVATE, WS_EX_TOOLWINDOW,
+        EnumWindows, GWL_EXSTYLE, GetClientRect, GetWindowLongPtrW, GetWindowTextW,
+        GetWindowThreadProcessId, IsWindow, IsWindowVisible, SetWindowLongPtrW, WS_EX_APPWINDOW,
+        WS_EX_NOACTIVATE, WS_EX_TOOLWINDOW,
     };
 
     /// What the enumeration is looking for, and what it found.
     struct Search {
         title: Vec<u16>,
+        /// Match the title as a prefix rather than exactly.
+        prefix: bool,
         process: u32,
         changed: usize,
+        found: Option<HWND>,
     }
+
+    /// The window, client size and radii last applied per toast title.
+    type Applied = (isize, [i32; 2], [i32; 4]);
+
+    /// Lets `set_shape` skip both the enumeration and the region rebuild on
+    /// every frame where nothing changed.
+    static SHAPES: Mutex<Option<HashMap<String, Applied>>> = Mutex::new(None);
 
     #[allow(
         unsafe_code,
         reason = "Win32 calls; each one's contract is argued at the call"
     )]
-    pub(super) fn make_unobtrusive(title: &str) -> usize {
+    pub(super) fn make_unobtrusive(prefix: &str) -> usize {
         let mut search = Search {
-            title: title.encode_utf16().collect(),
+            title: prefix.encode_utf16().collect(),
+            prefix: true,
             // SAFETY: GetCurrentProcessId takes nothing and returns a value;
             // there is no pointer and no handle to get wrong.
             process: unsafe { GetCurrentProcessId() },
             changed: 0,
+            found: None,
         };
 
         // SAFETY: the callback matches the EnumWindows signature, and the
@@ -70,6 +114,130 @@ mod platform {
             );
         }
         search.changed
+    }
+
+    #[allow(
+        unsafe_code,
+        reason = "Win32 calls; each one's contract is argued at the call"
+    )]
+    pub(super) fn set_shape(title: &str, radii: [i32; 4]) {
+        let mut shapes = SHAPES
+            .lock()
+            .unwrap_or_else(std::sync::PoisonError::into_inner);
+        let shapes = shapes.get_or_insert_with(HashMap::new);
+
+        // The window this title had last time, if it is still a window.
+        let known = shapes
+            .get(title)
+            .map(|(window, _, _)| HWND(*window as *mut _));
+        // SAFETY: IsWindow accepts any value and only answers whether it is a
+        // live window handle; a stale one is exactly what it is for.
+        let window = match known.filter(|w| unsafe { IsWindow(Some(*w)) }.as_bool()) {
+            Some(window) => window,
+            None => {
+                let mut search = Search {
+                    title: title.encode_utf16().collect(),
+                    prefix: false,
+                    // SAFETY: as in make_unobtrusive.
+                    process: unsafe { GetCurrentProcessId() },
+                    changed: 0,
+                    found: None,
+                };
+                // SAFETY: as in make_unobtrusive: `search` outlives the
+                // synchronous enumeration and the callback does not keep it.
+                unsafe {
+                    let _ = EnumWindows(
+                        Some(visit),
+                        LPARAM(std::ptr::from_mut(&mut search) as isize),
+                    );
+                }
+                // Not created yet: egui opens the window a frame after it is
+                // asked for. The next frame tries again.
+                let Some(window) = search.found else {
+                    return;
+                };
+                window
+            }
+        };
+
+        let mut client = RECT::default();
+        // SAFETY: a live window this process owns, and a RECT the call fills.
+        if unsafe { GetClientRect(window, &mut client) }.is_err() {
+            return;
+        }
+        let size = [client.right - client.left, client.bottom - client.top];
+        let applied = (window.0 as isize, size, radii);
+        if shapes.get(title) == Some(&applied) {
+            return;
+        }
+
+        let region = region(size, radii);
+        // SAFETY: on success the system owns the region and frees it when it
+        // is replaced or the window goes; on failure it is still ours and is
+        // freed here. `None` removes any region.
+        unsafe {
+            if SetWindowRgn(window, region, true) == 0
+                && let Some(region) = region
+            {
+                let _ = DeleteObject(region.into());
+            }
+        }
+        shapes.insert(title.to_owned(), applied);
+        tracing::debug!(title, ?size, ?radii, "a toast window was cut to its shape");
+    }
+
+    pub(super) fn forget(title: &str) {
+        let mut shapes = SHAPES
+            .lock()
+            .unwrap_or_else(std::sync::PoisonError::into_inner);
+        if let Some(shapes) = shapes.as_mut() {
+            shapes.remove(title);
+        }
+    }
+
+    /// A `width` × `height` rectangle with each corner rounded to its radius,
+    /// or `None` for a plain rectangle, which needs no region.
+    #[allow(
+        unsafe_code,
+        reason = "GDI region calls; each one's contract is argued at the call"
+    )]
+    fn region([width, height]: [i32; 2], radii: [i32; 4]) -> Option<HRGN> {
+        if radii.iter().all(|r| *r <= 0) {
+            return None;
+        }
+        // SAFETY: GDI region calls on plain integers. Every region made here
+        // is either returned (and then owned by the window) or deleted before
+        // returning; CombineRgn only writes into a region made here.
+        unsafe {
+            let shape = CreateRectRgn(0, 0, width, height);
+            let corners = [
+                (radii[0], false, false),
+                (radii[1], true, false),
+                (radii[2], false, true),
+                (radii[3], true, true),
+            ];
+            for (r, right, bottom) in corners {
+                let r = r.min(width / 2).min(height / 2);
+                if r <= 0 {
+                    continue;
+                }
+                // The corner's r × r box, and the circle that rounds it.
+                let left = if right { width - r } else { 0 };
+                let top = if bottom { height - r } else { 0 };
+                let cx = if right { width - r } else { r };
+                let cy = if bottom { height - r } else { r };
+                let corner_box = CreateRectRgn(left, top, left + r, top + r);
+                let circle = CreateEllipticRgn(cx - r, cy - r, cx + r, cy + r);
+                let rounded = CreateRectRgn(0, 0, 0, 0);
+                CombineRgn(Some(rounded), Some(corner_box), Some(circle), RGN_AND);
+                CombineRgn(Some(shape), Some(shape), Some(corner_box), RGN_DIFF);
+                CombineRgn(Some(shape), Some(shape), Some(rounded), RGN_OR);
+                let _ = DeleteObject(corner_box.into());
+                let _ = DeleteObject(circle.into());
+                let _ = DeleteObject(rounded.into());
+            }
+            Some(shape)
+        }
     }
 
     #[allow(
@@ -97,8 +265,18 @@ mod platform {
         let mut text = [0u16; 256];
         // SAFETY: as above; the call returns how many characters it wrote.
         let written = unsafe { GetWindowTextW(window, &mut text) } as usize;
-        if written == 0 || text[..written] != search.title[..] {
+        let matches = if search.prefix {
+            text[..written].starts_with(&search.title)
+        } else {
+            text[..written] == search.title[..]
+        };
+        if written == 0 || !matches {
             return true.into();
+        }
+        if !search.prefix {
+            // Looking for one window: this is it.
+            search.found = Some(window);
+            return false.into();
         }
 
         // SAFETY: a plain style read on a window this process owns.
@@ -118,9 +296,13 @@ mod platform {
 
 #[cfg(not(windows))]
 mod platform {
-    pub(super) fn make_unobtrusive(_title: &str) -> usize {
+    pub(super) fn make_unobtrusive(_prefix: &str) -> usize {
         0
     }
+
+    pub(super) fn set_shape(_title: &str, _radii: [i32; 4]) {}
+
+    pub(super) fn forget(_title: &str) {}
 }
 
 #[cfg(test)]
@@ -135,5 +317,13 @@ mod tests {
             make_unobtrusive("a window title nothing in this process has"),
             0
         );
+    }
+
+    #[test]
+    fn shaping_a_window_that_does_not_exist_is_a_quiet_no_op() {
+        // The toast's window opens a frame after it is asked for, so the
+        // first calls always find nothing.
+        set_shape("a window title nothing in this process has", [12, 0, 12, 0]);
+        forget("a window title nothing in this process has");
     }
 }

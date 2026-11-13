@@ -159,6 +159,20 @@ settings-toast-position-custom = Titik Tersuai
 settings-toast-max-visible = Dipaparkan Serentak
 # Ruang antara satu toast dengan toast seterusnya dalam timbunan, dalam piksel.
 settings-toast-stack-gap = Jarak Antara Toast
+# Label pemilih yang menentukan monitor tempat toast dipaparkan.
+settings-toast-monitor = Monitor
+# Petunjuk di bawah pemilih itu.
+settings-toast-monitor-hint = Toast dipaparkan pada monitor ini. Apabila ia tidak disambungkan, toast dipaparkan pada monitor utama.
+# Pilihan pertama dalam pemilih monitor, dan lalai: monitor yang ditetapkan sebagai utama oleh Windows.
+settings-toast-monitor-primary = Monitor Utama
+# Satu monitor dalam pemilih. $number ialah nombor paparan Windows, $name namanya sendiri, $width dan $height saiznya dalam piksel.
+settings-toast-monitor-option = { $number }: { $name } ({ $width } × { $height })
+# Sama, untuk monitor yang kini menjadi monitor utama.
+settings-toast-monitor-option-primary = { $number }: { $name } ({ $width } × { $height }), Utama
+# Nama monitor yang tidak melaporkan nama, seperti kebanyakan skrin komputer riba. $number ialah nombor paparannya.
+settings-toast-monitor-unnamed = Paparan { $number }
+# Monitor yang dipilih apabila ia tidak disambungkan. $name ialah namanya.
+settings-toast-monitor-missing = { $name } (Tidak Disambungkan)
 settings-toast-position-x = Dari Kiri
 settings-toast-position-y = Dari Atas
 settings-toast-map-hint = Klik titik untuk memilih kedudukan, atau seret untuk meletakkan toast di mana-mana pada skrin.

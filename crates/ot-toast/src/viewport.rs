@@ -21,12 +21,14 @@ use crate::spec::ToastSpec;
 /// drawing (FEAT-0020); a viewport has to be given *some* size when it opens.
 pub const AUTO_HEIGHT: f32 = 120.0;
 
-/// The title every toast window carries.
+/// What every toast window's title starts with.
 ///
 /// Never shown — there is no title bar — but it is what a screen reader
-/// reads, and it is how `ot_platform::toast_window` finds the window to take
+/// reads, and it is how `ot_platform::toast_window` finds the windows to take
 /// out of Alt+Tab. It is the app's own name and does not change with the
-/// language, so that lookup cannot break when the UI switches.
+/// language, so that lookup cannot break when the UI switches. Each toast
+/// adds its own id ([`ToastId::window_title`]), so one window can be cut to
+/// its own shape.
 pub const WINDOW_TITLE: &str = "OmniToaster";
 
 /// The id of one live toast, and of the viewport that draws it.
@@ -41,6 +43,11 @@ impl ToastId {
     /// getting a new one — and a new one would flash.
     pub fn viewport_id(self) -> egui::ViewportId {
         egui::ViewportId(egui::Id::new(("ot-toast", self.0)))
+    }
+
+    /// This toast's window title: [`WINDOW_TITLE`] and the id.
+    pub fn window_title(self) -> String {
+        format!("{WINDOW_TITLE} {}", self.0)
     }
 }
 
@@ -79,16 +86,17 @@ pub fn builder(spec: &ToastSpec, title: &str) -> egui::ViewportBuilder {
 /// toast's spec is cloned into it — a `ToastSpec` is small and cloning it once
 /// per frame per visible toast is nothing beside painting one.
 ///
-/// `paint` is given the spec and the ui. Until FEAT-0019 that is a fill; the
-/// renderer replaces it.
+/// `paint` is given the ui, the spec and the toast's id, whose
+/// [`ToastId::window_title`] names the window it is painting.
 pub fn show_all(
     ctx: &egui::Context,
     toasts: &Toasts,
     work_area: egui::Rect,
-    paint: impl Fn(&mut egui::Ui, &ToastSpec) + Send + Sync + Clone + 'static,
+    paint: impl Fn(&mut egui::Ui, &ToastSpec, ToastId) + Send + Sync + Clone + 'static,
 ) {
     for (index, toast) in toasts.visible().iter().enumerate() {
         let spec = toast.spec.clone();
+        let id = toast.id;
         let paint = paint.clone();
         let size = egui::vec2(spec.style.width, spec.style.height.unwrap_or(AUTO_HEIGHT));
         // Worked out every frame against the work area in use, rather than
@@ -103,14 +111,14 @@ pub fn show_all(
         );
         ctx.show_viewport_deferred(
             toast.id.viewport_id(),
-            builder(&spec, WINDOW_TITLE).with_position(at),
+            builder(&spec, &id.window_title()).with_position(at),
             move |ctx, _class| {
                 // No frame of egui's own: the toast paints its own
                 // background, its own corners and its own shadow, and a panel
                 // fill underneath would show through the transparent corners.
                 egui::CentralPanel::default()
                     .frame(egui::Frame::NONE)
-                    .show(ctx, |ui| paint(ui, &spec));
+                    .show(ctx, |ui| paint(ui, &spec, id));
             },
         );
     }

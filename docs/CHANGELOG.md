@@ -9,6 +9,7 @@ Format: [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) · Versioning:
 
 ### Added
 
+- Settings ▸ Appearance ▸ **Monitor** (FEAT-0022): toasts go to the primary monitor by default, or to one you choose from those attached, listed by number, name and size. A chosen monitor is remembered by its device path, so it survives a reboot and being plugged into the same port again; when it is not connected it is shown as such and toasts go to the primary monitor.
 - The debug `--test-toast` samples: the first now carries a long title, a long app name and a long body together, so the header's sharing of one line can be looked at in the running app (FEAT-0020).
 - Settings ▸ Appearance: **Visible at Once** (1–5) and **Gap Between Toasts** (0–40 px). The toast model already honoured both; nothing let the user set them.
 - Settings ▸ Picture Library (FEAT-0025): upload a picture once, give it a name, and use it in any notification as its icon or its image. The same picture uploaded twice is one entry under its first name. Every icon and image picker chooses from the library, with thumbnails and Upload a New Picture at the end of the list. Removing a picture something still uses asks first and says what uses it; whatever used it falls back to the app icon or to no image, and the file is deleted with it. Migration `002_asset_label.sql` adds the name. The library runs on a thread of its own with its own database connection, so the window never waits on SQLite.
@@ -28,8 +29,13 @@ Format: [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) · Versioning:
 - Phase 2 is filed as FEAT-0017 to FEAT-0024 under task version v0.2.0.
 - Toast placement is specified as **nine presets plus a custom point** (`docs/specs/toast.md` §7, FEAT-0022): four corners, four edges and the centre of the chosen monitor's work area, with Bottom Right the default, or any point the user drags the preview to or types as a percentage. A custom point is stored as a fraction of the work area rather than as pixels, so it means the same place after a resolution change or on another monitor, and it addresses the toast's anchor corner so a toast near an edge grows inward. The nine position names are in both catalogues.
 
+### Changed
+
+- The accent bar sits on the side of the toast that faces the screen's edge, and that side is square (CR-0004): on the right at the default Bottom Right, on top at Top, along the top and bottom at Centre — following the rounded corners there — and for a custom point, on the side of the ninth of the screen it is in.
+
 ### Fixed
 
+- Rounded and pill toasts no longer have black corners (BUG-0007). Each toast window is cut to its own shape, because the graphics driver offers no transparent window to draw into.
 - A toast's text colour now follows the toast's own background, not the window's theme. In the Light theme the title and body were near-black on the default dark toast, on the preview and on every real toast alike.
 - Dragging on the position map moves the toast with the pointer: the Custom Point row now sits under the map, where appearing mid-drag no longer pushes the map down. Its two fields show one decimal each instead of whatever the drag left.
 

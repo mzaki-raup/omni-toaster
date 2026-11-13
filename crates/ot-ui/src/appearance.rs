@@ -6,7 +6,8 @@
 //! That is what "the preview matches the real toast" rests on: there is no
 //! second drawing of a toast anywhere in this file.
 
-use ot_toast::{Position, Prefs, Rgba, Shadow, Shape};
+use ot_platform::monitors::Monitor;
+use ot_toast::{MonitorChoice, Position, Prefs, Rgba, Shadow, Shape};
 
 use crate::layout::{self, Columns};
 use crate::theme::Tokens;
@@ -138,10 +139,11 @@ pub fn position_controls(
     ui: &mut egui::Ui,
     columns: Columns,
     prefs: &mut Prefs,
+    monitors: &[Monitor],
     work_area: egui::Rect,
     tokens: Tokens,
 ) -> bool {
-    let mut changed = false;
+    let mut changed = monitor_row(ui, columns, prefs, monitors, tokens);
     let position = &mut prefs.behaviour.position;
 
     layout::labelled_row(
@@ -389,6 +391,114 @@ pub fn preview(
             image,
         );
     });
+}
+
+/// Which monitor toasts appear on: the primary one, or one chosen from those
+/// attached (`docs/specs/toast.md` §7). A chosen monitor that is not
+/// connected stays chosen, named as not connected, and toasts go to the
+/// primary one until it is back.
+fn monitor_row(
+    ui: &mut egui::Ui,
+    columns: Columns,
+    prefs: &mut Prefs,
+    monitors: &[Monitor],
+    tokens: Tokens,
+) -> bool {
+    let mut changed = false;
+    let primary = ot_i18n::text("settings-toast-monitor-primary");
+    let selected = match &prefs.monitor {
+        None => primary.clone(),
+        Some(choice) => match monitors.iter().find(|monitor| monitor.id == choice.id) {
+            Some(monitor) => monitor_option(monitor),
+            None => ot_i18n::text_with(
+                "settings-toast-monitor-missing",
+                &[("name", chosen_name(choice).into())],
+            ),
+        },
+    };
+    layout::labelled_row(
+        ui,
+        columns,
+        &ot_i18n::text("settings-toast-monitor"),
+        |ui| {
+            egui::ComboBox::from_id_salt("toast-monitor")
+                .width(columns.field)
+                .height(layout::field_height(ui))
+                .selected_text(selected)
+                .show_ui(ui, |ui| {
+                    if ui
+                        .selectable_label(prefs.monitor.is_none(), primary)
+                        .clicked()
+                        && prefs.monitor.is_some()
+                    {
+                        prefs.monitor = None;
+                        changed = true;
+                    }
+                    for monitor in monitors {
+                        let chosen = prefs
+                            .monitor
+                            .as_ref()
+                            .is_some_and(|choice| choice.id == monitor.id);
+                        if ui
+                            .selectable_label(chosen, monitor_option(monitor))
+                            .clicked()
+                            && !chosen
+                        {
+                            prefs.monitor = Some(MonitorChoice {
+                                id: monitor.id.clone(),
+                                label: monitor.label.clone(),
+                                number: monitor.number,
+                            });
+                            changed = true;
+                        }
+                    }
+                });
+        },
+    );
+    layout::field_hint(
+        ui,
+        columns,
+        &ot_i18n::text("settings-toast-monitor-hint"),
+        tokens.text_dim,
+    );
+    ui.add_space(layout::ROW_GAP);
+    changed
+}
+
+/// A monitor as the picker lists it: its number, its name and its size, so
+/// two identical monitors can still be told apart.
+fn monitor_option(monitor: &Monitor) -> String {
+    let key = if monitor.primary {
+        "settings-toast-monitor-option-primary"
+    } else {
+        "settings-toast-monitor-option"
+    };
+    ot_i18n::text_with(
+        key,
+        &[
+            ("number", monitor.number.to_string().into()),
+            ("name", display_name(&monitor.label, monitor.number).into()),
+            ("width", monitor.size[0].to_string().into()),
+            ("height", monitor.size[1].to_string().into()),
+        ],
+    )
+}
+
+/// A chosen monitor's name, for when it is not connected.
+fn chosen_name(choice: &MonitorChoice) -> String {
+    display_name(&choice.label, choice.number)
+}
+
+/// The monitor's own name, or "Display 2" for a panel that reports none.
+fn display_name(label: &str, number: u32) -> String {
+    if label.is_empty() {
+        ot_i18n::text_with(
+            "settings-toast-monitor-unnamed",
+            &[("number", number.to_string().into())],
+        )
+    } else {
+        label.to_owned()
+    }
 }
 
 fn slider_row(

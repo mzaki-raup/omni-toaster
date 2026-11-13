@@ -28,13 +28,33 @@ impl Default for Header {
     }
 }
 
+/// The monitor toasts appear on, when it is not simply the primary one.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct MonitorChoice {
+    /// The monitor's device path, which survives a reboot and a re-plug
+    /// (`ot_platform::monitors::Monitor::id`).
+    pub id: String,
+    /// What the monitor was called when it was chosen, and its display
+    /// number, so a monitor that is not connected can still be named in the
+    /// picker. The label is the monitor's own (EDID) name, which does not
+    /// change with the language; it may be empty.
+    pub label: String,
+    #[serde(default)]
+    pub number: u32,
+}
+
 /// Everything Settings ▸ Appearance holds.
-#[derive(Debug, Clone, Copy, PartialEq, Default, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Default, Serialize, Deserialize)]
 #[serde(default, deny_unknown_fields)]
 pub struct Prefs {
     pub style: Style,
     pub behaviour: Behaviour,
     pub header: Header,
+    /// `None` is the primary monitor, whichever that is at the time — the
+    /// default (`docs/specs/toast.md` §7). A chosen monitor that is not
+    /// connected also means the primary one.
+    pub monitor: Option<MonitorChoice>,
 }
 
 impl Prefs {
@@ -121,6 +141,12 @@ mod tests {
         prefs.style.width = 420.0;
         prefs.behaviour.position = Position::Custom { x: 0.25, y: 0.75 };
         prefs.header.timestamp = false;
+        prefs.monitor = Some(MonitorChoice {
+            id: r"\\?\DISPLAY#DEL4321#5&1a2b3c&0&UID4352#{e6f07b5f-ee97-4a90-b076-33f57bf4eaa7}"
+                .to_owned(),
+            label: "DELL U2720Q".to_owned(),
+            number: 2,
+        });
 
         let back = Prefs::from_table(&prefs.to_table());
         assert_eq!(back, prefs);

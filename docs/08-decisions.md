@@ -381,3 +381,31 @@ rather than render an empty window. The unmaintained-`ttf-parser` advisory
 (RUSTSEC-2026-0192) still applies, because `epaint` rasterises through
 `ab_glyph` whichever font it is given; it is ignored in `deny.toml` with the
 reason that the app only ever parses fonts it chooses to load.
+
+## ADR-015 · A toast's rounded corners are cut with a window region, not painted transparent
+
+**Status:** Implemented Phase 2 · **Phase:** 2
+
+**Context.** A rounded rectangle or pill toast leaves its corners unpainted
+and relies on the window being transparent there. eframe's `glow` renderer
+chooses one OpenGL pixel format for every window, and on the reference
+machine's Intel Iris Xe driver no format the desktop compositor treats as
+transparent is offered, even when asked for: the corners came out black
+(BUG-0007). Moving to `wgpu` would bring a large dependency tree and its own
+uncertainty about transparent swap chains on Windows.
+
+**Decision.** Each toast window is cut to its painted shape with a Win32
+window region (`SetWindowRgn`), built corner by corner from the same radii
+the renderer paints with (`ot_toast::render::corner_radii`), in the window's
+own pixels. The code lives in `ot_platform::toast_window` with the rest of the
+Win32 toast-window handling. The viewports still ask to be transparent, which
+costs nothing where a driver supports it.
+
+**Consequences.** Corners are see-through on any driver. A region's edge is
+whole pixels, so a curve is stair-stepped rather than anti-aliased. Nothing
+outside the shape can show, so a drop shadow beyond the toast is not possible
+this way — none was visible before either, the window being the toast's own
+size. Opacity below 100% still blends against black inside the window rather
+than against the desktop; making it see-through needs window-level alpha
+(`WS_EX_LAYERED`), which would fade the text with the background and is a
+separate decision.

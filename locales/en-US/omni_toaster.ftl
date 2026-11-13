@@ -164,6 +164,20 @@ settings-toast-position-custom = Custom Point
 settings-toast-max-visible = Visible at Once
 # The space between one toast and the next in a stack, in pixels.
 settings-toast-stack-gap = Gap Between Toasts
+# The label of the picker choosing which monitor toasts appear on.
+settings-toast-monitor = Monitor
+# The hint under that picker.
+settings-toast-monitor-hint = Toasts appear on this monitor. When it is not connected, they appear on the primary monitor.
+# The first choice in the monitor picker, and the default: whichever monitor Windows calls primary.
+settings-toast-monitor-primary = Primary Monitor
+# A monitor in the picker. $number is its Windows display number, $name its own name, $width and $height its size in pixels.
+settings-toast-monitor-option = { $number }: { $name } ({ $width } × { $height })
+# The same, for the monitor that is currently the primary one.
+settings-toast-monitor-option-primary = { $number }: { $name } ({ $width } × { $height }), Primary
+# The name of a monitor that does not report one, as many laptop screens do. $number is its display number.
+settings-toast-monitor-unnamed = Display { $number }
+# The chosen monitor when it is not plugged in. $name is its name.
+settings-toast-monitor-missing = { $name } (Not Connected)
 settings-toast-position-x = From Left
 settings-toast-position-y = From Top
 settings-toast-map-hint = Click a dot to choose a position, or drag to place the toast anywhere on the screen.

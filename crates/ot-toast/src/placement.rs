@@ -58,6 +58,31 @@ enum Align {
     End,
 }
 
+/// Which edge of a toast carries its accent bar. That edge is drawn square;
+/// the others keep the shape's rounding (`docs/specs/toast.md` §4.1).
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum AccentEdge {
+    Left,
+    Right,
+    Top,
+    Bottom,
+    /// At the centre of the screen: a bar along the top and one along the
+    /// bottom, each following the rounded corners round into the sides.
+    /// Every corner keeps its rounding.
+    TopAndBottom,
+}
+
+/// Which third of an axis a fraction of the work area falls in.
+fn third(fraction: f32) -> Align {
+    if fraction < 1.0 / 3.0 {
+        Align::Start
+    } else if fraction > 2.0 / 3.0 {
+        Align::End
+    } else {
+        Align::Middle
+    }
+}
+
 impl Position {
     /// Every preset, in the order the picker shows them: the grid read left
     /// to right, top to bottom.
@@ -112,6 +137,23 @@ impl Position {
             Self::Left | Self::Centre | Self::Right => Align::Middle,
             Self::BottomLeft | Self::Bottom | Self::BottomRight => Align::End,
             Self::Custom { .. } => Align::Start,
+        }
+    }
+
+    /// Which edge of the toast carries the accent bar: the side it sits
+    /// against (`docs/specs/toast.md` §4.1). A custom point takes the edge of
+    /// the preset whose ninth of the screen it falls in.
+    pub fn accent_edge(self) -> AccentEdge {
+        let (horizontal, vertical) = match self {
+            Self::Custom { x, y } => (third(x), third(y)),
+            preset => (preset.horizontal(), preset.vertical()),
+        };
+        match (horizontal, vertical) {
+            (Align::Start, _) => AccentEdge::Left,
+            (Align::End, _) => AccentEdge::Right,
+            (Align::Middle, Align::Start) => AccentEdge::Top,
+            (Align::Middle, Align::End) => AccentEdge::Bottom,
+            (Align::Middle, Align::Middle) => AccentEdge::TopAndBottom,
         }
     }
 
@@ -214,6 +256,45 @@ mod tests {
     }
 
     const SIZE: egui::Vec2 = egui::Vec2 { x: 360.0, y: 120.0 };
+
+    #[test]
+    fn the_accent_bar_sits_on_the_side_the_toast_sits_against() {
+        use AccentEdge::*;
+        let table = [
+            (Position::TopLeft, Left),
+            (Position::Left, Left),
+            (Position::BottomLeft, Left),
+            (Position::TopRight, Right),
+            (Position::Right, Right),
+            // The default. Before CR-0004 every toast had its bar on the
+            // left, which at Bottom Right is the side facing the screen.
+            (Position::BottomRight, Right),
+            (Position::Top, Top),
+            (Position::Bottom, Bottom),
+            (Position::Centre, TopAndBottom),
+        ];
+        for (position, edge) in table {
+            assert_eq!(position.accent_edge(), edge, "{position:?}");
+        }
+    }
+
+    #[test]
+    fn a_custom_point_takes_the_edge_of_the_ninth_it_falls_in() {
+        use AccentEdge::*;
+        let table = [
+            ((0.1, 0.1), Left),
+            ((0.1, 0.9), Left),
+            ((0.9, 0.5), Right),
+            ((0.5, 0.1), Top),
+            ((0.5, 0.9), Bottom),
+            ((0.5, 0.5), TopAndBottom),
+            // On a boundary: the middle third includes it.
+            ((1.0 / 3.0, 0.5), TopAndBottom),
+        ];
+        for ((x, y), edge) in table {
+            assert_eq!(Position::Custom { x, y }.accent_edge(), edge, "({x}, {y})");
+        }
+    }
 
     #[test]
     fn every_preset_lands_against_the_edges_it_names() {

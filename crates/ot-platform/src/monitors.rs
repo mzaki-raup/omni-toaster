@@ -13,9 +13,22 @@
 /// One monitor.
 #[derive(Debug, Clone, PartialEq)]
 pub struct Monitor {
-    /// The device name, e.g. `\\.\DISPLAY1`. Stable enough to remember a
-    /// choice by, and not shown to anyone.
+    /// The device name, e.g. `\\.\DISPLAY1`. **Not** stable: Windows can
+    /// renumber displays after a reboot or a re-plug, so a choice is never
+    /// remembered by it — see [`Monitor::id`].
     pub name: String,
+    /// What a choice of monitor is remembered by: the monitor's device path,
+    /// which names the physical monitor on its port and survives a reboot.
+    /// The device name when Windows will not say.
+    pub id: String,
+    /// The monitor's own name, e.g. "DELL U2720Q", from its EDID. Empty for
+    /// a panel that reports none, which many built-in laptop screens do.
+    pub label: String,
+    /// The number Windows shows in Settings ▸ Display: the `1` of `DISPLAY1`.
+    pub number: u32,
+    /// Its full size in physical pixels, which is what tells two identical
+    /// monitors apart in a list.
+    pub size: [u32; 2],
     /// The work area in points: left, top, width, height.
     pub work_area: [f32; 4],
     /// 1.0 at 100%, 1.5 at 150%, and so on.
@@ -42,28 +55,36 @@ pub fn monitors() -> Vec<Monitor> {
     found
 }
 
-/// The monitor a toast should use: the one named, or the primary one.
+/// The monitor a toast should use from `all`: the one whose [`Monitor::id`]
+/// is `wanted`, or the primary one — when nothing was chosen, and when the
+/// chosen monitor is not attached (`docs/specs/toast.md` §7.4).
 ///
-/// A remembered monitor that is no longer attached falls back to the primary
-/// one **and says so**, because a toast that silently stops appearing is
-/// worse than one that moved (`docs/specs/toast.md` §7.4).
-pub fn chosen_or_primary(name: Option<&str>) -> Option<Monitor> {
-    let all = monitors();
-    if let Some(wanted) = name {
-        if let Some(found) = all.iter().find(|monitor| monitor.name == wanted) {
-            return Some(found.clone());
-        }
-        tracing::warn!(
-            wanted,
-            "the chosen monitor is not attached; using the primary one"
-        );
+/// The second value says whether a chosen monitor was missing, so the caller
+/// can say so once rather than on every frame.
+pub fn pick<'a>(all: &'a [Monitor], wanted: Option<&str>) -> Option<(&'a Monitor, bool)> {
+    if let Some(wanted) = wanted
+        && let Some(found) = all.iter().find(|monitor| monitor.id == wanted)
+    {
+        return Some((found, false));
     }
-    all.into_iter().next()
+    let primary = all
+        .iter()
+        .find(|monitor| monitor.primary)
+        .or_else(|| all.first())?;
+    Some((primary, wanted.is_some()))
 }
 
 #[cfg(windows)]
 mod platform {
-    use windows::Win32::Foundation::{LPARAM, RECT};
+    use std::collections::HashMap;
+
+    use windows::Win32::Devices::Display::{
+        DISPLAYCONFIG_DEVICE_INFO_GET_SOURCE_NAME, DISPLAYCONFIG_DEVICE_INFO_GET_TARGET_NAME,
+        DISPLAYCONFIG_MODE_INFO, DISPLAYCONFIG_PATH_INFO, DISPLAYCONFIG_SOURCE_DEVICE_NAME,
+        DISPLAYCONFIG_TARGET_DEVICE_NAME, DisplayConfigGetDeviceInfo, GetDisplayConfigBufferSizes,
+        QDC_ONLY_ACTIVE_PATHS, QueryDisplayConfig,
+    };
+    use windows::Win32::Foundation::{ERROR_SUCCESS, LPARAM, RECT};
     use windows::Win32::Graphics::Gdi::{
         EnumDisplayMonitors, GetMonitorInfoW, HDC, HMONITOR, MONITORINFO, MONITORINFOEXW,
     };
@@ -97,7 +118,92 @@ mod platform {
                 LPARAM(std::ptr::from_mut(&mut found) as isize),
             );
         }
+
+        // The display-configuration API knows each monitor's device path and
+        // EDID name; `EnumDisplayMonitors` knows neither. They meet on the
+        // GDI device name.
+        let names = names();
+        for monitor in &mut found {
+            if let Some((path, label)) = names.get(&monitor.name) {
+                monitor.id.clone_from(path);
+                monitor.label.clone_from(label);
+            }
+        }
         found
+    }
+
+    /// GDI device name → (device path, friendly name), for every active
+    /// display. Empty when Windows will not answer, which leaves every
+    /// monitor known by its device name and unnamed.
+    #[allow(
+        unsafe_code,
+        reason = "display-configuration calls; each one's contract is argued at the call"
+    )]
+    fn names() -> HashMap<String, (String, String)> {
+        let mut out = HashMap::new();
+        let (mut path_count, mut mode_count) = (0u32, 0u32);
+        // SAFETY: both out-parameters are live u32s the call writes once.
+        let sized = unsafe {
+            GetDisplayConfigBufferSizes(QDC_ONLY_ACTIVE_PATHS, &mut path_count, &mut mode_count)
+        };
+        if sized != ERROR_SUCCESS {
+            return out;
+        }
+        let mut paths = vec![DISPLAYCONFIG_PATH_INFO::default(); path_count as usize];
+        let mut modes = vec![DISPLAYCONFIG_MODE_INFO::default(); mode_count as usize];
+        // SAFETY: the arrays have the lengths the counts say, and the call
+        // writes at most that many entries and updates the counts.
+        let queried = unsafe {
+            QueryDisplayConfig(
+                QDC_ONLY_ACTIVE_PATHS,
+                &mut path_count,
+                paths.as_mut_ptr(),
+                &mut mode_count,
+                modes.as_mut_ptr(),
+                None,
+            )
+        };
+        if queried != ERROR_SUCCESS {
+            return out;
+        }
+        paths.truncate(path_count as usize);
+
+        for path in &paths {
+            let mut source = DISPLAYCONFIG_SOURCE_DEVICE_NAME::default();
+            source.header.r#type = DISPLAYCONFIG_DEVICE_INFO_GET_SOURCE_NAME;
+            source.header.size =
+                u32::try_from(size_of::<DISPLAYCONFIG_SOURCE_DEVICE_NAME>()).unwrap_or(0);
+            source.header.adapterId = path.sourceInfo.adapterId;
+            source.header.id = path.sourceInfo.id;
+            let mut target = DISPLAYCONFIG_TARGET_DEVICE_NAME::default();
+            target.header.r#type = DISPLAYCONFIG_DEVICE_INFO_GET_TARGET_NAME;
+            target.header.size =
+                u32::try_from(size_of::<DISPLAYCONFIG_TARGET_DEVICE_NAME>()).unwrap_or(0);
+            target.header.adapterId = path.targetInfo.adapterId;
+            target.header.id = path.targetInfo.id;
+            // SAFETY: each packet starts with a header whose size field is the
+            // size of the whole packet, which is what bounds the write.
+            let ok = unsafe {
+                DisplayConfigGetDeviceInfo(&mut source.header) == 0
+                    && DisplayConfigGetDeviceInfo(&mut target.header) == 0
+            };
+            if ok {
+                out.insert(
+                    wide(&source.viewGdiDeviceName),
+                    (
+                        wide(&target.monitorDevicePath),
+                        wide(&target.monitorFriendlyDeviceName),
+                    ),
+                );
+            }
+        }
+        out
+    }
+
+    /// A NUL-terminated UTF-16 buffer as a string.
+    fn wide(buffer: &[u16]) -> String {
+        let end = buffer.iter().position(|c| *c == 0).unwrap_or(buffer.len());
+        String::from_utf16_lossy(&buffer[..end])
     }
 
     #[allow(
@@ -139,16 +245,22 @@ mod platform {
         let scale = (dpi_x as f32 / BASE_DPI).max(0.1);
 
         let work = info.monitorInfo.rcWork;
-        let name = String::from_utf16_lossy(
-            &info
-                .szDevice
-                .iter()
-                .copied()
-                .take_while(|c| *c != 0)
-                .collect::<Vec<u16>>(),
-        );
+        let full = info.monitorInfo.rcMonitor;
+        let name = wide(&info.szDevice);
+        // `\\.\DISPLAY2` is display 2; anything else is unnumbered.
+        let number = name
+            .trim_start_matches(|c: char| !c.is_ascii_digit())
+            .parse()
+            .unwrap_or(0);
 
         found.push(Monitor {
+            id: name.clone(),
+            label: String::new(),
+            number,
+            size: [
+                u32::try_from(full.right - full.left).unwrap_or(0),
+                u32::try_from(full.bottom - full.top).unwrap_or(0),
+            ],
             name,
             // Physical pixels in, points out: the window system is given
             // points back, and a 150% monitor's 1920 physical pixels are
@@ -178,6 +290,37 @@ mod platform {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    fn monitor(id: &str, primary: bool) -> Monitor {
+        Monitor {
+            name: id.to_owned(),
+            id: id.to_owned(),
+            label: String::new(),
+            number: 1,
+            size: [1920, 1080],
+            work_area: [0.0, 0.0, 1920.0, 1032.0],
+            scale: 1.0,
+            primary,
+        }
+    }
+
+    #[test]
+    fn the_chosen_monitor_is_used_and_a_missing_one_falls_back_to_the_primary() {
+        // Not first in the list: the primary is found by its flag.
+        let all = [monitor("second", false), monitor("primary", true)];
+
+        let (used, missing) = pick(&all, None).expect("a monitor");
+        assert_eq!((used.id.as_str(), missing), ("primary", false));
+
+        let (used, missing) = pick(&all, Some("second")).expect("a monitor");
+        assert_eq!((used.id.as_str(), missing), ("second", false));
+
+        // Unplugged: the primary, and the caller is told.
+        let (used, missing) = pick(&all, Some("unplugged")).expect("a monitor");
+        assert_eq!((used.id.as_str(), missing), ("primary", true));
+
+        assert!(pick(&[], None).is_none());
+    }
 
     #[cfg(windows)]
     #[test]
@@ -220,18 +363,36 @@ mod tests {
     #[cfg(windows)]
     #[test]
     fn an_unattached_monitor_falls_back_to_the_primary_one() {
-        let fallback =
-            chosen_or_primary(Some(r"\\.\DISPLAY_THAT_IS_NOT_THERE")).expect("the primary monitor");
+        let all = monitors();
+        let (fallback, missing) =
+            pick(&all, Some(r"\\?\DISPLAY#THAT_IS_NOT_THERE")).expect("the primary monitor");
         assert!(
             fallback.primary,
             "a remembered monitor that is gone must fall back to the primary one"
         );
+        assert!(missing, "and the caller must be told it was missing");
+    }
+
+    #[cfg(windows)]
+    #[test]
+    fn every_attached_monitor_has_an_id_and_a_number() {
+        // The id is what a choice is remembered by; an empty one could never
+        // be found again.
+        for monitor in monitors() {
+            assert!(!monitor.id.is_empty(), "{}", monitor.name);
+            assert!(monitor.number > 0, "{}", monitor.name);
+            assert!(
+                monitor.size[0] > 0 && monitor.size[1] > 0,
+                "{}",
+                monitor.name
+            );
+        }
     }
 
     #[cfg(not(windows))]
     #[test]
     fn there_are_no_monitors_off_windows() {
         assert!(monitors().is_empty());
-        assert_eq!(chosen_or_primary(None), None);
+        assert!(pick(&monitors(), None).is_none());
     }
 }

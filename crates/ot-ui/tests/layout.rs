@@ -26,6 +26,25 @@ fn work_area() -> egui::Rect {
     egui::Rect::from_min_size(egui::Pos2::ZERO, egui::vec2(1920.0, 1032.0))
 }
 
+/// Two monitors, one with a long name and one with none, so the picker is
+/// laid out with real entries rather than the primary alone.
+fn monitors() -> Vec<ot_platform::monitors::Monitor> {
+    let monitor = |number: u32, label: &str, primary: bool| ot_platform::monitors::Monitor {
+        name: format!(r"\\.\DISPLAY{number}"),
+        id: format!("monitor-{number}"),
+        label: label.to_owned(),
+        number,
+        size: [3840, 2160],
+        work_area: [0.0, 0.0, 1920.0, 1032.0],
+        scale: 2.0,
+        primary,
+    };
+    vec![
+        monitor(1, "", true),
+        monitor(2, "Samsung Odyssey Neo G9 Ultra-Wide Curved", false),
+    ]
+}
+
 /// Lay the Appearance controls out and return every widget that ran past
 /// the pane, with its label, so a failure says what overflowed.
 fn overflowing(width: f32, scale: f32) -> Vec<String> {
@@ -40,6 +59,7 @@ fn overflowing(width: f32, scale: f32) -> Vec<String> {
                 ui,
                 columns,
                 &mut prefs,
+                &monitors(),
                 work_area(),
                 ot_ui::Tokens::DARK,
             );
