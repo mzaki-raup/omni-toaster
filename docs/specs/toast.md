@@ -61,7 +61,7 @@ renders without going through a `ToastSpec` is a defect.
 | Height | Auto or fixed | 80–300 px |
 | Shape | Rectangle, rounded rectangle, pill | Corner radius 0–40 px |
 | Background | Solid colour, gradient | |
-| Opacity | Percent | 40%–100% |
+| Opacity | Percent — fades the whole toast, text included (CR-0005) | 70%–100% |
 | Glass effect | None, Blur, Acrylic, Mica-like | Windows 10 1809+; solid fallback otherwise |
 | Border | Width and colour | 0–4 px |
 | Shadow | Off, soft, strong | |

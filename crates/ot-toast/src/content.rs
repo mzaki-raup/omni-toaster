@@ -63,9 +63,9 @@ pub fn draw(
     if rect.width() <= 0.0 || rect.height() <= 0.0 {
         return;
     }
-    let alpha = spec.alpha();
-    let text_colour = fade(text_colour, alpha);
-    let dim = fade(dim, alpha);
+    // Solid: opacity fades the finished toast as a whole (CR-0005), so the
+    // text is not faded on its own here.
+    let alpha = 1.0;
 
     let mut cursor = rect.top();
 

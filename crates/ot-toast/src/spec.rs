@@ -24,7 +24,9 @@ pub const HEIGHT: Range = Range::new(80.0, 300.0, 120.0);
 pub const RADIUS: Range = Range::new(0.0, 40.0, 12.0);
 /// Opacity as a percentage. The floor is not 0: a toast nobody can read is
 /// not a toast, and someone who wants silence has Pause.
-pub const OPACITY: Range = Range::new(40.0, 100.0, 100.0);
+/// 70% at the lowest (CR-0005): opacity fades the whole toast, text
+/// included, so below that the text competes with whatever is behind it.
+pub const OPACITY: Range = Range::new(70.0, 100.0, 100.0);
 /// Border width.
 pub const BORDER: Range = Range::new(0.0, 4.0, 0.0);
 /// How long a toast stays, in seconds.
@@ -530,6 +532,15 @@ duration_secs = 900.0
         spec.content.accent = Some(prayer_green);
         assert_eq!(spec.accent(), prayer_green, "the notification's own wins");
         assert_ne!(spec.accent(), spec.style.accent);
+    }
+
+    #[test]
+    fn opacity_stops_at_seventy_percent_so_text_stays_readable() {
+        // CR-0005: the whole toast fades, text included. A settings file
+        // edited down to the old floor of 40% is clamped to the new one.
+        let mut spec = ToastSpec::default();
+        spec.style.opacity = 40.0;
+        assert_eq!(spec.clamped().style.opacity, 70.0);
     }
 
     #[test]

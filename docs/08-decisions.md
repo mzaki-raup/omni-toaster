@@ -405,7 +405,7 @@ costs nothing where a driver supports it.
 whole pixels, so a curve is stair-stepped rather than anti-aliased. Nothing
 outside the shape can show, so a drop shadow beyond the toast is not possible
 this way — none was visible before either, the window being the toast's own
-size. Opacity below 100% still blends against black inside the window rather
-than against the desktop; making it see-through needs window-level alpha
-(`WS_EX_LAYERED`), which would fade the text with the background and is a
-separate decision.
+size. Opacity uses the window's alpha (`WS_EX_LAYERED`), which Windows
+composites against the desktop on any driver; it fades the text with the
+background, so the owner set its floor at 70% (CR-0005). Painting the toast's
+colours translucent instead only blended them against black.

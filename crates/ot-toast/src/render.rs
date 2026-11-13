@@ -46,11 +46,17 @@ pub fn colour(rgba: Rgba, alpha: f32) -> egui::Color32 {
 
 /// Paint the toast's frame: its shadow, its background and its border.
 ///
+/// **Solid, whatever the opacity** (CR-0005). Opacity fades the finished
+/// toast as a whole, text included, and is applied by whatever shows it:
+/// the window's own alpha for a real toast, the painter's opacity for the
+/// Settings preview. Fading each colour here instead blended them against
+/// black inside the toast's window, which is darker, not see-through.
+///
 /// Returns the rect the content may use — the frame's rect inset by the
 /// border and by a padding that keeps text off the edge, and inset further on
 /// a pill, whose round ends would otherwise clip the first and last glyph.
 pub fn frame(painter: &egui::Painter, rect: egui::Rect, spec: &ToastSpec) -> egui::Rect {
-    let alpha = spec.alpha();
+    let alpha = 1.0;
     let radii = corner_radii(spec, rect.height());
     let corner = to_corner(radii);
 
@@ -59,8 +65,6 @@ pub fn frame(painter: &egui::Painter, rect: egui::Rect, spec: &ToastSpec) -> egu
             offset: [0, spec.style.shadow.offset().round() as i8],
             blur: spec.style.shadow.blur().round() as u8,
             spread: 0,
-            // The shadow follows the toast's own opacity: a toast at 40%
-            // casting a solid shadow would look like a sticker.
             color: colour(Rgba::new(0, 0, 0, 0x60), alpha),
         };
         painter.add(shadow.as_shape(rect, corner));

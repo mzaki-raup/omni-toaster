@@ -41,13 +41,17 @@ pub fn make_unobtrusive(prefix: &str) -> usize {
 }
 
 /// Cut the toast window titled exactly `title` to a rectangle whose corners
-/// have these radii, `[nw, ne, sw, se]`, in physical pixels. All zero means
-/// no region at all: a plain rectangle.
+/// have these radii, `[nw, ne, sw, se]`, in physical pixels — all zero means
+/// a plain rectangle — and fade the whole window to `opacity` (255 is solid).
+///
+/// The fade is the window's own alpha (`WS_EX_LAYERED`), which Windows
+/// composites against the desktop on any driver: the whole toast, text
+/// included, as the owner chose (CR-0005).
 ///
 /// Called every frame for every toast, so it does nothing unless the window,
-/// its size or the radii changed since the last call for that title.
-pub fn set_shape(title: &str, radii: [i32; 4]) {
-    platform::set_shape(title, radii);
+/// its size, the radii or the opacity changed since the last call.
+pub fn set_shape(title: &str, radii: [i32; 4], opacity: u8) {
+    platform::set_shape(title, radii, opacity);
 }
 
 /// Drop what [`set_shape`] remembers about a toast that has gone.
@@ -60,7 +64,7 @@ mod platform {
     use std::collections::HashMap;
     use std::sync::Mutex;
 
-    use windows::Win32::Foundation::{HWND, LPARAM, RECT};
+    use windows::Win32::Foundation::{COLORREF, HWND, LPARAM, RECT};
     use windows::Win32::Graphics::Gdi::{
         CombineRgn, CreateEllipticRgn, CreateRectRgn, DeleteObject, HRGN, RGN_AND, RGN_DIFF,
         RGN_OR, SetWindowRgn,
@@ -68,8 +72,8 @@ mod platform {
     use windows::Win32::System::Threading::GetCurrentProcessId;
     use windows::Win32::UI::WindowsAndMessaging::{
         EnumWindows, GWL_EXSTYLE, GetClientRect, GetWindowLongPtrW, GetWindowTextW,
-        GetWindowThreadProcessId, IsWindow, IsWindowVisible, SetWindowLongPtrW, WS_EX_APPWINDOW,
-        WS_EX_NOACTIVATE, WS_EX_TOOLWINDOW,
+        GetWindowThreadProcessId, IsWindow, IsWindowVisible, LWA_ALPHA, SetLayeredWindowAttributes,
+        SetWindowLongPtrW, WS_EX_APPWINDOW, WS_EX_LAYERED, WS_EX_NOACTIVATE, WS_EX_TOOLWINDOW,
     };
 
     /// What the enumeration is looking for, and what it found.
@@ -82,8 +86,8 @@ mod platform {
         found: Option<HWND>,
     }
 
-    /// The window, client size and radii last applied per toast title.
-    type Applied = (isize, [i32; 2], [i32; 4]);
+    /// The window, client size, radii and opacity last applied per toast.
+    type Applied = (isize, [i32; 2], [i32; 4], u8);
 
     /// Lets `set_shape` skip both the enumeration and the region rebuild on
     /// every frame where nothing changed.
@@ -120,7 +124,7 @@ mod platform {
         unsafe_code,
         reason = "Win32 calls; each one's contract is argued at the call"
     )]
-    pub(super) fn set_shape(title: &str, radii: [i32; 4]) {
+    pub(super) fn set_shape(title: &str, radii: [i32; 4], opacity: u8) {
         let mut shapes = SHAPES
             .lock()
             .unwrap_or_else(std::sync::PoisonError::into_inner);
@@ -129,7 +133,7 @@ mod platform {
         // The window this title had last time, if it is still a window.
         let known = shapes
             .get(title)
-            .map(|(window, _, _)| HWND(*window as *mut _));
+            .map(|(window, ..)| HWND(*window as *mut _));
         // SAFETY: IsWindow accepts any value and only answers whether it is a
         // live window handle; a stale one is exactly what it is for.
         let window = match known.filter(|w| unsafe { IsWindow(Some(*w)) }.as_bool()) {
@@ -166,9 +170,26 @@ mod platform {
             return;
         }
         let size = [client.right - client.left, client.bottom - client.top];
-        let applied = (window.0 as isize, size, radii);
+        let applied = (window.0 as isize, size, radii, opacity);
         if shapes.get(title) == Some(&applied) {
             return;
+        }
+
+        // SAFETY: plain style reads and writes on a window this process
+        // owns, and a layered-window attribute call on the same window.
+        unsafe {
+            let style = GetWindowLongPtrW(window, GWL_EXSTYLE);
+            let layered = WS_EX_LAYERED.0 as isize;
+            if opacity < u8::MAX {
+                if style & layered == 0 {
+                    SetWindowLongPtrW(window, GWL_EXSTYLE, style | layered);
+                }
+                let _ = SetLayeredWindowAttributes(window, COLORREF(0), opacity, LWA_ALPHA);
+            } else if style & layered != 0 {
+                // Solid: no layering, which costs a composition step for
+                // nothing.
+                SetWindowLongPtrW(window, GWL_EXSTYLE, style & !layered);
+            }
         }
 
         let region = region(size, radii);
@@ -183,7 +204,13 @@ mod platform {
             }
         }
         shapes.insert(title.to_owned(), applied);
-        tracing::debug!(title, ?size, ?radii, "a toast window was cut to its shape");
+        tracing::debug!(
+            title,
+            ?size,
+            ?radii,
+            opacity,
+            "a toast window was cut to its shape"
+        );
     }
 
     pub(super) fn forget(title: &str) {
@@ -300,7 +327,7 @@ mod platform {
         0
     }
 
-    pub(super) fn set_shape(_title: &str, _radii: [i32; 4]) {}
+    pub(super) fn set_shape(_title: &str, _radii: [i32; 4], _opacity: u8) {}
 
     pub(super) fn forget(_title: &str) {}
 }
@@ -323,7 +350,11 @@ mod tests {
     fn shaping_a_window_that_does_not_exist_is_a_quiet_no_op() {
         // The toast's window opens a frame after it is asked for, so the
         // first calls always find nothing.
-        set_shape("a window title nothing in this process has", [12, 0, 12, 0]);
+        set_shape(
+            "a window title nothing in this process has",
+            [12, 0, 12, 0],
+            200,
+        );
         forget("a window title nothing in this process has");
     }
 }

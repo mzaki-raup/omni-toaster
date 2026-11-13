@@ -377,12 +377,16 @@ pub fn preview(
     ui.horizontal(|ui| {
         ui.add_space(columns.label);
         let (rect, _) = ui.allocate_exact_size(size, egui::Sense::hover());
-        let content = ot_toast::render::frame(ui.painter(), rect, spec);
+        // Faded as a whole, exactly as the real toast's window is
+        // (CR-0005): the renderer paints solid.
+        let mut painter = ui.painter().clone();
+        painter.multiply_opacity(spec.alpha());
+        let content = ot_toast::render::frame(&painter, rect, spec);
         // The toast's own background picks the text colour, exactly as on a
         // real toast; the window's theme does not.
         let text = Tokens::for_toast(spec);
         ot_toast::content::draw(
-            ui.painter(),
+            &painter,
             content,
             spec,
             text.text,

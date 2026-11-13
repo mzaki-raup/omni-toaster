@@ -349,7 +349,8 @@ shortcut (`docs/specs/toast.md` §3).
 - [x] App: the three samples over the app's own white window — the pill's and the rounded rectangle's corners show the window behind; at 3× zoom the edge is stair-stepped but clean, with no dark fringe
 - [x] Docs: spec · ADR-015 · CHANGELOG · GOTCHAS
 - **Notes:** The cost, said plainly: a region's edge is whole pixels, not smoothed, so a curve is stair-stepped where a transparent window would have anti-aliased it. It reads as a clean edge at 100% and is plain at 3× zoom. A shadow outside the shape cannot show — but none could before either, since the window is the toast's own size.
-  **Opacity has the same root.** With no transparent pixel format, a toast below 100% opacity is blended against black inside its own window rather than against the desktop. Not fixed here; it needs window-level alpha (`WS_EX_LAYERED`), which fades the text with the background — a design question for the owner.
+  **Opacity had the same root**, and was settled by the owner as CR-0005: the whole window fades, from 70%.
+  **The Shadow setting has no visible effect on a real toast, and never had.** The window is exactly the toast's size, so a shadow drawn around the toast falls outside it; with the region, nothing outside the shape can show either. Only the Settings preview shows a shadow, which breaks the rule that the preview is the real thing. Raised with the owner, 2026-11-14.
 
 ### CR-0004 · The accent bar sits on the side the toast sits against
 - **State:** Completed · **Spec:** docs/specs/toast.md §4.1 · **Phase:** 2
@@ -368,6 +369,20 @@ shortcut (`docs/specs/toast.md` §3).
 - [x] App: the three samples at Top, Centre, Left, Bottom and Bottom Right, captured; at Centre the rounded rectangle's bars visibly stop where its corners end
 - [x] Docs: spec §4.1 and §8 · CHANGELOG
 - **Notes:** The window region of BUG-0007 is cut from the same corner radii, so a square side is square on screen too, not only in the painting.
+
+### CR-0005 · Opacity fades the whole toast, from 70% up
+- **State:** Completed · **Spec:** docs/specs/toast.md §4 · **Phase:** 2
+- **Branch:** feat/phase-2-toast
+- **Source:** the owner, 2026-11-14, choosing between three options after seeing both behaviours captured: "Whole toast fades, 70–100%"
+- **Verified:** the gate, and real toasts and the preview captured at 70% over a white window
+- [x] Before: the renderer faded each colour and the text by the opacity, and with no transparent pixel format (BUG-0007) the faded pixels had only black behind them — a toast at 50% came out darker, not see-through. Captured: body (16, 33, 55) over white
+- [x] Now the renderer paints solid, and opacity is applied to the finished toast: the window's own alpha (`WS_EX_LAYERED`, `SetLayeredWindowAttributes`) for a real toast, alongside its region; the painter's opacity for the preview. Captured at 70% over white: the plain background (103, 103, 107) against a computed (101, 101, 106) — genuinely see-through, corners still cut
+- [x] The range is **70–100%**, from 40–100%: the text fades with the background, and below 70% it competes with whatever is behind. A settings file at 40% is clamped to 70% with a logged warning, like every other limit
+- [x] Test: `opacity_stops_at_seventy_percent_so_text_stays_readable`; `set_shape` with an opacity on a window that is not there yet is a quiet no-op
+- [x] Gate: fmt · clippy -D warnings · test --workspace --locked -j 4 · deny check · --self-test
+- [x] App: three real toasts and the Appearance preview at 70%, Light theme, over the app's own white window
+- [x] Docs: spec §4 · ADR-015 · CHANGELOG · README
+- **Notes:** The preview fades shape by shape (egui has no whole-picture opacity), so where shapes overlap it is not exactly the real toast. The visible case is the shadow: the preview paints one under the toast, and it shows through a faded background, darker than the real toast (81 against 103). The real toast has no visible shadow at all — see the note on the Shadow setting under BUG-0007.
 
 ## v0.1.0 — Planned
 

@@ -762,7 +762,9 @@ impl SettingsWindow {
             let pixels = ui.ctx().pixels_per_point();
             let radii = ot_toast::render::corner_radii(spec, rect.height())
                 .map(|radius| (radius * pixels).round() as i32);
-            ot_platform::toast_window::set_shape(&id.window_title(), radii);
+            // Opacity fades the whole window, text included (CR-0005).
+            let opacity = (spec.alpha() * 255.0).round().clamp(0.0, 255.0) as u8;
+            ot_platform::toast_window::set_shape(&id.window_title(), radii, opacity);
 
             // The colours come from the theme through here, so the renderer
             // itself still hard-codes none.
