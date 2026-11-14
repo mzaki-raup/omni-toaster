@@ -205,6 +205,19 @@ for 256 pixels.
 
 ## Screenshots
 
+A toast, as the app paints it — here at the default Bottom Right, so the accent
+bar is on the side facing the screen's edge:
+
+![A toast in the default rounded rectangle](docs/screenshots/toast-dark.png)
+
+The three shapes, each with the side against the screen edge square:
+
+![Rectangle, rounded rectangle and pill toasts](docs/screenshots/toast-shapes.png)
+
+The same toast over a light window is
+[toast-light.png](docs/screenshots/toast-light.png): a toast keeps its own
+colours whatever the window's theme.
+
 Settings ▸ General, the first screen the app has:
 
 ![Settings ▸ General in the Dark theme](docs/screenshots/settings-general.png)
@@ -231,7 +244,6 @@ taken as its phase lands:
 
 | Image | Shows | Lands in |
 |---|---|---|
-| `docs/screenshots/toast-dark.png` | A toast in the Dark theme | Phase 2 |
 | `docs/screenshots/toast-glass.png` | The Acrylic glass effect | Phase 3 |
 | `docs/screenshots/tray-menu.png` | The tray icon and its menu | Phase 1 |
 | `docs/screenshots/settings-prayer.png` | Settings → Prayer, zone confirmation and source label | Phase 5 |

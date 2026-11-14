@@ -7,7 +7,7 @@ exit criteria under each heading are that phase's own, and no row in a phase may
 read `Completed` until they all hold. The work itself, by id, is in
 [TASKS.md](TASKS.md).
 
-Last updated: 2026-11-08
+Last updated: 2026-11-14
 
 ## Planning
 > **Done when:** the scaffolding and the specifications describe OmniToaster and point only at files that exist; no reference to the HyperStack project remains.
@@ -69,23 +69,37 @@ Last updated: 2026-11-08
 | Live language switch | In-Progress | FEAT-0016. The loader is swappable and the window follows in 2.4 ms, title bar included, measured in the running app; the tray menu's half of the check is behind the same Windows 11 overflow as FEAT-0015 |
 
 ## Phase 2 — Toast Core
-> **Exit criteria:** every shape renders correctly at 100, 150 and 200 percent DPI in both languages, with no overflow.
+> **Exit criteria:** every shape renders correctly at 100, 150 and 200 percent DPI in both languages, with no overflow, and the preview matches the real toast.
+>
+> **Both hold as of 2026-11-14.** Every shape was checked by the owner at 100%,
+> 150% and 200% through the real Windows setting in both languages, including
+> a change of scaling with a toast on screen; the same sweep was run here with
+> `--ui-scale`, and the layout tests hold it in the gate in English, Malay and
+> a pseudo-locale (FEAT-0024). The preview is drawn by the same `Prefs::spec`,
+> `render::frame` and `content::draw` as a real toast and was compared side by
+> side. Two differences remain, both the cost of decisions the owner made on
+> evidence: the Rectangle's shadow is Windows' own on a real toast and egui's
+> nearest equivalent in the preview (CR-0006), and below 100% opacity the
+> preview fades shape by shape where the real window fades as one, so a
+> shadow under it reads slightly darker (CR-0005).
 
 | Item | State | Notes |
 |---|---|---|
-| Borderless transparent always-on-top toast window | Pending | |
-| Shapes | Pending | Rectangle, rounded rectangle, pill |
-| Corner radius | Pending | 0–40 px |
-| Colours | Pending | Solid and gradient |
-| Opacity | Pending | 40–100 % |
-| Shadow | Pending | On or off; Windows' own, Rectangle only (CR-0006) |
-| Header | Pending | Icon, title, app name, timestamp |
-| Text | Pending | Bold and italic |
-| Image | In-Progress | Magic-byte validation, pixel limit and the image library are verified in the app; thumbnails are decoded on demand and held as textures, not yet cached on disk |
-| Stacking | Completed | 1–5 visible, configurable gap — set in Settings ▸ Appearance and checked with five real toasts and a queue of two |
-| DPI and multi-monitor positioning | Pending | |
-| Ellipsis rules | Pending | Nothing overflows the toast |
-| Malay length testing | Pending | Longest Malay strings |
+| `ToastSpec`, limits enforced in the model | Completed | FEAT-0017. Every limit clamps on load, with a logged warning; the renderer takes a spec and nothing else |
+| Borderless transparent always-on-top toast window | Completed | FEAT-0018. Out of the taskbar and Alt+Tab, never takes focus — checked by the owner over a full-screen application. Corners see-through on any driver through a window region (BUG-0007, ADR-015) |
+| Shapes | Completed | FEAT-0019. Rectangle, rounded rectangle, pill; the side facing the screen edge is square and carries the accent bar (CR-0004) |
+| Corner radius | Completed | 0–40 px; a pill's is half its height |
+| Colours | Completed | Solid and gradient; text colour follows the toast's own background (BUG-0005) |
+| Opacity | Completed | 70–100 %, fading the whole toast through the window's alpha (CR-0005) |
+| Shadow | Completed | On or off; Windows' own, Rectangle only (CR-0006) |
+| Header | Completed | FEAT-0020. Icon, title, app name, timestamp, each toggleable; each notification carries its own icon, image and accent |
+| Text | Completed | Bold and italic for the body as a whole |
+| Image | Completed | FEAT-0021, FEAT-0025. Magic-byte validation, pixel limit, a thumbnail cached under `cache/thumbs/`, and the picture library |
+| Stacking | Completed | 1–5 visible, configurable gap — set in Settings ▸ Appearance and checked with five real toasts and a queue of two; the stack of five checked by the owner at 250% |
+| DPI and multi-monitor positioning | Completed | FEAT-0022. Nine presets and a custom point; a chosen monitor, remembered by device path, falling back to the primary one when unplugged — checked by the owner on a second monitor |
+| Ellipsis rules | Completed | Nothing overflows the toast; held by tests at three scales |
+| The Settings preview | Completed | FEAT-0023. The same drawing code as a real toast; display duration (FEAT-0026), monitor, position and stacking set beside it |
+| Malay length testing | Completed | FEAT-0024. Layout tests in English, Malay and a pseudo-locale at 100%, 150% and 200% |
 
 ## Phase 3 — Glass and Animations
 > **Exit criteria:** each animation runs at 60 fps on reference hardware and falls back cleanly.

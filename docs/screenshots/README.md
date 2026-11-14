@@ -8,7 +8,7 @@ consumers.
 
 ## Status
 
-**Six captured so far:** `settings-appearance.png` and `settings-appearance-ms.png` on a fresh scratch folder; `settings-pictures.png` and `settings-pictures-ms.png`, the Picture Library in both languages, taken from a debug build on a scratch `--data-dir` when FEAT-0025 landed, with three plain coloured test pictures; and `settings-general.png` and `settings-general-ms.png`,
+**Nine captured so far:** `toast-dark.png`, `toast-light.png` and `toast-shapes.png`, real toasts captured from the screen over the app's own settings window (so no desktop shows), from a debug build on a scratch `--data-dir`, when Phase 2 closed; and `settings-appearance.png` and `settings-appearance-ms.png` on a fresh scratch folder; `settings-pictures.png` and `settings-pictures-ms.png`, the Picture Library in both languages, taken from a debug build on a scratch `--data-dir` when FEAT-0025 landed, with three plain coloured test pictures; and `settings-general.png` and `settings-general-ms.png`,
 the Settings ▸ General pane in both languages, taken from a release build on a
 scratch `--data-dir` when FEAT-0014 landed. Everything else below is still a
 placeholder name reserved for the phase that first produces that screen; the
@@ -24,10 +24,10 @@ quantised with `magick <in> -strip -colors 256 -define png:compression-level=9
 
 | File | Shows | First captured in |
 |---|---|---|
-| `toast-dark.png` | A reminder toast, Dark theme, English | Phase 2 |
-| `toast-light.png` | The same toast, Light theme | Phase 2 |
+| `toast-dark.png` | The test toast, rounded rectangle, over a Dark window | Phase 2 (captured) |
+| `toast-light.png` | The same toast over a Light window | Phase 2 (captured) |
 | `toast-glass.png` | The Acrylic/Mica glass look | Phase 3 |
-| `toast-shapes.png` | Rectangle, rounded and pill side by side | Phase 2 |
+| `toast-shapes.png` | Rectangle, rounded and pill side by side | Phase 2 (captured) |
 | `settings-general.png` | Settings ▸ General, English | Phase 1 |
 | `settings-general-ms.png` | Settings ▸ General, Bahasa Melayu | Phase 1 |
 | `settings-appearance.png` | Settings ▸ Appearance with the live preview | Phase 2 (captured) |

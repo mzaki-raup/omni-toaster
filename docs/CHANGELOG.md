@@ -38,6 +38,7 @@ Format: [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) · Versioning:
 
 ### Fixed
 
+- Picture thumbnails are now cached under `cache/thumbs/` as the spec says, so a large picture is decoded once rather than at every start; a cached thumbnail that is missing or corrupt is rebuilt, and removing a picture removes its thumbnails (FEAT-0021).
 - Rounded and pill toasts no longer have black corners (BUG-0007). Each toast window is cut to its own shape, because the graphics driver offers no transparent window to draw into.
 - A toast's text colour now follows the toast's own background, not the window's theme. In the Light theme the title and body were near-black on the default dark toast, on the preview and on every real toast alike.
 - Dragging on the position map moves the toast with the pointer: the Custom Point row now sits under the map, where appearing mid-drag no longer pushes the map down. Its two fields show one decimal each instead of whatever the drag left.

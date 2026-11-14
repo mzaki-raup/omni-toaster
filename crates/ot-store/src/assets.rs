@@ -32,6 +32,11 @@ pub const MAX_PIXELS: u32 = 4096;
 /// Where imports land, under the data folder.
 pub const ASSETS_DIR: &str = "assets";
 
+/// Where thumbnails are cached, relative to the data folder. Derived data:
+/// the whole of `cache/` may be deleted and costs only a rebuild
+/// (`docs/05-data-model-and-storage.md`).
+pub const THUMBNAILS_DIR: &str = "cache/thumbs";
+
 /// The image formats the spec allows, with the bytes that identify each.
 ///
 /// Matched against the file's first bytes, never against its name: the
@@ -203,10 +208,13 @@ pub struct Thumbnail {
 
 /// Decode an imported image and shrink it to fit `max_side`.
 ///
-/// Derived data, never the source of truth: it is rebuilt from the asset
-/// whenever it is needed. Blocking, and like `import` it belongs on a worker
-/// thread. The decode is bounded the same way the import was, because the
-/// file on disk is only as trustworthy as whoever last wrote to the folder.
+/// Cached under [`THUMBNAILS_DIR`] as `<hash>-<side>.png`, so a 4096-pixel
+/// picture is decoded once rather than every time the app starts. Derived
+/// data, never the source of truth: a missing or corrupt cached copy is
+/// rebuilt from the asset. Blocking, and like `import` it belongs on a worker
+/// thread. Every decode is bounded the same way the import was, the cached
+/// copy's included, because a file on disk is only as trustworthy as whoever
+/// last wrote to the folder.
 pub fn thumbnail(
     root: &Path,
     relative_path: &str,
@@ -215,11 +223,53 @@ pub fn thumbnail(
     let path = root.join(relative_path);
     guard_inside(root, &path)?;
 
+    let cached = thumbnail_path(root, relative_path, max_side);
+    if let Some(cached) = &cached
+        && let Ok(bytes) = fs::read(cached)
+        && let Ok(thumb) = decode(&bytes, cached, max_side)
+    {
+        return Ok(thumb);
+    }
+
     let bytes = fs::read(&path).map_err(|error| ImportError::Unreadable {
         path: path.clone(),
         error,
     })?;
-    decode(&bytes, &path, max_side)
+    let thumb = decode(&bytes, &path, max_side)?;
+    if let Some(cached) = cached {
+        save_thumbnail(root, &cached, &thumb);
+    }
+    Ok(thumb)
+}
+
+/// Where the thumbnail of this asset at this size is cached: named by the
+/// asset's own name, which is its content hash.
+fn thumbnail_path(root: &Path, relative_path: &str, max_side: u32) -> Option<PathBuf> {
+    let hash = Path::new(relative_path).file_stem()?.to_str()?;
+    Some(
+        root.join(THUMBNAILS_DIR)
+            .join(format!("{hash}-{max_side}.png")),
+    )
+}
+
+/// Write a thumbnail to the cache. Best effort: a cache that cannot be
+/// written costs a decode next time, not a picture, so a failure is logged
+/// rather than returned.
+fn save_thumbnail(root: &Path, path: &Path, thumb: &Thumbnail) {
+    let result = (|| -> Result<(), String> {
+        if let Some(folder) = path.parent() {
+            fs::create_dir_all(folder).map_err(|error| error.to_string())?;
+        }
+        guard_inside(root, path).map_err(|error| error.to_string())?;
+        let image = image::RgbaImage::from_raw(thumb.width, thumb.height, thumb.rgba.clone())
+            .ok_or("the thumbnail's size and pixels disagree")?;
+        image
+            .save_with_format(path, image::ImageFormat::Png)
+            .map_err(|error| error.to_string())
+    })();
+    if let Err(error) = result {
+        tracing::warn!(%error, path = %path.display(), "a thumbnail could not be cached");
+    }
 }
 
 /// Decode an image already in memory, with the same limits as a file: the
@@ -317,10 +367,25 @@ pub fn remove(root: &Path, relative: &str) -> Result<(), ImportError> {
     let path = root.join(relative);
     guard_inside(root, &path)?;
     match fs::remove_file(&path) {
-        Ok(()) => Ok(()),
-        Err(error) if error.kind() == io::ErrorKind::NotFound => Ok(()),
-        Err(error) => Err(ImportError::Unwritable { path, error }),
+        Ok(()) => {}
+        Err(error) if error.kind() == io::ErrorKind::NotFound => {}
+        Err(error) => return Err(ImportError::Unwritable { path, error }),
     }
+    // Its cached thumbnails go with it, at every size: derived data that
+    // would otherwise outlive the picture for good.
+    if let Some(hash) = Path::new(relative)
+        .file_stem()
+        .and_then(|stem| stem.to_str())
+        && let Ok(entries) = fs::read_dir(root.join(THUMBNAILS_DIR))
+    {
+        let prefix = format!("{hash}-");
+        for entry in entries.filter_map(Result::ok) {
+            if entry.file_name().to_string_lossy().starts_with(&prefix) {
+                let _ = fs::remove_file(entry.path());
+            }
+        }
+    }
+    Ok(())
 }
 
 /// Prove `candidate` is inside `root`.
@@ -582,6 +647,55 @@ mod tests {
         let error = thumbnail(root.path(), "../../Windows/win.ini", 64)
             .expect_err("a traversal is refused");
         assert!(matches!(error, ImportError::Escapes { .. }), "{error}");
+    }
+
+    #[test]
+    fn a_thumbnail_is_cached_under_the_data_folder_and_used_next_time() {
+        let root = scratch();
+        let source = scratch();
+        let asset = import(root.path(), &write(source.path(), "p.png", TINY_PNG)).expect("import");
+
+        let first = thumbnail(root.path(), &asset.relative_path, 64).expect("a thumbnail");
+        let cached = root
+            .path()
+            .join(THUMBNAILS_DIR)
+            .join(format!("{}-64.png", asset.sha256));
+        assert!(cached.is_file(), "the cache landed at {}", cached.display());
+        assert_eq!(sniff(&fs::read(&cached).expect("read")), Some(Format::Png));
+
+        // With the picture itself gone, only the cache can answer.
+        fs::remove_file(root.path().join(&asset.relative_path)).expect("remove the picture");
+        let second = thumbnail(root.path(), &asset.relative_path, 64).expect("from the cache");
+        assert_eq!(second, first);
+    }
+
+    #[test]
+    fn a_corrupt_cached_thumbnail_is_rebuilt_from_the_picture() {
+        let root = scratch();
+        let source = scratch();
+        let asset = import(root.path(), &write(source.path(), "p.png", TINY_PNG)).expect("import");
+        let folder = root.path().join(THUMBNAILS_DIR);
+        fs::create_dir_all(&folder).expect("mkdir");
+        let cached = write(&folder, &format!("{}-64.png", asset.sha256), b"half a png");
+
+        thumbnail(root.path(), &asset.relative_path, 64).expect("rebuilt");
+        assert_eq!(sniff(&fs::read(&cached).expect("read")), Some(Format::Png));
+    }
+
+    #[test]
+    fn removing_a_picture_removes_its_cached_thumbnails() {
+        let root = scratch();
+        let source = scratch();
+        let asset = import(root.path(), &write(source.path(), "p.png", TINY_PNG)).expect("import");
+        thumbnail(root.path(), &asset.relative_path, 64).expect("a thumbnail");
+        thumbnail(root.path(), &asset.relative_path, 32).expect("another size");
+
+        remove(root.path(), &asset.relative_path).expect("removed");
+        let left: Vec<_> = fs::read_dir(root.path().join(THUMBNAILS_DIR))
+            .expect("the cache folder")
+            .filter_map(Result::ok)
+            .collect();
+        assert!(left.is_empty(), "thumbnails left behind: {left:?}");
     }
 
     #[test]
