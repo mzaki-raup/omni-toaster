@@ -44,7 +44,12 @@ being visible, and anyone verifying the tray has to look in the overflow.
 
 The tray icon belongs to the **worker** process, so a supervisor restart
 recreates it ([specs/supervisor.md](supervisor.md)). A stale icon left by a
-killed worker is removed on the next start.
+killed worker is removed on the next start (CR-0003): Windows knows an icon by
+the window that added it and a small id, so the window is written to
+`cache/tray-window` when the icon is made, and the next start asks Windows to
+delete that window's icons — only once `IsWindow` says the window is gone, so
+no live window's icon can be touched. A GUID was the first plan, but Windows
+ties a tray GUID to the exe's path, and a portable exe is meant to move.
 
 ## 4. Pause
 

@@ -21,6 +21,7 @@ ot-i18n = { path = "../ot-i18n" }
 ot-platform = { path = "../ot-platform" }
 ot-store = { path = "../ot-store" }
 ot-toast = { path = "../ot-toast" }
+raw-window-handle.workspace = true
 thiserror.workspace = true
 tracing.workspace = true
 

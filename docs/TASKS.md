@@ -493,15 +493,17 @@ window to open; FEAT-0016 needs both so it has something to re-render.
   **Known gap, not fixed here:** in Light mode the window's **title bar stays dark**, because that is Windows chrome and needs `DwmSetWindowAttribute(DWMWA_USE_IMMERSIVE_DARK_MODE)` against the window handle. It is visible in `docs/screenshots/` if you look. Filed as CR-0002 rather than bolted on, since it needs the HWND plumbed out of eframe.
 
 ### CR-0002 · The title bar ignores the theme
-- **State:** Pending · **Spec:** docs/04-ui-design.md · **Phase:** 1
+- **State:** In-Progress · **Spec:** docs/04-ui-design.md · **Phase:** 1
+- **Branch:** feat/phase-1-close
+- **Verified:** the gate, and the running window in Light, in Dark, and switched from one to the other while open
 - **Source:** seen while checking FEAT-0014 in the running app
-- [ ] Spec first: `docs/04-ui-design.md` says what the window chrome follows
-- [ ] `ot_platform` sets `DWMWA_USE_IMMERSIVE_DARK_MODE` on the window, behind a capability-named interface, taking the handle rather than finding it
-- [ ] `ot-ui` calls it when the appearance resolves, including when System follows a Windows change while the window is open
-- [ ] Test: the call is made for each appearance; the non-Windows path is a no-op
-- [ ] Gate: fmt · clippy -D warnings · test --workspace --locked -j 4 · deny check · --self-test
-- [ ] App: Light with a light title bar, Dark with a dark one, and System following a change in Windows while the window is open
-- [ ] Docs: spec · CHANGELOG · screenshots retaken
+- [x] Spec first: `docs/04-ui-design.md` says what the window chrome follows
+- [x] `ot_platform` sets `DWMWA_USE_IMMERSIVE_DARK_MODE` on the window, behind a capability-named interface, taking the handle rather than finding it — `ot_platform::title_bar::follow_appearance`, given the `RawWindowHandle` eframe's `Frame` hands over each frame (no plumbing out of `CreationContext` was needed)
+- [x] `ot-ui` calls it when the appearance resolves, including when System follows a Windows change while the window is open — every frame it compares the appearance with the one Windows last accepted, so a change from any source is followed on the next frame
+- [x] Test: the call is made for each appearance; the non-Windows path is a no-op — `the_title_bar_is_told_each_appearance_once`, and a handle that is not a Win32 window is left alone
+- [x] Gate: fmt · clippy -D warnings · test --workspace --locked -j 4 · deny check · --self-test
+- [ ] App: Light with a light title bar, Dark with a dark one, and System following a change in Windows while the window is open. **Two of three done** (2026-11-14): Light drew a light title bar and Dark a dark one, and switching Light to Dark in the open window turned it dark at once. **Changing the Windows setting is the owner's** — it is a system setting this session may not change
+- [x] Docs: spec · CHANGELOG. The screenshots show the window's own pixels (`PrintWindow`), which include the title bar; the Light ones retaken after the owner's check
 - **Notes:** The window is light and its title bar is dark, which is the most visible thing wrong with the first screen the product has. Getting the handle means plumbing `raw-window-handle` out of eframe's `CreationContext`, which is why it is its own item rather than a line in FEAT-0014.
 
 ### FEAT-0015 · Tray icon and menu
@@ -524,14 +526,15 @@ window to open; FEAT-0016 needs both so it has something to re-render.
   **Labels cross the crate boundary as strings.** `ot-platform` owns Windows, not language: the caller resolves every Fluent key and hands over a `Labels`, which is also what makes a language change an ordinary rebuild rather than a special case. The same trade appears in `PauseWindow` versus `ot_core::PauseFor` — two enums naming the same three things so that `ot-platform` need not know about clocks. `the_pause_windows_map_across_the_crate_boundary_without_crossing_over` is there because swapping two of them would mute the app for the wrong length of time and nothing else would notice.
 
 ### CR-0003 · A killed worker leaves a ghost tray icon
-- **State:** Pending · **Spec:** docs/specs/tray-and-settings.md §3 · **Phase:** 1
+- **State:** In-Progress · **Spec:** docs/specs/tray-and-settings.md §3 · **Phase:** 1
+- **Branch:** feat/phase-1-close
 - **Source:** FEAT-0015 — the box it could not tick
-- [ ] Spec first: say what identity the icon takes and what the next start does with a stale one
-- [ ] Give the icon a stable `GUID` so Windows recognises the new instance as the same icon and replaces it, instead of leaving the dead one until the pointer passes over it
-- [ ] Test: two runs in a row produce one icon, not two
-- [ ] Gate: fmt · clippy -D warnings · test --workspace --locked -j 4 · deny check · --self-test
-- [ ] App: kill the process, start it again, confirm one icon
-- [ ] Docs: spec · CHANGELOG · GOTCHAS
+- [x] Spec first: say what identity the icon takes and what the next start does with a stale one
+- [x] ~~Give the icon a stable `GUID`~~ — **changed:** Windows ties a tray GUID to the exe's path, and a portable exe is meant to move, so a GUID icon could fail to register after the folder moved. Instead the icon's window is written to `cache/tray-window` when the icon is made, and the next start asks Windows to delete that window's icons (ids 1–16), only once `IsWindow` says the window is gone
+- [x] Test: a record names a window only when it holds one; a record of a live window (the desktop's) or of nothing removes nothing. The two-runs-one-icon half is the App box: an icon count cannot be read from a test
+- [x] Gate: fmt · clippy -D warnings · test --workspace --locked -j 4 · deny check · --self-test
+- [ ] App: kill the process, start it again, confirm one icon. **What could be checked here** (2026-11-14): each run records its window; a delete from another process works — on a live window it removed the icon, id 2; but after a kill Windows reported nothing to delete under the dead window, so either this Windows build already drops a killed process's icon or it refuses the delete. Telling those apart needs eyes on the tray's overflow, which this session cannot open: **the owner's**
+- [x] Docs: spec · CHANGELOG · GOTCHAS
 - **Notes:** `tray-icon` 0.24 has no way to pass a `GUID` to `Shell_NotifyIcon`, so this is either a patch upstream or the one Win32 call made directly in `ot-platform`. Worth doing before Phase 8, when the supervisor starts restarting workers and every crash would otherwise leave another ghost.
 
 ### FEAT-0016 · Live language switch

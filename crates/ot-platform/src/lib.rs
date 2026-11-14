@@ -15,6 +15,7 @@ pub mod locale;
 pub mod monitors;
 pub mod single_instance;
 pub mod system_theme;
+pub mod title_bar;
 pub mod toast_window;
 pub mod tray;
 pub mod ui_font;

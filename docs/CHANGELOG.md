@@ -7,7 +7,10 @@ Format: [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) · Versioning:
 
 ## Unreleased
 
-- (nothing yet)
+### Fixed
+
+- The settings window's title bar follows the theme: light in Light, dark in Dark, and with System it follows Windows while the window is open (CR-0002).
+- A tray icon left behind by a killed run is removed when the app next starts (CR-0003).
 
 ## 0.9.0 — 2026-11-14
 

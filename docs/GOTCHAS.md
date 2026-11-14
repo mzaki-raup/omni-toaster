@@ -137,7 +137,7 @@ Nothing recorded yet.
 
 ## Tray, Startup and Supervisor
 Nothing recorded yet.
-
+- **A tray GUID is tied to the exe's path, which a portable app does not keep.** `Shell_NotifyIcon` with `NIF_GUID` lets a new run replace a dead run's icon, but Windows binds the GUID to the executable that first registered it, and a moved folder's exe is refused. OmniToaster records the icon's window instead and deletes that window's icons on the next start — checking `IsWindow` first, so a reused handle can never cost another program its icon (CR-0003).
 
 ## Testing
 - **A test that unwraps a process-wide `init()` is order-dependent, and "it passed locally" is not evidence.** `cargo test` runs a crate's tests in parallel threads in **one process**, so a global `OnceLock` or `tracing`'s global subscriber is claimed by exactly one test and every other call returns "already initialised". A test doing `init(..).expect(..)` therefore passes or fails on thread scheduling: `ot-i18n`'s formatter test passed twenty local runs and then failed the release job with `AlreadyInitialised`, taking a release down with it. Two tests had the same global, one tolerating failure and one unwrapping. Give such tests a shared helper that tolerates a sibling having initialised first **and asserts the resulting state** (so a test needing a different language fails loudly instead of silently reading the wrong bundle), or build a local instance instead of the global. Prove the fix with repeated runs *and* `--test-threads=1`, not one green run.

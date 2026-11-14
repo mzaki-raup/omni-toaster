@@ -14,6 +14,23 @@
 //! same glyph everywhere (`.claude/rules/ui.md`). The glyph is chosen here,
 //! per verb, instead of being written into the locale files — a translator
 //! should not be able to change an icon by editing a word.
+//!
+//! **A killed run leaves no ghost** (CR-0003). Windows keeps a dead process's
+//! tray icon until the pointer happens to pass over it, so a crash and a
+//! restart showed two icons. Windows knows an icon by the window that added
+//! it and a small id; the window is written to a record in the data folder's
+//! cache when the icon is made, and the next start removes whatever icons
+//! Windows still lists under that window — once it is certain the window is
+//! dead, so no live window's icon, ours or anyone's, can be touched. A GUID
+//! would have let Windows replace the icon itself, but Windows ties a tray
+//! GUID to the exe's path, and a portable app's path is meant to move.
+
+/// The window id a record names, if the record holds one. A missing,
+/// empty or mangled record names none, which simply means there is nothing to
+/// clean up.
+fn recorded_window(record: &str) -> Option<isize> {
+    record.trim().parse().ok().filter(|window| *window != 0)
+}
 
 /// What the user asked the tray to do.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -85,10 +102,21 @@ pub use platform::Tray;
 
 #[cfg(windows)]
 mod platform {
+    use std::path::Path;
+
     use tray_icon::menu::{Menu, MenuEvent, MenuId, MenuItem, PredefinedMenuItem, Submenu};
     use tray_icon::{Icon, TrayIcon, TrayIconBuilder, TrayIconEvent};
+    use windows::Win32::Foundation::HWND;
+    use windows::Win32::UI::Shell::{NIM_DELETE, NOTIFYICONDATAW, Shell_NotifyIconW};
+    use windows::Win32::UI::WindowsAndMessaging::IsWindow;
 
-    use super::{Labels, PauseWindow, TrayCommand, TrayError, glyph, with_glyph};
+    use super::{Labels, PauseWindow, TrayCommand, TrayError, glyph, recorded_window, with_glyph};
+
+    /// The icon ids a dead window's ghosts may carry. `tray-icon` numbers
+    /// icons from a counter it shares with other ids, so the exact one is not
+    /// knowable; a handful covers it, and every id tried belongs to a window
+    /// already proved dead.
+    const GHOST_IDS: std::ops::RangeInclusive<u32> = 1..=16;
 
     /// The icon resource `crates/omnitoaster/build.rs` embeds in the exe.
     ///
@@ -122,8 +150,11 @@ mod platform {
     }
 
     impl Tray {
-        /// Put the icon in the notification area.
-        pub fn new(labels: &Labels, paused: bool) -> Result<Self, TrayError> {
+        /// Put the icon in the notification area, first removing any icon a
+        /// killed earlier run left behind. `record` is the file in the data
+        /// folder's cache that remembers which window owns the icon.
+        pub fn new(labels: &Labels, paused: bool, record: &Path) -> Result<Self, TrayError> {
+            remove_ghosts(record);
             let (menu, ids) = build_menu(labels, paused)?;
             let icon = TrayIconBuilder::new()
                 .with_menu(Box::new(menu))
@@ -131,6 +162,7 @@ mod platform {
                 .with_icon(load_icon()?)
                 .build()
                 .map_err(|error| TrayError::Icon(error.to_string()))?;
+            remember(record, icon.window_handle() as isize);
             Ok(Self { icon, ids, paused })
         }
 
@@ -210,6 +242,60 @@ mod platform {
             } else {
                 None
             }
+        }
+    }
+
+    /// Remove the icons a previous run's window still has in the
+    /// notification area, if that window is gone. Returns how many Windows
+    /// removed, which is zero after a clean exit.
+    #[allow(
+        unsafe_code,
+        reason = "IsWindow and Shell_NotifyIcon; each contract is argued at the call"
+    )]
+    pub(super) fn remove_ghosts(record: &Path) -> usize {
+        let Some(window) = std::fs::read_to_string(record)
+            .ok()
+            .as_deref()
+            .and_then(recorded_window)
+        else {
+            return 0;
+        };
+        let window = HWND(window as *mut _);
+        // SAFETY: IsWindow takes any value and only answers whether it is a
+        // live window. A live one — ours or anyone's — is never touched.
+        if unsafe { IsWindow(Some(window)) }.as_bool() {
+            return 0;
+        }
+        let mut removed = 0;
+        for id in GHOST_IDS {
+            let data = NOTIFYICONDATAW {
+                cbSize: u32::try_from(size_of::<NOTIFYICONDATAW>()).unwrap_or(0),
+                hWnd: window,
+                uID: id,
+                ..Default::default()
+            };
+            // SAFETY: a delete names an icon by its window and id and reads
+            // nothing else; the struct is live and its size field is right.
+            if unsafe { Shell_NotifyIconW(NIM_DELETE, &data) }.as_bool() {
+                removed += 1;
+            }
+        }
+        if removed > 0 {
+            tracing::info!(removed, "removed tray icons a killed run left behind");
+        }
+        removed
+    }
+
+    /// Write down which window owns the icon, for the next start. Best
+    /// effort: without the record a ghost lasts until the pointer passes over
+    /// it, which is how it was before.
+    fn remember(record: &Path, window: isize) {
+        let written = record
+            .parent()
+            .map_or(Ok(()), std::fs::create_dir_all)
+            .and_then(|()| std::fs::write(record, window.to_string()));
+        if let Err(error) = written {
+            tracing::warn!(%error, "the tray icon's window could not be recorded");
         }
     }
 
@@ -295,7 +381,11 @@ mod platform {
     pub struct Tray;
 
     impl Tray {
-        pub fn new(_labels: &Labels, _paused: bool) -> Result<Self, TrayError> {
+        pub fn new(
+            _labels: &Labels,
+            _paused: bool,
+            _record: &std::path::Path,
+        ) -> Result<Self, TrayError> {
             Err(TrayError::Unsupported)
         }
         pub fn rebuild(&mut self, _labels: &Labels, _paused: bool) -> Result<(), TrayError> {
@@ -317,6 +407,38 @@ pub use platform::Tray;
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn a_record_names_a_window_only_when_it_holds_one() {
+        assert_eq!(recorded_window("65874"), Some(65874));
+        assert_eq!(recorded_window("  65874\n"), Some(65874));
+        // Missing, empty, mangled or null: nothing to clean up.
+        assert_eq!(recorded_window(""), None);
+        assert_eq!(recorded_window("not a window"), None);
+        assert_eq!(recorded_window("0"), None);
+    }
+
+    #[cfg(windows)]
+    #[test]
+    fn a_record_of_a_live_window_or_of_nothing_removes_nothing() {
+        let dir = tempfile::tempdir().expect("temp dir");
+        let record = dir.path().join("tray-window");
+        // No record at all.
+        assert_eq!(platform::remove_ghosts(&record), 0);
+        // A window that is alive: the desktop's own, which is never ours to
+        // touch and must be left alone.
+        let desktop = unsafe_desktop_window();
+        std::fs::write(&record, desktop.to_string()).expect("write");
+        assert_eq!(platform::remove_ghosts(&record), 0);
+    }
+
+    /// The desktop window's handle: a window that is certainly alive.
+    #[cfg(windows)]
+    #[allow(unsafe_code, reason = "GetDesktopWindow takes nothing and cannot fail")]
+    fn unsafe_desktop_window() -> isize {
+        // SAFETY: no arguments, no pointers; it returns a handle.
+        unsafe { windows::Win32::UI::WindowsAndMessaging::GetDesktopWindow() }.0 as isize
+    }
 
     fn labels() -> Labels {
         Labels {
