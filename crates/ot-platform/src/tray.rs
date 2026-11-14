@@ -35,7 +35,7 @@ fn recorded_window(record: &str) -> Option<isize> {
 /// What the user asked the tray to do.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum TrayCommand {
-    /// Left-click, or Open Settings.
+    /// A double-click on the icon, or Open Settings.
     OpenSettings,
     Pause(crate::PauseWindow),
     Resume,
@@ -160,6 +160,10 @@ mod platform {
                 .with_menu(Box::new(menu))
                 .with_tooltip(&labels.tooltip)
                 .with_icon(load_icon()?)
+                // The menu is the right button's. `tray-icon` would open it
+                // on a left click too, which leaves a double-click nothing
+                // to mean.
+                .with_menu_on_left_click(false)
                 .build()
                 .map_err(|error| TrayError::Icon(error.to_string()))?;
             remember(record, icon.window_handle() as isize);
@@ -206,11 +210,12 @@ mod platform {
             }
 
             while let Ok(event) = TrayIconEvent::receiver().try_recv() {
-                // A left click opens or focuses the window; the right button
-                // is the menu, which muda handles itself.
-                if let TrayIconEvent::Click {
+                // A double-click opens or focuses the window, as the owner
+                // asked and as Windows tray icons conventionally do; the
+                // right button is the menu, which muda handles itself. A
+                // single left click does nothing.
+                if let TrayIconEvent::DoubleClick {
                     button: tray_icon::MouseButton::Left,
-                    button_state: tray_icon::MouseButtonState::Up,
                     ..
                 } = event
                 {

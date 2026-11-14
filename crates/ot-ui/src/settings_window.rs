@@ -272,6 +272,12 @@ pub struct SettingsWindow {
     /// The title bar's mode as Windows last accepted it: dark, light, or not
     /// set yet (CR-0002).
     title_bar_dark: Option<bool>,
+    /// The window's own handle, taken from the frame each update, for the
+    /// Win32 calls that put the window away and bring it back.
+    window: Option<raw_window_handle::RawWindowHandle>,
+    /// Where the window was when it was parked; `None` while it is showing
+    /// (BUG-0008).
+    parked: Option<ot_platform::window_park::Parked>,
 }
 
 impl SettingsWindow {
@@ -348,6 +354,8 @@ impl SettingsWindow {
             monitors_read: None,
             monitor_missing: false,
             title_bar_dark: None,
+            window: None,
+            parked: None,
         }
     }
 
@@ -805,13 +813,33 @@ impl SettingsWindow {
         });
     }
 
-    fn show_window(&self, ctx: &egui::Context) {
-        ctx.send_viewport_cmd(egui::ViewportCommand::Visible(true));
-        ctx.send_viewport_cmd(egui::ViewportCommand::Focus);
+    /// Bring the settings window back, in front.
+    fn show_window(&mut self, ctx: &egui::Context) {
+        match (self.window, self.parked.take()) {
+            (Some(window), Some(parked)) => {
+                ot_platform::window_park::unpark(window, parked);
+            }
+            _ => {
+                ctx.send_viewport_cmd(egui::ViewportCommand::Visible(true));
+                ctx.send_viewport_cmd(egui::ViewportCommand::Focus);
+            }
+        }
     }
 
-    fn hide_window(&self, ctx: &egui::Context) {
-        ctx.send_viewport_cmd(egui::ViewportCommand::Visible(false));
+    /// Put the settings window away, leaving the app running behind its tray
+    /// icon.
+    ///
+    /// **Parked, not hidden** (BUG-0008): Windows paints no hidden window,
+    /// and without frames nothing drains the tray's clicks or drives a toast.
+    /// Hiding is only the fallback where parking is not possible.
+    fn hide_window(&mut self, ctx: &egui::Context) {
+        if self.parked.is_some() {
+            return;
+        }
+        self.parked = self.window.and_then(ot_platform::window_park::park);
+        if self.parked.is_none() {
+            ctx.send_viewport_cmd(egui::ViewportCommand::Visible(false));
+        }
     }
 
     fn quit(&mut self, ctx: &egui::Context) {
@@ -1389,6 +1417,7 @@ impl eframe::App for SettingsWindow {
         // window asks to be woken. This is also what keeps the process
         // answering the tray while the window is hidden.
         ctx.request_repaint_after(TRAY_POLL);
+        self.window = frame.window_handle().ok().map(|handle| handle.as_raw());
         self.handle_tray(ctx);
         self.drain_images(ctx);
         self.drive_toasts(ctx);

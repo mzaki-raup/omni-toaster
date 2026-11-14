@@ -19,6 +19,7 @@ pub mod title_bar;
 pub mod toast_window;
 pub mod tray;
 pub mod ui_font;
+pub mod window_park;
 
 pub use autostart::{Autostart, AutostartError};
 pub use locale::user_locale;

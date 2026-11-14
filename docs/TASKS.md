@@ -512,7 +512,7 @@ window to open; FEAT-0016 needs both so it has something to re-render.
 - **Depends on:** FEAT-0014
 - **Verified:** the gate, plus the running app — the icon is created, closing the window hides it and the process keeps drawing frames
 - [x] `tray-icon` + `muda`, using the icon already embedded in the exe. `muda` arrives **through** `tray-icon` and is used as `tray_icon::menu`, so the two cannot drift apart; adding it separately would have pinned a second version of the same types
-- [ ] Left-click opens or focuses the settings window. **Written and not clicked from here** — see the App box
+- [ ] ~~Left-click~~ A double-click opens or focuses the settings window (changed by the owner, BUG-0008). **Shown here with the message Windows posts for one; a real double-click is the owner's** — see the App box
 - [x] Right-click menu: Open Settings · Pause All Notifications (30 min · 1 hour · until resumed) · Test Toast · Snooze Last · Quit — each with a glyph, the same glyph for the same verb, chosen in code rather than written into the locale files
 - [x] The menu is **rebuilt** on a language change rather than created once — and on a pause starting or lapsing, which changes which items belong in it
 - [x] Pause state and its expiry visible in the tooltip and the status line; Quit confirms while a pause is active
@@ -524,6 +524,20 @@ window to open; FEAT-0016 needs both so it has something to re-render.
 - **Notes:** Test Toast and Snooze Last have nothing to act on until Phases 2 and 4; they are present and disabled rather than hidden, so the menu's shape does not change under the user later. Pause suppresses toasts and announcements but **never Azan** — that is Settings ▸ Prayer's job.
   **The tray shares the window's thread.** It is created inside the eframe app, so winit's message pump delivers its clicks, and the window asks to be repainted every 120 ms because nothing wakes egui when an event lands in the tray's channel. The question that decided the design was whether a *hidden* window still gets updated: it does. Measured with a temporary counter — 18 frames in the 6 seconds after the window was closed, about 3 a second, Windows throttling it from the 8 the interval asks for. That is far inside what a menu click needs, so there is no second thread and no second message loop.
   **Labels cross the crate boundary as strings.** `ot-platform` owns Windows, not language: the caller resolves every Fluent key and hands over a `Labels`, which is also what makes a language change an ordinary rebuild rather than a special case. The same trade appears in `PauseWindow` versus `ot_core::PauseFor` — two enums naming the same three things so that `ot-platform` need not know about clocks. `the_pause_windows_map_across_the_crate_boundary_without_crossing_over` is there because swapping two of them would mute the app for the wrong length of time and nothing else would notice.
+
+### BUG-0008 · With the settings window closed, nothing in the tray menu worked
+- **State:** In-Progress · **Spec:** docs/specs/tray-and-settings.md §3, §6 · **Phase:** 1
+- **Branch:** feat/phase-1-close
+- **Source:** the owner's tray check, 2026-11-14: "when i click open settings in tray icon, it didn't open the settings. And neither all other action not execute"
+- **Verified:** the gate, and the running app with its window closed
+- [x] Cause, measured: closing the window hid it, and Windows paints no hidden window, so eframe ran **no frames at all** — 65 in three seconds visible, 0 in five hidden. Tray clicks are drained in a frame, so none was ever acted on; a toast due while the window was closed could not have appeared either. The GOTCHAS entry saying a hidden window is "throttled to about three frames a second" was wrong and is corrected
+- [x] Fix: the window is **parked** instead of hidden (`ot_platform::window_park`) — moved off every screen and taken out of the taskbar and Alt+Tab, but still visible to Windows, so the frames keep coming. Opening it puts it back where it was, in front
+- [x] **A double-click on the tray icon opens Settings** (the owner, 2026-11-14), replacing the spec's left-click; a single left click does nothing and the menu is the right button's
+- [x] Test: a handle that is not a Win32 window is not parked, so the caller falls back to hiding. The behaviour itself needs a real window and is the App box
+- [x] Gate: fmt · clippy -D warnings · test --workspace --locked -j 4 · deny check · --self-test
+- [ ] App: **done here** — with the window closed it sat at (−32000, −32000), out of the taskbar, still visible to Windows; a toast fired just before closing timed out on schedule, which needs frames; and the message Windows posts for a tray double-click brought Settings back to (182, 182), in front. **The owner's:** every menu item acting with the window closed, and a real double-click
+- [x] Docs: spec · CHANGELOG · GOTCHAS
+- **Notes:** This would have broken the product, not only the tray: the app's normal state is no window on screen, and in that state it did nothing at all. It went unseen because every check so far was made with the settings window open.
 
 ### CR-0003 · A killed worker leaves a ghost tray icon
 - **State:** In-Progress · **Spec:** docs/specs/tray-and-settings.md §3 · **Phase:** 1
