@@ -84,8 +84,26 @@ tray-icon = { version = "0.24.2", default-features = false }
 toml = "1.2.1"
 serde = { version = "1.0.229", features = ["derive"] }
 
+# Decoding an imported image (FEAT-0021). Default features are off and only
+# the three formats the spec allows are on - PNG, JPEG and WebP - so the exe
+# carries no decoder for a format the app refuses anyway, and the attack
+# surface is the three we validate rather than the twenty the crate can read.
+# Pure Rust, so `+crt-static` and the portable build are unaffected.
+image = { version = "0.25.10", default-features = false, features = [
+    "png",
+    "jpeg",
+    "webp",
+] }
+
+# Content-hashed asset names (docs/05-data-model-and-storage.md).
+sha2 = "0.11.1"
+
 # Test-only.
 tempfile = "3.27.0"
+# Headless layout tests of the real UI (FEAT-0024). Default features off: no
+# `wgpu`, no `snapshot`, so no GPU is needed and none is pulled in - the owner
+# chose layout tests over pixel snapshots.
+egui_kittest = { version = "0.33.3", default-features = false }
 
 [workspace.lints.rust]
 # A crate-wide allow is forbidden by the project rules, so lints that must hold

@@ -51,6 +51,49 @@ language-system = Sama seperti Windows
 language-en-us = English
 language-ms-my = Bahasa Melayu
 
+## Toast. Huruf biasa untuk teks, Huruf Besar Setiap Perkataan untuk tindakan.
+## Hanya label terbina dalam ada di sini: teks peringatan pengguna bukan kunci.
+
+toast-app-name = OmniToaster
+toast-test-title = Toast Ujian
+toast-test-body = Beginilah rupa toast dengan tetapan anda sekarang.
+toast-action-snooze = Tunda
+toast-action-dismiss = Tolak
+toast-action-open = Buka
+
+## Tempat toast muncul: sembilan kedudukan pratetap — empat bucu, empat tepi
+## dan tengah — serta kedudukan tersuai. Ditunjukkan dalam
+## Tetapan ▸ Penampilan.
+
+toast-position-top-left = Kiri Atas
+toast-position-top = Atas
+toast-position-top-right = Kanan Atas
+toast-position-left = Kiri
+toast-position-centre = Tengah
+toast-position-right = Kanan
+toast-position-bottom-left = Kiri Bawah
+toast-position-bottom = Bawah
+toast-position-bottom-right = Kanan Bawah
+toast-position-custom = Kedudukan Tersuai
+# Di bawah pemilih kedudukan, apabila Kedudukan Tersuai dipilih.
+toast-position-custom-hint = Seret pratonton untuk meletakkannya, atau taipkan jarak dari tepi kiri dan atas dalam peratus.
+
+## Sebab imej yang diimport ditolak. Huruf biasa, dan setiap satu menyatakan
+## peraturan yang dilanggar oleh fail itu. $name ialah nama fail itu sendiri.
+
+error-import-too-large = { $name } lebih besar daripada 5 MB, jadi ia tidak diimport.
+error-import-not-an-image = { $name } bukan gambar PNG, JPEG atau WebP, walau apa pun namanya.
+error-import-too-many-pixels = { $name } lebih besar daripada 4096 kali 4096 piksel, jadi ia tidak diimport.
+error-import-undecodable = { $name } tidak dapat dibaca sebagai gambar. Ia mungkin rosak.
+error-import-escapes = { $name } tidak dapat disalin ke dalam folder OmniToaster.
+error-import-unreadable = { $name } tidak dapat dibaca.
+
+## Bentuk toast, ditunjukkan dalam Tetapan ▸ Penampilan.
+
+toast-shape-rectangle = Segi Empat Tepat
+toast-shape-rounded = Segi Empat Bucu Bulat
+toast-shape-pill = Pil
+
 ## Ikon dulang dan menunya. Huruf Besar Setiap Perkataan untuk setiap item,
 ## kerana ia item menu. Glif di hadapan setiap satu dipilih dalam kod.
 
@@ -86,6 +129,97 @@ tray-quit-confirm-stay = Teruskan Berjalan
 
 settings-window-title = Tetapan
 settings-section-general = Umum
+settings-section-appearance = Penampilan
+# Bahagian pustaka gambar: gambar dimuat naik sekali dan digunakan oleh mana-mana pemberitahuan.
+settings-section-pictures = Pustaka Gambar
+
+## Tetapan ▸ Penampilan. Huruf Besar Setiap Perkataan untuk label, huruf biasa
+## untuk petunjuk.
+
+settings-toast-preview = Pratonton
+settings-toast-test = Tunjukkan Toast Ujian
+settings-toast-shape = Bentuk
+settings-toast-radius = Jejari Bucu
+settings-toast-width = Lebar
+settings-toast-opacity = Kelegapan
+settings-toast-border = Sempadan
+settings-toast-shadow = Bayang
+# Di bawah kotak semak Bayang apabila ia dikelabukan kerana bentuknya bukan Segi Empat Tepat.
+settings-toast-shadow-hint = Windows melukis bayang hanya untuk bentuk Segi Empat Tepat.
+settings-toast-background = Latar Belakang
+settings-toast-accent = Warna Aksen
+settings-toast-header = Pengepala
+settings-toast-header-icon = Ikon
+settings-toast-header-app-name = Nama Aplikasi
+settings-toast-header-time = Masa
+settings-toast-position = Kedudukan
+settings-toast-position-custom = Titik Tersuai
+# Berapa lama toast kekal pada skrin, dalam saat (3 hingga 60).
+settings-toast-duration = Tempoh Paparan
+# Petunjuk di bawah peluncur itu.
+settings-toast-duration-hint = Menuding pada toast menjeda kiraan masanya sehingga penuding beralih.
+# Berapa banyak toast boleh dipaparkan serentak (1 hingga 5); yang lain menunggu giliran.
+settings-toast-max-visible = Dipaparkan Serentak
+# Ruang antara satu toast dengan toast seterusnya dalam timbunan, dalam piksel.
+settings-toast-stack-gap = Jarak Antara Toast
+# Label pemilih yang menentukan monitor tempat toast dipaparkan.
+settings-toast-monitor = Monitor
+# Petunjuk di bawah pemilih itu.
+settings-toast-monitor-hint = Toast dipaparkan pada monitor ini. Apabila ia tidak disambungkan, toast dipaparkan pada monitor utama.
+# Pilihan pertama dalam pemilih monitor, dan lalai: monitor yang ditetapkan sebagai utama oleh Windows.
+settings-toast-monitor-primary = Monitor Utama
+# Satu monitor dalam pemilih. $number ialah nombor paparan Windows, $name namanya sendiri, $width dan $height saiznya dalam piksel.
+settings-toast-monitor-option = { $number }: { $name } ({ $width } × { $height })
+# Sama, untuk monitor yang kini menjadi monitor utama.
+settings-toast-monitor-option-primary = { $number }: { $name } ({ $width } × { $height }), Utama
+# Nama monitor yang tidak melaporkan nama, seperti kebanyakan skrin komputer riba. $number ialah nombor paparannya.
+settings-toast-monitor-unnamed = Paparan { $number }
+# Monitor yang dipilih apabila ia tidak disambungkan. $name ialah namanya.
+settings-toast-monitor-missing = { $name } (Tidak Disambungkan)
+settings-toast-position-x = Dari Kiri
+settings-toast-position-y = Dari Atas
+settings-toast-map-hint = Klik titik untuk memilih kedudukan, atau seret untuk meletakkan toast di mana-mana pada skrin.
+settings-toast-test-content = Kandungan Toast Ujian
+settings-toast-test-content-hint = Ini hanya mengubah pratonton dan toast ujian. Setiap pemberitahuan membawa ikon, imej dan warna aksennya sendiri.
+settings-toast-icon = Ikon
+settings-toast-image = Imej
+settings-toast-image-border = Sempadan Sekeliling Imej
+settings-toast-own-accent = Warna Aksen Sendiri
+# Tajuk dialog Buka Windows.
+settings-toast-icon-dialog-title = Pilih ikon untuk pengepala toast
+settings-toast-image-dialog-title = Pilih imej untuk toast
+# Penapis jenis fail dalam dialog Buka.
+settings-toast-image-filter = Gambar (PNG, JPEG, WebP)
+# Tetapan > Pustaka Gambar. Baris di bawah tajuk bahagian.
+settings-library-hint = Muat naik gambar sekali dan gunakannya dalam mana-mana pemberitahuan, sebagai ikon atau imejnya.
+# Butang yang membuka dialog fail untuk menambah gambar ke pustaka.
+settings-library-upload = Muat Naik Gambar
+# Item terakhir setiap pemilih ikon dan imej, yang memuat naik gambar dan memilihnya.
+settings-library-upload-new = Muat Naik Gambar Baharu
+# Tajuk dialog Buka apabila memuat naik dari bahagian Pustaka Gambar.
+settings-library-dialog-title = Pilih gambar untuk pustaka
+# Dipaparkan semasa pustaka sedang dibaca.
+settings-library-loading = Memuatkan gambar…
+# Dipaparkan apabila pustaka belum ada gambar.
+settings-library-empty = Belum ada gambar. Muat naik satu untuk digunakan dalam pemberitahuan.
+# Petua pada medan nama di sebelah setiap gambar.
+settings-library-label-hint = Nama gambar ini dalam setiap pemilih
+# Butang yang membuang gambar daripada pustaka.
+settings-library-remove = Buang
+# Ditanya sebelum membuang gambar yang masih digunakan. $label ialah nama gambar.
+settings-library-in-use = “{ $label }” masih digunakan. Buang juga? Apa-apa yang menggunakannya akan kembali kepada ikon aplikasi atau tanpa imej.
+# Baris di bawah soalan itu, apabila toast ujian di bawah Penampilan memaparkan gambar tersebut.
+settings-library-used-by-test-toast = Toast ujian menggunakannya.
+# Baris di bawah soalan itu, apabila templat pemberitahuan menggunakan gambar tersebut.
+settings-library-used-by-templates = Templat pemberitahuan yang menggunakannya akan kehilangannya.
+# Mengesahkan pembuangan itu.
+settings-library-remove-anyway = Buang Juga
+# Membatalkan pembuangan itu.
+settings-library-keep = Simpan
+# Item pertama pemilih ikon: tiada gambar sendiri, jadi ikon aplikasi.
+settings-library-none-icon = Ikon Aplikasi
+# Item pertama pemilih imej: tiada imej.
+settings-library-none-image = Tiada Imej
 settings-language = Bahasa
 # Di bawah pemilih bahasa. Penukaran berlaku serta-merta, jadi petunjuk ini
 # menerangkan satu-satunya perkara yang pengguna tidak dapat teka: apa yang
@@ -107,6 +241,15 @@ settings-status-paused-until-resumed = Pemberitahuan dijeda sehingga anda menyam
 settings-status-resumed = Pemberitahuan dihidupkan semula.
 settings-status-tray-failed = Ikon dulang tidak dapat dibuat, jadi menutup tetingkap ini ialah satu-satunya jalan keluar: { $reason }
 settings-status-language-failed = Bahasa tidak dapat ditukar: { $reason }
+# Baris status selepas muat naik. $label ialah nama gambar dalam pustaka.
+settings-status-library-added = “{ $label }” telah ditambah ke pustaka gambar.
+# Baris status apabila gambar yang dimuat naik sudah ada dalam pustaka. $label ialah namanya yang sedia ada.
+settings-status-library-already-there = Gambar itu sudah ada dalam pustaka, sebagai “{ $label }”.
+# Baris status selepas gambar dibuang daripada pustaka.
+settings-status-library-removed = Gambar telah dibuang daripada pustaka.
+# Baris status apabila pustaka tidak dapat dibaca atau diubah. $reason ialah punca teknikalnya.
+settings-status-library-failed = Pustaka gambar tidak dapat dikemas kini: { $reason }
+settings-status-dialog-failed = Dialog fail tidak dapat dibuka: { $reason }
 settings-status-saved = Tetapan anda telah disimpan.
 settings-status-autostart-on = OmniToaster akan mula dengan Windows.
 settings-status-autostart-off = OmniToaster tidak akan mula dengan Windows.

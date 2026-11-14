@@ -96,7 +96,8 @@ reminder          (id, category_id, title, body, trigger_type, trigger_json,
                    recurrence_json, next_fire_at, status, created_at, updated_at)
 snooze_log        (id, reminder_id, snoozed_until, count)
 notification_log  (id, reminder_id, fired_at, action, source)
-asset             (id, sha256 PK, kind, relative_path, bytes, created_at)
+asset             (id, sha256 PK, kind, relative_path, bytes, created_at,
+                   label)                                   -- the name the user gave it in the image library
 weather_cache     (location_id, fetched_at, payload_json)
 jakim_zones       (zone_code PK, state_en, state_ms, area_en, area_ms, lat, lon)
 jakim_prayer_cache (zone_code, date, hijri, imsak, fajr, syuruk, dhuha,
@@ -112,8 +113,9 @@ edited once it has shipped; a correction is a new migration.
 | File | Phase | Contents |
 |---|---|---|
 | `001_init.sql` | 0 | `settings`, `location`, `category`, `reminder`, `snooze_log`, `notification_log`, `asset`, `weather_cache` |
-| `002_locale_keys.sql` | 4 | the `category` key columns, `authored_lang`, built-in key identifiers |
-| `003_jakim.sql` | 5 | `jakim_zones`, `jakim_prayer_cache` |
+| `002_asset_label.sql` | 2 | `asset.label`, the name a picture has in the image library |
+| `003_locale_keys.sql` | 4 | the `category` key columns, `authored_lang`, built-in key identifiers |
+| `004_jakim.sql` | 5 | `jakim_zones`, `jakim_prayer_cache` |
 
 Every migration is tested on both a fresh database and an existing one
 ([.claude/rules/testing.md](../.claude/rules/testing.md)).

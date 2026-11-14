@@ -32,9 +32,24 @@ const PROPORTIONAL: &[&str] = &["segoeui.ttf", "tahoma.ttf", "arial.ttf"];
 /// monospace family, so an empty one leaves parts of the UI unreadable.
 const MONOSPACE: &[&str] = &["consola.ttf", "cour.ttf"];
 
+/// The symbol font Windows itself falls back to for glyphs Segoe UI lacks.
+///
+/// Segoe UI has no bell, no clock and no pictographs at all. The tray menu
+/// shows them only because Windows falls back to Segoe UI Symbol behind the
+/// scenes; egui falls back to nothing it was not given, so a glyph there
+/// draws as `?` until this is loaded too. Loading it makes the window draw
+/// the same glyphs the tray already does.
+const SYMBOLS: &[&str] = &["seguisym.ttf"];
+
 /// Read the proportional UI font.
 pub fn proportional() -> Result<Font, FontError> {
     first_of(PROPORTIONAL)
+}
+
+/// Read the symbol fallback. Optional: without it, text still renders and
+/// only the glyphs Segoe UI lacks are missing.
+pub fn symbols() -> Option<Font> {
+    first_of(SYMBOLS).ok()
 }
 
 /// Read the monospace font, falling back to the proportional one.

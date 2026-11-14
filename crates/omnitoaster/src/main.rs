@@ -44,6 +44,16 @@ const KNOWN_FLAGS: &[&str] = &[
     // the guard cannot be tested across processes at all. Debug only.
     #[cfg(debug_assertions)]
     "--hold-ms",
+    // Fires one toast at startup, so the renderer can be looked at without a
+    // tray click. The tray's Test Toast is the real trigger; this is the one
+    // a session with no mouse on the notification area can reach. Debug only.
+    #[cfg(debug_assertions)]
+    "--test-toast",
+    // Scales the UI as a larger display scaling would, for checking a layout
+    // at 150% and 200% without changing the machine's own display settings.
+    // Debug only.
+    #[cfg(debug_assertions)]
+    "--ui-scale",
 ];
 
 fn main() -> ExitCode {
@@ -268,7 +278,20 @@ fn main() -> ExitCode {
         }
     };
 
-    if let Err(error) = ot_ui::settings_window::run(root, settings) {
+    #[cfg(debug_assertions)]
+    let test_toast = args.iter().any(|a| a == "--test-toast");
+    #[cfg(not(debug_assertions))]
+    let test_toast = false;
+
+    #[cfg(debug_assertions)]
+    let ui_scale = value_of(&args, "--ui-scale")
+        .ok()
+        .flatten()
+        .and_then(|text| text.parse::<f32>().ok());
+    #[cfg(not(debug_assertions))]
+    let ui_scale = None;
+
+    if let Err(error) = ot_ui::settings_window::run(root, settings, test_toast, ui_scale) {
         tracing::error!(%error, "the settings window could not be opened");
         eprintln!("OmniToaster cannot show its window: {error}");
         drop(guard);

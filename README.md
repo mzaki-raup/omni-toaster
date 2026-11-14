@@ -76,8 +76,9 @@ everything about them is a setting:
 
 - **Shape:** rectangle, rounded rectangle or pill, with a corner radius of 0–40 px
 - **Size:** width 280–600 px (default 360), height auto or fixed
-- **Colour:** solid or gradient background, border width and colour, shadow off/soft/strong
-- **Transparency:** 40–100 % opacity
+- **Colour:** solid or gradient background, border width and colour, and a shadow
+  for the Rectangle shape
+- **Transparency:** 70–100 % opacity; the whole toast fades, text included
 - **Glass:** none, Blur, Acrylic or Mica-like
 - **Animations:** eight-plus in presets — slide from right, slide from bottom,
   Genie from bottom, pop out, drawer, appear, dissolve, glow, alpha-to-solid —
@@ -88,7 +89,13 @@ everything about them is a setting:
   hover pausing the timer
 - **Header:** icon, title, app name and timestamp, each toggleable
 - **Body:** text with bold and italic, plus an image (PNG, JPG or WebP, up to 5 MB)
-- **Position and stacking:** any corner or edge, a chosen monitor, 1–5 visible at once
+- **Picture Library:** upload a picture once — a mosque, a meeting, an alarm
+  clock — name it, and use it in any notification as its icon or its image.
+  Removing a picture still in use asks first
+- **Position and stacking:** nine presets or a point of your own, on the primary
+  monitor or one you choose, 1–5 visible at once
+- **Accent bar:** on the side of the toast that faces the screen's edge, with
+  that side square
 
 ## Prayer times
 
@@ -198,12 +205,38 @@ for 256 pixels.
 
 ## Screenshots
 
+A toast, as the app paints it — here at the default Bottom Right, so the accent
+bar is on the side facing the screen's edge:
+
+![A toast in the default rounded rectangle](docs/screenshots/toast-dark.png)
+
+The three shapes, each with the side against the screen edge square:
+
+![Rectangle, rounded rectangle and pill toasts](docs/screenshots/toast-shapes.png)
+
+The same toast over a light window is
+[toast-light.png](docs/screenshots/toast-light.png): a toast keeps its own
+colours whatever the window's theme.
+
 Settings ▸ General, the first screen the app has:
 
 ![Settings ▸ General in the Dark theme](docs/screenshots/settings-general.png)
 
 The same pane in Bahasa Melayu is
-[settings-general-ms.png](docs/screenshots/settings-general-ms.png). The rest
+[settings-general-ms.png](docs/screenshots/settings-general-ms.png).
+
+Settings ▸ Appearance, where the preview is drawn by the same code as a real toast:
+
+![Settings ▸ Appearance with the live preview](docs/screenshots/settings-appearance.png)
+
+In Bahasa Melayu: [settings-appearance-ms.png](docs/screenshots/settings-appearance-ms.png).
+
+Settings ▸ Picture Library, where pictures are uploaded once and named:
+
+![Settings ▸ Picture Library with three pictures](docs/screenshots/settings-pictures.png)
+
+In Bahasa Melayu, asking before removing a picture the test toast uses:
+[settings-pictures-ms.png](docs/screenshots/settings-pictures-ms.png). The rest
 are **not captured yet** — the screens do not exist. The places are reserved
 and the capture procedure is written down in
 [docs/screenshots/README.md](docs/screenshots/README.md); each image below is
@@ -211,10 +244,8 @@ taken as its phase lands:
 
 | Image | Shows | Lands in |
 |---|---|---|
-| `docs/screenshots/toast-dark.png` | A toast in the Dark theme | Phase 2 |
 | `docs/screenshots/toast-glass.png` | The Acrylic glass effect | Phase 3 |
 | `docs/screenshots/tray-menu.png` | The tray icon and its menu | Phase 1 |
-| `docs/screenshots/settings-toast.png` | The toast style editor and its live preview | Phase 2 |
 | `docs/screenshots/settings-prayer.png` | Settings → Prayer, zone confirmation and source label | Phase 5 |
 | `docs/screenshots/animation-in.gif` | The in and out animations | Phase 3 |
 | `docs/screenshots/flow-reminder.gif` | Creating a reminder and seeing it fire | Phase 4 |

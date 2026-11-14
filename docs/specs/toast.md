@@ -1,13 +1,29 @@
 # Spec — Toasts
 
-**Status:** approved · **Last updated:** 2026-11-08 · **Source:** [PROPOSAL.md](../../PROPOSAL.md) §8.4–8.6
+**Status:** approved · **Last updated:** 2026-11-13 · **Source:** [PROPOSAL.md](../../PROPOSAL.md) §8.4–8.6
 **Owner crates:** `ot-toast`, `ot-ui` · **Phases:** 2 (core), 3 (glass and animations)
 
 ## 1. Purpose
 
 Everything the user sees when a notification fires. A toast is a borderless,
 transparent, always-on-top viewport that never steals focus and never appears
-in the taskbar or in Alt+Tab. It is **not** a Windows Action Center notification
+in the taskbar or in Alt+Tab.
+
+**Those last two need a Win32 call, not only a viewport builder** (FEAT-0018).
+`egui::ViewportBuilder` gives borderless, transparent, topmost and unfocused,
+but it leaves `WS_EX_TOOLWINDOW` clear and `WS_EX_APPWINDOW` set — a toast in
+Alt+Tab with a taskbar button. `with_taskbar(false)` removes the taskbar
+*button* through the shell's taskbar list; Alt+Tab membership is decided by
+the extended style, so `ot_platform::toast_window` sets the style on the real
+window once it exists. The window is found by title within this process, and
+the title is the app's own name so a language switch cannot move it.
+
+**The window is cut to the toast's shape** (BUG-0007, ADR-015). A rounded or
+pill toast leaves its corners unpainted, and the graphics driver may offer no
+transparent window to show the desktop through them, so each toast window is
+given a Win32 window region from the same corner radii the renderer paints
+with. Each toast's window title carries its id (`OmniToaster 7`) so each can
+be cut to its own shape. The cut edge is whole pixels. It is **not** a Windows Action Center notification
 — the app paints its own, which is what makes the customization possible
 ([01-vision-and-scope.md](../01-vision-and-scope.md) non-goals).
 
@@ -45,14 +61,14 @@ renders without going through a `ToastSpec` is a defect.
 | Height | Auto or fixed | 80–300 px |
 | Shape | Rectangle, rounded rectangle, pill | Corner radius 0–40 px |
 | Background | Solid colour, gradient | |
-| Opacity | Percent | 40%–100% |
+| Opacity | Percent — fades the whole toast, text included (CR-0005) | 70%–100% |
 | Glass effect | None, Blur, Acrylic, Mica-like | Windows 10 1809+; solid fallback otherwise |
 | Border | Width and colour | 0–4 px |
-| Shadow | Off, soft, strong | |
+| Shadow | On or off — Windows' own shadow, which it draws only for the Rectangle shape (CR-0006) | Greyed out for a rounded rectangle or a pill |
 | Header | Icon, title, app name, timestamp | Each toggleable |
 | Body | Text (bold and italic), image | Image max 5 MB; PNG, JPG, WebP |
 | Actions | Snooze, Dismiss, Open | 1–3 buttons |
-| Position | Corner or edge, with a monitor choice | Respects the work area |
+| Position | One of nine presets, or a custom point, with a monitor choice | Respects the work area; a custom point is clamped into it |
 | Stacking | Max visible 1–5, with a gap | |
 
 **Minimums and maximums are enforced in the model, not only in the UI.** A
@@ -62,6 +78,25 @@ warning.
 **Text:** boxes size to content in both languages. A long word wraps, or
 truncates with an ellipsis. Nothing overflows the toast. Layouts are checked
 with the longest Malay string ([10-i18n.md](../10-i18n.md)).
+
+### 4.1 The accent bar
+
+The bar sits on **the side of the toast that faces the edge of the screen**,
+and that side is square; the other sides keep the shape's rounding, or a
+pill's round end (CR-0004, the owner's design):
+
+| Position | Bar | Square | Rounded |
+|---|---|---|---|
+| Top Left, Left, Bottom Left | down the left | the left side | the right side |
+| Top Right, Right, Bottom Right | down the right | the right side | the left side |
+| Top | along the top | the top | the bottom corners |
+| Bottom | along the bottom | the bottom | the top corners |
+| Centre | along the top and the bottom | — | every corner |
+| A custom point | as the preset whose ninth of the work area it falls in | | |
+
+At Centre each bar follows the rounded corners round and stops where the
+curve ends. A pill's corners are its whole ends, so its two bars meet in a
+ring. A pill's text is inset for the curve on its round side or sides only.
 
 **Images:** validated by magic bytes, not by extension. Decoded with a pixel
 limit of 4096 × 4096. Resized to a cached thumbnail. An oversize or corrupt
@@ -89,33 +124,159 @@ the fallback is automatic and logged, never a visible stutter.
 
 ## 6. Duration
 
-- Default 8 seconds, range 3–60 seconds.
+- Default 8 seconds, range 3–60 seconds, set in Settings ▸ Appearance ▸
+  Display Duration in whole seconds (FEAT-0026).
 - A persistent option for urgent types (Alarm, Azan), capped at 10 minutes.
 - Hovering pauses the countdown.
 
 ## 7. Placement, DPI and monitors
 
-- A chosen screen and corner, stacking toward the screen centre, never covering
-  the taskbar (the work area, not the full monitor rect).
+A toast is placed on **a chosen monitor**, at **one of nine presets or at a
+custom point**, inside that monitor's **work area** — never the full monitor
+rect, so a toast never covers the taskbar.
+
+### 7.1 The nine presets
+
+**Four corners, four edges and the centre.** The same nine serve every
+monitor:
+
+```
+┌─────────────────────────────────────────────┐
+│ Top Left            Top            Top Right │
+│                                              │
+│ Left              Centre              Right  │
+│                                              │
+│ Bottom Left       Bottom       Bottom Right  │
+└─────────────────────────────────────────────┘
+```
+
+| Preset | Horizontally | Vertically |
+|---|---|---|
+| **Top Left** | against the left edge | against the top edge |
+| **Top** | centred | against the top edge |
+| **Top Right** | against the right edge | against the top edge |
+| **Left** | against the left edge | centred |
+| **Centre** | centred | centred |
+| **Right** | against the right edge | centred |
+| **Bottom Left** | against the left edge | against the bottom edge |
+| **Bottom** | centred | against the bottom edge |
+| **Bottom Right** | against the right edge | against the bottom edge |
+
+`Bottom Right` is the default: it is where Windows puts its own notifications,
+so it is where people already look.
+
+"Against an edge" means a **margin of 16 px** from it, scaled with the
+monitor's DPI like every other measurement. "Centred" means centred on that
+axis, with no margin involved.
+
+### 7.2 A custom point
+
+The user may place the toast anywhere in the work area instead. The point is
+set two ways, and both drive the same value:
+
+- by **dragging the preview** in Settings ▸ Appearance onto a small map of the
+  chosen monitor;
+- by typing **X and Y** beside it, in percent.
+
+**Stored as a fraction of the work area, not as pixels.** A point kept as
+`(1850, 1010)` is wrong the moment the screen resolution changes, the taskbar
+moves, or the toast is shown on a different monitor; a point kept as
+`(0.96, 0.94)` means the same place on any of them. The fraction addresses the
+toast's **anchor corner**, which is the corner nearest the point, so a toast
+placed near the bottom-right grows up and left rather than off the screen.
+
+A custom point is **clamped so the whole toast stays inside the work area**.
+Clamping happens at paint time against the monitor in use, not once at save
+time, because the monitor can change underneath it.
+
+**There is one custom point, not one per monitor.** It is a fraction, so it
+already means the same place on any screen, and a user who wants one place to
+look should not have to say where twice. Moving the toast to another monitor
+keeps it in the same relative spot there.
+
+### 7.3 Stacking direction
+
+Stacking runs **toward the centre of the work area**, away from the nearest
+edge, so a stack never walks off the screen:
+
+| Position | Toasts stack |
+|---|---|
+| `Top Left`, `Top`, `Top Right` | downward |
+| `Bottom Left`, `Bottom`, `Bottom Right` | upward |
+| `Left`, `Centre`, `Right` | downward |
+| A custom point | away from whichever horizontal edge the anchor is nearer; downward when it is in the vertical middle |
+
+### 7.4 Everything else
+
 - Correct at 100%–250% DPI, per monitor, including a DPI change mid-session and
-  a monitor being unplugged while a toast is visible.
+  a monitor being unplugged while a toast is visible. When the chosen monitor
+  disappears, toasts move to the primary monitor and say so in the log — they
+  are not left on a screen that is no longer there.
 - When more toasts fire than `max visible`, the surplus queues and shows as the
   earlier ones retire.
+- **The monitor choice** is Settings ▸ Appearance ▸ Monitor: Primary Monitor
+  (the default, whichever Windows calls primary at the time) or an attached
+  monitor, listed by display number, its own name and its size. A choice is
+  remembered by the monitor's device path, which survives a reboot and a
+  re-plug; the `\\.\DISPLAYn` name does not. A chosen monitor that is not
+  connected stays chosen and is shown as not connected.
+- The position, the custom point and the monitor choice are global settings,
+  not per-category: a user who wants to know where to look should only have to
+  learn one place.
 
 ## 8. Templates
 
 Each category — Azan per prayer, weather per condition, each reminder type —
-has a template carrying title, body, image, accent colour, sound and style
-overrides, inheriting from a global default. Built-in default text exists in
-both languages, and the editor offers "Use default text" to restore the
-built-in text in the current language. Only user-written text is stored
-([05-data-model-and-storage.md](../05-data-model-and-storage.md)).
+has a template carrying title, body, **icon**, **image**, **accent colour**,
+sound and style overrides, inheriting from a global default. Built-in default
+text exists in both languages, and the editor offers "Use default text" to
+restore the built-in text in the current language. Only user-written text is
+stored ([05-data-model-and-storage.md](../05-data-model-and-storage.md)).
+
+**Every notification can differ** in title, body, icon, image and accent
+colour; Settings ▸ Appearance holds only the *global style* every notification
+inherits — shape, size, opacity, shadow, the default accent, and where toasts
+appear. The two pictures mean different things and are never interchangeable:
+
+| | Where | When absent |
+|---|---|---|
+| **Icon** | The header, beside the title | The app's own icon |
+| **Image** | Inside the content, beside the body text, with an optional border | No image; the body takes the full width |
+| **Accent** | The bar on the side facing the screen edge (§4.1) | The default from Settings ▸ Appearance |
+
+### 8.1 The image library
+
+Pictures are uploaded **once** into a library and then **reused** by any
+template that wants them — a meeting picture for the meeting reminder, a
+mosque for each Azan, an alarm clock for alarms, a clock face for the hourly
+announcement. A template refers to a picture in the library; it never carries
+a copy of its own.
+
+- **Upload** goes through the import path of §4 and
+  `docs/06-security-and-privacy.md` unchanged: size first, magic bytes, a
+  bounded decode, a content-hashed copy under `OmniToasterData/assets/`.
+  Because the copy is named by its hash, the same picture uploaded twice is
+  stored once.
+- Each entry has a **label** the user gives it ("Mosque", "Meeting"), so a
+  template's picker reads as a list of names with thumbnails rather than a
+  list of hashes.
+- The library is **one list for both uses**: any picture may serve as an icon
+  in one template and an image in another.
+- **Removing** a picture that a template still uses asks first and names the
+  templates; the templates then fall back as the table above says, rather
+  than pointing at a file that is gone.
+- Every picker that chooses a picture — the icon and image of every template —
+  chooses **from the library**, with "Upload a New Picture" at the end of the
+  list so nobody has to leave the editor to add one.
 
 ## 9. Fluent keys
 
 Prefix `toast-`. Built-in labels and actions only: `toast-action-snooze`,
 `toast-action-dismiss`, `toast-action-open`, `toast-snoozed-until`,
-`toast-app-name`. Per-category default titles and bodies live under their own
+`toast-app-name`. The nine positions are `toast-position-` plus the preset's
+own name — `top-left`, `top`, `top-right`, `left`, `centre`, `right`,
+`bottom-left`, `bottom`, `bottom-right` — and the custom option is
+`toast-position-custom`. Per-category default titles and bodies live under their own
 prefix (`prayer-`, `weather-`, `reminder-`). User text is never a key.
 
 ## 10. Threading
@@ -128,8 +289,15 @@ start ([.claude/rules/threads-and-scheduling.md](../../.claude/rules/threads-and
 
 ## 11. Verification
 
-- Snapshot tests per shape, in both languages, with the longest Malay strings.
-- A pseudo-locale build (~40% longer) to catch layout breakage.
+- Layout tests, not pixel snapshots (the owner's decision, FEAT-0024): every
+  shape's content rect and every line of its text stay inside the toast at
+  100%, 150% and 200%, with the longest Malay strings and the pseudo-locale;
+  and `crates/ot-ui/tests/layout.rs` drives the real Appearance controls with
+  `egui_kittest` — no window, no GPU — and fails if any widget runs past the
+  pane, in English, Malay and the pseudo-locale, at the default width and the
+  narrow minimum. Colour and paint are checked in the running app.
+- The pseudo-locale (~40% longer) is `ot_i18n::set_pseudo`: every looked-up
+  string bracketed and padded, for layout tests; the app never turns it on.
 - Every shape at 100%, 150% and 200% DPI with no overflow — **in the running
   app**, because this is what Phase 2's exit criteria ask for.
 - Each animation at 60 fps on the reference machine, and its fallback forced.
@@ -141,11 +309,91 @@ cargo run -p omnitoaster -- --data-dir ./tmp-data
 
 ## 12. Open questions
 
-1. Whether "pill" shape earns its place alongside rounded rectangle, or is just
-   radius 40 under another name.
+1. ~~Whether "pill" shape earns its place alongside rounded rectangle, or is
+   just radius 40 under another name.~~ **Answered (FEAT-0017): it earns its
+   place.** A pill's radius is half its height, so it stays a pill as the
+   toast grows; a fixed radius of 40 stops being half the height the moment
+   the toast is taller than 80 px. The shape decides its own radius —
+   rectangle is always 0, pill is always half the height, and only the rounded
+   rectangle uses the number on the slider.
 2. Whether Genie's mesh warp is affordable on integrated graphics, or should be
    gated behind a capability check rather than a frame-time fallback.
 
-## What is implemented (2026-11-08)
+## What is implemented (2026-11-09)
 
-Nothing. Phase 2 has not started; this file is the requirement.
+**The image library** (FEAT-0025). Settings ▸ Picture Library lists every
+upload with its thumbnail and an editable name — the file's own name to
+start with — and a Remove button. Uploads go through §4's import path
+unchanged and are recorded in the `asset` table with their `label`; the
+same picture uploaded twice keeps its first name. The icon and image
+pickers of Test Toast Content choose from it, with "Upload a New Picture"
+last. Removing a picture in use asks first: the test toast is named, and
+templates are counted from `category.image_id` (they have no names to
+list until Phase 4). A confirmed removal deletes the row — `ON DELETE SET
+NULL` clears every template's reference in the same statement — and then
+the file. All of it runs on the `image-library` thread with its own
+connection.
+
+**Settings ▸ Appearance** (FEAT-0023). Shape, radius, width, opacity, border,
+shadow, background and accent colours, header switches, and the position
+picker with a map of the monitor: nine dots to click for the presets, and the
+toast drawn where it will land, which can be dragged anywhere for a custom
+point. The preview is drawn by `Prefs::spec`, `render::frame` and
+`content::draw` — the same function and the same two painters as a real toast
+— and was checked side by side against one. The style is saved to the
+`[toast]` table of `settings.toml` when the pointer is released.
+
+**Stacking controls** (FEAT-0022). Settings ▸ Appearance sets how many toasts
+show at once (Visible at Once, 1–5) and the gap between them (0–40 px), under the
+position map. The Custom Point fields sit below the map too, so that choosing a
+custom point by dragging never moves the map under the pointer.
+
+**Text colour.** A toast's text takes the Dark palette's colours on a dark
+background and the Light palette's on a light one, judged by the background's
+luminance (a gradient by both ends) — never by the window's theme, which a
+toast does not follow.
+
+**Placement** (FEAT-0022, in part). The nine presets and the custom point, in
+`ot_toast::placement`, worked out against the chosen monitor's work area with
+no screen in sight so the arithmetic can be tested against a table — including
+a monitor with a **negative** origin, which is the case a routine written
+against the primary monitor's rect gets wrong. `ot_platform::monitors` asks
+Windows for the work areas and reports them in points. The work area is read
+every frame rather than cached, so a monitor unplugged mid-toast falls back to
+the primary one. The two ways of *setting* a custom point are controls, and
+land with the Appearance pane.
+
+**The header and the body** (FEAT-0020). The category mark, the title, and
+the app name and time on the header's right-hand side; the body beneath,
+wrapped at word boundaries and truncated with an ellipsis when even wrapping
+cannot fit it. The app's own labels are laid out first and get their room; the
+title is user text and is what truncates. The timestamp is formatted by the
+caller, because a spec holds text and never keys. Body emphasis is bold or
+italic for the body **as a whole** — a markup language inside a notification
+body waits until something asks for it.
+
+**The renderer** (FEAT-0019). Shape, radius, solid and gradient background,
+opacity, border, shadow and an accent bar down the leading edge, all from the
+spec and nothing else. A gradient is a mesh painted over a rounded fill,
+because egui has no rounded gradient fill; a pill insets its content further
+than a rectangle, because its round ends would clip the first glyph. Checked
+in the running app: every shape at 100%, 150% and 200%, in Malay, with nothing
+overflowing.
+
+**The viewport** (FEAT-0018). One deferred viewport per toast, keyed on the
+toast's own id so it keeps one window instead of getting a new one each frame.
+Several live at once, which is what stacking needs. Hovering pauses the
+countdown, and the surplus beyond `max visible` queues rather than being
+dropped — a queued toast starts its countdown when it appears, not when it was
+pushed, or one that waited behind four others would arrive already expired.
+
+**`ToastSpec` and its limits** (FEAT-0017). The model in `ot_toast::spec`,
+with every limit in §4's table enforced by `ToastSpec::clamped` rather than by
+the UI: the model is what the renderer trusts, and a settings file edited by
+hand is as real an input as a slider. Each clamp logs the field and both
+values. A non-finite value takes the field's default instead, because
+`f32::clamp` keeps a NaN and a NaN width draws a toast of no size.
+
+Images are FEAT-0021; where the toast
+appears is FEAT-0022, which is also where the nine presets and the custom
+point of §7 are built.

@@ -8,6 +8,9 @@
 //! See `docs/05-data-model-and-storage.md` for the schema and
 //! `docs/03-architecture.md` for where this crate sits.
 
+pub mod assets;
+pub mod library;
+
 use std::path::{Path, PathBuf};
 
 use rusqlite::{Connection, OptionalExtension as _, params};
@@ -16,11 +19,18 @@ use rusqlite::{Connection, OptionalExtension as _, params};
 ///
 /// The number is the `PRAGMA user_version` the migration takes the database to.
 /// Adding one here is the whole of registering it.
-const MIGRATIONS: &[(i64, &str, &str)] = &[(
-    1,
-    "001_init.sql",
-    include_str!("../migrations/001_init.sql"),
-)];
+const MIGRATIONS: &[(i64, &str, &str)] = &[
+    (
+        1,
+        "001_init.sql",
+        include_str!("../migrations/001_init.sql"),
+    ),
+    (
+        2,
+        "002_asset_label.sql",
+        include_str!("../migrations/002_asset_label.sql"),
+    ),
+];
 
 /// The database file, relative to the data root.
 const DB_RELATIVE_PATH: &str = "data/omnitoaster.db";
@@ -194,7 +204,7 @@ mod tests {
     #[test]
     fn a_fresh_database_migrates_to_the_latest_version() {
         let store = Store::open_in_memory().expect("opens");
-        assert_eq!(store.schema_version().expect("version"), 1);
+        assert_eq!(store.schema_version().expect("version"), 2);
     }
 
     #[test]
@@ -235,18 +245,49 @@ mod tests {
         {
             let store = Store::open(dir.path()).expect("first open");
             store.set_setting("theme", "dark").expect("write");
-            assert_eq!(store.schema_version().expect("version"), 1);
+            assert_eq!(store.schema_version().expect("version"), 2);
         }
 
         // Re-opening must not re-run 001 — which would fail on the existing
         // tables — and must leave the data alone.
         let store = Store::open(dir.path()).expect("second open");
-        assert_eq!(store.schema_version().expect("version"), 1);
+        assert_eq!(store.schema_version().expect("version"), 2);
         assert_eq!(
             store.setting("theme").expect("read").as_deref(),
             Some("dark"),
             "re-opening must not touch existing data"
         );
+    }
+
+    #[test]
+    fn a_version_1_database_gains_the_label_and_keeps_its_rows() {
+        // The existing-database half of the migration test: a file built by
+        // 001 alone, with an asset in it, opened by this build.
+        let dir = tempfile::tempdir().expect("temp dir");
+        std::fs::create_dir_all(dir.path().join("data")).expect("mkdir");
+        {
+            let conn =
+                Connection::open(dir.path().join(DB_RELATIVE_PATH)).expect("a version 1 file");
+            conn.execute_batch(MIGRATIONS[0].2).expect("001");
+            conn.pragma_update(None, "user_version", 1i64)
+                .expect("version 1");
+            conn.execute(
+                "INSERT INTO asset (sha256, kind, relative_path, bytes, created_at) \
+                 VALUES ('abc', 'image', 'assets/abc.png', 3, '2026-11-10')",
+                [],
+            )
+            .expect("an old row");
+        }
+
+        let store = Store::open(dir.path()).expect("migrates");
+        assert_eq!(store.schema_version().expect("version"), 2);
+        let label: String = store
+            .connection()
+            .query_row("SELECT label FROM asset WHERE sha256 = 'abc'", [], |row| {
+                row.get(0)
+            })
+            .expect("the old row is still there");
+        assert_eq!(label, "", "an old row gets an empty label, not a failure");
     }
 
     #[test]
@@ -287,7 +328,7 @@ mod tests {
                 error,
                 StoreError::FromTheFuture {
                     found: 99,
-                    known: 1
+                    known: 2
                 }
             ),
             "got {error:?}"

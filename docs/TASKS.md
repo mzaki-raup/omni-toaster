@@ -133,6 +133,286 @@ Change Request : CR-0002
 
 ---
 
+## v0.2.0 — Done 2026-11-14
+
+Phase 2, Toast Core. Every item below is `Completed`; how the exit criteria
+were met is under Phase 2 in [CHECKLIST.md](CHECKLIST.md). The Phase 2 exit criteria from `docs/07-roadmap.md`:
+every shape renders correctly at 100%, 150% and 200% DPI in both languages
+with no overflow, and the preview matches the real toast.
+
+Ordered by dependency: FEAT-0017 is the model everything else draws, so it
+comes first; FEAT-0018 gives it a window to live in and FEAT-0019 paints it;
+FEAT-0020 and FEAT-0021 fill it with content; FEAT-0022 decides where it goes;
+FEAT-0023 shows it inside Settings, which is the half of the exit criteria
+that cannot be met by the renderer alone; FEAT-0024 is the evidence.
+
+**The rule that governs the whole phase**: the renderer draws a `ToastSpec`
+and nothing else. The preview and a real toast therefore cannot diverge, and
+anything that renders without going through a `ToastSpec` is a defect, not a
+shortcut (`docs/specs/toast.md` §3).
+
+### FEAT-0017 · `ToastSpec`, and its limits enforced in the model
+- **State:** Completed · **Spec:** docs/specs/toast.md §3, §4 · **Phase:** 2
+- **Branch:** feat/phase-2-toast
+- **Verified:** the gate — 11 tests over the model, including the hand-edited-file case
+- [x] `ToastSpec` with its four parts — content, style, animation, behaviour — as `docs/specs/toast.md` §3 names them
+- [x] Every limit in §4's table enforced **on construction and on load**, not only in the UI: width 280–600, height 80–300, radius 0–40, opacity 40–100%, border 0–4, duration 3–60 s, persistent capped at 10 minutes, 1–5 visible toasts, 1–3 actions
+- [x] A settings file edited by hand to width 20 is clamped, with a logged warning naming the field and both values
+- [x] Defaults that match the spec's table, so a spec with nothing set is a usable toast
+- [x] Test: every field clamps at both ends; a round trip through TOML keeps what it was given; a hand-edited out-of-range value loads clamped rather than refused
+- [x] Gate: fmt · clippy -D warnings · test --workspace --locked -j 4 (131 tests) · deny check · --self-test
+- [x] App: not applicable on its own — nothing renders yet. The App box belongs to FEAT-0019
+- [x] Docs: spec · CHANGELOG
+- **Notes:** Clamping belongs in the model because the model is what the renderer trusts. A UI that clamps and a file that does not is the same defect wearing a hat.
+  **A NaN is replaced by the default rather than clamped.** `f32::clamp` panics on a NaN bound and quietly keeps a NaN value, so a NaN width would reach the renderer intact and draw a toast of no size at all. Every non-finite value takes the field's default and says so in the log.
+  **The spec's first open question is answered here:** a pill is its own shape, not radius 40 under another name. Its radius is half its height, so it stays a pill as the toast grows; a fixed 40 stops being half the height the moment it does. `a_pill_stays_a_pill_at_any_height_and_a_rectangle_stays_square` is the test, and `docs/specs/toast.md` §12 now records the answer.
+
+### FEAT-0018 · The toast viewport
+- **State:** Completed · **Spec:** docs/specs/toast.md §1, §7 · **Phase:** 2
+- **Branch:** feat/phase-2-toast
+- **Depends on:** FEAT-0017
+- **Verified:** the gate, plus the real window's extended style read back from Win32 while a toast was on screen
+- [x] A borderless, transparent, always-on-top viewport that **never steals focus** and appears in neither the taskbar nor Alt+Tab
+- [x] Opening and closing one on demand, with more than one alive at once — a deferred viewport per toast, keyed on the toast's own id so it keeps one window rather than getting a new one each frame
+- [x] It is not a Windows Action Center notification: the app paints its own
+- [x] Test: the viewport builder carries the flags the spec names, so a later edit that drops one fails rather than being noticed by a user. Plus the queue, the hover pause and dismissal, which are the behaviours around it
+- [x] Gate: fmt · clippy -D warnings · test --workspace --locked -j 4 (139 tests) · deny check · --self-test
+- [x] App: a toast appears over a full-screen window, takes no focus from what is being typed into, and is absent from Alt+Tab. **Two of the three are done:** the window's extended style was read back from Win32 with a toast on screen — `WS_EX_TOPMOST` set, `WS_EX_TOOLWINDOW` set, `WS_EX_APPWINDOW` clear, `WS_EX_NOACTIVATE` set, and the foreground window was not the toast. **Over a full-screen window** needs someone to put one there, so it stays open **The third, done by the owner (2026-11-13):** a toast over a full-screen application, typing into it uninterrupted — passed.
+- [x] Docs: spec · CHANGELOG · GOTCHAS
+- **Notes:** eframe's second viewport is the obvious route; whether an always-on-top no-focus window is reachable through `ViewportBuilder` alone or needs a Win32 call in `ot-platform` is the thing to establish first, and the answer belongs in the spec.
+  **Answered: `ViewportBuilder` gets most of the way and not all of it.** Measured on the built window — borderless, transparent, topmost and unfocused all came out right, but `WS_EX_TOOLWINDOW` was **clear** and `WS_EX_APPWINDOW` was **set**, which is a toast in Alt+Tab and a taskbar button. `with_taskbar(false)` removes the taskbar *button* through the shell's taskbar list; Alt+Tab membership is decided by the extended style, so the style is what has to change. `ot_platform::toast_window::make_unobtrusive` sets it on the real window, found by title within this process. The spec's §1 now says so rather than leaving the next person to find it with Alt+Tab.
+  **The title is the app's own name and never changes with the language**, which is what makes that lookup safe: a toast window is found by a string that a language switch cannot move.
+  **Hovering pauses the countdown** (§6), which means a paused toast is one whose clock is not running rather than one running slowly — `elapsed()` adds nothing while the pointer is over it.
+  **The surplus queues rather than being dropped**, and a queued toast starts its countdown when it *appears*, not when it was pushed. Otherwise a toast that waited behind four others would arrive already expired and flash past unread.
+
+### FEAT-0019 · Shape, radius, colour, opacity, border and shadow
+- **State:** Completed · **Spec:** docs/specs/toast.md §4 · **Phase:** 2
+- **Branch:** feat/phase-2-toast
+- **Depends on:** FEAT-0018
+- **Verified:** the gate, plus every shape photographed at three UI scales in Malay
+- [x] Rectangle, rounded rectangle and pill, each drawn from the `ToastSpec` alone
+- [x] Corner radius 0–40, solid and gradient backgrounds, opacity 40–100%, border 0–4 px, shadow off / soft / strong
+- [x] Nothing hard-codes a colour: the palette comes from the theme and the spec's accent overrides exactly what the template says it does
+- [x] Test: `egui_kittest` snapshots per shape, in both languages, with the longest Malay strings — **FEAT-0024's job**, done there as layout tests (the owner's choice over pixel snapshots): every shape's content rect and text at 1×, 1.5× and 2×. which is the item that brings `egui_kittest` in. What this item has instead is the arithmetic: opacity, the content rect per shape, and the shadow settings
+- [x] Gate: fmt · clippy -D warnings · test --workspace --locked -j 4 (145 tests) · deny check · --self-test
+- [x] App: every shape at 100%, 150% and 200% DPI, in both languages, with no overflow. **Done for Malay, which is the language that decides a layout** — all three shapes at all three scales, nothing overflowing, the longest label fitting, the accent scaling with the rest. English was then seen at 1.5× and 2× too (2026-11-10): all three shapes, nothing clipped, the body wrapping at word boundaries. One gap: the scales come from `--ui-scale`, which scales the window *and* its content exactly as display scaling does but is not literally the Windows setting. Changing that setting is the owner's, and it is what closes this box **Closed by the owner (2026-11-13):** every shape at 100%, 150% and 200% through the real Windows display-scaling setting, both languages, including a change of scaling with a toast on screen — passed. That run is also what found the black corners (BUG-0007).
+- [x] Docs: spec · CHANGELOG · GOTCHAS. **README screenshot waits** for FEAT-0020's header and body: a screenshot of a toast showing only its title would be out of date within the phase
+- **Notes:** Settles the spec's first open question — whether pill earns its place beside rounded rectangle, or is radius 40 under another name. FEAT-0017 answered it in the model; this item is where it shows: a pill stays a pill at 120 px and at 240 px, which a fixed radius does not.
+  **A pill insets its content further than a rectangle**, because its ends are round and text inset by the same padding would have its first glyph clipped by the curve.
+  **The accent is a bar down the leading edge** rather than a repaint of the whole toast: it is the one place a category's colour shows without taking the rest of the palette with it.
+  **A gradient is a mesh over a rounded fill.** egui has no rounded gradient fill, so the shape is filled with the end colour first and the mesh paints the body inset by the corner radius — anything the mesh does not reach keeps the fill, which is what makes the corners survive.
+  **`Color32` stores premultiplied alpha**, so reading a channel back after `from_rgba_unmultiplied` gives the premultiplied value and not the one that went in — 0x3b at 40% reads as 24. The test compares against the colour egui itself would build rather than against the channels; the first version of it failed for this reason and the behaviour was right all along.
+
+### FEAT-0020 · Header, text and the ellipsis rules
+- **State:** Completed · **Spec:** docs/specs/toast.md §4 · **Phase:** 2
+- **Branch:** feat/phase-2-toast
+- **Depends on:** FEAT-0019
+- **Verified:** the gate, plus both languages photographed with a body long enough to wrap
+- [x] Header: icon, title, app name, timestamp, each toggleable, the timestamp through `ot_i18n`'s one formatter — **formatted by the caller**, because a spec holds text and never keys, and `ot-i18n` owns the only thing that may turn a time into text. Visible in the captures: English reads `9:37 pm`, Malay `21:37`
+- [x] Body text with bold and italic. **As a whole, not per segment:** a markup language inside a notification body is a thing to add when something asks for it
+- [x] Boxes size to content in both languages; a long word wraps or truncates with an ellipsis, and **nothing overflows the toast**
+- [x] An ellipsis is for user text that can be any length, never for the app's own labels while there is room — the app name and the time are laid out first and get their room; the title takes what is left and is the thing that truncates
+- [x] Test: the longest Malay strings in every slot; a single unbroken 200-character word; the pseudo-locale (about 40% longer) catching what Malay does not
+- [x] Gate: fmt · clippy -D warnings · test --workspace --locked -j 4 (151 tests) · deny check · --self-test
+- [x] App: a long Malay title, a long body and a long app name together, at each DPI. **Both languages are done at 100%** with a body long enough to wrap twice; the three-scale sweep was run for FEAT-0019's frame and is worth repeating once the content is final rather than twice. **English at 1.5× and 2× done** (2026-11-10) with a body long enough to wrap; **A long title, a long app name and a long body together, in both languages at 1×, 1.5× and 2×, done** (2026-11-12): the first debug sample toast now carries all three, and at every scale the title gives way with an ellipsis, the app name and the time stay whole, and the body takes its three lines with nothing overflowing. The scales are `--ui-scale`'s; the real Windows setting is the owner's and is all that keeps this box open **Closed by the owner (2026-11-13):** the long-content sample at 100%, 150% and 200% through the real Windows setting, both languages — passed.
+- [x] Docs: spec · CHANGELOG · GOTCHAS
+- **Notes:** Malay runs up to 30% wider than English, so the Malay layout is the one that decides the design, not the English one.
+  **`break_anywhere` is not the answer to a long word.** It sounds like it — a 200-character word has nowhere to wrap — but it applies to *everything*, so ordinary prose came out broken mid-word: "with your curren / t settings". egui already breaks a word that cannot fit a line of its own, so the flag is off and both cases are covered.
+  **The first version of these tests proved nothing.** `FontDefinitions::default()` is empty in this build, because `default_fonts` is off (ADR-014) — so every glyph measured zero wide, nothing ever wrapped, and the assertions passed on text that had not been laid out. The test context now installs the machine's own UI font, and `the_test_context_has_a_font_that_measures_something` is there so the same mistake cannot come back quietly.
+
+### FEAT-0021 · Images on a toast
+- **State:** Completed · **Spec:** docs/specs/toast.md §4, docs/06-security-and-privacy.md · **Phase:** 2
+- **Branch:** feat/phase-2-toast
+- **Depends on:** FEAT-0020
+- **Verified:** the gate — nine tests over the import path, one per rule it enforces
+- [x] The import path in the order security.md fixes it: size limit **before reading**, format by **magic bytes** not extension, canonicalized source and destination, copy in under a content-hashed name, bounded decode at 4096 × 4096
+- [x] A thumbnail cached under the data folder and treated as derived data, never as the source of truth. **Ticked too early:** until 2026-11-14 the thumbnail was rebuilt from the picture every time and never written anywhere. Now cached under `cache/thumbs/<hash>-<size>.png`, read back if it decodes, rebuilt if it is missing or corrupt, and removed with its picture — three tests, and the running app left a thumbnail per library picture
+- [x] Decoding and resizing happen off the UI thread; the result arrives through a bounded channel drained at frame start. The Windows Open dialog runs on a worker thread too, because `IFileOpenDialog::Show` runs its own modal loop on whatever thread calls it; the import follows on the same thread. Checked: the settings window kept drawing frames while the dialog was open
+- [x] An oversize, corrupt or mislabelled file is rejected with a localized message naming the reason — it must not hang or exhaust memory
+- [x] Test: a `.png` that is not a PNG is refused; a 6 MB file is refused before it is read; a traversal path cannot land outside `OmniToasterData/assets/`; a decode bomb is bounded
+- [x] Gate: fmt · clippy -D warnings · test --workspace --locked -j 4 (174 tests) · deny check · --self-test
+- [x] App: import a real image, see it on a toast, and see a rejected one explain itself in both languages. **All three done.** The refusal was seen on 2026-11-10, once FEAT-0025's dialog helper could deliver a file: a text file named `fake.png`, uploaded through the Picture Library, put "fake.png is not a PNG, JPEG or WebP picture, whatever its name says." on the status line in red in English, and its Malay counterpart in Malay. Before that: a picture chosen through the dialog was imported, decoded and drawn — as the header icon and as the body image, separately — on the preview and on a real toast. The refusal message has not been seen on screen: the scripted dialog proved too unreliable to deliver a chosen file, and the rules are proven by test instead (a fake PNG, an oversize file, a decode bomb, a traversal, a RIFF that is not a WebP)
+- [x] Docs: spec · CHANGELOG · CHECKLIST · GOTCHAS
+- **Notes:** The first feature in the project that takes a file from outside. Every step above is a requirement from `docs/06-security-and-privacy.md`, not a suggestion, and the decoder choice has to keep the static build and `cargo deny` clean.
+  **The decoder is `image` with default features off and only `png`, `jpeg` and `webp` on** (the owner's call, 2026-11-09). Pure Rust, so `+crt-static` and the portable exe are unaffected; MIT/Apache-2.0, so `deny.toml` needed nothing; and the exe carries no decoder for a format the app refuses anyway, which makes the attack surface the three formats we validate rather than the twenty the crate can read. `sha2` comes with it for the content-hashed names the schema already expects.
+  **The bomb is refused on its header, not its pixels.** A PNG claiming 50000 × 50000 is a few dozen bytes on disk and 10 GB decoded; `into_dimensions` reads the header alone, so the refusal costs nothing and nothing ever allocates for it. The decode check runs *before* the copy, so a bomb never reaches the data folder at all.
+  **"RIFF" alone is not a WebP** — a RIFF wave file starts with the same four bytes, so the payload tag at offset 8 is what settles it. Sniffing the container alone would accept an audio file as a picture.
+  **The keys are `error-import-*`, not `import-error-*`.** The project's own key-prefix test refused the first spelling: `import-` is not a documented prefix and an import failure is an error, so it belongs under the prefix that already exists. The test said so before a human had to.
+
+### FEAT-0022 · Placement, DPI, monitors and stacking
+- **State:** Completed · **Spec:** docs/specs/toast.md §7 · **Phase:** 2
+- **Branch:** feat/phase-2-toast
+- **Depends on:** FEAT-0019
+- **Verified:** the gate, plus three live toasts whose window rects were read back from Win32 and matched the arithmetic to the pixel
+- [x] A chosen screen, worked out from **that monitor's work area** and never from the primary monitor's rect. **Ticked too early:** the arithmetic took a chosen monitor, but nothing let anyone choose one, so every toast went to the primary monitor. The owner's second-monitor check caught it on 2026-11-13; the box below is the missing half
+- [x] **The nine presets** of `docs/specs/toast.md` §7.1 — four corners, four edges and the centre — with Bottom Right the default, a 16 px DPI-scaled margin against an edge, and no margin on an axis the preset centres on
+- [x] **A custom point** (§7.2): set by dragging the preview onto a map of the chosen monitor *and* by typing X and Y in percent, the two driving one value. Both checked in the app (2026-11-10): typing 25 and 10 put a real toast's top-left at (480, 98), exactly 25% and 10% of the 1920×984 work area; dragging on the map stored the release point (60.9%, 66.5%) and a real toast's bottom-right landed at (1170, 654), the same point. Two defects found and fixed on the way: the Custom Point row appeared *above* the map mid-drag and pushed the map down under the pointer, and the two fields showed different decimal counts
+- [x] A custom point is stored as a **fraction of the work area**, not as pixels, so it means the same place after a resolution change, a taskbar move, or a move to another monitor
+- [x] The fraction addresses the toast's **anchor corner** — the corner nearest the point — so a toast placed near an edge grows inward rather than off the screen
+- [x] A custom point is clamped so the whole toast stays inside the work area, clamped **at paint time** against the monitor in use rather than once at save time
+- [x] **One custom point, not one per monitor** (the owner's call, 2026-11-09): it is a fraction, so it already means the same place on any screen, and moving the toast to another monitor keeps it in the same relative spot there
+- [x] Never covers the taskbar; stacks toward the centre of the work area, per §7.3's table
+- [x] **Settings ▸ Appearance ▸ Monitor** (2026-11-13): Primary Monitor by default — whichever Windows calls primary at the time — or any attached monitor, listed by number, its own (EDID) name and its size, so two identical monitors can be told apart. A choice is remembered by the monitor's **device path**, which survives a reboot and a re-plug, not by `\\.\DISPLAY2`, which Windows renumbers. A chosen monitor that is not connected stays chosen and is shown as "(Not Connected)" while toasts go to the primary one. The position map draws the chosen monitor. Checked: this machine's one monitor listed as "1: Display 1 (3840 × 2160), Primary" (it reports no name); choosing it saved `\\?\DISPLAY#MS_0001#…`; a saved monitor that is not here showed as "DELL U2720Q (Tidak Disambungkan)" in Malay and a test toast landed at the primary monitor's bottom right. The monitor list is read at most once a second rather than every frame
+- [x] When the chosen monitor disappears, toasts move to the primary one and say so in the log — **once**, when it goes and when it comes back, not on every frame
+- [x] 1–5 visible with a configurable gap; the surplus queues and appears as earlier ones retire. The model had both but no control set them; Settings ▸ Appearance now has Visible at Once (1–5) and Gap Between Toasts (0–40 px). Checked: at 5 and 16 px, five real toasts stood 136 px apart (120 + 16) and both values reached `settings.toml`; with seven fired, five showed and the log shows a window created for each queued toast at the moment one retired
+- [x] Correct from 100% to 250% DPI, including a DPI change mid-session and a monitor unplugged while a toast is visible. **Not checked:** this machine has one monitor at 100% (`\\.\DISPLAY2`, work area 1920×984 at scale 1.0), so a DPI change and an unplug are the owner's to make. The work area is re-read every frame rather than cached, which is what makes an unplug survivable **Since then (owner, 2026-11-13 and 2026-11-14):** a DPI change with a toast on screen passed; a second monitor chosen in Settings, toasts placed on it at several presets, the monitor unplugged with a toast up and the next toast on the primary monitor, and plugged back in — passed. Not reported: the stack of five at 250%. **And the stack of five at 250%, passed (owner, 2026-11-14).**
+- [x] Test: the placement arithmetic against a table of work areas, positions and DPI scales, including a monitor whose origin is negative — the second-monitor case that catches a primary-rect assumption
+- [x] Test: each of the nine presets lands against the edges it names and is centred on the axes it centres on — `Top` centred horizontally against the top, `Left` centred vertically against the left, `Centre` centred on both
+- [x] Test: a custom fraction resolves to the same relative place on a 1920×1080 and a 3840×2160 work area, and a fraction of 1.0 still leaves the whole toast inside it
+- [x] Gate: fmt · clippy -D warnings · test --workspace --locked -j 4 · deny check · --self-test
+- [x] App: each of the nine presets at 100%, 150% and 200%; a custom point placed by dragging and by typing; a stack of five; **a second monitor and a 250% display are checks this machine cannot make** — it has one monitor at 100%, which is now a recorded fact rather than a guess. What was checked: three live toasts at the default Bottom Right, their window rects read back from Win32 — right edge 1904 (1920 − 16), bottom 968 (984 − 16), stacking upward 128 apart (120 + 8), none over the taskbar. Picking the other presets needs the Appearance pane (FEAT-0023). Since then (2026-11-10): a custom point by dragging and by typing, and a stack of five, both checked. **The other eight presets, done** (2026-11-12): three real toasts at each, window rects read back from Win32 at 1×, 1.5× and 2× (`--ui-scale`) — corners 16 from both edges, edge presets centred on their edge, Centre centred, every stack growing away from the nearest edge 128 apart. That run was on a 3840×2160 display at 100% (work area 3840×2064), which this machine had that day in place of the 1920×984 one; the arithmetic held on both. Still open: the two checks this machine cannot make **The second monitor, done by the owner (2026-11-14):** passed, as above. What remains is the stack of five at 250%. **The stack of five at 250% passed too (owner, 2026-11-14), which closes this box.**
+- [x] Docs: spec · CHANGELOG · CHECKLIST · GOTCHAS
+- **Notes:** All monitor and work-area queries are Win32, so they live in `ot-platform` behind a capability-named interface, with the arithmetic in `ot-toast` where it can be tested without a screen.
+  **Nine presets — four corners, four edges and the centre — and a custom point are the owner's requirement, asked for on 2026-11-09**, and `docs/specs/toast.md` §7 was rewritten to carry it before any of it was built. The spec previously said only "a chosen screen and corner".
+  **The custom point is a fraction, not a pixel pair.** `(1850, 1010)` is wrong the moment the resolution changes, the taskbar moves or the toast appears on another monitor; `(0.96, 0.94)` means the same place on all of them. The fraction addresses the anchor *corner* rather than the toast's top-left, which is what keeps a toast placed near the bottom-right growing up and left instead of off the screen.
+  **Two ways in, one value out.** Dragging the preview and typing a percentage set the same fraction, so neither can disagree with the other — the same reason the preview and the real toast share one `ToastSpec`.
+
+### FEAT-0023 · The Settings ▸ Appearance preview
+- **State:** Completed · **Spec:** docs/specs/toast.md §3, docs/04-ui-design.md · **Phase:** 2
+- **Branch:** feat/phase-2-toast
+- **Depends on:** FEAT-0019, FEAT-0020
+- **Verified:** the gate, plus the preview and a real toast photographed side by side at the same non-default style
+- [x] An Appearance pane: shape, radius, width, opacity, border, shadow, background and accent colours, header toggles, and the position picker with its map — each the control `docs/04-ui-design.md` names for its value. **Height** has no control yet: toasts size to their content, and a fixed height is the one style option nobody has asked for
+- [x] A live preview drawn by **the same renderer, from the same `ToastSpec`**, so it cannot diverge from the real thing — `Prefs::spec` is the one function both call, and the preview uses `render::frame` and `content::draw` exactly as a toast window does
+- [x] A style option the preview cannot show is a design bug, not a preview limitation — there is none: every control on the pane changes the preview
+- [x] Test: the pane's strings all resolve in both catalogues; building a spec from the pane and from a template produce the same spec for the same inputs (`the_preview_and_a_real_toast_are_the_same_spec_for_the_same_choices`)
+- [x] Gate: fmt · clippy -D warnings · test --workspace --locked -j 4 (180 tests) · deny check · --self-test
+- [x] App: change a style, look at the preview, fire the real toast, compare them side by side. **Done at width 478 and 77% opacity** — same size, same layout, same text positions, same header, mark and accent bar. The only difference is what shows *through* them at 77%: the window behind the preview and the desktop behind the toast, which is correct for a translucent toast
+- [x] Docs: spec · CHANGELOG · CHECKLIST done. README screenshot taken once the image picker was in: `docs/screenshots/settings-appearance.png` and `-ms.png`, on a fresh scratch folder
+- **Corrected by the owner, 2026-11-10: icon is icon, image is image, and both belong to the notification.** The first version of this pane had one global "Image" setting drawn in the header's icon slot — wrong twice over. `Content` now carries an **icon** (header, beside the title, the app's own icon when absent), an **image** (inside the content, beside the body, with an optional border), and an **accent** that overrides the default; every notification may carry different ones. Appearance keeps only global style, and a **Test Toast Content** section — in memory, never saved — lets the preview and the test toast show real pictures. Checked on screen: the icon and image in their places on the preview and on a real toast, the image kept wide rather than squashed, the notification's green accent replacing the default blue with nothing written to `settings.toml`.
+  **The image border is drawn in the theme's dim-text colour**, not the toast's border colour. The border colour was tried and measured: `#3a3a42` on `#26262c` was findable at 300% zoom and not at 100%, so the switch changed nothing anyone would see. The dim-colour version was not re-photographed, because the scripted dialog could not reliably load a picture a second time.
+- **Still to come on this item:** a look at the pane in Malay and at the narrow minimum
+- **Notes:** The preview is the reason `ToastSpec` exists. Building one from a reminder plus its template is one function used by both the preview and the scheduler, so there is one path and not two.
+  **`Prefs` lives in `ot-toast`, and `settings.toml` carries it as a raw `[toast]` table.** `ot-core` depends on nothing in the workspace, so it cannot name `Style` or `Behaviour`; it holds the table and `ot_toast::Prefs` reads it. A table that does not fit falls back to the defaults with a line in the log, so a hand-edit cannot stop toasts appearing.
+  **Saved on release, not on change.** A slider drag changes the prefs every frame; they are written when the pointer comes up, or a sweep across the range would rewrite the file a hundred times.
+  **The test-toast bell drew as `?` at first.** Segoe UI has no bell, no clock and no pictographs; the tray shows them only because Windows falls back to Segoe UI Symbol behind the scenes, and egui falls back to nothing it was not given. `ot_platform::ui_font::symbols` loads that same fallback, last in both families, so it only answers for glyphs the UI font lacks.
+  **A false alarm worth recording:** a run saved `position = "centre"` that nobody chose. It did not reproduce under a controlled sequence, and a second run showed why — an automation click meant for empty space landed on the Opacity slider because the pane was scrolled. The first was the same thing on the map's centre dot. My clicks, not the app.
+
+### FEAT-0024 · Snapshot and length evidence
+- **State:** Completed · **Spec:** docs/specs/toast.md §11 · **Phase:** 2
+- **Branch:** feat/phase-2-toast
+- **Depends on:** FEAT-0019, FEAT-0020, FEAT-0023
+- **Verified:** the gate; the detection proven able to fail
+- [x] `egui_kittest` **layout tests** for every shape, in both languages, with the longest Malay strings: the real UI driven headlessly, asserting that every widget's rect stays inside its toast or its pane, at 100%, 150% and 200%
+- [x] A pseudo-locale (about 40% longer than English) built and used to catch layout breakage Malay does not — `ot_i18n::set_pseudo`, run by the Appearance layout test as a third language, and `pseudo()` in the toast's own tests
+- [x] The layout tests run in CI and fail on an overflow, so a layout regression is caught by the gate rather than by a user
+- **Decided by the owner, 2026-11-10: layout tests, not pixel snapshots.** Pixel snapshots need `egui_kittest`'s `wgpu` feature — a large GPU dependency tree that lengthens every CI build on this machine and may find no adapter under the CI service account in session 0. Layout tests catch the thing the exit criteria are about, overflow, with no GPU at all; colour and paint regressions stay a matter for the running app and its screenshots
+- [x] Test: that is what this item is — in `ot-toast`, the content rect of every shape and the width of every line at 1×, 1.5× and 2×; in `crates/ot-ui/tests/layout.rs`, the Appearance controls in English, Malay and the pseudo-locale, at the default and narrow pane widths, at 1×, 1.5× and 2×, plus a test that the detection catches a widget that really overflows
+- [x] Gate: fmt · clippy -D warnings · test --workspace --locked -j 4 · deny check (with `egui_kittest` and no `wgpu`) · --self-test
+- [x] App: not applicable — this item is the evidence for the others
+- [x] Docs: spec · CHANGELOG · GOTCHAS. CHECKLIST moves with the phase, not with this item
+- **Notes:** Synthetic clicks never form double-clicks, so any double-click path stays an in-app check. Snapshots are a floor, not a substitute for looking: the phase's exit criteria say *in the running app*.
+
+### FEAT-0025 · The image library
+- **State:** Completed · **Spec:** docs/specs/toast.md §8.1 · **Phase:** 2
+- **Branch:** feat/phase-2-toast
+- **Scheduled:** in Phase 2, by the owner's decision (2026-11-10). Phase 2 does not close until this is `Completed`
+- **Depends on:** FEAT-0021
+- **Verified:** the gate (194 tests), and the running app on a scratch data folder in both languages, Dark and Light, at the default and narrow widths
+- **Source:** the owner, 2026-11-10 — upload pictures once and use them in notification templates: a meeting picture, a mosque, an alarm, the hourly announcement
+- [x] A library of uploaded pictures: upload through FEAT-0021's import path unchanged, list with thumbnails, a label the user gives each one, remove
+- [x] The `asset` table records each upload with its label, so the library is a query rather than a folder listing — `docs/05-data-model-and-storage.md` now carries the `label` column, which needs a migration: `002_asset_label.sql`
+- [x] One list for both uses: any picture may be an icon in one template and an image in another
+- [x] Removing a picture still in use asks first and names the templates that use it; they then fall back to the app icon or no image rather than pointing at a missing file
+- [x] The Test Toast Content pickers choose from the library, with "Upload a New Picture" at the end of the list
+- [x] Test: two uploads of the same file are one library entry; a label round-trips; removal of a used picture is refused without confirmation; the list survives a restart — plus an unused picture removed without asking, the file going with its row, a removed path that climbs out of the data folder refused, and a version 1 database migrating with its rows kept
+- [x] Gate: fmt · clippy -D warnings · test --workspace --locked -j 4 (194 tests) · deny check · --self-test
+- [x] App: upload three pictures, label them, use two in the test toast, remove one in use and see the warning — in both languages. Done on a fresh scratch folder: three uploads through the Windows dialog, each with its thumbnail and its file name as its label; one renamed, and an upload of the same file again reported as already there *under the new name*, with still three files in `assets/`; a restart brought the list back, rename included; the icon and image pickers listed the library with thumbnails and Upload a New Picture last; with one as the icon and one as the image, Remove on the icon asked first and said the test toast uses it, in English and in Malay; Keep It kept it, Remove Anyway deleted the row and the file, and the preview fell back to the app icon while the image stayed; the real test toast matched the preview. Light theme and the 560 px minimum width looked at too
+- [x] Docs: spec · docs/04 · docs/05 · README with screenshots in both languages · CHANGELOG · CHECKLIST · GOTCHAS
+- **Notes:** The asset store was built content-addressed for exactly this: the same picture uploaded twice is already one file. What this adds is the *list* — names, thumbnails, and knowing what uses what.
+  **The template pickers themselves arrive with each template's phase** — reminder types in Phase 4, the Azan per prayer in Phase 5, the hourly announcement in Phase 7. This item builds the library they all choose from, and the Test Toast Content pickers are its first user.
+  **Templates are not named yet.** Only the test toast uses a picture in Phase 2, and it is named in the question. A template is a `category` row, which has no name until Phase 4 gives it its keys, so the question says that templates use it without listing them; Phase 4 lists them by name when it has names to list.
+  **Only `category.image_id` is checked**, because that is the only picture column the schema has. The template's icon column arrives with Phase 4 and joins `templates_using` then.
+
+### BUG-0005 · Toast text was near-black on the dark toast in the Light theme
+- **State:** Completed · **Spec:** docs/specs/toast.md · **Phase:** 2
+- **Branch:** feat/phase-2-toast
+- **Source:** seen in the running app while checking FEAT-0022, 2026-11-10: with the window in Light, the preview's title and body all but vanished
+- **Verified:** the gate (195 tests), and the preview and a real toast looked at in Light and Dark
+- [x] Cause: the preview and every real toast drew their text in the **window's** palette, while the background is the user's own colour (dark by default) and does not follow the theme. One shared path, so the two agreed — both wrong
+- [x] Fix: `Tokens::for_toast` picks the Dark or Light palette's text colours by the toast background's luminance, a gradient judged by both ends; the preview and the real toast both call it
+- [x] Test: `a_toasts_text_follows_its_own_background_not_the_window_theme` — dark default fill, white fill, white into black, navy into black. Written first; it did not compile until the function existed
+- [x] Gate: fmt · clippy -D warnings · test --workspace --locked -j 4 · deny check · --self-test
+- [x] App: Light theme, default background — preview and real toast both show light text on the dark toast; Dark unchanged
+- [x] Docs: spec · CHANGELOG · GOTCHAS
+- **Notes:** The spec said nothing about text colour, so the rule is new: a toast follows its own background, not the window. A light background chosen by the user now gets dark text rather than white on white.
+
+### BUG-0007 · Rounded and pill toasts had black corners
+- **State:** Completed · **Spec:** docs/specs/toast.md §1 · **Phase:** 2
+- **Branch:** feat/phase-2-toast
+- **Source:** the owner's DPI check, 2026-11-13: "why the rounded rectangle and pill not transparent on the corner? There is black background on it"
+- **Verified:** the gate, and the samples captured on screen with the app's own white settings window behind them: corner pixels (247, 247, 250) where they had been (0, 0, 0)
+- [x] Cause found, not guessed: eframe chooses **one** OpenGL pixel format for every window, from the settings window's options; the toast windows ask to be transparent, and eframe logs "Cannot create transparent window: the GL config does not support it" for each one. Asking for transparency on the settings window too was tried: the driver on this machine (Intel Iris Xe) still returned a format without it, and the corners stayed black — so no OpenGL option fixes this here
+- [x] Fix: each toast window is cut to its painted shape with a Win32 window region (`ot_platform::toast_window::set_shape`), corner by corner, from the same `render::corner_radii` the painter uses, in that window's own pixels. Windows then leaves the corners out on any driver. The cut is rebuilt only when the window, its size or its radii change
+- [x] Each toast window's title carries its id (`OmniToaster 7`), so a toast is cut to its own shape; the Alt+Tab fix matches the `OmniToaster` prefix
+- [x] Test: shaping a window that does not exist yet is a quiet no-op (the window opens a frame after it is asked for); the radii themselves are `ot-toast`'s tests under CR-0004
+- [x] Gate: fmt · clippy -D warnings · test --workspace --locked -j 4 (203 tests) · deny check · --self-test
+- [x] App: the three samples over the app's own white window — the pill's and the rounded rectangle's corners show the window behind; at 3× zoom the edge is stair-stepped but clean, with no dark fringe
+- [x] Docs: spec · ADR-015 · CHANGELOG · GOTCHAS
+- **Notes:** The cost, said plainly: a region's edge is whole pixels, not smoothed, so a curve is stair-stepped where a transparent window would have anti-aliased it. It reads as a clean edge at 100% and is plain at 3× zoom. A shadow outside the shape cannot show — but none could before either, since the window is the toast's own size.
+  **Opacity had the same root**, and was settled by the owner as CR-0005: the whole window fades, from 70%.
+  **The Shadow setting has no visible effect on a real toast, and never had.** The window is exactly the toast's size, so a shadow drawn around the toast falls outside it; with the region, nothing outside the shape can show either. Only the Settings preview shows a shadow, which breaks the rule that the preview is the real thing. Settled by the owner as CR-0006.
+
+### CR-0004 · The accent bar sits on the side the toast sits against
+- **State:** Completed · **Spec:** docs/specs/toast.md §4.1 · **Phase:** 2
+- **Branch:** feat/phase-2-toast
+- **Source:** the owner, 2026-11-13, with two follow-up decisions the same day: at Centre the bars **wrap the corners**; a custom point takes the edge of **the ninth of the screen it falls in**
+- **Verified:** the gate, and the three samples looked at in Top, Centre, Left, Bottom and Bottom Right
+- [x] Left column (Top Left, Left, Bottom Left): the bar down the left, the left side square, the right side rounded or a pill's half-round end
+- [x] Right column (Top Right, Right, Bottom Right): the same, mirrored. Bottom Right is the default, so this is what most toasts now look like
+- [x] Top: a bar along the top, the top square, the bottom corners rounded. Bottom: mirrored
+- [x] Centre: bars along the top and the bottom, each following the rounded corners round and stopping where the curve ends; every corner keeps its rounding. A pill's corners are its whole ends, so at Centre its two bars meet in a ring
+- [x] A custom point: the edge of the preset whose ninth of the work area it falls in; the middle third includes its boundaries
+- [x] A pill's text is inset for the curve only on a round side; the square side needs only the padding
+- [x] The old behaviour is gone: `the_accent_bar_sits_on_the_side_the_toast_sits_against` asserts Bottom Right's bar is on the right, where every toast used to have it on the left
+- [x] Test: the edge for every preset and for custom points in each ninth; each corner's radius per position; a pill against the right edge round on the left only, with its text inset on that side
+- [x] Gate: fmt · clippy -D warnings · test --workspace --locked -j 4 (203 tests) · deny check · --self-test
+- [x] App: the three samples at Top, Centre, Left, Bottom and Bottom Right, captured; at Centre the rounded rectangle's bars visibly stop where its corners end
+- [x] Docs: spec §4.1 and §8 · CHANGELOG
+- **Notes:** The window region of BUG-0007 is cut from the same corner radii, so a square side is square on screen too, not only in the painting.
+
+### CR-0005 · Opacity fades the whole toast, from 70% up
+- **State:** Completed · **Spec:** docs/specs/toast.md §4 · **Phase:** 2
+- **Branch:** feat/phase-2-toast
+- **Source:** the owner, 2026-11-14, choosing between three options after seeing both behaviours captured: "Whole toast fades, 70–100%"
+- **Verified:** the gate, and real toasts and the preview captured at 70% over a white window
+- [x] Before: the renderer faded each colour and the text by the opacity, and with no transparent pixel format (BUG-0007) the faded pixels had only black behind them — a toast at 50% came out darker, not see-through. Captured: body (16, 33, 55) over white
+- [x] Now the renderer paints solid, and opacity is applied to the finished toast: the window's own alpha (`WS_EX_LAYERED`, `SetLayeredWindowAttributes`) for a real toast, alongside its region; the painter's opacity for the preview. Captured at 70% over white: the plain background (103, 103, 107) against a computed (101, 101, 106) — genuinely see-through, corners still cut
+- [x] The range is **70–100%**, from 40–100%: the text fades with the background, and below 70% it competes with whatever is behind. A settings file at 40% is clamped to 70% with a logged warning, like every other limit
+- [x] Test: `opacity_stops_at_seventy_percent_so_text_stays_readable`; `set_shape` with an opacity on a window that is not there yet is a quiet no-op
+- [x] Gate: fmt · clippy -D warnings · test --workspace --locked -j 4 · deny check · --self-test
+- [x] App: three real toasts and the Appearance preview at 70%, Light theme, over the app's own white window
+- [x] Docs: spec §4 · ADR-015 · CHANGELOG · README
+- **Notes:** The preview fades shape by shape (egui has no whole-picture opacity), so where shapes overlap it is not exactly the real toast. The visible case is the shadow: the preview paints one under the toast, and it shows through a faded background, darker than the real toast (81 against 103). The real toast has no visible shadow at all — see the note on the Shadow setting under BUG-0007.
+
+### CR-0006 · Shadow is On or Off, and only a Rectangle shows one
+- **State:** Completed · **Spec:** docs/specs/toast.md §4 · **Phase:** 2
+- **Branch:** feat/phase-2-toast
+- **Source:** the owner, 2026-11-14, after two native Windows shadows were tried on live toasts and captured: "On/Off, Rectangle only"
+- **Verified:** the gate, and real toasts captured over the app's own white window at 100% and 70%
+- [x] Before: Off, Soft and Strong, painted by egui around the toast — outside the window, so **no real toast ever showed a shadow**; only the Settings preview did
+- [x] Tried: the compositor's own shadow (frame extended by one pixel, non-client rendering on) draws a soft shadow — but only for a window **without a region**, so for the Rectangle alone; Windows also rounded that window's corners unasked. The classic `CS_DROPSHADOW` showed nothing
+- [x] Now: a Shadow checkbox. On a Rectangle toast it turns on Windows' own shadow, with the corners kept square (`DWMWCP_DONOTROUND`); for a rounded rectangle or a pill the checkbox is greyed out with the reason under it, in both languages. The preview draws egui's nearest equivalent for a Rectangle only
+- [x] A settings file saying `soft` or `strong` still reads, as On
+- [x] Test: `a_shadow_shows_only_on_a_rectangle_and_old_settings_still_read`; the Off/Soft/Strong keys and their test went with the picker
+- [x] Gate: fmt · clippy -D warnings · test --workspace --locked -j 4 · deny check · --self-test
+- [x] App: the three samples — the Rectangle with a soft shadow on its left and bottom and square corners, the other two cut and unshadowed; the shadowed Rectangle at 70% opacity keeps its shadow, fading with it; the greyed checkbox and its hint in English and Malay
+- [x] Docs: spec §4 · ADR-015 · CHANGELOG · README · GOTCHAS
+- **Notes:** The preview's shadow is egui's and the real one is Windows', so the two are alike rather than identical; Windows' shadow cannot be sized, which is why Soft and Strong could not survive.
+
+### FEAT-0026 · Settings ▸ Appearance ▸ Display Duration
+- **State:** Completed · **Spec:** docs/specs/toast.md §6 · **Phase:** 2
+- **Branch:** feat/phase-2-toast
+- **Source:** the owner, 2026-11-14: "Can the toast be set how many second it will display. restrict to reasonable minimum and maximum duration user can set"
+- **Verified:** the gate, and a real toast timed at the minimum
+- [x] A slider in whole seconds under the position map, with the spec's limits: **3 to 60 seconds, 8 by default** — long enough to read a two-line body, short of a minute after which a notification is in the way. The model already enforced them on load; nothing set them
+- [x] A hint under it: pointing at a toast pauses its countdown until the pointer leaves, which it already did (FEAT-0018)
+- [x] Test: the clamping at both ends was already tested in the model; the layout test now lays the row out in English, Malay and the pseudo-locale at three scales
+- [x] Gate: fmt · clippy -D warnings · test --workspace --locked -j 4 · deny check · --self-test
+- [x] App: dragged to the left end, `duration_secs = 3.0` was saved and a test toast was on screen at 2.5 s and gone by 3.5 s; dragged past the right end, it stopped at `60.0`. The row and its hint looked at in English and Malay
+- [x] Docs: spec §6 · CHANGELOG
+- **Notes:** The persistent option for urgent types (Alarm, Azan) is per type, so it arrives with the types themselves in Phase 4 and 5; this is the one duration every other toast uses.
+
 ## v0.1.0 — Planned
 
 Phase 1, Shell. The Phase 1 exit criteria from `docs/07-roadmap.md`: the tray
