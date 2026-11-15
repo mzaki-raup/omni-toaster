@@ -2283,7 +2283,7 @@ dependencies = [
 
 [[package]]
 name = "omnitoaster"
-version = "0.9.0"
+version = "0.9.1"
 dependencies = [
  "chrono",
  "ot-core",
@@ -2330,7 +2330,7 @@ dependencies = [
 
 [[package]]
 name = "ot-core"
-version = "0.9.0"
+version = "0.9.1"
 dependencies = [
  "chrono",
  "serde",
@@ -2344,7 +2344,7 @@ dependencies = [
 
 [[package]]
 name = "ot-i18n"
-version = "0.9.0"
+version = "0.9.1"
 dependencies = [
  "chrono",
  "fluent-bundle",
@@ -2359,11 +2359,11 @@ dependencies = [
 
 [[package]]
 name = "ot-media"
-version = "0.9.0"
+version = "0.9.1"
 
 [[package]]
 name = "ot-platform"
-version = "0.9.0"
+version = "0.9.1"
 dependencies = [
  "egui",
  "raw-window-handle",
@@ -2376,15 +2376,15 @@ dependencies = [
 
 [[package]]
 name = "ot-prayer"
-version = "0.9.0"
+version = "0.9.1"
 
 [[package]]
 name = "ot-sched"
-version = "0.9.0"
+version = "0.9.1"
 
 [[package]]
 name = "ot-store"
-version = "0.9.0"
+version = "0.9.1"
 dependencies = [
  "image",
  "rusqlite",
@@ -2396,7 +2396,7 @@ dependencies = [
 
 [[package]]
 name = "ot-toast"
-version = "0.9.0"
+version = "0.9.1"
 dependencies = [
  "egui",
  "egui_kittest",
@@ -2408,7 +2408,7 @@ dependencies = [
 
 [[package]]
 name = "ot-ui"
-version = "0.9.0"
+version = "0.9.1"
 dependencies = [
  "chrono",
  "eframe",
@@ -2426,7 +2426,7 @@ dependencies = [
 
 [[package]]
 name = "ot-weather"
-version = "0.9.0"
+version = "0.9.1"
 
 [[package]]
 name = "owned_ttf_parser"
