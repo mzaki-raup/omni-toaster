@@ -269,6 +269,44 @@ a copy of its own.
   chooses **from the library**, with "Upload a New Picture" at the end of the
   list so nobody has to leave the editor to add one.
 
+### 8.2 Built-in pictures and sounds
+
+OmniToaster ships a default picture for each prayer, each weather condition and
+three of the reminder types, so a notification looks right before the user
+imports anything. The files, their categories and their provenance are
+`assets/README.md`; this is how they behave.
+
+- **Embedded in the exe, not copied into the data folder.** The portable
+  folder stays the user's own, nothing is written on first run, and a picture
+  can never go missing from under a template that names it. 19 pictures at
+  256 × 256 WebP, 326 KB in all, with a test that holds the budget.
+- **Named by a key, `@builtin/<name>`**, which stands where a library picture's
+  relative path would, as the app's own icon's `@app-icon` does. It resolves
+  only against the embedded table — never against the disk, so a key cannot be
+  made to name a file. A key this build does not have (from a newer one) is
+  treated as no picture.
+- **One list for both uses**, like the library: any built-in picture may be a
+  header icon in one template and the body image in another. Settings ▸
+  Appearance's pickers list the user's own pictures, then the built-in ones
+  under a heading each — Prayer Times, Weather, Reminders — then "Upload a New
+  Picture". Settings ▸ Picture Library lists them read-only below the user's
+  own: they cannot be renamed or removed, and so are never asked about.
+- **Two sizes.** A toast's image is drawn up to 72 points (180 pixels at 250%)
+  and so is decoded to 192 pixels; the header icon is 20 points and stays at
+  64, because a large texture shrunk twenty-fold without mipmaps shimmers.
+- **Names are Fluent keys** (`settings-builtin-<name>`), in both languages,
+  with the prayers carrying both of their names like everywhere else in Settings.
+- **Not in the `asset` table.** A built-in picture has no content hash and no
+  row, and `category.image_id` references `asset(sha256)`, so a template cannot
+  point at one yet. Binding them to categories is the job of the phases that
+  create the templates — the reminder types (Phase 4), the prayers (Phase 5)
+  and the weather (Phase 6) — and the first of them adds the column that holds
+  a built-in key.
+- **Sounds are staged, not embedded.** Three clips (`alarm`, `azan`,
+  `azan-subuh`) sit in `assets/sound/` with their categories recorded, and are
+  embedded when the audio engine (`ot-media`) can play them. The default chime
+  is still to be found (`assets/README.md`).
+
 ## 9. Fluent keys
 
 Prefix `toast-`. Built-in labels and actions only: `toast-action-snooze`,
@@ -333,6 +371,13 @@ list until Phase 4). A confirmed removal deletes the row — `ON DELETE SET
 NULL` clears every template's reference in the same statement — and then
 the file. All of it runs on the `image-library` thread with its own
 connection.
+
+**Built-in pictures** (FEAT-0027, after Phase 2 closed). 19 pictures embedded
+as `@builtin/<name>` (`ot_store::builtin`), listed in both pickers and in the
+Picture Library, with the toast's image decoded at 192 pixels and the icon at
+64. The categories they are for are recorded (`assets/README.md`) and bound by
+Phases 4 to 6; three sounds are staged under `assets/sound/` for the audio
+engine.
 
 **Settings ▸ Appearance** (FEAT-0023). Shape, radius, width, opacity, border,
 shadow, background and accent colours, header switches, and the position

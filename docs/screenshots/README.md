@@ -32,8 +32,8 @@ quantised with `magick <in> -strip -colors 256 -define png:compression-level=9
 | `settings-general-ms.png` | Settings ▸ General, Bahasa Melayu | Phase 1 |
 | `settings-appearance.png` | Settings ▸ Appearance with the live preview | Phase 2 (captured) |
 | `settings-appearance-ms.png` | The same, Bahasa Melayu | Phase 2 (captured) |
-| `settings-pictures.png` | Settings ▸ Picture Library with three pictures, English | Phase 2 (captured) |
-| `settings-pictures-ms.png` | The same, Bahasa Melayu, asking before removing a picture in use | Phase 2 (captured) |
+| `settings-pictures.png` | Settings ▸ Picture Library: two uploaded pictures and the built-in ones, English | Phase 2 (captured; retaken for FEAT-0027) |
+| `settings-pictures-ms.png` | The same, Bahasa Melayu | Phase 2 (captured; retaken for FEAT-0027) |
 | `settings-prayer.png` | Settings ▸ Prayer with the zone picker and source label | Phase 5 |
 | `settings-reminders.png` | Settings ▸ Reminders, list and editor | Phase 4 |
 | `tray-menu.png` | The tray menu, both languages | Phase 1 |

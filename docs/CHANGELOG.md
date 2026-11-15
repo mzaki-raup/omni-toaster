@@ -7,7 +7,14 @@ Format: [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) · Versioning:
 
 ## Unreleased
 
-- (nothing yet)
+### Added
+
+- **Built-in pictures** (FEAT-0027): 19 pictures ship inside the exe — a mosque for each of the seven prayers, nine weather conditions, an alarm clock, a meeting and a training session — and are listed in the picture pickers under Prayer Times, Weather and Reminders, and read-only in Settings ▸ Picture Library. Phases 4 to 6 make them the default picture of their categories.
+- Three Azan and alarm clips are staged under `assets/sound/` for the audio engine. `assets/README.md` records every file, its purpose and where it came from — and what is not known about its licence.
+
+### Changed
+
+- A toast's image is decoded at 192 pixels instead of 64, so a photograph stays sharp at high display scaling; the header icon stays at 64.
 
 ## 0.9.1 — 2026-11-15
 

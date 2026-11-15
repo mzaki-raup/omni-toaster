@@ -133,6 +133,34 @@ Change Request : CR-0002
 
 ---
 
+## v0.2.1 — Done 2026-11-16
+
+A follow-up to Phase 2, which stays closed: the pictures and sounds the owner
+supplied for the notification categories. The categories themselves are
+created in Phases 4 to 6, which bind these.
+
+### FEAT-0027 · Built-in pictures, and the sounds staged for later
+- **State:** Completed · **Spec:** docs/specs/toast.md §8.2 · **Phase:** 2
+- **Branch:** feat/builtin-pictures
+- **Depends on:** FEAT-0025
+- **Source:** the owner, 2026-11-15: "i've put some predefine image and audio to use for the toast category and sound in temp_asset folder. Please use it."
+- **Verified:** the gate, and the running app in both languages
+- [x] Pictures prepared: the 19 neutral originals (512 × 512 PNG, 7.2 MB) shrunk to 256 × 256 WebP at quality 85 — 326 KB, which is what a toast shows them at and a tenth of the size; the weather icons keep their transparency (a test holds it). `zuhur` renamed `zohor`, the DBP spelling every prayer name here uses; underscores became hyphens
+- [x] **The four photos with real brand marks are not in the repository** (the owner's decision, 2026-11-15, after being shown them): `car_insurances` (an insurer), `credit_card` (banks and Visa), `subscription_bill` (a streaming service and others), `games` (a game's interface). They stay in `temp_asset/` for a rights check and drop in later with no code change
+- [x] Embedded in the exe as `@builtin/<name>` (`ot_store::builtin`), resolved only against the table, never the disk; a key this build lacks finds nothing
+- [x] Both pickers list the user's pictures, then the built-in ones under Prayer Times, Weather and Reminders; Settings ▸ Picture Library lists them read-only. Names and groups are Fluent keys in both languages, prayers carrying both of their names
+- [x] A toast's image gets its own 192-pixel texture, because the 64-pixel one shared with the header icon stretched a photo nearly threefold at 250%; the icon stays at 64. Seen: the same picture is visibly sharper at 100%
+- [x] Found on the way and fixed: the Picture Library always scrolls now, and egui's floating scrollbar lay over every Remove button; the bar now takes its own room (`scroll.floating = false`)
+- [x] Sounds: `alarm`, `azan` and `azan-subuh` committed under `assets/sound/` (the owner's decision), their categories recorded, **not embedded** until the audio engine exists
+- [x] **`notification.mp3` held out of git on the owner's earlier "commit them all", on new information:** its ID3 tags say it is HTC's *Button* sound from Sense 6 (© HTC, 2014), a phone maker's own sound, which does not belong in a public MIT repository. The default chime is still to be found. Say so if you want it committed anyway
+- [x] `assets/README.md`: every file, its category, the conversion command, and the provenance with what is not known. **None of the licences is established** (the pictures were made by the owner; the audio's source is unrecorded); Phase 9's terms check has to settle it
+- [x] Test: every key is unique, prefixed and findable; what is not a built-in key finds nothing, including `@builtin/../Cargo.toml`; every picture is a WebP, decodes, is at most 256 px, and the total stays under 600 KB; the weather icons keep a transparent corner; every picture is in exactly one group; every label and group key is in both catalogues
+- [x] Gate: fmt · clippy -D warnings · test --workspace --locked -j 4 · deny check · --self-test
+- [x] App: Image picker open with the groups and thumbnails; Mosque · Subuh (Fajr) chosen, shown in the preview and on a real toast, both with the picture; the Picture Library's built-in section in English, and in Malay at the 560 px minimum width, where the hint wraps; the weather icons on the dark pane. **Not checked:** the toast image at 200% and 250% scaling — the checking script clicks at 100% layout coordinates, so only the texture size is argued, from 180 physical pixels against a 192-pixel texture
+- [x] Docs: spec §8.2 · assets/README.md · CHANGELOG · README · GOTCHAS
+- **Notes:** The categories the pictures are for do not exist yet, so nothing uses them by default: a prayer toast still shows the app icon until Phase 5 binds `masjid-*`. What the owner can do today is pick one for the test toast, and see how every picture looks. The first of Phases 4 to 6 adds the column that holds a built-in key, because `category.image_id` references `asset(sha256)`.
+  **Syuruk, Jumaat, snow and five reminder types have no picture**; `assets/README.md` records which share another and which show the app icon.
+
 ## v0.2.0 — Done 2026-11-14
 
 Phase 2, Toast Core. Every item below is `Completed`; how the exit criteria

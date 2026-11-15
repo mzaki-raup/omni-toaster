@@ -693,14 +693,14 @@ impl SettingsWindow {
             .unwrap_or_else(|| crate::images::APP_ICON.to_string());
         self.images.request(&icon);
         if let Some(image) = content.image.as_deref() {
-            self.images.request(image);
+            self.images.request_image(image);
         }
         (
             self.images.picture(&icon),
             content
                 .image
                 .as_deref()
-                .and_then(|path| self.images.picture(path)),
+                .and_then(|path| self.images.picture_image(path)),
         )
     }
 
@@ -797,7 +797,7 @@ impl SettingsWindow {
                 .content
                 .image
                 .as_deref()
-                .and_then(|path| pictures.get(path).copied());
+                .and_then(|path| pictures.get(&crate::images::image_key(path)).copied());
             // The toast's own background picks the text colour, not the
             // window's theme, which a toast does not follow.
             let text = Tokens::for_toast(spec);
@@ -1043,13 +1043,17 @@ impl SettingsWindow {
         for entry in self.library.pictures().unwrap_or_default() {
             self.images.request(&entry.picture.relative_path);
         }
+        // The built-in pictures are listed too, so they are requested too.
+        for builtin in ot_store::builtin::all() {
+            self.images.request(builtin.key);
+        }
         let current = match slot {
             Slot::Icon => self.test_icon.as_deref(),
             Slot::Image => self.test_image.as_deref(),
         };
         let shown = current
-            .and_then(|path| self.library.label_of(path))
-            .map_or_else(|| ot_i18n::text(none_key), str::to_owned);
+            .and_then(|path| picture_label(&self.library, path))
+            .unwrap_or_else(|| ot_i18n::text(none_key));
         let height = layout::field_height(ui);
         let busy = self.importer.is_busy();
         let library = &self.library;
@@ -1071,23 +1075,41 @@ impl SettingsWindow {
                     for entry in library.pictures().unwrap_or_default() {
                         let path = entry.picture.relative_path.as_str();
                         let selected = current == Some(path);
-                        let text = egui::RichText::new(&entry.picture.label);
-                        let button = match images.picture(path) {
-                            Some(picture) => egui::Button::selectable(
-                                selected,
-                                (
-                                    egui::Image::new(egui::load::SizedTexture::new(
-                                        picture.texture,
-                                        picture.size,
-                                    ))
-                                    .max_size(egui::vec2(height, height)),
-                                    text,
-                                ),
-                            ),
-                            None => egui::Button::selectable(selected, text),
-                        };
-                        if ui.add(button).clicked() {
+                        if picture_choice(
+                            ui,
+                            images.picture(path),
+                            &entry.picture.label,
+                            selected,
+                            height,
+                        )
+                        .clicked()
+                        {
                             choice = Some(Some(path.to_owned()));
+                        }
+                    }
+                    // What ships with the app, under a heading per kind
+                    // (`docs/specs/toast.md` §8.2).
+                    for group in ot_store::builtin::Group::all() {
+                        ui.separator();
+                        ui.label(
+                            egui::RichText::new(ot_i18n::text(group.name_key()))
+                                .small()
+                                .weak(),
+                        );
+                        for builtin in ot_store::builtin::in_group(group) {
+                            let label = ot_i18n::text(builtin.label_key);
+                            let selected = current == Some(builtin.key);
+                            if picture_choice(
+                                ui,
+                                images.picture(builtin.key),
+                                &label,
+                                selected,
+                                height,
+                            )
+                            .clicked()
+                            {
+                                choice = Some(Some(builtin.key.to_owned()));
+                            }
                         }
                     }
                     ui.separator();
@@ -1128,6 +1150,9 @@ impl SettingsWindow {
         for entry in self.library.pictures().unwrap_or_default() {
             self.images.request(&entry.picture.relative_path);
         }
+        for builtin in ot_store::builtin::all() {
+            self.images.request(builtin.key);
+        }
         let height = layout::field_height(ui);
         let busy = self.importer.is_busy();
         let mut upload = false;
@@ -1140,6 +1165,10 @@ impl SettingsWindow {
             .as_ref()
             .is_some_and(|(sha256, _)| self.used_by_test_toast(sha256));
 
+        // The bar takes its own room instead of floating over the rows: this
+        // pane always scrolls now that the built-in pictures sit below the
+        // user's, and a floating bar lay over every Remove button.
+        ui.spacing_mut().scroll.floating = false;
         egui::ScrollArea::vertical()
             .auto_shrink([false, false])
             .show(ui, |ui| {
@@ -1275,6 +1304,35 @@ impl SettingsWindow {
                             ui.add_space(layout::ROW_GAP);
                         }
                     }
+                }
+
+                // What ships with the app: not the user's to rename or
+                // remove, so listed apart and read-only.
+                ui.add_space(layout::PANE_GAP);
+                ui.separator();
+                ui.add_space(layout::PANE_GAP);
+                ui.label(egui::RichText::new(ot_i18n::text("settings-library-builtin")).strong());
+                ui.label(
+                    egui::RichText::new(ot_i18n::text("settings-library-builtin-hint"))
+                        .color(tokens.text_dim),
+                );
+                ui.add_space(layout::ROW_GAP);
+                for group in ot_store::builtin::Group::all() {
+                    ui.label(
+                        egui::RichText::new(ot_i18n::text(group.name_key())).color(tokens.text_dim),
+                    );
+                    ui.add_space(layout::ROW_GAP / 2.0);
+                    egui::Grid::new(("builtin-pictures", group as u8))
+                        .num_columns(2)
+                        .spacing([layout::OPTION_GAP, layout::ROW_GAP])
+                        .show(ui, |ui| {
+                            for builtin in ot_store::builtin::in_group(group) {
+                                paint_thumbnail(ui, images.picture(builtin.key), height * 1.6);
+                                ui.label(ot_i18n::text(builtin.label_key));
+                                ui.end_row();
+                            }
+                        });
+                    ui.add_space(layout::PANE_GAP);
                 }
             });
 
@@ -1665,6 +1723,52 @@ fn title_bar_needs(accepted: Option<bool>, dark: bool) -> bool {
     accepted != Some(dark)
 }
 
+/// One entry of a picture picker: its thumbnail once decoded, and its name.
+fn picture_choice(
+    ui: &mut egui::Ui,
+    picture: Option<ot_toast::content::Picture>,
+    label: &str,
+    selected: bool,
+    side: f32,
+) -> egui::Response {
+    let text = egui::RichText::new(label);
+    let button = match picture {
+        Some(picture) => egui::Button::selectable(
+            selected,
+            (
+                egui::Image::new(egui::load::SizedTexture::new(picture.texture, picture.size))
+                    .max_size(egui::vec2(side, side)),
+                text,
+            ),
+        ),
+        None => egui::Button::selectable(selected, text),
+    };
+    ui.add(button)
+}
+
+/// A picture fitted into a `side` square, unstretched; an empty square while
+/// it is still being decoded, so the rows do not jump when it arrives.
+fn paint_thumbnail(ui: &mut egui::Ui, picture: Option<ot_toast::content::Picture>, side: f32) {
+    let (slot, _) = ui.allocate_exact_size(egui::vec2(side, side), egui::Sense::hover());
+    if let Some(picture) = picture {
+        let fitted = egui::Rect::from_center_size(
+            slot.center(),
+            picture.size * (side / picture.size.max_elem()).min(1.0),
+        );
+        egui::Image::new(egui::load::SizedTexture::new(picture.texture, picture.size))
+            .paint_at(ui, fitted);
+    }
+}
+
+/// The name a picture goes by: the label it has in the library, or its
+/// Fluent name when it is one that ships with the app.
+fn picture_label(library: &crate::library::Library, path: &str) -> Option<String> {
+    library
+        .label_of(path)
+        .map(str::to_owned)
+        .or_else(|| ot_store::builtin::find(path).map(|builtin| ot_i18n::text(builtin.label_key)))
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -1724,6 +1828,13 @@ mod tests {
         keys.extend(LanguageChoice::all().map(LanguageChoice::name_key));
         keys.extend(ThemeMode::all().map(ThemeMode::name_key));
         keys.extend(PauseFor::all().map(PauseFor::name_key));
+        // The pictures that ship with the app, and their groups.
+        keys.extend(
+            ot_store::builtin::all()
+                .iter()
+                .map(|picture| picture.label_key),
+        );
+        keys.extend(ot_store::builtin::Group::all().map(ot_store::builtin::Group::name_key));
         // Settings ▸ Appearance, and every option its pickers offer.
         keys.extend([
             "settings-toast-preview",
@@ -1782,6 +1893,8 @@ mod tests {
             "settings-library-keep",
             "settings-library-none-icon",
             "settings-library-none-image",
+            "settings-library-builtin",
+            "settings-library-builtin-hint",
             "settings-status-library-added",
             "settings-status-library-already-there",
             "settings-status-library-removed",

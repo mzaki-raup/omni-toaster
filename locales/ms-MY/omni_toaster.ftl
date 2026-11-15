@@ -220,6 +220,36 @@ settings-library-keep = Simpan
 settings-library-none-icon = Ikon Aplikasi
 # Item pertama pemilih imej: tiada imej.
 settings-library-none-image = Tiada Imej
+# Tajuk senarai gambar yang disertakan bersama aplikasi, dalam Tetapan > Pustaka Gambar.
+settings-library-builtin = Gambar Terbina Dalam
+# Baris di bawah tajuk itu.
+settings-library-builtin-hint = Gambar ini disertakan bersama OmniToaster. Gunakannya untuk mana-mana pemberitahuan; ia tidak boleh dinamakan semula atau dibuang.
+# Tajuk kumpulan dalam pemilih gambar dan Pustaka Gambar: gambar terbina dalam untuk waktu solat, cuaca dan jenis peringatan.
+settings-builtin-group-prayer = Waktu Solat
+settings-builtin-group-weather = Cuaca
+settings-builtin-group-reminder = Peringatan
+# Nama gambar terbina dalam, dipaparkan dalam pemilih dan Pustaka Gambar. Waktu solat membawa kedua-dua nama, seperti di seluruh Tetapan.
+settings-builtin-masjid-imsak = Masjid · Imsak
+settings-builtin-masjid-subuh = Masjid · Subuh (Fajr)
+settings-builtin-masjid-dhuha = Masjid · Dhuha
+settings-builtin-masjid-zohor = Masjid · Zohor (Dhuhr)
+settings-builtin-masjid-asar = Masjid · Asar (Asr)
+settings-builtin-masjid-maghrib = Masjid · Maghrib
+settings-builtin-masjid-isyak = Masjid · Isyak (Isha)
+# Gambar cuaca.
+settings-builtin-sunny = Cerah
+settings-builtin-partly-cloudy = Separa Berawan
+settings-builtin-cloudy = Berawan
+settings-builtin-hazy = Berjerebu
+settings-builtin-fog = Berkabus
+settings-builtin-drizzle = Hujan Renyai
+settings-builtin-downpour = Hujan Lebat
+settings-builtin-thunderstorm = Ribut Petir
+settings-builtin-windy = Berangin
+# Gambar jenis peringatan.
+settings-builtin-alarm-clock = Jam Loceng
+settings-builtin-meeting = Mesyuarat
+settings-builtin-training = Latihan
 settings-language = Bahasa
 # Di bawah pemilih bahasa. Penukaran berlaku serta-merta, jadi petunjuk ini
 # menerangkan satu-satunya perkara yang pengguna tidak dapat teka: apa yang
