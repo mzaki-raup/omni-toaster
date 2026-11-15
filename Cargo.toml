@@ -97,6 +97,9 @@ image = { version = "0.25.10", default-features = false, features = [
 
 # Content-hashed asset names (docs/05-data-model-and-storage.md).
 sha2 = "0.11.1"
+# The window handle eframe hands over, for the title bar (CR-0002). Already in
+# the tree through eframe and winit; named here so the version is one.
+raw-window-handle = "0.6.2"
 
 # Test-only.
 tempfile = "3.27.0"

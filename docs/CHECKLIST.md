@@ -7,7 +7,7 @@ exit criteria under each heading are that phase's own, and no row in a phase may
 read `Completed` until they all hold. The work itself, by id, is in
 [TASKS.md](TASKS.md).
 
-Last updated: 2026-11-14
+Last updated: 2026-11-15
 
 ## Planning
 > **Done when:** the scaffolding and the specifications describe OmniToaster and point only at files that exist; no reference to the HyperStack project remains.
@@ -58,15 +58,23 @@ Last updated: 2026-11-14
 > **Exit criteria:** the tray works, the theme switches, autostart survives a
 > reboot, and a language switch updates the tray and the settings window in
 > under one second.
+>
+> **All four hold as of 2026-11-15.** The tray menu acts and a double-click on
+> the icon opens Settings, with the settings window open *and* closed — the
+> second was broken until BUG-0008, because a hidden window gets no frames and
+> the app does everything in a frame. The three themes switch, System following
+> Windows with the window open, title bar included (CR-0002). Start with Windows
+> survived a reboot and a moved folder, checked by the owner. A language switch
+> reaches the window in 2.4 ms and the tray menu within a second.
 
 | Item | State | Notes |
 |---|---|---|
 | Single instance | Completed | FEAT-0011. Named mutex per role; proven across two real processes, not just within one |
-| Start with Windows | In-Progress | FEAT-0012. Write, read-back and the moved-folder refresh all verified against the real registry; the enable toggle and the reboot check wait on the settings window |
-| The three themes | In-Progress | FEAT-0013. The palette, the three modes and the `AppsUseLightTheme` poll are done, tested and now seen on screen — Dark, Light and System each drew correctly once the window existed. Toggling the Windows setting itself, with System selected, is the owner's check: it is their setting to change |
-| Settings window | In-Progress | FEAT-0014. The window, the General pane and the status line are done and checked in both languages, all three themes, at the default size and at the minimum. Closing it now hides it rather than ending the app (FEAT-0015); the Start with Windows click still needs the owner |
-| Tray icon and menu | In-Progress | FEAT-0015. The icon, the menu, pause and Quit are written and the icon is created without error in both languages; Windows 11 hides a new icon in the overflow, so clicking through the menu is the owner's check. CR-0003 covers the ghost icon a killed process leaves |
-| Live language switch | In-Progress | FEAT-0016. The loader is swappable and the window follows in 2.4 ms, title bar included, measured in the running app; the tray menu's half of the check is behind the same Windows 11 overflow as FEAT-0015 |
+| Start with Windows | Completed | FEAT-0012, FEAT-0014. Write, read-back and the moved-folder refresh verified against the real registry; the checkbox, a reboot and a moved folder checked by the owner |
+| The three themes | Completed | FEAT-0013, CR-0002. Dark, Light and System; System follows the Windows setting within five seconds, and the title bar follows the theme |
+| Settings window | Completed | FEAT-0014. The General pane and the status line, both languages, all three themes, default and minimum size. Closing it parks it off-screen rather than hiding it (BUG-0008) |
+| Tray icon and menu | Completed | FEAT-0015, CR-0003, BUG-0008. Every item checked by the owner in both languages; double-click opens Settings; a killed run's icon is removed on the next start |
+| Live language switch | Completed | FEAT-0016. The loader is swappable; the window follows in 2.4 ms, title bar included, and the tray menu within a second |
 
 ## Phase 2 — Toast Core
 > **Exit criteria:** every shape renders correctly at 100, 150 and 200 percent DPI in both languages, with no overflow, and the preview matches the real toast.

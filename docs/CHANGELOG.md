@@ -7,7 +7,15 @@ Format: [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) · Versioning:
 
 ## Unreleased
 
-- (nothing yet)
+### Fixed
+
+- With the settings window closed, the tray menu did nothing and no toast could appear: a hidden window gets no frames, and the app does everything in a frame. The closed window is now parked off-screen instead of hidden, so the app keeps running behind its tray icon (BUG-0008).
+- The settings window's title bar follows the theme: light in Light, dark in Dark, and with System it follows Windows while the window is open (CR-0002).
+- A tray icon left behind by a killed run is removed when the app next starts (CR-0003).
+
+### Changed
+
+- A double-click on the tray icon opens Settings; a single left click no longer opens the menu, which is the right button's (BUG-0008).
 
 ## 0.9.0 — 2026-11-14
 

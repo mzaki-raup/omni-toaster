@@ -19,7 +19,7 @@ state is a tray icon and nothing else on screen.
 
 ## 3. Tray
 
-- **Left-click:** open or focus the settings window.
+- **Double-click:** open or focus the settings window (the owner's choice, BUG-0008). A single left click does nothing.
 - **Right-click menu:** Open Settings · Pause All Notifications (30 minutes · 1
   hour · until resumed) · Test Toast · Snooze Last · Quit.
 - While a pause is running, the pause submenu is replaced by **Resume
@@ -44,7 +44,12 @@ being visible, and anyone verifying the tray has to look in the overflow.
 
 The tray icon belongs to the **worker** process, so a supervisor restart
 recreates it ([specs/supervisor.md](supervisor.md)). A stale icon left by a
-killed worker is removed on the next start.
+killed worker is removed on the next start (CR-0003): Windows knows an icon by
+the window that added it and a small id, so the window is written to
+`cache/tray-window` when the icon is made, and the next start asks Windows to
+delete that window's icons — only once `IsWindow` says the window is gone, so
+no live window's icon can be touched. A GUID was the first plan, but Windows
+ties a tray GUID to the exe's path, and a portable exe is meant to move.
 
 ## 4. Pause
 
@@ -74,10 +79,16 @@ is active.
 The window and the tray share one thread and one event loop: the tray is
 created inside the eframe app, so winit's message pump delivers its clicks,
 and the window asks to be repainted on a short interval because nothing wakes
-egui when an event lands in the tray's channel. A hidden window keeps being
-updated — Windows throttles it to a few frames a second, which is well inside
-what a menu click needs — so the app stays answerable with nothing on screen,
-without a second thread and its own message loop.
+egui when an event lands in the tray's channel.
+
+**A closed settings window is parked, not hidden** (BUG-0008). Windows paints
+no hidden window, eframe draws only when painted, and everything the app does
+— draining the tray's clicks, driving a toast — happens in a frame: hidden, it
+ran none at all. So closing the window moves it off every screen and takes it
+out of the taskbar and Alt+Tab (`ot_platform::window_park`) while leaving it
+visible to Windows, which keeps the frames coming; opening it puts it back
+where it was. The app stays answerable with nothing on screen, without a
+second thread and its own message loop.
 
 The status line is where non-modal truth lives: the current prayer source and
 last fetch time, the voice fallback state, a paused notice, the last error.

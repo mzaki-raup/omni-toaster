@@ -15,6 +15,13 @@ viewport). The agent-facing rules are in
 | **Light** | — |
 | **System** | Reads the Windows `AppsUseLightTheme` setting through `ot_platform::system_theme`, and follows a change at runtime. |
 
+**The title bar follows the appearance too** (CR-0002). It is Windows' own
+chrome, not egui's, so the settings window tells Windows separately —
+`DWMWA_USE_IMMERSIVE_DARK_MODE` through `ot_platform::title_bar` — when the
+window opens and whenever the appearance changes, which is how System keeps it
+in step with a Windows change while the window is open. A dark title bar on a
+light window was the most visible thing wrong with the first screen.
+
 A theme is a palette plus a set of semantic tokens (`surface`, `surface_raised`,
 `text`, `text_dim`, `accent`, `border`, `danger`). Nothing hard-codes a colour;
 a toast's own accent colour overrides the token only where the template says

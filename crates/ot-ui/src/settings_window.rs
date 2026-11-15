@@ -14,6 +14,7 @@ use std::time::{Duration, Instant};
 use ot_core::{DataRoot, Pause, PauseFor, Settings};
 use ot_i18n::Language;
 use ot_platform::{Autostart, PauseWindow, Tray, TrayCommand};
+use raw_window_handle::HasWindowHandle as _;
 
 use crate::layout;
 use crate::theme::{Theme, ThemeMode, Tokens};
@@ -268,6 +269,15 @@ pub struct SettingsWindow {
     /// Whether the chosen monitor was missing last time, so falling back to
     /// the primary one is logged once, not every frame.
     monitor_missing: bool,
+    /// The title bar's mode as Windows last accepted it: dark, light, or not
+    /// set yet (CR-0002).
+    title_bar_dark: Option<bool>,
+    /// The window's own handle, taken from the frame each update, for the
+    /// Win32 calls that put the window away and bring it back.
+    window: Option<raw_window_handle::RawWindowHandle>,
+    /// Where the window was when it was parked; `None` while it is showing
+    /// (BUG-0008).
+    parked: Option<ot_platform::window_park::Parked>,
 }
 
 impl SettingsWindow {
@@ -292,23 +302,29 @@ impl SettingsWindow {
             ),
         };
         let pause = Pause::default();
-        let (tray, status) =
-            match Tray::new(&tray_labels(pause), pause.is_active(chrono::Local::now())) {
-                Ok(tray) => (Some(tray), status),
-                Err(error) => {
-                    // The app still works without it, but the user has lost the
-                    // only way to reach it once the window is closed, so this is
-                    // said out loud rather than logged and forgotten.
-                    tracing::error!(%error, "the tray icon could not be created");
-                    (
-                        None,
-                        Status::Failed {
-                            key: "settings-status-tray-failed",
-                            reason: error.to_string(),
-                        },
-                    )
-                }
-            };
+        let (tray, status) = match Tray::new(
+            &tray_labels(pause),
+            pause.is_active(chrono::Local::now()),
+            // Which window owns the icon, so a killed run's ghost can be
+            // removed on the next start (CR-0003). In the cache: it is
+            // derived data, and losing it costs only a ghost.
+            &root_path.join("cache").join("tray-window"),
+        ) {
+            Ok(tray) => (Some(tray), status),
+            Err(error) => {
+                // The app still works without it, but the user has lost the
+                // only way to reach it once the window is closed, so this is
+                // said out loud rather than logged and forgotten.
+                tracing::error!(%error, "the tray icon could not be created");
+                (
+                    None,
+                    Status::Failed {
+                        key: "settings-status-tray-failed",
+                        reason: error.to_string(),
+                    },
+                )
+            }
+        };
 
         Self {
             root,
@@ -337,6 +353,9 @@ impl SettingsWindow {
             monitors: Vec::new(),
             monitors_read: None,
             monitor_missing: false,
+            title_bar_dark: None,
+            window: None,
+            parked: None,
         }
     }
 
@@ -794,13 +813,33 @@ impl SettingsWindow {
         });
     }
 
-    fn show_window(&self, ctx: &egui::Context) {
-        ctx.send_viewport_cmd(egui::ViewportCommand::Visible(true));
-        ctx.send_viewport_cmd(egui::ViewportCommand::Focus);
+    /// Bring the settings window back, in front.
+    fn show_window(&mut self, ctx: &egui::Context) {
+        match (self.window, self.parked.take()) {
+            (Some(window), Some(parked)) => {
+                ot_platform::window_park::unpark(window, parked);
+            }
+            _ => {
+                ctx.send_viewport_cmd(egui::ViewportCommand::Visible(true));
+                ctx.send_viewport_cmd(egui::ViewportCommand::Focus);
+            }
+        }
     }
 
-    fn hide_window(&self, ctx: &egui::Context) {
-        ctx.send_viewport_cmd(egui::ViewportCommand::Visible(false));
+    /// Put the settings window away, leaving the app running behind its tray
+    /// icon.
+    ///
+    /// **Parked, not hidden** (BUG-0008): Windows paints no hidden window,
+    /// and without frames nothing drains the tray's clicks or drives a toast.
+    /// Hiding is only the fallback where parking is not possible.
+    fn hide_window(&mut self, ctx: &egui::Context) {
+        if self.parked.is_some() {
+            return;
+        }
+        self.parked = self.window.and_then(ot_platform::window_park::park);
+        if self.parked.is_none() {
+            ctx.send_viewport_cmd(egui::ViewportCommand::Visible(false));
+        }
     }
 
     fn quit(&mut self, ctx: &egui::Context) {
@@ -1373,11 +1412,12 @@ impl SettingsWindow {
 }
 
 impl eframe::App for SettingsWindow {
-    fn update(&mut self, ctx: &egui::Context, _frame: &mut eframe::Frame) {
+    fn update(&mut self, ctx: &egui::Context, frame: &mut eframe::Frame) {
         // Nothing wakes egui when a tray event lands in its channel, so the
         // window asks to be woken. This is also what keeps the process
         // answering the tray while the window is hidden.
         ctx.request_repaint_after(TRAY_POLL);
+        self.window = frame.window_handle().ok().map(|handle| handle.as_raw());
         self.handle_tray(ctx);
         self.drain_images(ctx);
         self.drive_toasts(ctx);
@@ -1396,6 +1436,17 @@ impl eframe::App for SettingsWindow {
         if self.theme.poll() || !self.applied {
             self.theme.apply(ctx);
             self.applied = true;
+        }
+
+        // The title bar is Windows' chrome, not egui's, so it is told
+        // separately — and again whenever the appearance changes, which is
+        // how System follows Windows while the window is open (CR-0002).
+        let dark = self.theme.appearance() == crate::theme::Appearance::Dark;
+        if title_bar_needs(self.title_bar_dark, dark)
+            && let Ok(handle) = frame.window_handle()
+            && ot_platform::title_bar::follow_appearance(handle.as_raw(), dark)
+        {
+            self.title_bar_dark = Some(dark);
         }
 
         let tokens = self.theme.tokens();
@@ -1608,9 +1659,27 @@ pub enum WindowError {
     Eframe(String),
 }
 
+/// Whether the title bar has to be told the appearance: when Windows has not
+/// accepted one yet, or accepted the other one.
+fn title_bar_needs(accepted: Option<bool>, dark: bool) -> bool {
+    accepted != Some(dark)
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn the_title_bar_is_told_each_appearance_once() {
+        // Not set yet: told whichever it is.
+        assert!(title_bar_needs(None, true));
+        assert!(title_bar_needs(None, false));
+        // Already dark: not told dark again every frame...
+        assert!(!title_bar_needs(Some(true), true));
+        // ...but told when System follows Windows to light, and back.
+        assert!(title_bar_needs(Some(true), false));
+        assert!(title_bar_needs(Some(false), true));
+    }
 
     /// Every Fluent key the window can ask for.
     fn every_key() -> Vec<&'static str> {
