@@ -413,7 +413,7 @@ shortcut (`docs/specs/toast.md` §3).
 - [x] Docs: spec §6 · CHANGELOG
 - **Notes:** The persistent option for urgent types (Alarm, Azan) is per type, so it arrives with the types themselves in Phase 4 and 5; this is the one duration every other toast uses.
 
-## v0.1.0 — Planned
+## v0.1.0 — Done 2026-11-15
 
 Phase 1, Shell. The Phase 1 exit criteria from `docs/07-roadmap.md`: the tray
 works, the theme switches, autostart survives a reboot, and a language switch
@@ -440,7 +440,7 @@ window to open; FEAT-0016 needs both so it has something to re-render.
   That test needed a debug-only `--hold-ms`, because until FEAT-0014 there is no window keeping the process alive, so the first copy would exit before a second could start. It is compiled out of release and goes away when the window lands.
 
 ### FEAT-0012 · Start with Windows
-- **State:** In-Progress · **Spec:** docs/specs/tray-and-settings.md §7 · **Phase:** 1
+- **State:** Completed · **Spec:** docs/specs/tray-and-settings.md §7 · **Phase:** 1
 - **Branch:** feat/phase-1-shell
 - **Verified:** the gate, a real-registry round trip, and the refresh path driven end to end
 - [x] `ot_platform::autostart` writing a single HKCU `Run` value, only when the user enables it
@@ -448,12 +448,12 @@ window to open; FEAT-0016 needs both so it has something to re-render.
 - [x] Disabling removes the value; the toggle **reads the registry** rather than trusting `settings.toml`, so a value removed by other means shows as off
 - [x] Test: enable writes the value with the current exe path; a moved exe rewrites it; disable removes it; reading an absent value reports off rather than erroring
 - [x] Gate: fmt · clippy -D warnings · test --workspace --locked -j 4 · deny check · --self-test
-- [ ] App: enable it, reboot, confirm the app starts; move the folder, launch, confirm the value updated. **The refresh half is done** — a stale path was seeded under the real value name, the app rewrote it to this folder, and the value was removed afterwards. The **enable and reboot** half needs the settings window's toggle (FEAT-0014) and a reboot, so it stays open
-- [ ] Docs: spec · README · CHANGELOG · CHECKLIST · GOTCHAS — README waits until the toggle is visible
+- [x] App: enable it, reboot, confirm the app starts; move the folder, launch, confirm the value updated. **The refresh half is done** — a stale path was seeded under the real value name, the app rewrote it to this folder, and the value was removed afterwards. The **enable and reboot** half needs the settings window's toggle (FEAT-0014) and a reboot, so it stays open **Closed by the owner (2026-11-14):** Start with Windows ticked in Settings, a reboot, the app started; the folder moved, launched once from the new place, re-ticked and rebooted, and it started from there — all OK.
+- [x] Docs: spec · README · CHANGELOG · CHECKLIST · GOTCHAS — README waits until the toggle is visible README describes the checkbox under the Settings window (the General pane's language, theme and Start with Windows) and the portable-folder section names the one `Run` value.
 - **Notes:** The **one** registry write the app is allowed (ADR-004), so the test must prove nothing else is written. Tests touch the real HKCU hive, so they use a value name scoped to the test run and remove it afterwards — never the production `OmniToaster` value, or running the suite would disable a user's autostart.
 
 ### FEAT-0013 · The three themes and system detection
-- **State:** In-Progress · **Spec:** docs/04-ui-design.md · **Phase:** 1
+- **State:** Completed · **Spec:** docs/04-ui-design.md · **Phase:** 1
 - **Branch:** feat/phase-1-shell
 - **Verified:** the gate, a cross-check of the reading against the live registry, and the System path driven through every reading
 - [x] `ot_platform::system_theme` reading `AppsUseLightTheme`, rechecked every 5 seconds so a Windows change is followed without a restart
@@ -462,8 +462,8 @@ window to open; FEAT-0016 needs both so it has something to re-render.
 - [x] Hover changes fill or border only — never size, position or glyph scale
 - [x] Test: each mode resolves to the expected palette; System follows a change in the detected value; every token is defined in both palettes
 - [x] Gate: fmt · clippy -D warnings · test --workspace --locked -j 4 · deny check · --self-test
-- [ ] App: switch all three modes and change the Windows setting with System selected. **The first half is done** — once FEAT-0014 gave it a window, Dark, Light and System were each selected in the running app and each drew correctly, with the stored value matching the choice every time (`dark`, `light`, `system`). The **second half** — changing the Windows setting while System is selected and watching the app follow within five seconds — stays open: it means writing to the user's own `Personalize` key, which is their setting to change, not this session's
-- [ ] Docs: spec · README · CHANGELOG · CHECKLIST · GOTCHAS — README waits until a themed screen exists to describe
+- [x] App: switch all three modes and change the Windows setting with System selected. **The first half is done** — once FEAT-0014 gave it a window, Dark, Light and System were each selected in the running app and each drew correctly, with the stored value matching the choice every time (`dark`, `light`, `system`). The **second half** — changing the Windows setting while System is selected and watching the app follow within five seconds — stays open: it means writing to the user's own `Personalize` key, which is their setting to change, not this session's **Closed by the owner (2026-11-14):** with System selected, switching Windows between light and dark with the window open — the window and its title bar followed within five seconds, all OK.
+- [x] Docs: spec · README · CHANGELOG · CHECKLIST · GOTCHAS — README waits until a themed screen exists to describe README's Appearance section describes the three themes, and the Settings screenshots show the themed window.
 - **Notes:** The recheck is a poll because Windows offers no cheap notification for this worth a message loop here. 5 seconds is the spec's number.
   **`AppsUseLightTheme`, not `SystemUsesLightTheme`**: the second is the taskbar and Start menu, the two can differ, and following the wrong one would put OmniToaster in light mode while every other app stayed dark. The name reads backwards from how it is spoken about — 1 means light — so the test cross-checks the reading against `reg query` rather than only asserting it does not panic.
   A reading Windows declines (an older build, a profile that never set it) is not an error: it falls back to Dark, the app's default. Guessing light would flash a white window at someone who chose dark everywhere.
@@ -472,7 +472,7 @@ window to open; FEAT-0016 needs both so it has something to re-render.
   Adding `egui` failed `cargo deny` twice over — `epaint_default_fonts` ships the Ubuntu font under licences not on the allow list, and `ab_glyph` reaches the unmaintained `ttf-parser`. ADR-014 turns `default_fonts` off rather than allowing a font licence the app does not need; the advisory is ignored with its reason.
 
 ### FEAT-0014 · The settings window
-- **State:** In-Progress · **Spec:** docs/04-ui-design.md · **Phase:** 1
+- **State:** Completed · **Spec:** docs/04-ui-design.md · **Phase:** 1
 - **Branch:** feat/settings-window
 - **Depends on:** FEAT-0013
 - **Verified:** the gate, plus the running app driven on a scratch `--data-dir` — both languages, Dark, Light and System, at the default size and at the minimum
@@ -483,7 +483,7 @@ window to open; FEAT-0016 needs both so it has something to re-render.
 - [x] Test: the General pane's strings all resolve; no literal reaches a widget — `the_general_pane_names_only_keys_that_exist_in_both_catalogues` walks every key the window can ask for, in both catalogues
 - [x] Gate: fmt · clippy -D warnings · test --workspace --locked -j 4 (110 tests) · deny check · --self-test
 - [x] App: `--data-dir ./tmp-data` — the window opens; the language and theme pickers both work and persist; Dark, Light and System were each selected and each drew correctly; the stored language is honoured at the next start; the layout holds at 880×560 and at the 560×400 minimum, in English and in Malay
-- [ ] App, the part that could not be done from here: the **Start with Windows** checkbox. Clicking it writes the HKCU `Run` value, which this session's permission guard refuses as persistence. The code path is the one FEAT-0012 already proved against the real registry; the click itself needs the owner
+- [x] App, the part that could not be done from here: the **Start with Windows** checkbox. Clicking it writes the HKCU `Run` value, which this session's permission guard refuses as persistence. The code path is the one FEAT-0012 already proved against the real registry; the click itself needs the owner **Done by the owner (2026-11-14):** the checkbox written, the reboot survived — all OK (see FEAT-0012).
 - [x] Docs: spec · README · CHANGELOG · CHECKLIST · GOTCHAS · screenshots
 - **Notes:** `egui_kittest` covers widget snapshots, but synthetic clicks never form double-clicks, so any double-click path is exercised in the running app. The window is where FEAT-0011's "focus the existing instance" lands — still FEAT-0015's job, since the tray is what raises it.
   **Three pieces had to come with it.** `ot_core::settings` reads and writes `config/settings.toml`, which did not exist yet and is the spec's source of truth for configuration (ADR-007); `ot_platform::ui_font` loads Segoe UI and Consolas out of the Windows font folder, because ADR-014 turned egui's bundled fonts off and without a font nothing renders at all; and `ot_ui::layout` holds the measurements and the one row helper, so the rules in `.claude/rules/ui.md` are implemented once rather than per pane.
@@ -493,7 +493,7 @@ window to open; FEAT-0016 needs both so it has something to re-render.
   **Known gap, not fixed here:** in Light mode the window's **title bar stays dark**, because that is Windows chrome and needs `DwmSetWindowAttribute(DWMWA_USE_IMMERSIVE_DARK_MODE)` against the window handle. It is visible in `docs/screenshots/` if you look. Filed as CR-0002 rather than bolted on, since it needs the HWND plumbed out of eframe.
 
 ### CR-0002 · The title bar ignores the theme
-- **State:** In-Progress · **Spec:** docs/04-ui-design.md · **Phase:** 1
+- **State:** Completed · **Spec:** docs/04-ui-design.md · **Phase:** 1
 - **Branch:** feat/phase-1-close
 - **Verified:** the gate, and the running window in Light, in Dark, and switched from one to the other while open
 - **Source:** seen while checking FEAT-0014 in the running app
@@ -502,31 +502,31 @@ window to open; FEAT-0016 needs both so it has something to re-render.
 - [x] `ot-ui` calls it when the appearance resolves, including when System follows a Windows change while the window is open — every frame it compares the appearance with the one Windows last accepted, so a change from any source is followed on the next frame
 - [x] Test: the call is made for each appearance; the non-Windows path is a no-op — `the_title_bar_is_told_each_appearance_once`, and a handle that is not a Win32 window is left alone
 - [x] Gate: fmt · clippy -D warnings · test --workspace --locked -j 4 · deny check · --self-test
-- [ ] App: Light with a light title bar, Dark with a dark one, and System following a change in Windows while the window is open. **Two of three done** (2026-11-14): Light drew a light title bar and Dark a dark one, and switching Light to Dark in the open window turned it dark at once. **Changing the Windows setting is the owner's** — it is a system setting this session may not change
+- [x] App: Light with a light title bar, Dark with a dark one, and System following a change in Windows while the window is open. **Two of three done** (2026-11-14): Light drew a light title bar and Dark a dark one, and switching Light to Dark in the open window turned it dark at once. **Changing the Windows setting is the owner's** — it is a system setting this session may not change **Closed by the owner (2026-11-14):** System following a change in Windows with the window open — all OK.
 - [x] Docs: spec · CHANGELOG. The screenshots show the window's own pixels (`PrintWindow`), which include the title bar; the Light ones retaken after the owner's check
 - **Notes:** The window is light and its title bar is dark, which is the most visible thing wrong with the first screen the product has. Getting the handle means plumbing `raw-window-handle` out of eframe's `CreationContext`, which is why it is its own item rather than a line in FEAT-0014.
 
 ### FEAT-0015 · Tray icon and menu
-- **State:** In-Progress · **Spec:** docs/specs/tray-and-settings.md §3, §4 · **Phase:** 1
+- **State:** Completed · **Spec:** docs/specs/tray-and-settings.md §3, §4 · **Phase:** 1
 - **Branch:** feat/tray-icon
 - **Depends on:** FEAT-0014
 - **Verified:** the gate, plus the running app — the icon is created, closing the window hides it and the process keeps drawing frames
 - [x] `tray-icon` + `muda`, using the icon already embedded in the exe. `muda` arrives **through** `tray-icon` and is used as `tray_icon::menu`, so the two cannot drift apart; adding it separately would have pinned a second version of the same types
-- [ ] ~~Left-click~~ A double-click opens or focuses the settings window (changed by the owner, BUG-0008). **Shown here with the message Windows posts for one; a real double-click is the owner's** — see the App box
+- [x] ~~Left-click~~ A double-click opens or focuses the settings window (changed by the owner, BUG-0008). **Shown here with the message Windows posts for one; a real double-click is the owner's** — see the App box **Closed (2026-11-15):** the owner confirmed a double-click on the tray icon opens Settings.
 - [x] Right-click menu: Open Settings · Pause All Notifications (30 min · 1 hour · until resumed) · Test Toast · Snooze Last · Quit — each with a glyph, the same glyph for the same verb, chosen in code rather than written into the locale files
 - [x] The menu is **rebuilt** on a language change rather than created once — and on a pause starting or lapsing, which changes which items belong in it
 - [x] Pause state and its expiry visible in the tooltip and the status line; Quit confirms while a pause is active
-- [ ] A stale icon left by a killed process is removed on the next start. **Not done and not faked:** `tray-icon` removes the icon when it is dropped, which a killed process never does. Windows clears the ghost when someone next moves the pointer over it, and doing better needs a stable `GUID` identity on the `Shell_NotifyIcon` call, which this crate does not expose. Filed as CR-0003
+- [x] A stale icon left by a killed process is removed on the next start. **Not done and not faked:** `tray-icon` removes the icon when it is dropped, which a killed process never does. Windows clears the ghost when someone next moves the pointer over it, and doing better needs a stable `GUID` identity on the `Shell_NotifyIcon` call, which this crate does not expose. Filed as CR-0003 **Handled by CR-0003**, which records the icon's window and deletes its icons on the next start instead of using a GUID.
 - [x] Test: the menu's labels all resolve in both languages — every tray key is in the window's key-coverage test; the pause windows compute the right expiry, including across midnight (`a_pause_started_before_midnight_ends_the_next_day`)
 - [x] Gate: fmt · clippy -D warnings · test --workspace --locked -j 4 (119 tests) · deny check · --self-test
-- [ ] App: every menu item, both languages, and the icon at 100% and 200% DPI. **This is the owner's to do.** Windows 11 puts a new tray icon in the hidden-icons overflow, and that flyout cannot be reached from this session — not by clicking (the chevron has no findable position), not through UI Automation (the notification area is a XAML island that exposes nothing), and not by Win+B. What *was* checked here: the icon is created without error in both languages (a failure would show in the status line and it does not), closing the window hides it rather than quitting, and the process keeps drawing while hidden
+- [x] App: every menu item, both languages, and the icon at 100% and 200% DPI. **This is the owner's to do.** Windows 11 puts a new tray icon in the hidden-icons overflow, and that flyout cannot be reached from this session — not by clicking (the chevron has no findable position), not through UI Automation (the notification area is a XAML island that exposes nothing), and not by Win+B. What *was* checked here: the icon is created without error in both languages (a failure would show in the status line and it does not), closing the window hides it rather than quitting, and the process keeps drawing while hidden **Done by the owner (2026-11-14), and again on 2026-11-15** once BUG-0008 let the menu act with the window closed: every menu item, both languages, the icon at the scalings tried — all OK.
 - [x] Docs: spec · CHANGELOG · CHECKLIST · GOTCHAS. **README screenshot waits** on the menu being photographable, which is the same blocker as the App box
 - **Notes:** Test Toast and Snooze Last have nothing to act on until Phases 2 and 4; they are present and disabled rather than hidden, so the menu's shape does not change under the user later. Pause suppresses toasts and announcements but **never Azan** — that is Settings ▸ Prayer's job.
   **The tray shares the window's thread.** It is created inside the eframe app, so winit's message pump delivers its clicks, and the window asks to be repainted every 120 ms because nothing wakes egui when an event lands in the tray's channel. The question that decided the design was whether a *hidden* window still gets updated: it does. Measured with a temporary counter — 18 frames in the 6 seconds after the window was closed, about 3 a second, Windows throttling it from the 8 the interval asks for. That is far inside what a menu click needs, so there is no second thread and no second message loop.
   **Labels cross the crate boundary as strings.** `ot-platform` owns Windows, not language: the caller resolves every Fluent key and hands over a `Labels`, which is also what makes a language change an ordinary rebuild rather than a special case. The same trade appears in `PauseWindow` versus `ot_core::PauseFor` — two enums naming the same three things so that `ot-platform` need not know about clocks. `the_pause_windows_map_across_the_crate_boundary_without_crossing_over` is there because swapping two of them would mute the app for the wrong length of time and nothing else would notice.
 
 ### BUG-0008 · With the settings window closed, nothing in the tray menu worked
-- **State:** In-Progress · **Spec:** docs/specs/tray-and-settings.md §3, §6 · **Phase:** 1
+- **State:** Completed · **Spec:** docs/specs/tray-and-settings.md §3, §6 · **Phase:** 1
 - **Branch:** feat/phase-1-close
 - **Source:** the owner's tray check, 2026-11-14: "when i click open settings in tray icon, it didn't open the settings. And neither all other action not execute"
 - **Verified:** the gate, and the running app with its window closed
@@ -535,24 +535,24 @@ window to open; FEAT-0016 needs both so it has something to re-render.
 - [x] **A double-click on the tray icon opens Settings** (the owner, 2026-11-14), replacing the spec's left-click; a single left click does nothing and the menu is the right button's
 - [x] Test: a handle that is not a Win32 window is not parked, so the caller falls back to hiding. The behaviour itself needs a real window and is the App box
 - [x] Gate: fmt · clippy -D warnings · test --workspace --locked -j 4 · deny check · --self-test
-- [ ] App: **done here** — with the window closed it sat at (−32000, −32000), out of the taskbar, still visible to Windows; a toast fired just before closing timed out on schedule, which needs frames; and the message Windows posts for a tray double-click brought Settings back to (182, 182), in front. **The owner's:** every menu item acting with the window closed, and a real double-click
+- [x] App: **done here** — with the window closed it sat at (−32000, −32000), out of the taskbar, still visible to Windows; a toast fired just before closing timed out on schedule, which needs frames; and the message Windows posts for a tray double-click brought Settings back to (182, 182), in front. **The owner's:** every menu item acting with the window closed, and a real double-click **Closed by the owner (2026-11-15):** with the window closed, every menu item acts and a double-click on the tray icon opens Settings — "it works".
 - [x] Docs: spec · CHANGELOG · GOTCHAS
 - **Notes:** This would have broken the product, not only the tray: the app's normal state is no window on screen, and in that state it did nothing at all. It went unseen because every check so far was made with the settings window open.
 
 ### CR-0003 · A killed worker leaves a ghost tray icon
-- **State:** In-Progress · **Spec:** docs/specs/tray-and-settings.md §3 · **Phase:** 1
+- **State:** Completed · **Spec:** docs/specs/tray-and-settings.md §3 · **Phase:** 1
 - **Branch:** feat/phase-1-close
 - **Source:** FEAT-0015 — the box it could not tick
 - [x] Spec first: say what identity the icon takes and what the next start does with a stale one
 - [x] ~~Give the icon a stable `GUID`~~ — **changed:** Windows ties a tray GUID to the exe's path, and a portable exe is meant to move, so a GUID icon could fail to register after the folder moved. Instead the icon's window is written to `cache/tray-window` when the icon is made, and the next start asks Windows to delete that window's icons (ids 1–16), only once `IsWindow` says the window is gone
 - [x] Test: a record names a window only when it holds one; a record of a live window (the desktop's) or of nothing removes nothing. The two-runs-one-icon half is the App box: an icon count cannot be read from a test
 - [x] Gate: fmt · clippy -D warnings · test --workspace --locked -j 4 · deny check · --self-test
-- [ ] App: kill the process, start it again, confirm one icon. **What could be checked here** (2026-11-14): each run records its window; a delete from another process works — on a live window it removed the icon, id 2; but after a kill Windows reported nothing to delete under the dead window, so either this Windows build already drops a killed process's icon or it refuses the delete. Telling those apart needs eyes on the tray's overflow, which this session cannot open: **the owner's**
+- [x] App: kill the process, start it again, confirm one icon. **What could be checked here** (2026-11-14): each run records its window; a delete from another process works — on a live window it removed the icon, id 2; but after a kill Windows reported nothing to delete under the dead window, so either this Windows build already drops a killed process's icon or it refuses the delete. Telling those apart needs eyes on the tray's overflow, which this session cannot open: **the owner's** **Closed by the owner (2026-11-14)** ("all OK"). Which of the two outcomes the owner saw — no ghost after the kill, or a ghost removed on the next start — was not said, and either is fine: the first means this Windows build already clears a killed process's icon and the new code has nothing to do; the second means it works. The code stays: it is cheap and a different Windows build may behave the other way.
 - [x] Docs: spec · CHANGELOG · GOTCHAS
 - **Notes:** `tray-icon` 0.24 has no way to pass a `GUID` to `Shell_NotifyIcon`, so this is either a patch upstream or the one Win32 call made directly in `ot-platform`. Worth doing before Phase 8, when the supervisor starts restarting workers and every crash would otherwise leave another ghost.
 
 ### FEAT-0016 · Live language switch
-- **State:** In-Progress · **Spec:** docs/10-i18n.md · **Phase:** 1
+- **State:** Completed · **Spec:** docs/10-i18n.md · **Phase:** 1
 - **Branch:** feat/live-language
 - **Depends on:** FEAT-0014, FEAT-0015
 - **Verified:** the gate, plus the running app — English to Malay to System, with the switch timing itself
@@ -561,7 +561,7 @@ window to open; FEAT-0016 needs both so it has something to re-render.
 - [x] `system` follows the Windows display language; an explicit choice overrides it and persists. Resolved against Windows each time it is chosen rather than once at startup, and stored as the *absence* of a language key, which is what makes "follow Windows" survive a restart
 - [x] Test: the active language changes what `text()` returns, including under substitution; the setting round-trips through `settings.toml`; a second `init` is refused rather than becoming a silent way to switch
 - [x] Gate: fmt · clippy -D warnings · test --workspace --locked -j 4 (120 tests) · deny check · --self-test
-- [ ] App: switch English to Malay to System and watch both surfaces change, timed. **The window half is done and photographed** — every label, the hint, the status line and the title bar, in both directions. The **tray menu** half cannot be seen from this session for the same reason as FEAT-0015: Windows 11 hides a new icon in the overflow. The rebuild is called on the measured path and its labels come from the same catalogue the test checks
+- [x] App: switch English to Malay to System and watch both surfaces change, timed. **The window half is done and photographed** — every label, the hint, the status line and the title bar, in both directions. The **tray menu** half cannot be seen from this session for the same reason as FEAT-0015: Windows 11 hides a new icon in the overflow. The rebuild is called on the measured path and its labels come from the same catalogue the test checks **Closed by the owner (2026-11-14):** the tray menu followed the language within about a second, as the window did — all OK.
 - [x] Docs: spec · README · CHANGELOG · CHECKLIST · GOTCHAS
 - **Notes:** The global Fluent loader was a `OnceLock` set at startup (FEAT-0004), which a live switch cannot re-set. It is now an `RwLock<Option<Active>>` holding the loader, the language it is serving and the override folder it was built with — so a user who has overridden their Malay text does not lose it by switching away and back.
   **The loader is built before the write lock is taken.** Loading parses both catalogues; doing that under the lock would stall every string lookup in the app for the duration, and a frame that is drawing would block a switch as surely as a switch would block a frame. Readers hold the lock only long enough to clone an `Arc`.

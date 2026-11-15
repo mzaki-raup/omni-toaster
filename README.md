@@ -12,14 +12,16 @@ customizable, Windows-style toast notifications for reminders, prayer times
 starts with Windows, recovers from crashes, and keeps every byte of its data in
 an `OmniToasterData/` folder next to the executable.
 
-**Status:** Phase 1 (Shell), in progress. The app starts in English or Malay,
+**Status:** Phases 0–2 are done: the app starts in English or Malay,
 keeps its data in a portable folder, refuses to run twice, lives in the
-**system tray**, and opens a **settings window** with the General pane:
-language, theme and Start with Windows. The language switches **while it
-runs** — window, title bar and tray menu, in a few milliseconds, no restart.
-Closing the window hides it; Quit is in the tray menu, which also pauses all
-notifications for half an hour, an hour or until you resume them. There is
-still no toast — that is Phase 2.
+**system tray** and paints its own **toasts** — three shapes, nine screen
+positions or a point of your own, on the monitor you choose, with a picture
+library, and a live preview in Settings ▸ Appearance. The language and theme
+switch **while it runs**. Double-click the tray icon to open Settings; closing
+the window leaves the app running behind the icon, and Quit is in the tray
+menu, which also pauses all notifications for half an hour, an hour or until
+you resume them. Reminders, the Azan and weather are the next phases, so
+nothing fires a toast on its own yet.
 `--data-dir`, `--self-test`, `--version`, `--help`, `--lang` and `--worker`
 all work.
 
