@@ -9,6 +9,7 @@
 //! `docs/03-architecture.md` for where this crate sits.
 
 pub mod assets;
+pub mod builtin;
 pub mod library;
 
 use std::path::{Path, PathBuf};

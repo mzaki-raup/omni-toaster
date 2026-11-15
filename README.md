@@ -93,7 +93,9 @@ everything about them is a setting:
 - **Body:** text with bold and italic, plus an image (PNG, JPG or WebP, up to 5 MB)
 - **Picture Library:** upload a picture once — a mosque, a meeting, an alarm
   clock — name it, and use it in any notification as its icon or its image.
-  Removing a picture still in use asks first
+  Removing a picture still in use asks first. Nineteen pictures ship with the
+  app — a mosque for each prayer, nine kinds of weather, an alarm clock, a
+  meeting and a training session — ready to choose from the same lists
 - **Position and stacking:** nine presets or a point of your own, on the primary
   monitor or one you choose, 1–5 visible at once
 - **Accent bar:** on the side of the toast that faces the screen's edge, with
@@ -233,11 +235,12 @@ Settings ▸ Appearance, where the preview is drawn by the same code as a real t
 
 In Bahasa Melayu: [settings-appearance-ms.png](docs/screenshots/settings-appearance-ms.png).
 
-Settings ▸ Picture Library, where pictures are uploaded once and named:
+Settings ▸ Picture Library, where pictures are uploaded once and named, with
+the ones that ship with the app listed below them:
 
-![Settings ▸ Picture Library with three pictures](docs/screenshots/settings-pictures.png)
+![Settings ▸ Picture Library with two uploaded pictures and the built-in ones](docs/screenshots/settings-pictures.png)
 
-In Bahasa Melayu, asking before removing a picture the test toast uses:
+The same screen in Bahasa Melayu:
 [settings-pictures-ms.png](docs/screenshots/settings-pictures-ms.png). The rest
 are **not captured yet** — the screens do not exist. The places are reserved
 and the capture procedure is written down in

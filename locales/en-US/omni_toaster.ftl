@@ -225,6 +225,36 @@ settings-library-keep = Keep It
 settings-library-none-icon = App Icon
 # The first item of the image picker: no image.
 settings-library-none-image = No Image
+# The heading of the list of pictures that ship with the app, in Settings > Picture Library.
+settings-library-builtin = Built-In Pictures
+# The line under that heading.
+settings-library-builtin-hint = These come with OmniToaster. Use them for any notification; they can't be renamed or removed.
+# Group headings in the picture pickers and the Picture Library: the built-in pictures for prayer times, weather and reminder types.
+settings-builtin-group-prayer = Prayer Times
+settings-builtin-group-weather = Weather
+settings-builtin-group-reminder = Reminders
+# Names of the built-in pictures, shown in the pickers and the Picture Library. Prayers carry both names, as everywhere in Settings.
+settings-builtin-masjid-imsak = Mosque · Imsak
+settings-builtin-masjid-subuh = Mosque · Subuh (Fajr)
+settings-builtin-masjid-dhuha = Mosque · Dhuha
+settings-builtin-masjid-zohor = Mosque · Zohor (Dhuhr)
+settings-builtin-masjid-asar = Mosque · Asar (Asr)
+settings-builtin-masjid-maghrib = Mosque · Maghrib
+settings-builtin-masjid-isyak = Mosque · Isyak (Isha)
+# Weather pictures.
+settings-builtin-sunny = Sunny
+settings-builtin-partly-cloudy = Partly Cloudy
+settings-builtin-cloudy = Cloudy
+settings-builtin-hazy = Hazy
+settings-builtin-fog = Fog
+settings-builtin-drizzle = Drizzle
+settings-builtin-downpour = Downpour
+settings-builtin-thunderstorm = Thunderstorm
+settings-builtin-windy = Windy
+# Reminder-type pictures.
+settings-builtin-alarm-clock = Alarm Clock
+settings-builtin-meeting = Meeting
+settings-builtin-training = Training
 settings-language = Language
 # Under the language picker. The switch is immediate, so the hint explains the
 # only part a user cannot guess: what "Same as Windows" follows.

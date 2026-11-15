@@ -17,6 +17,19 @@ use ot_store::assets::{Asset, ImportError, Thumbnail};
 /// 50 pixels at 250%; 64 leaves room without carrying the original around.
 const THUMBNAIL_SIDE: u32 = 64;
 
+/// The side a picture is decoded to when it is a toast's **image**, which is
+/// drawn up to 72 points: 180 pixels at 250%, where a 64-pixel texture would
+/// be stretched nearly threefold. A bigger texture is no use for the icon
+/// slot — shrunk twenty-fold without mipmaps it would shimmer — so one
+/// picture can have both, under different keys.
+const IMAGE_SIDE: u32 = 192;
+
+/// The key a picture's large texture is stored under, for the toast windows,
+/// whose paint callbacks look pictures up in a map by key.
+pub fn image_key(relative: &str) -> String {
+    format!("{relative}#{IMAGE_SIDE}")
+}
+
 /// Which picture an import is for. They are kept apart because they mean
 /// different things: the icon sits in the header, the image in the body.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -133,7 +146,8 @@ const APP_ICON_PNG: &[u8] = include_bytes!("../../../assets/icon/omnitoaster-64.
 
 type Decoded = (String, Result<Thumbnail, ImportError>);
 
-/// Decoded pictures, as egui textures, keyed by their relative path.
+/// Decoded pictures, as egui textures, keyed by their relative path — and, for
+/// the large copy a toast's image uses, by [`image_key`].
 pub struct Images {
     root: PathBuf,
     textures: HashMap<String, egui::TextureHandle>,
@@ -162,15 +176,30 @@ impl Images {
         }
     }
 
-    /// Make sure this picture is decoded, or on its way.
+    /// Make sure this picture is decoded at icon size, or on its way.
     pub fn request(&mut self, relative: &str) {
-        if self.textures.contains_key(relative)
-            || self.pending.contains(relative)
-            || self.failed.contains(relative)
+        self.request_sized(relative, THUMBNAIL_SIDE);
+    }
+
+    /// Make sure this picture is decoded at the larger size a toast's image
+    /// uses, or on its way.
+    pub fn request_image(&mut self, relative: &str) {
+        self.request_sized(relative, IMAGE_SIDE);
+    }
+
+    fn request_sized(&mut self, relative: &str, side: u32) {
+        let key = if side == THUMBNAIL_SIDE {
+            relative.to_string()
+        } else {
+            image_key(relative)
+        };
+        if self.textures.contains_key(&key)
+            || self.pending.contains(&key)
+            || self.failed.contains(&key)
         {
             return;
         }
-        self.pending.insert(relative.to_string());
+        self.pending.insert(key.clone());
         let root = self.root.clone();
         let relative = relative.to_string();
         let sender = self.sender.clone();
@@ -178,11 +207,15 @@ impl Images {
             .name("image-decode".into())
             .spawn(move || {
                 let result = if relative == APP_ICON {
-                    ot_store::assets::decode(APP_ICON_PNG, Path::new(APP_ICON), THUMBNAIL_SIDE)
+                    ot_store::assets::decode(APP_ICON_PNG, Path::new(APP_ICON), side)
+                } else if let Some(builtin) = ot_store::builtin::find(&relative) {
+                    // Embedded in the exe: the key resolves against the
+                    // table, never against the disk.
+                    ot_store::assets::decode(builtin.bytes, Path::new(builtin.key), side)
                 } else {
-                    ot_store::assets::thumbnail(&root, &relative, THUMBNAIL_SIDE)
+                    ot_store::assets::thumbnail(&root, &relative, side)
                 };
-                let _ = sender.send((relative, result));
+                let _ = sender.send((key, result));
             });
         if let Err(error) = spawned {
             tracing::error!(%error, "the decode thread could not be started");
@@ -223,6 +256,11 @@ impl Images {
                 texture: texture.id(),
                 size: texture.size_vec2(),
             })
+    }
+
+    /// The large copy of a picture, for a toast's image.
+    pub fn picture_image(&self, relative: &str) -> Option<ot_toast::content::Picture> {
+        self.picture(&image_key(relative))
     }
 
     /// Every decoded picture, for the toast windows. Their paint callbacks
