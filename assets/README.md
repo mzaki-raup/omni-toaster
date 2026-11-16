@@ -55,7 +55,7 @@ and add a line to `PICTURES` in `builtin.rs`, a label in both `.ftl` files
 fails if a picture is not a WebP, is bigger than 256 px, or takes the total past
 600 KB.
 
-## `sound/` — 3 clips, **not yet embedded**
+## `sound/` — 4 clips, **not yet embedded**
 
 MP3, 128 kbps stereo, 44.1 kHz. Nothing plays them yet: the audio engine is
 `ot-media`, which arrives with the phases that need it, and the clips are
@@ -67,13 +67,15 @@ something can play them would help nobody.
 | `alarm.mp3` | Alarm reminders | about 30 s |
 | `azan.mp3` | the Azan, every prayer but Subuh | about 2 min |
 | `azan-subuh.mp3` | the Azan for Subuh (Fajr) | about 3 min |
+| `notification.mp3` | stand-in default chime (see below) | about 2 s |
 
-**Still to find: the default chime.** `notification.mp3` was supplied too, but
-its tags say it is the *Button* sound from **HTC Sense 6** (© HTC, 2014): a
-phone maker's own sound, which does not belong in a public MIT repository. It
-is kept out of git. The default chime for reminders and weather — and the chime
-that stands in for speech when no voice is installed
-(`docs/specs/announcements.md`) — needs a sound whose licence is known.
+**The default chime is a stand-in.** `notification.mp3` is committed on the
+owner's decision (2026-11-16), but its tags say it is the *Button* sound from
+**HTC Sense 6** (© HTC, 2014): a phone maker's own sound, not a licensed one. It
+is used until a sound whose licence is known replaces it — keep the file name —
+and **Phase 9's terms check must replace it if it cannot be cleared**. The
+default chime for reminders and weather, and the chime that stands in for speech
+when no voice is installed (`docs/specs/announcements.md`), is this file.
 
 ## Provenance and licence
 
@@ -90,7 +92,7 @@ has been established.** What is known:
   numbering that looks like a sound pack. The source and its terms are not
   recorded anywhere.
 
-The owner chose to commit the three clips knowing this. **Phase 9's terms check
+The owner chose to commit the clips, including the HTC one, knowing this. **Phase 9's terms check
 (`PROPOSAL.md` §13) has to settle all of it before a release is promoted as
 redistributable**; until then this is a known gap, not a cleared one. Anything
 that cannot be cleared is replaced, and the file name stays.
