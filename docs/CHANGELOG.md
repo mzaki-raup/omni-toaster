@@ -7,7 +7,9 @@ Format: [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) · Versioning:
 
 ## Unreleased
 
-- (nothing yet)
+### Added
+
+- `assets/sound/notification.mp3`, a stand-in default chime (HTC's *Button* sound, committed on the owner's decision; Phase 9's terms check replaces it if it cannot be cleared). Not embedded until the audio engine exists.
 
 ## 0.10.0 — 2026-11-15
 
