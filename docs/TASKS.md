@@ -776,6 +776,18 @@ of it, then 0004, 0005 and 0006 in any order.
 
 ## Backlog
 
+### CR-0007 · Move off `chrono`, which is unmaintained, before the scheduler is built on it
+- **State:** Pending · **Spec:** docs/08-decisions.md (a new ADR) · **Phase:** 4
+- **Source:** `cargo deny check`, 2026-11-17: RUSTSEC-2026-0543, "chrono is unmaintained", no safe upgrade; the advisory names `jiff` and `time`
+- [ ] Choose the replacement in an ADR — time zones (Asia/Kuala_Lumpur for JAKIM, `docs/11-prayer-and-azan.md`), DST arithmetic for the scheduler, and what `ot-i18n`'s formatter needs
+- [ ] Replace it in `ot-core` (logging, pause), `ot-i18n` (the formatter), `ot-ui` and the self-test, with the formatter's tests unchanged and passing
+- [ ] Remove RUSTSEC-2026-0543 from `deny.toml`'s ignore list
+- [ ] Test: the formatter's tests in both languages, 12- and 24-hour, UTC+8; the pause timer
+- [ ] Gate: fmt · clippy -D warnings · test --workspace --locked -j 4 · deny check · --self-test
+- [ ] App: `--data-dir ./tmp-data` — the toast timestamp and the pause-until time in both languages
+- [ ] Docs: ADR · README (requirements) · CHANGELOG
+- **Notes:** Ignored in `deny.toml` until then, with the reason: it is not a vulnerability and today `chrono` parses no input from outside the app. Before Phase 4 because the scheduler and the prayer times are where a date library becomes hard to replace.
+
 ### CR-0001 · The product is "OmniToaster", one word, everywhere a user sees it
 - **State:** Completed · **Spec:** docs/01-vision-and-scope.md · **Phase:** 0
 - **Branch:** cr/product-name-omnitoaster
