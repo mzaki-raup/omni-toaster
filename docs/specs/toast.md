@@ -1,6 +1,6 @@
 # Spec — Toasts
 
-**Status:** approved · **Last updated:** 2026-11-13 · **Source:** [PROPOSAL.md](../../PROPOSAL.md) §8.4–8.6
+**Status:** approved · **Last updated:** 2026-11-17 · **Source:** [PROPOSAL.md](../../PROPOSAL.md) §8.4–8.6
 **Owner crates:** `ot-toast`, `ot-ui` · **Phases:** 2 (core), 3 (glass and animations)
 
 ## 1. Purpose
@@ -62,7 +62,7 @@ renders without going through a `ToastSpec` is a defect.
 | Shape | Rectangle, rounded rectangle, pill | Corner radius 0–40 px |
 | Background | Solid colour, gradient | |
 | Opacity | Percent — fades the whole toast, text included (CR-0005) | 70%–100% |
-| Glass effect | None, Blur, Acrylic, Mica-like | Windows 10 1809+; solid fallback otherwise |
+| Glass effect | None, Blur, Acrylic, Mica-like (§4.2) | Windows 10 1809+; solid fallback otherwise. Turns Windows' shadow off |
 | Border | Width and colour | 0–4 px |
 | Shadow | On or off — Windows' own shadow, which it draws only for the Rectangle shape (CR-0006) | Greyed out for a rounded rectangle or a pill |
 | Header | Icon, title, app name, timestamp | Each toggleable |
@@ -98,6 +98,31 @@ At Centre each bar follows the rounded corners round and stops where the
 curve ends. A pill's corners are its whole ends, so its two bars meet in a
 ring. A pill's text is inset for the curve on its round side or sides only.
 
+### 4.2 Glass
+
+The desktop behind the toast, blurred, under the toast's own colour — and
+always a blur that Windows draws, never a picture of the desktop the app takes.
+Windows 11's Mica and Acrylic backdrops draw only their flat fallback on a
+window that is not active, and a toast never is, so all three kinds come from
+the one call that blurs an inactive window: the accent policy's Acrylic
+(ADR-016). They differ in how much of the toast's background colour lies over
+the blur:
+
+| Kind | Tint over the blur |
+|---|---|
+| None | — the solid background, as in Phase 2 |
+| Blur | Almost none: the desktop, blurred |
+| Acrylic | The background colour, part-transparent |
+| Mica-like | The background colour, mostly opaque: the desktop shows only as a hint of colour |
+
+A gradient tints with its first colour. Where Windows refuses the call, or is
+older than 10 1809, the toast is drawn solid and the log says why — a glass
+that silently is not there is a defect. Glass and Windows' shadow exclude each
+other (ADR-016), so a Rectangle with glass has no shadow and the shadow
+control says so. The Settings preview shows the tint over the pane's own
+colour, not a blur: a preview cannot blur what is behind the settings window,
+and says so beside the control.
+
 **Images:** validated by magic bytes, not by extension. Decoded with a pixel
 limit of 4096 × 4096. Resized to a cached thumbnail. An oversize or corrupt
 file is rejected with a localized message naming the reason
@@ -117,10 +142,31 @@ ease-out, spring).
 **Reduced motion** follows the Windows "Show animations" setting and switches to
 fade only.
 
-**Implementation.** Slide and pop are window position and scale updates.
-Dissolve and glow are painted meshes with alpha masks. Genie is a mesh warp.
-Each effect has a frame-time budget and **falls back to fade below 30 fps** —
-the fallback is automatic and logged, never a visible stutter.
+**Implementation.** Slide and drawer move the window. Pop scales the toast
+inside a window with a transparent margin, so the overshoot has room. Appear
+and alpha to solid are alpha ramps — alpha to solid fades the background in
+behind text that is already there. Dissolve and glow are painted with alpha
+masks; glow's halo lies in the same transparent margin. Genie is a mesh warp
+inside a window that covers its path. Every one of them needs per-pixel alpha,
+which the toast window has (ADR-016).
+
+**The timeline.** A toast enters, holds, and leaves. Its display duration
+(§6) counts the hold only: the countdown starts when the in-animation ends,
+and a toast that is dismissed or runs out plays its out-animation before its
+window closes. A toast waiting in the stacking queue has not entered. While a
+toast leaves, the ones below it move up with the same easing rather than
+jumping.
+
+**One clock.** Every toast is painted in the same frame as the app's root
+window (ADR-016), so all of them animate together, and the frame time measured
+is the whole frame's. Each effect has a frame-time budget and **falls back to
+fade below 30 fps** — the fallback is automatic and logged, never a visible
+stutter. 60 fps is measured on the reference machine (ADR-016), in a release
+build.
+
+**Easing.** Linear, ease-out (cubic), and spring (a damped overshoot that
+settles within the duration). Spring applies to motion and scale; an alpha
+never overshoots past solid.
 
 ## 6. Duration
 

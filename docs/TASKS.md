@@ -125,13 +125,134 @@ Refs: BUG-0003
 ### Latest Vacant/Free Task
 
 ```
-Version : v0.0.2
-Features : FEAT-0017
-Bugs : BUG-0003
-Change Request : CR-0002
+Version : v0.3.1
+Features : FEAT-0037
+Bugs : BUG-0009
+Change Request : CR-0007
 ```
 
 ---
+
+## v0.3.0 — In-Progress
+
+Phase 3, Glass and Animations. Exit criteria (docs/07-roadmap.md): "Each
+animation runs at 60 fps on the reference machine and falls back cleanly when
+it cannot". The spike (FEAT-0028) set how — ADR-016 — and the owner chose, on
+2026-11-17, to keep Phase 2's corners, shadow and opacity as they are and to
+make all three glass kinds from the accent policy's Acrylic.
+
+### FEAT-0028 · Spike: transparency, glass and frame rate on the reference machine
+- **State:** Completed · **Spec:** docs/08-decisions.md ADR-016 · **Phase:** 3
+- **Branch:** feat/phase-3-glass-animations
+- **Verified:** screen captures over a window of red and blue stripes, and frame counts from the log; the spike code was reverted and none of it is committed
+- [x] Per-pixel alpha: black with the frame as it is; **see-through with the frame extended into the client area**, at alpha 0 and alpha 128 — ADR-015's "no transparent window on this driver" corrected
+- [x] Glass: Windows 11 Mica, Acrylic and Tabbed backdrops draw a flat colour on an inactive window, even one the script tried to activate; the accent policy's plain blur draws black; **the accent policy's Acrylic blurs**, on an inactive window, with or without the corner region
+- [x] Windows' shadow (non-client rendering on) makes the Rectangle opaque black in every mode; with the shadow off it takes the glass like the others
+- [x] Frame rate: three deferred viewports — only the newest is ever repainted (60 fps), the others stop after two frames, with or without vsync and whoever asks; **three immediate viewports all repaint together, 54–56 fps in a debug build** with every window moved each frame
+- [x] ADR-016 recorded; spec §4.2 and §5 rewritten from it; the owner's two decisions recorded there
+- [x] Docs: ADR-016 · spec · ledger
+- **Notes:** The 60 fps criterion is measured in a release build once the animations exist, not here. Not checked: Windows 10, where the accent policy is the long-used path; there is no Windows 10 machine here.
+
+### FEAT-0029 · Toast windows: painted from the root's frame, with per-pixel alpha
+- **State:** Pending · **Spec:** docs/specs/toast.md §5 · ADR-016 · **Phase:** 3
+- **Branch:** feat/phase-3-glass-animations
+- **Depends on:** FEAT-0028
+- [ ] Toasts become immediate viewports painted inside the root's frame, which keeps repainting while any toast is on screen or animating, and idles otherwise
+- [ ] `ot_platform::toast_window` extends each toast's frame into its client area and every toast clears to alpha 0, so the renderer's alpha reaches the desktop — except a Rectangle with Windows' shadow, which keeps today's path
+- [ ] Phase 2's look unchanged: the corner region, window-alpha opacity, the Rectangle-only shadow, the preview
+- [ ] Test: the viewport builder still carries every flag; a toast's clear colour is fully transparent
+- [ ] Gate: fmt · clippy -D warnings · test --workspace --locked -j 4 · deny check · --self-test
+- [ ] App: `--data-dir ./tmp-data` — three sample toasts (`--test-toast`) over a light window: corners, opacity at 70% and the Rectangle's shadow look exactly as in v0.10.0; frame counts show all three repainting
+- [ ] Docs: spec · README · CHANGELOG · CHECKLIST · GOTCHAS
+
+### FEAT-0030 · Glass: None, Blur, Acrylic, Mica-like
+- **State:** Pending · **Spec:** docs/specs/toast.md §4.2 · **Phase:** 3
+- **Branch:** feat/phase-3-glass-animations
+- **Depends on:** FEAT-0029
+- [ ] `Glass` in `Style` (`none` by default, kebab-case in `settings.toml`; an unknown value loads as `none` with a warning) and the tint each kind lays over the blur
+- [ ] `ot_platform` applies the accent policy's Acrylic with that tint, loaded by name; a refusal or an old Windows logs and falls back to solid
+- [ ] Glass turns Windows' shadow off, and the Shadow control says why, in both languages
+- [ ] Settings ▸ Appearance: a Glass dropdown (Title Case, both languages), and the preview's note that it shows the tint and not the blur
+- [ ] Test: the tint per kind; a gradient tints with its first colour; settings round-trip; an unknown kind loads as None
+- [ ] Gate: fmt · clippy -D warnings · test --workspace --locked -j 4 · deny check · --self-test
+- [ ] App: `--data-dir ./tmp-data` — each kind over the striped window and over the desktop, in Dark and Light toast colours; a Rectangle with glass shows no shadow; Malay labels fit
+- [ ] Docs: spec · README · CHANGELOG · CHECKLIST · GOTCHAS
+
+### FEAT-0031 · The animation model and the toast timeline
+- **State:** Pending · **Spec:** docs/specs/toast.md §5 · **Phase:** 3
+- **Branch:** feat/phase-3-glass-animations
+- **Depends on:** FEAT-0029
+- [ ] `Animation` in `ToastSpec`: in kind, out kind, duration (150–1000 ms, default 350, clamped in the model), easing (linear, ease-out, spring)
+- [ ] `LiveToast` enters, holds and leaves: the countdown starts when the in-animation ends; dismissal and expiry play the out-animation before the window closes; a queued toast has not entered
+- [ ] Toasts below a leaving one move up with the same easing
+- [ ] The easing curves, with an alpha that never overshoots past solid
+- [ ] Test: every phase boundary of the timeline; the countdown excludes the in-animation and hover; a toast dismissed mid-entry leaves from where it is; the easing curves at 0, ½ and 1; the clamp
+- [ ] Gate: fmt · clippy -D warnings · test --workspace --locked -j 4 · deny check · --self-test
+- [ ] App: `--data-dir ./tmp-data` — fire a test toast and watch it enter, hold for its whole duration and leave; dismiss one while it enters
+- [ ] Docs: spec · README · CHANGELOG · CHECKLIST · GOTCHAS
+
+### FEAT-0032 · Slide from right, slide from bottom, drawer, pop out, appear
+- **State:** Pending · **Spec:** docs/specs/toast.md §5 · **Phase:** 3
+- **Branch:** feat/phase-3-glass-animations
+- **Depends on:** FEAT-0031
+- [ ] Slide from right and from bottom: the window travels in from beyond the work area's edge, clipped to it
+- [ ] Drawer: the toast unrolls out of the edge it sits against
+- [ ] Pop out: scales from the centre with overshoot inside a transparent margin
+- [ ] Appear: an alpha ramp
+- [ ] Each one's mirror as its out-animation
+- [ ] Test: the geometry of each at t = 0, ½ and 1 for every position preset, against a table
+- [ ] Gate: fmt · clippy -D warnings · test --workspace --locked -j 4 · deny check · --self-test
+- [ ] App: `--data-dir ./tmp-data` — each in and out at every corner, at 100% and 150% scaling; frame counts in a release build
+- [ ] Docs: spec · README · CHANGELOG · CHECKLIST · GOTCHAS
+
+### FEAT-0033 · Dissolve, glow and alpha to solid
+- **State:** Pending · **Spec:** docs/specs/toast.md §5 · **Phase:** 3
+- **Branch:** feat/phase-3-glass-animations
+- **Depends on:** FEAT-0031
+- [ ] Dissolve: a noise mask that eats or grows the toast, generated once and cached
+- [ ] Glow: a halo in the accent colour in the transparent margin, swelling and settling
+- [ ] Alpha to solid: the background fades in behind text that is already there
+- [ ] Each one's mirror as its out-animation
+- [ ] Test: the mask is generated once per size, not per frame; the halo stays inside the window; alpha to solid ends at the toast's own opacity
+- [ ] Gate: fmt · clippy -D warnings · test --workspace --locked -j 4 · deny check · --self-test
+- [ ] App: `--data-dir ./tmp-data` — each in and out over the striped window, in Dark and Light toast colours; frame counts in a release build
+- [ ] Docs: spec · README · CHANGELOG · CHECKLIST · GOTCHAS
+
+### FEAT-0034 · Genie from bottom, and shrink to tray
+- **State:** Pending · **Spec:** docs/specs/toast.md §5 · §12 question 2 · **Phase:** 3
+- **Branch:** feat/phase-3-glass-animations
+- **Depends on:** FEAT-0031
+- [ ] Genie: a mesh warp from the bottom edge, in a window that covers its path
+- [ ] Shrink to tray: Genie's out-animation, towards the tray icon's rectangle (`ot-platform`), or the work area's bottom-right corner when Windows will not say
+- [ ] Answer §12's question 2 from the frame time measured on the reference machine
+- [ ] Test: the warp's mesh at t = 0, ½ and 1; the path window contains every frame of the warp
+- [ ] Gate: fmt · clippy -D warnings · test --workspace --locked -j 4 · deny check · --self-test
+- [ ] App: `--data-dir ./tmp-data` — Genie in and out at each corner, with the tray icon visible and hidden in the overflow; frame counts in a release build
+- [ ] Docs: spec · README · CHANGELOG · CHECKLIST · GOTCHAS
+
+### FEAT-0035 · Reduced motion and the 30 fps fallback
+- **State:** Pending · **Spec:** docs/specs/toast.md §5 · **Phase:** 3
+- **Branch:** feat/phase-3-glass-animations
+- **Depends on:** FEAT-0032, FEAT-0033, FEAT-0034
+- [ ] Reduced motion follows Windows' "Show animations in Windows" (`SPI_GETCLIENTAREAANIMATION`, re-read when it changes) and the Settings switch, and turns every animation into a fade
+- [ ] Frame-time budget: an effect whose frames fall below 30 fps finishes as a fade, and the next toast starts as one; logged with the measured frame time
+- [ ] A way to force both for checking
+- [ ] Test: the fallback triggers on a synthetic frame-time series and not on a single slow frame; reduced motion maps every kind to a fade
+- [ ] Gate: fmt · clippy -D warnings · test --workspace --locked -j 4 · deny check · --self-test
+- [ ] App: `--data-dir ./tmp-data` — Windows' setting off and on, watching a toast; the fallback forced, watching a toast and reading the log
+- [ ] Docs: spec · README · CHANGELOG · CHECKLIST · GOTCHAS
+
+### FEAT-0036 · Settings ▸ Animation
+- **State:** Pending · **Spec:** docs/04-ui-design.md · docs/specs/toast.md §5 · **Phase:** 3
+- **Branch:** feat/phase-3-glass-animations
+- **Depends on:** FEAT-0031
+- [ ] The pane the UI design names: in and out animation, duration, easing, and the reduced-motion switch with Windows' own setting shown beside it
+- [ ] A Play button that fires a test toast with the chosen animation
+- [ ] Every label a Fluent key in both languages, laid out for the longest Malay string
+- [ ] Test: the pane's widgets stay inside it in English, Malay and the pseudo-locale, at the default and the narrow width; settings round-trip
+- [ ] Gate: fmt · clippy -D warnings · test --workspace --locked -j 4 · deny check · --self-test
+- [ ] App: `--data-dir ./tmp-data` — choose each animation and press Play, in both languages and all three themes; the narrow window
+- [ ] Docs: spec · README · CHANGELOG · CHECKLIST · GOTCHAS
 
 ## v0.2.1 — Done 2026-11-16
 

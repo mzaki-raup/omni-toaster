@@ -411,3 +411,63 @@ one (CR-0006). Opacity uses the window's alpha (`WS_EX_LAYERED`), which Windows
 composites against the desktop on any driver; it fades the text with the
 background, so the owner set its floor at 70% (CR-0005). Painting the toast's
 colours translucent instead only blended them against black.
+
+**Revisited by ADR-016 (2026-11-17):** the driver does give per-pixel alpha once the frame is extended into the client area; the region, the opacity and the shadow above stay as they are by the owner's choice.
+
+---
+
+## ADR-016 · Toasts get per-pixel alpha from DWM, glass from the accent policy, and are painted by the root's frame
+
+**Status:** Accepted 2026-11-17 · **Phase:** 3 · **Revisits:** ADR-015's premise
+
+**Context.** Phase 3 needs three things Phase 2 had concluded this machine
+could not give: see-through pixels (dissolve, glow, alpha to solid, a pop that
+overshoots its own edge, a Genie warp), a blurred glass behind the toast, and
+every toast animating at 60 fps at once. A spike (FEAT-0028) measured each on
+the reference machine — Intel Iris Xe, driver 32.0.101.7079, 60 Hz, Windows 11
+26H2 build 26300, transparency effects on — by capturing the screen over a
+window of red and blue stripes.
+
+**What the spike found.**
+
+| Question | Result |
+|---|---|
+| Unpainted pixels, cleared to alpha 0, frame **not** extended | Black. ADR-015 was right about this much |
+| The same with `DwmExtendFrameIntoClientArea(-1)` and no backdrop | **See-through**, and alpha 128 is half see-through. The GL format has no `WGL_TRANSPARENT_ARB` (so eframe still logs "Cannot create transparent window"), but DWM composites the surface's alpha channel once the frame covers the client area. ADR-015's "the driver offers no transparent window" was the wrong conclusion from the right symptom |
+| Windows 11 backdrops (`DWMWA_SYSTEMBACKDROP_TYPE` Mica, Acrylic, Tabbed) | A flat colour — Windows draws the inactive fallback, and a toast is never active. No blur |
+| Accent policy `ACCENT_ENABLE_BLURBEHIND` (`SetWindowCompositionAttribute`) | Black on this build |
+| Accent policy `ACCENT_ENABLE_ACRYLICBLURBEHIND` | **Blurs**, with its tint, on an inactive window, with or without the corner region |
+| A Rectangle toast with Windows' shadow on (non-client rendering enabled) | Opaque black in every mode: the shadow and per-pixel alpha exclude each other |
+| Three **deferred** viewports, each asking to repaint | Only the newest (topmost) is ever repainted — 60 fps for it, **none** after the second frame for the others, with or without vsync, whoever asks for the repaint |
+| Three **immediate** viewports, painted from the root's frame, every window moved each frame | All three repainted together: 54–56 fps in a **debug** build with vsync |
+
+**Options.**
+
+| Option | For | Against |
+|---|---|---|
+| **Extended frame for alpha, accent-policy Acrylic for glass, immediate viewports** | Everything Phase 3 asks for works on the reference machine; no new dependency | `SetWindowCompositionAttribute` is undocumented, so it is loaded by name and a refusal means the solid fallback |
+| `window-vibrancy` crate | Named in `PROPOSAL.md` | Its Mica and Windows 11 Acrylic are the backdrops that go flat on a toast; its Windows 10 Acrylic is the same accent call, a dependency for twenty lines |
+| `wgpu` renderer | Transparent swap chains on some drivers | A large tree, and the alpha problem was never the renderer |
+
+**Decision.**
+- Every toast window has its frame extended into the whole client area and is
+  cleared to alpha 0, so the renderer's alpha reaches the desktop. The corner
+  region of ADR-015 stays (the owner kept Phase 2's look, 2026-11-17), and so
+  do window-alpha opacity (CR-0005) and the Rectangle-only shadow (CR-0006).
+- **Glass is the accent policy's Acrylic, three ways** (the owner's choice,
+  2026-11-17): Blur is the blur with a near-transparent tint, Acrylic is tinted
+  with the toast's background, Mica-like is tinted heavily. A refused call, or
+  Windows older than 10 1809, falls back to the solid background, logged.
+  Glass turns Windows' shadow off, since the two cannot coexist.
+- Toasts become **immediate** viewports, painted inside the root's frame, which
+  is also what the parked settings window keeps alive (BUG-0008). The
+  animation clock is that frame.
+- The **reference machine** for the 60 fps exit criterion is the one above,
+  measured in a **release** build.
+
+**Consequences.** One Win32 call more per toast, in `ot-platform`. The root's
+frame rate is every toast's frame rate, so the settings window's own cost
+counts against the animation budget — the frame-time fallback measures the
+whole frame. A Rectangle toast with glass has no shadow, and Settings says so.
+The undocumented call can disappear in a future Windows; the fallback is the
+plan for that day, not an error.
