@@ -7,6 +7,10 @@ Format: [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) · Versioning:
 
 ## Unreleased
 
+### Changed
+
+- `cargo deny` ignores RUSTSEC-2026-0543 (`chrono` unmaintained, not vulnerable, no upgrade) with its reason; moving off `chrono` before Phase 4 is CR-0007.
+
 ### Added
 
 - `assets/sound/notification.mp3`, a stand-in default chime (HTC's *Button* sound, committed on the owner's decision; Phase 9's terms check replaces it if it cannot be cleared). Not embedded until the audio engine exists.
