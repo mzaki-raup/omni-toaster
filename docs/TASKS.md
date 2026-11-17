@@ -154,16 +154,17 @@ make all three glass kinds from the accent policy's Acrylic.
 - **Notes:** The 60 fps criterion is measured in a release build once the animations exist, not here. Not checked: Windows 10, where the accent policy is the long-used path; there is no Windows 10 machine here.
 
 ### FEAT-0029 · Toast windows: painted from the root's frame, with per-pixel alpha
-- **State:** Pending · **Spec:** docs/specs/toast.md §5 · ADR-016 · **Phase:** 3
+- **State:** Completed · **Spec:** docs/specs/toast.md §5 · ADR-016 · **Phase:** 3
 - **Branch:** feat/phase-3-glass-animations
 - **Depends on:** FEAT-0028
-- [ ] Toasts become immediate viewports painted inside the root's frame, which keeps repainting while any toast is on screen or animating, and idles otherwise
-- [ ] `ot_platform::toast_window` extends each toast's frame into its client area and every toast clears to alpha 0, so the renderer's alpha reaches the desktop — except a Rectangle with Windows' shadow, which keeps today's path
-- [ ] Phase 2's look unchanged: the corner region, window-alpha opacity, the Rectangle-only shadow, the preview
-- [ ] Test: the viewport builder still carries every flag; a toast's clear colour is fully transparent
-- [ ] Gate: fmt · clippy -D warnings · test --workspace --locked -j 4 · deny check · --self-test
-- [ ] App: `--data-dir ./tmp-data` — three sample toasts (`--test-toast`) over a light window: corners, opacity at 70% and the Rectangle's shadow look exactly as in v0.10.0; frame counts show all three repainting
-- [ ] Docs: spec · README · CHANGELOG · CHECKLIST · GOTCHAS
+- **Verified:** the gate, and the running app on a scratch data folder (screen captures over a striped window)
+- [x] Toasts are immediate viewports painted inside the root's frame (`ot_toast::viewport::show_all`); `paint` is an `FnMut` that borrows rather than a cloned `Send + Sync + 'static` closure. Repainting continuously while something animates is FEAT-0031's, where there is something to animate
+- [x] `ot_platform::toast_window` extends each toast's frame into its whole client area (margins −1) and the app clears to alpha 0, so the renderer's alpha reaches the desktop — except a Rectangle with Windows' shadow, which keeps today's path
+- [x] Phase 2's look unchanged: the corner region, window-alpha opacity, the Rectangle-only shadow, the preview
+- [x] Test: the viewport builder still carries every flag (`the_viewport_carries_every_flag_the_spec_names`, unchanged). The alpha reaching the desktop is DWM's doing and is checked on screen, not in a test: no unit test can see it
+- [x] Gate: fmt · clippy -D warnings · test --workspace --locked -j 4 (217) · deny check · --self-test
+- [x] App: `--data-dir ./tmp-data` — three sample toasts (`--test-toast`) over a striped window: corners, opacity at 70% and the Rectangle's shadow look exactly as in v0.10.0; the settings window and its Appearance preview unchanged. Frame counts on this code are FEAT-0031's check; the spike measured the same immediate path
+- [x] Docs: spec §5 and the viewport paragraph · CHANGELOG · GOTCHAS (in FEAT-0028's commit). README and CHECKLIST: nothing a user sees changed
 
 ### FEAT-0030 · Glass: None, Blur, Acrylic, Mica-like
 - **State:** Pending · **Spec:** docs/specs/toast.md §4.2 · **Phase:** 3

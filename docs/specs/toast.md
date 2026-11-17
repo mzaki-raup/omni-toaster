@@ -471,7 +471,7 @@ than a rectangle, because its round ends would clip the first glyph. Checked
 in the running app: every shape at 100%, 150% and 200%, in Malay, with nothing
 overflowing.
 
-**The viewport** (FEAT-0018). One deferred viewport per toast, keyed on the
+**The viewport** (FEAT-0018; immediate since FEAT-0029, ADR-016). One viewport per toast, painted in the root window's frame, keyed on the
 toast's own id so it keeps one window instead of getting a new one each frame.
 Several live at once, which is what stacking needs. Hovering pauses the
 countdown, and the surplus beyond `max visible` queues rather than being

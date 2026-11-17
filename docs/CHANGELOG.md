@@ -9,6 +9,7 @@ Format: [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) · Versioning:
 
 ### Changed
 
+- Toast windows are painted in the app's own frame, and DWM composites their alpha, so whatever a toast leaves unpainted shows the desktop — the groundwork for glass and animations (FEAT-0029, ADR-016). They look exactly as before.
 - `cargo deny` ignores RUSTSEC-2026-0543 (`chrono` unmaintained, not vulnerable, no upgrade) with its reason; moving off `chrono` before Phase 4 is CR-0007.
 
 ### Added

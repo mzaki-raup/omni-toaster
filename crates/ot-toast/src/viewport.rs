@@ -80,11 +80,11 @@ pub fn builder(spec: &ToastSpec, title: &str) -> egui::ViewportBuilder {
 
 /// Draw every visible toast as its own viewport.
 ///
-/// Each one is a **deferred** viewport: egui owns its window and calls back to
-/// paint it, which is what lets several exist at once without the app running
-/// a window loop of its own. The callback cannot borrow the app, so each
-/// toast's spec is cloned into it — a `ToastSpec` is small and cloning it once
-/// per frame per visible toast is nothing beside painting one.
+/// Each one is an **immediate** viewport, painted inside the root window's own
+/// frame (ADR-016). Deferred viewports, each repainting on its own, starve one
+/// another: of three that each asked for every frame, only the newest was ever
+/// repainted. Painted from the root's frame, every toast is repainted in the
+/// same frame, which is also the one clock every animation runs on.
 ///
 /// `paint` is given the ui, the spec and the toast's id, whose
 /// [`ToastId::window_title`] names the window it is painting.
@@ -92,12 +92,11 @@ pub fn show_all(
     ctx: &egui::Context,
     toasts: &Toasts,
     work_area: egui::Rect,
-    paint: impl Fn(&mut egui::Ui, &ToastSpec, ToastId) + Send + Sync + Clone + 'static,
+    mut paint: impl FnMut(&mut egui::Ui, &ToastSpec, ToastId),
 ) {
     for (index, toast) in toasts.visible().iter().enumerate() {
-        let spec = toast.spec.clone();
+        let spec = &toast.spec;
         let id = toast.id;
-        let paint = paint.clone();
         let size = egui::vec2(spec.style.width, spec.style.height.unwrap_or(AUTO_HEIGHT));
         // Worked out every frame against the work area in use, rather than
         // once when the toast appeared: the monitor can change underneath it
@@ -109,16 +108,16 @@ pub fn show_all(
             index,
             spec.behaviour.stack_gap,
         );
-        ctx.show_viewport_deferred(
+        ctx.show_viewport_immediate(
             toast.id.viewport_id(),
-            builder(&spec, &id.window_title()).with_position(at),
-            move |ctx, _class| {
+            builder(spec, &id.window_title()).with_position(at),
+            |ctx, _class| {
                 // No frame of egui's own: the toast paints its own
                 // background, its own corners and its own shadow, and a panel
                 // fill underneath would show through the transparent corners.
                 egui::CentralPanel::default()
                     .frame(egui::Frame::NONE)
-                    .show(ctx, |ui| paint(ui, &spec, id));
+                    .show(ctx, |ui| paint(ui, spec, id));
             },
         );
     }

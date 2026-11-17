@@ -29,6 +29,13 @@
 //! transparent window" — so the unpainted corners of a rounded toast came out
 //! black. A region makes Windows itself leave those pixels out, on any driver.
 //! Its edge is whole pixels, not smoothed: the cost of working everywhere.
+//!
+//! **Alpha.** "Cannot create transparent window" turned out to mean only that
+//! the pixel format lacks an overlay-plane flag. With the frame extended over
+//! the whole client area, DWM composites the surface's alpha after all, so a
+//! toast can be see-through wherever it paints nothing (ADR-016) — which is
+//! what glass and the animations need. The region stays, by the owner's
+//! choice, so the corners look as they did.
 
 /// Make every toast window in this process unobtrusive: every window whose
 /// title starts with `prefix`.
@@ -47,6 +54,10 @@ pub fn make_unobtrusive(prefix: &str) -> usize {
 /// The fade is the window's own alpha (`WS_EX_LAYERED`), which Windows
 /// composites against the desktop on any driver: the whole toast, text
 /// included, as the owner chose (CR-0005).
+///
+/// Without Windows' shadow, the frame is extended over the whole client area
+/// so that what the toast leaves unpainted — alpha 0 — shows the desktop
+/// (ADR-016).
 ///
 /// `shadow` asks for Windows' own drop shadow, which the compositor draws
 /// only for a window with no region — so only when every radius is zero
@@ -217,11 +228,17 @@ mod platform {
         shapes.insert(title.to_owned(), applied);
         // Windows' shadow, for an uncut window only: the compositor draws
         // none for a window with a region.
+        //
+        // Without it, the frame is extended over the whole client area —
+        // margins of -1 — which is what makes DWM composite the surface's own
+        // alpha, so whatever the toast leaves unpainted shows the desktop
+        // (ADR-016). The two exclude each other: with non-client rendering on
+        // for the shadow, the client area stays opaque.
         let shadow = shadow && region.is_none();
         let (policy, margin) = if shadow {
             (DWMNCRP_ENABLED, 1)
         } else {
-            (DWMNCRP_DISABLED, 0)
+            (DWMNCRP_DISABLED, -1)
         };
         let margins = MARGINS {
             cxLeftWidth: margin,

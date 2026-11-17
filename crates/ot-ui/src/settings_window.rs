@@ -736,9 +736,8 @@ impl SettingsWindow {
     /// Retire what has had its time, and draw what is left.
     fn drive_toasts(&mut self, ctx: &egui::Context) {
         for id in self.toasts.tick() {
-            // A retired toast's viewport has to be told to close: egui keeps
-            // a deferred viewport alive until nobody asks for it, and the
-            // window would otherwise linger empty.
+            // A retired toast's viewport is told to close at once, rather
+            // than left until egui notices a frame without it.
             ctx.send_viewport_cmd_to(id.viewport_id(), egui::ViewportCommand::Close);
             ot_platform::toast_window::forget(&id.window_title());
         }
@@ -1470,6 +1469,15 @@ impl SettingsWindow {
 }
 
 impl eframe::App for SettingsWindow {
+    /// Fully transparent, for the toast windows: wherever a toast paints
+    /// nothing, the desktop shows through (ADR-016). eframe's own default is
+    /// a 70%-opaque near-black, which looks black there. The settings window
+    /// paints its whole client area, and its frame is not extended, so this
+    /// changes nothing it shows.
+    fn clear_color(&self, _visuals: &egui::Visuals) -> [f32; 4] {
+        [0.0; 4]
+    }
+
     fn update(&mut self, ctx: &egui::Context, frame: &mut eframe::Frame) {
         // Nothing wakes egui when a tray event lands in its channel, so the
         // window asks to be woken. This is also what keeps the process
