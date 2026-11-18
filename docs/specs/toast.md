@@ -221,13 +221,19 @@ its in-animation run backwards.
 | Drawer | The **toast inside its window**, out of the edge it sits against (§4.1; the centre opens from the top) | Only the part that is out |
 | Pop out | The toast, **scaled** from its centre from 30% to full size, fading in as it grows | All of it; the window has a transparent margin of 8% of the toast's size on each side, room for a spring's overshoot (about 14%) |
 | Appear | Nothing: a fade | All of it |
+| Dissolve (FEAT-0033) | Nothing: the toast builds up **grain by grain** — 6-point cells, each with a fixed noise value made once per toast size and cached, showing once the progress passes it | The cells that show: the window's region is cut to them, joined into runs along each row so it stays cheap to rebuild every frame |
+| Glow (FEAT-0033) | A **halo** in the toast's accent colour, swelling while the toast fades in and settled to nothing when it has arrived | All of it; the window has an 18-point transparent margin, and its region grows by the halo's reach while there is one |
+| Alpha to solid (FEAT-0033) | Only the **background**, border and accent bar fade in; the text is there from the first frame | All of it |
 
 Every toast starts each effect invisible — beyond the edge, shut, or at alpha
 0 — and rests exactly where the stack puts it. A click is brought back
 through the effect's transform before it meets the buttons, so a drawer
 still sliding out has no Dismiss where the resting toast's would be. When
 several toasts slide in from the same edge together, they pass over one
-another on the way to their places.
+another on the way to their places. Windows' shadow, on a Rectangle, waits while an effect needs
+the window see-through — a halo, a background not yet solid — and appears when
+the toast has arrived; a window with a transparent margin (pop, glow) never
+has it.
 
 **The timeline.** A toast enters, holds, and leaves. Its display duration
 (§6) counts the hold only: the countdown starts when the in-animation ends,

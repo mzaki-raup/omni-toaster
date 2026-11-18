@@ -48,7 +48,19 @@ pub fn colour(rgba: Rgba, alpha: f32) -> egui::Color32 {
 /// border and by a padding that keeps text off the edge, and inset further on
 /// a pill, whose round ends would otherwise clip the first and last glyph.
 pub fn frame(painter: &egui::Painter, rect: egui::Rect, spec: &ToastSpec) -> egui::Rect {
-    let alpha = 1.0;
+    frame_with(painter, rect, spec, 1.0)
+}
+
+/// [`frame`], with its background, border and accent bar at `background`
+/// (0.0–1.0) of their own alpha: alpha to solid fades them in behind text
+/// that is already there (`docs/specs/toast.md` §5).
+pub fn frame_with(
+    painter: &egui::Painter,
+    rect: egui::Rect,
+    spec: &ToastSpec,
+    background: f32,
+) -> egui::Rect {
+    let alpha = background.clamp(0.0, 1.0);
     let radii = corner_radii(spec, rect.height());
     let corner = to_corner(radii);
 
@@ -116,6 +128,24 @@ fn glass_fill(spec: &ToastSpec) -> Option<egui::Color32> {
         .on(spec.style.shape)
         .tint()
         .map(|tint| colour(spec.style.background, tint))
+}
+
+/// A glow's halo around the toast at `rect`, in the toast's accent colour,
+/// `strength` 0.0–1.0 of its fullest (`docs/specs/toast.md` §5). Painted
+/// before the frame, so it lies under the toast and shows only in the
+/// window's transparent margin.
+pub fn halo(painter: &egui::Painter, rect: egui::Rect, spec: &ToastSpec, strength: f32) {
+    let strength = strength.clamp(0.0, 1.0);
+    if strength <= 0.0 {
+        return;
+    }
+    let shadow = egui::epaint::Shadow {
+        offset: [0, 0],
+        blur: (crate::effects::HALO_BLUR * strength).round() as u8,
+        spread: (crate::effects::HALO_SPREAD * strength).round() as u8,
+        color: colour(spec.accent(), 0.9 * strength),
+    };
+    painter.add(shadow.as_shape(rect, to_corner(corner_radii(spec, rect.height()))));
 }
 
 /// The radius of each corner in points, `[nw, ne, sw, se]`.

@@ -237,17 +237,19 @@ make all three glass kinds from the accent policy's Acrylic.
 - **Notes:** App, checked 2026-11-18 at the default Bottom Right with three toasts, 1-second linear runs (spring for one pop run) captured every 100 ms with the taskbar in frame: slide from right enters from beyond the screen's edge; slide from bottom rises from the taskbar's top edge and never draws over it; the drawer opens out of the right-hand edge and closes back into it; pop grows from small and faint at the centre and shrinks back; appear fades. Clicking where Dismiss rests, while a drawer was still opening, dismissed nothing (the pointer mapped to the body); at rest it dismissed. Release build, three toasts at 350 ms: slide 143–312 fps, drawer 174–361, pop 158–285. **Not checked:** the other eight corners and edges on screen (the preset test covers their geometry), and 150% on screen (GOTCHAS: `--ui-scale`). When three toasts slide in from the same edge together they pass over one another; a single toast does not. A faint white box at the very start of every fade, visible over a light background, predates these effects: BUG-0010.
 
 ### FEAT-0033 · Dissolve, glow and alpha to solid
-- **State:** Pending · **Spec:** docs/specs/toast.md §5 · **Phase:** 3
+- **State:** In-Progress · **Spec:** docs/specs/toast.md §5 · **Phase:** 3
 - **Branch:** feat/phase-3-glass-animations
 - **Depends on:** FEAT-0031
-- [ ] Dissolve: a noise mask that eats or grows the toast, generated once and cached
-- [ ] Glow: a halo in the accent colour in the transparent margin, swelling and settling
-- [ ] Alpha to solid: the background fades in behind text that is already there
-- [ ] Each one's mirror as its out-animation
-- [ ] Test: the mask is generated once per size, not per frame; the halo stays inside the window; alpha to solid ends at the toast's own opacity
-- [ ] Gate: fmt · clippy -D warnings · test --workspace --locked -j 4 · deny check · --self-test
+- [x] Dissolve: a noise mask that eats or grows the toast, generated once per toast size and cached (`effects::noise_for`); the window's region is cut to the cells that show, joined into runs per row and built in one `ExtCreateRegion` call
+- [x] Glow: a halo in the accent colour in an 18-point transparent margin, swelling and settling (`render::halo`); the region grows by the halo's reach while there is one
+- [x] Alpha to solid: the background, border and accent bar fade in behind text that is already there (`render::frame_with`)
+- [x] Each one's mirror as its out-animation
+- [x] Windows' shadow waits while a halo or a part-solid background needs the window see-through (`Look::shadow_ok`)
+- [x] Test: the noise is made once per grid (the same `Arc`), the cells grow in order, cover the toast at the end and about half at half way, and never overlap; the halo stays inside the window at every frame of a spring, alone and beside a pop, and has settled on arrival; alpha to solid keeps its text and ends at the toast's own opacity; every preset starts each effect hidden or bare
+- [x] Gate: fmt · clippy -D warnings · test --workspace --locked -j 4 (251 passed) · deny check · --self-test
 - [ ] App: `--data-dir ./tmp-data` — each in and out over the striped window, in Dark and Light toast colours; frame counts in a release build
 - [ ] Docs: spec · README · CHANGELOG · CHECKLIST · GOTCHAS
+- **Notes:** App, checked 2026-11-18 with three toasts, 1-second linear runs captured every 100 ms: dissolve builds up grain by grain and comes apart in reverse; glow's blue halo shows around each toast over the Light and the Dark settings window and has gone when it arrives; alpha to solid shows crisp text over a part-solid background, the Rectangle included. Release build, three toasts at 350 ms: dissolve 123–299 fps (56.6 at worst before the cells were joined into runs), glow 146–289, alpha to solid 126–552. **Not checked:** the effects over the stripes in a Light toast colour (the toasts were Dark); the other eight positions on screen.
 
 ### FEAT-0034 · Genie from bottom, and shrink to tray
 - **State:** Pending · **Spec:** docs/specs/toast.md §5 · §12 question 2 · **Phase:** 3

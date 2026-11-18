@@ -846,10 +846,13 @@ impl SettingsWindow {
                 let px = |r: egui::Rect| {
                     [r.left(), r.top(), r.right(), r.bottom()].map(|v| (v * pixels).round() as i32)
                 };
+                // Grown by a glow's halo while there is one, so the margin it
+                // is painted in is not cut away.
+                let reach = look.halo_reach();
                 let outline = ot_platform::toast_window::Outline {
-                    rect: px(look.drawn()),
+                    rect: px(look.drawn().expand(reach)),
                     radii: ot_toast::render::corner_radii(spec, rect.height())
-                        .map(|radius| (radius * look.scale() * pixels).round() as i32),
+                        .map(|radius| ((radius * look.scale() + reach) * pixels).round() as i32),
                     clip: px(look.clip),
                 };
                 // Opacity fades the whole window, text included (CR-0005), and
@@ -857,11 +860,23 @@ impl SettingsWindow {
                 let opacity = (spec.alpha() * look.alpha * 255.0)
                     .round()
                     .clamp(0.0, 255.0) as u8;
-                let shadow = spec.style.shadow.shows(spec.style.shape, spec.style.glass);
+                // Windows' shadow waits while an effect needs the window
+                // see-through: it makes a Rectangle's window opaque.
+                let shadow =
+                    spec.style.shadow.shows(spec.style.shape, spec.style.glass) && look.shadow_ok;
                 let glass = spec.style.glass.on(spec.style.shape) != ot_toast::Glass::None;
+                // A dissolve's grains: the window is cut to the cells that
+                // show this frame.
+                let mask: Option<Vec<[i32; 4]>> = look.dissolve.map(|progress| {
+                    ot_toast::effects::dissolve_cells(look.toast, progress)
+                        .into_iter()
+                        .map(px)
+                        .collect()
+                });
                 if ot_platform::toast_window::set_shape(
                     &id.window_title(),
                     outline,
+                    mask.as_deref(),
                     opacity,
                     shadow,
                     glass,
@@ -875,7 +890,10 @@ impl SettingsWindow {
                 hovered_now.push((id, pointer.is_some()));
                 let pointer = pointer.map(|at| look.transform.inverse() * at);
 
-                let content = ot_toast::render::frame(ui.painter(), rect, spec);
+                // A glow's halo first, under the toast, in the margin.
+                ot_toast::render::halo(ui.painter(), rect, spec, look.halo);
+                let content =
+                    ot_toast::render::frame_with(ui.painter(), rect, spec, look.background);
 
                 // The colours come from the theme through here, so the renderer
                 // itself still hard-codes none.

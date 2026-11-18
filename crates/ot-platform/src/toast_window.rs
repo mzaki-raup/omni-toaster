@@ -103,8 +103,20 @@ impl Outline {
 /// egui has created it, a frame or more after it was asked for. The window
 /// may still be hidden: a toast is kept hidden until this says yes, so it
 /// never shows before its alpha is set.
-pub fn set_shape(title: &str, outline: Outline, opacity: u8, shadow: bool, glass: bool) -> bool {
-    platform::set_shape(title, outline, opacity, shadow, glass)
+///
+/// `mask`, when there is one, is a dissolve's cells — rects in the same
+/// pixels — and only the part of the outline inside them shows. The cells
+/// grow in a fixed order, so their count is what tells one frame's mask from
+/// the last.
+pub fn set_shape(
+    title: &str,
+    outline: Outline,
+    mask: Option<&[[i32; 4]]>,
+    opacity: u8,
+    shadow: bool,
+    glass: bool,
+) -> bool {
+    platform::set_shape(title, outline, mask, opacity, shadow, glass)
 }
 
 /// Whether Windows will blur behind a toast: Windows 10 1809 or later, the
@@ -135,8 +147,8 @@ mod platform {
         DwmExtendFrameIntoClientArea, DwmSetWindowAttribute,
     };
     use windows::Win32::Graphics::Gdi::{
-        CombineRgn, CreateEllipticRgn, CreateRectRgn, DeleteObject, HRGN, OffsetRgn, RGN_AND,
-        RGN_DIFF, RGN_OR, SetWindowRgn,
+        CombineRgn, CreateEllipticRgn, CreateRectRgn, DeleteObject, ExtCreateRegion, HRGN,
+        OffsetRgn, RDH_RECTANGLES, RGN_AND, RGN_DIFF, RGN_OR, RGNDATA, RGNDATAHEADER, SetWindowRgn,
     };
     use windows::Win32::System::LibraryLoader::{GetModuleHandleW, GetProcAddress};
     use windows::Win32::System::SystemInformation::OSVERSIONINFOW;
@@ -161,7 +173,14 @@ mod platform {
 
     /// The window, client size, outline, opacity, shadow and glass last
     /// applied.
-    type Applied = (isize, [i32; 2], super::Outline, u8, bool, bool);
+    type Applied = (
+        isize,
+        [i32; 2],
+        (super::Outline, Option<usize>),
+        u8,
+        bool,
+        bool,
+    );
 
     /// Lets `set_shape` skip both the enumeration and the region rebuild on
     /// every frame where nothing changed.
@@ -201,6 +220,7 @@ mod platform {
     pub(super) fn set_shape(
         title: &str,
         outline: super::Outline,
+        mask: Option<&[[i32; 4]]>,
         opacity: u8,
         shadow: bool,
         glass: bool,
@@ -250,7 +270,8 @@ mod platform {
             return false;
         }
         let size = [client.right - client.left, client.bottom - client.top];
-        let applied = (window.0 as isize, size, outline, opacity, shadow, glass);
+        let shape = (outline, mask.map(<[[i32; 4]]>::len));
+        let applied = (window.0 as isize, size, shape, opacity, shadow, glass);
         let before = shapes.get(title).copied();
         if before == Some(applied) {
             return true;
@@ -258,7 +279,7 @@ mod platform {
         // Only the opacity moved — every frame of a fade — so the region and
         // the compositor settings stay as they are, and only the alpha is set.
         let reshape = before.is_none_or(|(w, s, r, _, sh, g)| {
-            (w, s, r, sh, g) != (window.0 as isize, size, outline, shadow, glass)
+            (w, s, r, sh, g) != (window.0 as isize, size, shape, shadow, glass)
         });
 
         // SAFETY: plain style reads and writes on a window this process
@@ -282,7 +303,7 @@ mod platform {
             return true;
         }
 
-        let region = region(size, outline);
+        let region = region(size, outline, mask);
         // SAFETY: on success the system owns the region and frees it when it
         // is replaced or the window goes; on failure it is still ours and is
         // freed here. `None` removes any region.
@@ -504,9 +525,17 @@ mod platform {
         unsafe_code,
         reason = "GDI region calls; each one's contract is argued at the call"
     )]
-    fn region([client_w, client_h]: [i32; 2], outline: super::Outline) -> Option<HRGN> {
+    fn region(
+        [client_w, client_h]: [i32; 2],
+        outline: super::Outline,
+        mask: Option<&[[i32; 4]]>,
+    ) -> Option<HRGN> {
         let covers = |r: [i32; 4]| r[0] <= 0 && r[1] <= 0 && r[2] >= client_w && r[3] >= client_h;
-        if outline.radii.iter().all(|r| *r <= 0) && covers(outline.rect) && covers(outline.clip) {
+        if mask.is_none()
+            && outline.radii.iter().all(|r| *r <= 0)
+            && covers(outline.rect)
+            && covers(outline.clip)
+        {
             return None;
         }
         let [x0, y0, x1, y1] = outline.rect;
@@ -550,7 +579,77 @@ mod platform {
             let clip = CreateRectRgn(cx0, cy0, cx1.max(cx0), cy1.max(cy0));
             CombineRgn(Some(shape), Some(shape), Some(clip), RGN_AND);
             let _ = DeleteObject(clip.into());
+            if let Some(cells) = mask {
+                let cells = cells_region(cells);
+                CombineRgn(Some(shape), Some(shape), Some(cells), RGN_AND);
+                let _ = DeleteObject(cells.into());
+            }
             Some(shape)
+        }
+    }
+
+    /// A dissolve's cells as one region, made in a single call from a list
+    /// of rects rather than combined one by one — a toast is over a thousand
+    /// cells, and this is redone on every frame of the dissolve.
+    #[allow(
+        unsafe_code,
+        reason = "ExtCreateRegion reads a RGNDATA laid out in a buffer built here"
+    )]
+    fn cells_region(cells: &[[i32; 4]]) -> HRGN {
+        // RGNDATAHEADER, then the rects, as RECTs, in one aligned buffer.
+        let header = size_of::<RGNDATAHEADER>();
+        let words = (header + cells.len() * size_of::<RECT>()).div_ceil(4);
+        let mut buffer = vec![0u32; words];
+        let bound = cells
+            .iter()
+            .fold([i32::MAX, i32::MAX, i32::MIN, i32::MIN], |b, c| {
+                [
+                    b[0].min(c[0]),
+                    b[1].min(c[1]),
+                    b[2].max(c[2]),
+                    b[3].max(c[3]),
+                ]
+            });
+        let data = buffer.as_mut_ptr().cast::<RGNDATA>();
+        // SAFETY: the buffer is u32-aligned, which RGNDATAHEADER and RECT
+        // (i32 and u32 fields) need, and long enough for the header and every
+        // rect; each write stays inside it. ExtCreateRegion only reads the
+        // `nRgnSize` bytes after the header the header says are there.
+        unsafe {
+            (*data).rdh = RGNDATAHEADER {
+                dwSize: u32::try_from(header).unwrap_or(32),
+                iType: RDH_RECTANGLES,
+                nCount: u32::try_from(cells.len()).unwrap_or(0),
+                nRgnSize: u32::try_from(cells.len() * size_of::<RECT>()).unwrap_or(0),
+                rcBound: if cells.is_empty() {
+                    RECT::default()
+                } else {
+                    RECT {
+                        left: bound[0],
+                        top: bound[1],
+                        right: bound[2],
+                        bottom: bound[3],
+                    }
+                },
+            };
+            let rects = buffer.as_mut_ptr().cast::<u8>().add(header).cast::<RECT>();
+            for (index, [left, top, right, bottom]) in cells.iter().copied().enumerate() {
+                rects.add(index).write(RECT {
+                    left,
+                    top,
+                    right,
+                    bottom,
+                });
+            }
+            let total = u32::try_from(header + cells.len() * size_of::<RECT>()).unwrap_or(0);
+            let region = ExtCreateRegion(None, total, data);
+            if region.is_invalid() {
+                // Nothing came back: an empty region shows nothing, which is
+                // what a dissolve with no cells yet should show anyway.
+                CreateRectRgn(0, 0, 0, 0)
+            } else {
+                region
+            }
         }
     }
 
@@ -620,6 +719,7 @@ mod platform {
     pub(super) fn set_shape(
         _title: &str,
         _outline: super::Outline,
+        _mask: Option<&[[i32; 4]]>,
         _opacity: u8,
         _shadow: bool,
         _glass: bool,
@@ -659,6 +759,7 @@ mod tests {
                 radii: [12, 0, 12, 0],
                 clip: [0, 0, 60, 50],
             },
+            Some(&[[0, 0, 6, 6], [6, 6, 12, 12]]),
             200,
             true,
             true,

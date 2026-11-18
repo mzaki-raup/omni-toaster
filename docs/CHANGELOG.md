@@ -21,6 +21,7 @@ Format: [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) · Versioning:
 
 ### Added
 
+- Three more toast animations, each with its mirror: dissolve (the toast builds up grain by grain), glow (a halo in the accent colour that swells and settles) and alpha to solid (the text first, the background fading in behind it). Windows' shadow on a Rectangle appears once such a toast has arrived (FEAT-0033).
 - Five toast animations, each with its mirror on the way out: slide from right and slide from bottom (in from beyond the screen's working area, never over the taskbar), drawer (out of the edge the toast sits against), pop out (from the centre, overshooting with spring easing) and appear (a fade). Chosen in `[toast.animation]` until the Animation pane exists (FEAT-0032).
 - Toasts have a row of buttons along the bottom, as many as the actions setting asks for (default two): Dismiss, always last, closes the toast with its out-animation, even while it is still arriving; Snooze and Open are shown greyed until reminders give them something to do. A toast that sizes to its content grows by the row (FEAT-0038).
 - Toasts fade in and fade out: each enters, holds for its whole display duration — the countdown starts once it is fully in — and leaves before its window closes, and the toasts beyond a leaving one glide into its place. The `[toast.animation]` settings (effect in and out, 150–1000 ms, linear, ease-out or spring) are read already; every effect plays as a fade until it is built (FEAT-0031).
