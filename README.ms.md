@@ -252,6 +252,19 @@ Toast yang sama di atas tetingkap cerah ialah
 [toast-light.png](docs/screenshots/toast-light.png): toast mengekalkan warnanya
 sendiri walau apa pun tema tetingkap itu.
 
+Toast Segi Empat Tepat dengan kaca Akrilik: desktop di belakangnya — di sini
+tetingkap berjalur — dikaburkan oleh Windows di bawah 60 % warna toast itu:
+
+![Toast segi empat tepat dengan kaca Akrilik di atas tetingkap berjalur](docs/screenshots/toast-glass.png)
+
+Gelongsor dari Kanan, masuk dan keluar, dan Jin dari Bawah, yang mencurah keluar
+dari tepi bawah skrin berjalur-jalur — kedua-duanya dirakam daripada binaan
+keluaran:
+
+![Toast menggelongsor masuk dari kanan, kekal, dan menggelongsor keluar](docs/screenshots/anim-slide.gif)
+
+![Toast mencurah naik dari tepi bawah dan kembali turun ke dalamnya](docs/screenshots/anim-genie.gif)
+
 Tetapan ▸ Umum, skrin pertama aplikasi ini:
 
 ![Tetapan ▸ Umum dalam tema Gelap](docs/screenshots/settings-general.png)
@@ -265,6 +278,14 @@ sebenar:
 ![Tetapan ▸ Penampilan dengan pratonton langsung](docs/screenshots/settings-appearance.png)
 
 Dalam bahasa Melayu: [settings-appearance-ms.png](docs/screenshots/settings-appearance-ms.png).
+
+Tetapan ▸ Animasi, tempat animasi masuk dan keluar, tempoh dan pelonggarannya
+dipilih, tetapan animasi Windows sendiri dinyatakan di bawah Kurangkan Gerakan,
+dan Mainkan memaparkan toast ujian dengannya:
+
+![Tetapan ▸ Animasi](docs/screenshots/settings-animation.png)
+
+Dalam bahasa Melayu: [settings-animation-ms.png](docs/screenshots/settings-animation-ms.png).
 
 Tetapan ▸ Pustaka Gambar, tempat gambar dimuat naik sekali dan dinamakan,
 dengan gambar yang disertakan bersama aplikasi disenaraikan di bawahnya:
@@ -280,10 +301,8 @@ diambil apabila fasanya siap:
 
 | Imej | Menunjukkan | Dalam fasa |
 |---|---|---|
-| `docs/screenshots/toast-glass.png` | Kesan kaca Akrilik | Fasa 3 |
 | `docs/screenshots/tray-menu.png` | Ikon dulang dan menunya | Fasa 1 |
 | `docs/screenshots/settings-prayer.png` | Tetapan → Solat, pengesahan zon dan label sumber | Fasa 5 |
-| `docs/screenshots/animation-in.gif` | Animasi masuk dan keluar | Fasa 3 |
 | `docs/screenshots/flow-reminder.gif` | Mencipta peringatan dan melihatnya dipaparkan | Fasa 4 |
 
 Setiap tangkapan skrin diambil dalam bahasa Inggeris dan bahasa Melayu sebelum

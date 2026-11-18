@@ -15,6 +15,7 @@ Format: [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) · Versioning:
 
 ### Changed
 
+- The README screenshots show Phase 3: every toast with its action row, a glass toast, Settings ▸ Appearance retaken and Settings ▸ Animation added in both languages, and two GIFs, slide from right and Genie from bottom, recorded from a release build; the Phase 3 rows of `docs/CHECKLIST.md` are written, with the checks left to the owner named.
 - Malay: the Dismiss button reads "Tutup" (close) instead of "Tolak" (reject), matching the spec (FEAT-0038).
 - Toast windows are painted in the app's own frame, and DWM composites their alpha, so whatever a toast leaves unpainted shows the desktop — the groundwork for glass and animations (FEAT-0029, ADR-016). They look exactly as before.
 - The app renders without vsync and paces its own frames, because with vsync each toast window waited for its own screen refresh and three toasts animated at 11–16 fps; release builds now animate at 137 fps or more (FEAT-0031, ADR-016).

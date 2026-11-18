@@ -1,6 +1,6 @@
 # Screenshots and GIFs
 
-**Last updated:** 2026-11-08
+**Last updated:** 2026-11-19
 
 What goes in this folder, how to capture it, and when it has to be retaken.
 The root [README.md](../../README.md) and the bilingual user guide are the only
@@ -8,7 +8,7 @@ consumers.
 
 ## Status
 
-**Nine captured so far:** `toast-dark.png`, `toast-light.png` and `toast-shapes.png`, real toasts captured from the screen over the app's own settings window (so no desktop shows), from a debug build on a scratch `--data-dir`, when Phase 2 closed; and `settings-appearance.png` and `settings-appearance-ms.png` on a fresh scratch folder; `settings-pictures.png` and `settings-pictures-ms.png`, the Picture Library in both languages, taken from a debug build on a scratch `--data-dir` when FEAT-0025 landed, with three plain coloured test pictures; and `settings-general.png` and `settings-general-ms.png`,
+**Fourteen captured so far.** When Phase 3 closed: `toast-dark.png`, `toast-light.png`, `toast-shapes.png` (retaken, now with the action row) and `toast-glass.png`, real toasts captured from the screen over a plain backdrop window of the capture script's own — dark, light, or red and blue stripes for glass — which covers the screen's corner so no desktop shows, each cropped to its toast's window from a debug build on a scratch `--data-dir`; `anim-slide.gif` and `anim-genie.gif`, one toast fired with Show a Test Toast in a **release** build (a debug build under a capture loop drops below 30 fps and the app rightly finishes the animation as a fade), framed every ~45 ms over the dark backdrop and played back at the captured intervals; and `settings-appearance.png`, `settings-appearance-ms.png` (retaken: the taller preview), `settings-animation.png` and `settings-animation-ms.png` on a fresh scratch folder; `settings-pictures.png` and `settings-pictures-ms.png`, the Picture Library in both languages, taken from a debug build on a scratch `--data-dir` when FEAT-0025 landed, with three plain coloured test pictures; and `settings-general.png` and `settings-general-ms.png`,
 the Settings ▸ General pane in both languages, taken from a release build on a
 scratch `--data-dir` when FEAT-0014 landed. Everything else below is still a
 placeholder name reserved for the phase that first produces that screen; the
@@ -24,14 +24,16 @@ quantised with `magick <in> -strip -colors 256 -define png:compression-level=9
 
 | File | Shows | First captured in |
 |---|---|---|
-| `toast-dark.png` | The test toast, rounded rectangle, over a Dark window | Phase 2 (captured) |
-| `toast-light.png` | The same toast over a Light window | Phase 2 (captured) |
-| `toast-glass.png` | The Acrylic/Mica glass look | Phase 3 |
-| `toast-shapes.png` | Rectangle, rounded and pill side by side | Phase 2 (captured) |
+| `toast-dark.png` | The test toast, rounded rectangle, over a Dark window | Phase 2 (captured; retaken in Phase 3) |
+| `toast-light.png` | The same toast over a Light window | Phase 2 (captured; retaken in Phase 3) |
+| `toast-glass.png` | A Rectangle toast with Acrylic glass over stripes | Phase 3 (captured) |
+| `toast-shapes.png` | Rectangle, rounded and pill side by side | Phase 2 (captured; retaken in Phase 3) |
 | `settings-general.png` | Settings ▸ General, English | Phase 1 |
 | `settings-general-ms.png` | Settings ▸ General, Bahasa Melayu | Phase 1 |
-| `settings-appearance.png` | Settings ▸ Appearance with the live preview | Phase 2 (captured) |
-| `settings-appearance-ms.png` | The same, Bahasa Melayu | Phase 2 (captured) |
+| `settings-appearance.png` | Settings ▸ Appearance with the live preview | Phase 2 (captured; retaken in Phase 3) |
+| `settings-appearance-ms.png` | The same, Bahasa Melayu | Phase 2 (captured; retaken in Phase 3) |
+| `settings-animation.png` | Settings ▸ Animation, English | Phase 3 (captured) |
+| `settings-animation-ms.png` | The same, Bahasa Melayu | Phase 3 (captured) |
 | `settings-pictures.png` | Settings ▸ Picture Library: two uploaded pictures and the built-in ones, English | Phase 2 (captured; retaken for FEAT-0027) |
 | `settings-pictures-ms.png` | The same, Bahasa Melayu | Phase 2 (captured; retaken for FEAT-0027) |
 | `settings-prayer.png` | Settings ▸ Prayer with the zone picker and source label | Phase 5 |
@@ -39,8 +41,8 @@ quantised with `magick <in> -strip -colors 256 -define png:compression-level=9
 | `tray-menu.png` | The tray menu, both languages | Phase 1 |
 | `azan-toast.png` | An Azan toast with the JAKIM source label | Phase 5 |
 | `weather-toast.png` | A weather-change toast | Phase 6 |
-| `anim-slide.gif` | The slide-in and slide-out animation | Phase 3 |
-| `anim-genie.gif` | The Genie animation | Phase 3 |
+| `anim-slide.gif` | The slide-in and slide-out animation | Phase 3 (captured) |
+| `anim-genie.gif` | The Genie animation | Phase 3 (captured) |
 | `flow-first-run.gif` | First run: consent, location, zone confirmation | Phase 5 |
 | `flow-create-reminder.gif` | Creating a reminder and watching it fire | Phase 4 |
 | `flow-language-switch.gif` | Switching language live, tray and settings | Phase 1 |
