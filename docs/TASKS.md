@@ -252,16 +252,18 @@ make all three glass kinds from the accent policy's Acrylic.
 - **Notes:** App, checked 2026-11-18 with three toasts, 1-second linear runs captured every 100 ms: dissolve builds up grain by grain and comes apart in reverse; glow's blue halo shows around each toast over the Light and the Dark settings window and has gone when it arrives; alpha to solid shows crisp text over a part-solid background, the Rectangle included. Release build, three toasts at 350 ms: dissolve 123–299 fps (56.6 at worst before the cells were joined into runs), glow 146–289, alpha to solid 126–552. **Not checked:** the effects over the stripes in a Light toast colour (the toasts were Dark); the other eight positions on screen.
 
 ### FEAT-0034 · Genie from bottom, and shrink to tray
-- **State:** Pending · **Spec:** docs/specs/toast.md §5 · §12 question 2 · **Phase:** 3
+- **State:** In-Progress · **Spec:** docs/specs/toast.md §5 · §12 question 2 · **Phase:** 3
 - **Branch:** feat/phase-3-glass-animations
 - **Depends on:** FEAT-0031
-- [ ] Genie: a mesh warp from the bottom edge, in a window that covers its path
-- [ ] Shrink to tray: Genie's out-animation, towards the tray icon's rectangle (`ot-platform`), or the work area's bottom-right corner when Windows will not say
-- [ ] Answer §12's question 2 from the frame time measured on the reference machine
-- [ ] Test: the warp's mesh at t = 0, ½ and 1; the path window contains every frame of the warp
-- [ ] Gate: fmt · clippy -D warnings · test --workspace --locked -j 4 · deny check · --self-test
+- [x] Genie: a warp from the bottom edge in 24 bands, each the toast clipped to its slice and drawn through its own transform on a layer of its own (`effects::genie_bands`, `genie_layer`), in a window that covers its path for the toast's whole life; the region is cut to where the bands land
+- [x] Shrink to tray: Genie's out-animation, towards the tray icon (`Tray::icon_rect`, physical pixels, divided by the primary monitor's scale), or the work area's bottom-right corner when Windows will not say
+- [x] Answer §12's question 2 from the frame time measured on the reference machine: affordable, no capability check (spec §12)
+- [x] Found on the way and fixed: `set_shape` knew a mask by its number of rects, which suits a dissolve but not a Genie — 24 bands in new places every frame — so the window stayed cut to the warp's first frame; it is now known by a hash of its rects
+- [x] Test: the bands at t = 0 (all hidden below the work area), ½ (the top band in place, the bottom one narrow) and 1 (no warp, the toast where it belongs); every frame's bands touch with no gap and what shows is inside the window; shrink to tray heads for the icon, or the corner without one, and the window covers that path; at every preset both start hidden; two masks of the same size in different places are told apart
+- [x] Gate: fmt · clippy -D warnings · test --workspace --locked -j 4 (254 passed) · deny check · --self-test
 - [ ] App: `--data-dir ./tmp-data` — Genie in and out at each corner, with the tray icon visible and hidden in the overflow; frame counts in a release build
 - [ ] Docs: spec · README · CHANGELOG · CHECKLIST · GOTCHAS
+- **Notes:** App, checked 2026-11-19 with three toasts at Bottom Right, 1-second linear runs captured every 100 ms: Genie pours each toast out of the bottom edge, top first, and sinks it back on the way out; shrink to tray pours them down and right into the corner and they vanish at the taskbar. Release build, three toasts at 350 ms: Genie in 189–277 fps, shrink to tray out 97–316, twice. Once in three shrink-to-tray runs the toasts showed at full strength for a frame before their fade; the next two runs did not, and plain Appear did not — recorded, not reproduced. **Not checked:** whether Windows gave the tray icon's position or the corner was used, and the icon visible versus in the overflow — that is the owner's taskbar setting, not changed here; the other eight positions on screen.
 
 ### FEAT-0035 · Reduced motion and the 30 fps fallback
 - **State:** Pending · **Spec:** docs/specs/toast.md §5 · **Phase:** 3

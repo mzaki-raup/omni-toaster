@@ -223,6 +223,8 @@ its in-animation run backwards.
 | Appear | Nothing: a fade | All of it |
 | Dissolve (FEAT-0033) | Nothing: the toast builds up **grain by grain** — 6-point cells, each with a fixed noise value made once per toast size and cached, showing once the progress passes it | The cells that show: the window's region is cut to them, joined into runs along each row so it stays cheap to rebuild every frame |
 | Glow (FEAT-0033) | A **halo** in the toast's accent colour, swelling while the toast fades in and settled to nothing when it has arrived | All of it; the window has an 18-point transparent margin, and its region grows by the halo's reach while there is one |
+| Genie from bottom (FEAT-0034) | The toast **pours out of a point** on the work area's bottom edge under it, in 24 horizontal bands: the top band leaves first, the bottom one last, each narrowing towards the point and stacked on the one above with no gap. egui scales evenly, so a narrow band is also a short one — a trumpet rather than macOS's bent sheet — and its edge is stepped | The bands within the work area; the window spans the whole path, for the toast's whole life, so it never changes size |
+| Shrink to tray (FEAT-0034, out only) | Genie's warp, into the **tray icon** — or the work area's bottom-right corner when Windows will not say where the icon is | As Genie |
 | Alpha to solid (FEAT-0033) | Only the **background**, border and accent bar fade in; the text is there from the first frame | All of it |
 
 Every toast starts each effect invisible — beyond the edge, shut, or at alpha
@@ -230,7 +232,8 @@ Every toast starts each effect invisible — beyond the edge, shut, or at alpha
 through the effect's transform before it meets the buttons, so a drawer
 still sliding out has no Dismiss where the resting toast's would be. When
 several toasts slide in from the same edge together, they pass over one
-another on the way to their places. Windows' shadow, on a Rectangle, waits while an effect needs
+another on the way to their places. Mid-warp a Genie's buttons are bands on a
+path and take no click. Windows' shadow, on a Rectangle, waits while an effect needs
 the window see-through — a halo, a background not yet solid — and appears when
 the toast has arrived; a window with a transparent margin (pop, glow) never
 has it.
@@ -499,8 +502,12 @@ cargo run -p omnitoaster -- --data-dir ./tmp-data
    the toast is taller than 80 px. The shape decides its own radius —
    rectangle is always 0, pill is always half the height, and only the rounded
    rectangle uses the number on the slider.
-2. Whether Genie's mesh warp is affordable on integrated graphics, or should be
-   gated behind a capability check rather than a frame-time fallback.
+2. ~~Whether Genie's mesh warp is affordable on integrated graphics, or should be
+   gated behind a capability check rather than a frame-time fallback.~~
+   **Answered (FEAT-0034): affordable — no capability check.** Measured on the
+   reference machine (Intel Iris Xe), release build, three toasts at 350 ms:
+   Genie in at 189 fps or more and shrink to tray out at 97 or more, twice. The
+   frame-time fallback of FEAT-0035 is the only guard it needs.
 
 ## What is implemented (2026-11-09)
 

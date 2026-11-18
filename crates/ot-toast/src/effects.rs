@@ -31,6 +31,27 @@ pub const HALO_SPREAD: f32 = 2.0;
 /// The side of a dissolve's square cells, in points: small enough to read as
 /// grain, large enough that a toast is a few hundred of them, not thousands.
 pub const DISSOLVE_CELL: f32 = 6.0;
+/// How many horizontal bands a Genie warp is drawn in.
+pub const GENIE_BANDS: usize = 24;
+/// How narrow a Genie band is at the source, as a fraction of the toast.
+const GENIE_NARROWEST: f32 = 0.08;
+
+/// Where a toast is on the screen, beyond the toast itself: the work area a
+/// slide comes in from beyond and everything is clipped to, and the tray
+/// icon a toast shrinks into, when Windows says where it is.
+#[derive(Debug, Clone, Copy, PartialEq)]
+pub struct Scene {
+    pub work_area: egui::Rect,
+    pub tray: Option<egui::Pos2>,
+}
+
+/// One band of a Genie warp: the slice of the toast it shows, in the
+/// toast's own space, and the transform that puts it on its path.
+#[derive(Debug, Clone, Copy, PartialEq)]
+pub struct GenieBand {
+    pub band: egui::Rect,
+    pub transform: egui::emath::TSTransform,
+}
 
 /// Everything an effect decides about one frame of one toast. Positions are
 /// in points: `window` on the screen, the rest in the window's own space.
@@ -61,6 +82,12 @@ pub struct Look {
     /// needs the window see-through — a halo, a background not yet solid —
     /// since the shadow makes a Rectangle's window opaque (ADR-016).
     pub shadow_ok: bool,
+    /// A Genie warp, while there is one: the toast drawn band by band, each
+    /// through its own transform, instead of through `transform`.
+    pub genie: Option<[GenieBand; GENIE_BANDS]>,
+    /// What the window may show at all, in its own space: everything but the
+    /// part of a warp beyond the work area.
+    pub work_clip: egui::Rect,
 }
 
 impl Look {
@@ -72,6 +99,18 @@ impl Look {
     /// How much the transform scales, for the corner radii.
     pub fn scale(&self) -> f32 {
         self.transform.scaling
+    }
+
+    /// Where each band of a Genie warp lands, cut to the work area: what the
+    /// window's region is cut to while the warp lasts.
+    pub fn genie_rects(&self) -> Option<Vec<egui::Rect>> {
+        self.genie.map(|bands| {
+            bands
+                .iter()
+                .map(|b| b.transform.mul_rect(b.band).intersect(self.work_clip))
+                .filter(|r| r.is_positive())
+                .collect()
+        })
     }
 
     /// How far past the toast's edge its halo reaches this frame, in points:
@@ -101,7 +140,7 @@ pub fn margin(enter: Effect, leave: Effect, size: egui::Vec2) -> egui::Vec2 {
 /// whose resting place is `at` (the toast's top-left on the screen).
 ///
 /// `edge` is the side the toast sits against, which a drawer opens from;
-/// `work_area` is what a slide comes in from beyond and is clipped to.
+/// `scene` is what a slide comes in from beyond and what a toast shrinks to.
 pub fn look(
     animation: Animation,
     leaving: bool,
@@ -109,8 +148,9 @@ pub fn look(
     at: egui::Pos2,
     size: egui::Vec2,
     edge: AccentEdge,
-    work_area: egui::Rect,
+    scene: Scene,
 ) -> Look {
+    let work_area = scene.work_area;
     let effect = if leaving {
         animation.leave
     } else {
@@ -120,11 +160,28 @@ pub fn look(
     let margin = margin(animation.enter, animation.leave, size);
     let motion = easing.apply(presence);
     let fade = easing.apply_alpha(presence);
-    let window_size = size + 2.0 * margin;
-    let toast = egui::Rect::from_min_size(margin.to_pos2(), size);
+    // The window: the toast and its margin, and — for a toast that warps
+    // out of or into a point — the whole path to that point, for the whole
+    // of its life, so the window never changes size between stages.
+    let rest = egui::Rect::from_min_size(at, size);
+    let genie_source = egui::pos2(rest.center().x, work_area.bottom());
+    let tray_source = scene.tray.unwrap_or(work_area.right_bottom());
+    let point = |at: egui::Pos2| egui::Rect::from_center_size(at, egui::Vec2::splat(2.0));
+    let mut window_rect = rest.expand2(margin);
+    if animation.enter == Effect::GenieFromBottom || animation.leave == Effect::GenieFromBottom {
+        window_rect = window_rect.union(point(genie_source));
+    }
+    if animation.leave == Effect::ShrinkToTray {
+        window_rect = window_rect.union(point(tray_source));
+    }
+    let window_size = window_rect.size();
+    let toast = rest.translate(-window_rect.min.to_vec2());
     let whole = egui::Rect::from_min_size(egui::Pos2::ZERO, window_size);
+    let work_clip = work_area
+        .translate(-window_rect.min.to_vec2())
+        .intersect(whole);
     let still = |alpha: f32| Look {
-        window: egui::Rect::from_min_size(at - margin, window_size),
+        window: window_rect,
         toast,
         transform: egui::emath::TSTransform::IDENTITY,
         clip: whole,
@@ -133,6 +190,8 @@ pub fn look(
         halo: 0.0,
         dissolve: None,
         shadow_ok: true,
+        genie: None,
+        work_clip,
     };
     let settled = presence >= 1.0;
 
@@ -141,12 +200,11 @@ pub fn look(
             // From just beyond the work area's edge to where it belongs; the
             // overshoot of a spring carries it briefly past.
             let travel = if effect == Effect::SlideFromRight {
-                egui::vec2(work_area.right() - (at.x - margin.x), 0.0)
+                egui::vec2(work_area.right() - window_rect.left(), 0.0)
             } else {
-                egui::vec2(0.0, work_area.bottom() - (at.y - margin.y))
+                egui::vec2(0.0, work_area.bottom() - window_rect.top())
             };
-            let window =
-                egui::Rect::from_min_size(at - margin + travel * (1.0 - motion), window_size);
+            let window = window_rect.translate(travel * (1.0 - motion));
             // Whatever lies beyond the work area is not shown: not over the
             // taskbar, not on the monitor next door.
             let clip = window.intersect(work_area).translate(-window.min.to_vec2());
@@ -231,9 +289,72 @@ pub fn look(
             shadow_ok: settled,
             ..still(1.0)
         },
-        // Appear, and every effect not built yet: a fade.
+        Effect::GenieFromBottom | Effect::ShrinkToTray if !settled => {
+            // Out of a point and into place, band by band: Genie's point is
+            // the work area's bottom edge under the toast; shrink to tray's
+            // is the tray icon, or the work area's corner when Windows will
+            // not say where that is.
+            let source = if effect == Effect::ShrinkToTray {
+                tray_source
+            } else {
+                genie_source
+            } - window_rect.min.to_vec2();
+            Look {
+                genie: Some(genie_bands(motion, toast, source)),
+                shadow_ok: false,
+                ..still(1.0)
+            }
+        }
+        // Appear, a Genie that has arrived, and the rest: a fade.
         _ => still(fade),
     }
+}
+
+/// The egui layer one band of a toast's Genie warp is painted on: a layer
+/// each, since a layer has one transform and every band has its own.
+pub fn genie_layer(toast: u64, band: usize) -> egui::LayerId {
+    egui::LayerId::new(
+        egui::Order::Middle,
+        egui::Id::new(("ot-genie", toast, band)),
+    )
+}
+
+/// The bands of a Genie warp at `motion` (0 all at the source, 1 the toast
+/// in place), for the toast at `toast` and the point `source`, both in the
+/// window's space.
+///
+/// The top of the toast leaves the source first and the bottom last; each
+/// band narrows towards the source, and the bands are stacked so that each
+/// starts where the one above it ends — no gaps and no overlaps. egui's
+/// transforms scale evenly, so a narrow band is also a short one: the warp
+/// is a trumpet rather than a bent sheet, which is what a warp drawn without
+/// a mesh can be (`docs/specs/toast.md` §5).
+pub fn genie_bands(motion: f32, toast: egui::Rect, source: egui::Pos2) -> [GenieBand; GENIE_BANDS] {
+    let height = toast.height() / GENIE_BANDS as f32;
+    let mut top = 0.0;
+    std::array::from_fn(|index| {
+        let along = index as f32 / GENIE_BANDS as f32;
+        // The top band leads, the bottom one follows: each band's own
+        // progress, 0 at the source and 1 in place.
+        let own = (motion * 2.0 - along).clamp(0.0, 1.0);
+        let scale = GENIE_NARROWEST + (1.0 - GENIE_NARROWEST) * own;
+        let band = egui::Rect::from_min_size(
+            egui::pos2(toast.left(), toast.top() + height * index as f32),
+            egui::vec2(toast.width(), height),
+        );
+        let centre_x = source.x + (toast.center().x - source.x) * own;
+        if index == 0 {
+            top = source.y + (toast.top() - source.y) * own;
+        }
+        // The band's top-centre lands at (centre_x, top), scaled about it.
+        let anchor = egui::pos2(toast.center().x, band.top());
+        let translation = egui::pos2(centre_x, top).to_vec2() - anchor.to_vec2() * scale;
+        top += height * scale;
+        GenieBand {
+            band,
+            transform: egui::emath::TSTransform::new(translation, scale),
+        }
+    })
 }
 
 /// The cells of a dissolve that show at `progress`, in the window's space,
@@ -313,6 +434,13 @@ mod tests {
         egui::Rect::from_min_size(egui::Pos2::ZERO, egui::vec2(1920.0, 1032.0))
     }
 
+    fn scene() -> Scene {
+        Scene {
+            work_area: area(),
+            tray: None,
+        }
+    }
+
     /// The default Bottom Right resting place.
     fn bottom_right() -> egui::Pos2 {
         egui::pos2(1920.0 - 16.0 - SIZE.x, 1032.0 - 16.0 - SIZE.y)
@@ -335,7 +463,7 @@ mod tests {
             bottom_right(),
             SIZE,
             edge,
-            area(),
+            scene(),
         )
     }
 
@@ -430,7 +558,7 @@ mod tests {
                 bottom_right(),
                 SIZE,
                 AccentEdge::Right,
-                area(),
+                scene(),
             )
         };
         let start = look_at(Easing::Linear, 0.0);
@@ -460,17 +588,11 @@ mod tests {
     }
 
     #[test]
-    fn appear_and_the_effects_not_built_yet_only_fade() {
-        for effect in [
-            Effect::Appear,
-            Effect::GenieFromBottom,
-            Effect::ShrinkToTray,
-        ] {
-            let look = at(effect, 0.5, AccentEdge::Right);
-            assert_eq!(look.alpha, 0.5, "{effect:?}");
-            assert_eq!(look.transform, egui::emath::TSTransform::IDENTITY);
-            assert_eq!(look.drawn().min + look.window.min.to_vec2(), bottom_right());
-        }
+    fn appear_only_fades() {
+        let look = at(Effect::Appear, 0.5, AccentEdge::Right);
+        assert_eq!(look.alpha, 0.5);
+        assert_eq!(look.transform, egui::emath::TSTransform::IDENTITY);
+        assert_eq!(look.drawn().min + look.window.min.to_vec2(), bottom_right());
     }
 
     #[test]
@@ -488,7 +610,7 @@ mod tests {
                         rest,
                         SIZE,
                         edge,
-                        area(),
+                        scene(),
                     )
                 };
                 let end = look_at(1.0);
@@ -509,6 +631,10 @@ mod tests {
                     }
                     Effect::PopOut => assert_eq!(start.scale(), POP_FROM),
                     Effect::Dissolve => assert_eq!(start.dissolve, Some(0.0), "no grain yet"),
+                    Effect::GenieFromBottom | Effect::ShrinkToTray => assert!(
+                        start.genie_rects().expect("a warp").is_empty(),
+                        "{effect:?} at {preset:?} shows at its start"
+                    ),
                     Effect::AlphaToSolid => {
                         assert_eq!(start.background, 0.0, "no background yet");
                         assert_eq!(start.alpha, 1.0, "the text is already there");
@@ -592,7 +718,7 @@ mod tests {
                     bottom_right(),
                     SIZE,
                     AccentEdge::Right,
-                    area(),
+                    scene(),
                 );
                 let reach = (HALO_SPREAD + HALO_BLUR) * glow.halo;
                 let window = egui::Rect::from_min_size(egui::Pos2::ZERO, glow.window.size());
@@ -630,6 +756,127 @@ mod tests {
         );
         assert!(end.shadow_ok);
         assert!(!at(Effect::AlphaToSolid, 0.5, AccentEdge::Right).shadow_ok);
+    }
+
+    #[test]
+    fn a_genie_rises_out_of_the_bottom_edge_band_by_band() {
+        let genie = |motion: f32| {
+            look(
+                animation(Effect::GenieFromBottom, Easing::Linear),
+                false,
+                motion,
+                bottom_right(),
+                SIZE,
+                AccentEdge::Right,
+                scene(),
+            )
+        };
+        let landed = |look: &Look| -> Vec<egui::Rect> {
+            look.genie
+                .expect("a warp")
+                .iter()
+                .map(|b| b.transform.mul_rect(b.band))
+                .collect()
+        };
+        // At the start everything is at the source, below the work area:
+        // nothing shows.
+        let start = genie(0.0);
+        assert!(
+            start.genie_rects().expect("a warp").is_empty(),
+            "hidden at the start"
+        );
+        let source_y = area().bottom() - start.window.top();
+        assert!(landed(&start).iter().all(|r| r.top() >= source_y - 1e-3));
+
+        // Half way: the top band is in place, the bottom one still at the
+        // source, narrow.
+        let half = genie(0.5);
+        let bands = landed(&half);
+        assert!(
+            (bands[0].top() - half.toast.top()).abs() < 1e-3,
+            "the top band leads"
+        );
+        assert!((bands[0].width() - SIZE.x).abs() < 1e-3);
+        assert!(
+            bands[GENIE_BANDS - 1].width() < SIZE.x * 0.2,
+            "the bottom band follows"
+        );
+
+        // Every frame: the bands touch, top to bottom, and stay in the window.
+        for i in 0..=100 {
+            let look = genie(i as f32 / 100.0 * 0.999);
+            let bands = landed(&look);
+            let window = egui::Rect::from_min_size(egui::Pos2::ZERO, look.window.size());
+            for pair in bands.windows(2) {
+                assert!(
+                    (pair[0].bottom() - pair[1].top()).abs() < 1e-2,
+                    "a gap or an overlap"
+                );
+            }
+            // What shows — the bands within the work area — is inside the
+            // window; below the work area's edge a band is not drawn at all.
+            for band in look.genie_rects().expect("a warp") {
+                assert!(
+                    window.expand(0.01).contains_rect(band),
+                    "a band left the window"
+                );
+            }
+        }
+        // Arrived: no warp, the toast where it belongs, the window spanning
+        // the path down to the work area's bottom edge.
+        let end = genie(1.0);
+        assert!(end.genie.is_none());
+        assert_eq!(end.drawn().min + end.window.min.to_vec2(), bottom_right());
+        assert!(end.window.bottom() >= area().bottom() - 1.0);
+    }
+
+    #[test]
+    fn shrink_to_tray_heads_for_the_icon_or_the_corner() {
+        let shrink = |tray: Option<egui::Pos2>, presence: f32| {
+            let animation = Animation {
+                leave: Effect::ShrinkToTray,
+                easing: Easing::Linear,
+                ..Animation::default()
+            };
+            look(
+                animation,
+                true,
+                presence,
+                egui::pos2(100.0, 100.0),
+                SIZE,
+                AccentEdge::Left,
+                Scene {
+                    work_area: area(),
+                    tray,
+                },
+            )
+        };
+        let icon = egui::pos2(1800.0, 1050.0);
+        let toward_icon = shrink(Some(icon), 0.3);
+        assert!(
+            toward_icon.window.contains(icon),
+            "the window covers the path to the icon"
+        );
+        let top = toward_icon.genie.expect("a warp")[0];
+        let towards = top.transform.mul_rect(top.band).center() + toward_icon.window.min.to_vec2();
+        assert!(
+            towards.x > 100.0 + SIZE.x / 2.0,
+            "heading right, to the icon"
+        );
+        // Not knowing where the icon is: the work area's bottom-right corner.
+        let toward_corner = shrink(None, 0.3);
+        assert!(
+            toward_corner
+                .window
+                .contains(area().right_bottom() - egui::vec2(0.5, 0.5))
+        );
+        // Gone at the end: every band at the icon, below the work area.
+        assert!(
+            shrink(Some(icon), 0.0)
+                .genie_rects()
+                .expect("a warp")
+                .is_empty()
+        );
     }
 
     #[test]

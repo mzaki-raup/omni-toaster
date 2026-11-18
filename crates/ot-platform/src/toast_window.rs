@@ -104,10 +104,9 @@ impl Outline {
 /// may still be hidden: a toast is kept hidden until this says yes, so it
 /// never shows before its alpha is set.
 ///
-/// `mask`, when there is one, is a dissolve's cells — rects in the same
-/// pixels — and only the part of the outline inside them shows. The cells
-/// grow in a fixed order, so their count is what tells one frame's mask from
-/// the last.
+/// `mask`, when there is one, is a dissolve's cells or a Genie's bands —
+/// rects in the same pixels — and only the part of the outline inside them
+/// shows.
 pub fn set_shape(
     title: &str,
     outline: Outline,
@@ -176,7 +175,7 @@ mod platform {
     type Applied = (
         isize,
         [i32; 2],
-        (super::Outline, Option<usize>),
+        (super::Outline, Option<u64>),
         u8,
         bool,
         bool,
@@ -270,7 +269,9 @@ mod platform {
             return false;
         }
         let size = [client.right - client.left, client.bottom - client.top];
-        let shape = (outline, mask.map(<[[i32; 4]]>::len));
+        // A mask is known by a hash of its rects, not their count: a Genie's
+        // bands are always the same number, only in new places.
+        let shape = (outline, mask.map(mask_key));
         let applied = (window.0 as isize, size, shape, opacity, shadow, glass);
         let before = shapes.get(title).copied();
         if before == Some(applied) {
@@ -516,6 +517,19 @@ mod platform {
         if let Some(shapes) = shapes.as_mut() {
             shapes.remove(title);
         }
+    }
+
+    /// A fingerprint of a mask's rects (FNV-1a over their coordinates):
+    /// enough to tell one frame's mask from the next without keeping them.
+    pub(super) fn mask_key(mask: &[[i32; 4]]) -> u64 {
+        let mut hash: u64 = 0xcbf2_9ce4_8422_2325;
+        for value in mask.iter().flatten() {
+            for byte in value.to_le_bytes() {
+                hash ^= u64::from(byte);
+                hash = hash.wrapping_mul(0x0100_0000_01b3);
+            }
+        }
+        hash ^ mask.len() as u64
     }
 
     /// The outline as a region: its rect with each corner rounded to its
@@ -765,5 +779,16 @@ mod tests {
             true,
         );
         forget("a window title nothing in this process has");
+    }
+
+    #[cfg(windows)]
+    #[test]
+    fn a_mask_is_known_by_where_its_rects_are_not_how_many() {
+        // FEAT-0034: a Genie's 24 bands move every frame and stay 24, and a
+        // key made of the count left the window cut to its first frame.
+        let here = [[0, 0, 10, 10], [0, 10, 10, 20]];
+        let there = [[5, 0, 15, 10], [5, 10, 15, 20]];
+        assert_ne!(platform::mask_key(&here), platform::mask_key(&there));
+        assert_eq!(platform::mask_key(&here), platform::mask_key(&here));
     }
 }

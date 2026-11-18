@@ -188,6 +188,21 @@ mod platform {
             }
         }
 
+        /// Where the tray icon is on the screen, in physical pixels — left,
+        /// top, width, height — for a toast to shrink into
+        /// (`docs/specs/toast.md` §5). `None` when Windows will not say,
+        /// which it may not while the icon sits in the hidden-icons overflow.
+        pub fn icon_rect(&self) -> Option<[f64; 4]> {
+            let rect = self.icon.rect()?;
+            let [width, height] = [rect.size.width, rect.size.height].map(f64::from);
+            (width > 0.0 && height > 0.0).then_some([
+                rect.position.x,
+                rect.position.y,
+                width,
+                height,
+            ])
+        }
+
         /// Whether the menu currently shows the paused shape.
         pub fn shows_paused(&self) -> bool {
             self.paused
@@ -397,6 +412,9 @@ mod platform {
             Err(TrayError::Unsupported)
         }
         pub fn set_tooltip(&self, _text: &str) {}
+        pub fn icon_rect(&self) -> Option<[f64; 4]> {
+            None
+        }
         pub fn shows_paused(&self) -> bool {
             false
         }

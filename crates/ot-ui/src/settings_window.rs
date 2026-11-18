@@ -779,6 +779,24 @@ impl SettingsWindow {
         // that has gone falls back to the primary monitor rather than leaving
         // the toast on a screen that is not there (docs/specs/toast.md §7.4).
         let work_area = self.work_area();
+        // The tray icon's centre in points, for a toast to shrink into: the
+        // primary monitor's scale, since the notification area is on its
+        // taskbar. `None` when Windows will not say.
+        let tray = self
+            .tray
+            .as_ref()
+            .and_then(ot_platform::tray::Tray::icon_rect)
+            .map(|[x, y, w, h]| {
+                let scale = self
+                    .monitors
+                    .iter()
+                    .find(|monitor| monitor.primary)
+                    .map_or(1.0, |monitor| monitor.scale);
+                egui::pos2(
+                    ((x + w / 2.0) as f32) / scale,
+                    ((y + h / 2.0) as f32) / scale,
+                )
+            });
 
         let contents: Vec<ot_toast::Content> = self
             .toasts
@@ -808,6 +826,7 @@ impl SettingsWindow {
             ctx,
             &self.toasts,
             work_area,
+            tray,
             now,
             move |ui, spec, id, look| {
                 // The whole toast comes from the spec: the renderer reads no
@@ -849,11 +868,23 @@ impl SettingsWindow {
                 // Grown by a glow's halo while there is one, so the margin it
                 // is painted in is not cut away.
                 let reach = look.halo_reach();
-                let outline = ot_platform::toast_window::Outline {
-                    rect: px(look.drawn().expand(reach)),
-                    radii: ot_toast::render::corner_radii(spec, rect.height())
-                        .map(|radius| ((radius * look.scale() + reach) * pixels).round() as i32),
-                    clip: px(look.clip),
+                let genie = look.genie_rects();
+                let outline = if genie.is_some() {
+                    // A warp's bands land all along its path: the whole
+                    // window, square, cut to the bands below.
+                    ot_platform::toast_window::Outline {
+                        rect: px(look.clip),
+                        radii: [0; 4],
+                        clip: px(look.clip),
+                    }
+                } else {
+                    ot_platform::toast_window::Outline {
+                        rect: px(look.drawn().expand(reach)),
+                        radii: ot_toast::render::corner_radii(spec, rect.height()).map(|radius| {
+                            ((radius * look.scale() + reach) * pixels).round() as i32
+                        }),
+                        clip: px(look.clip),
+                    }
                 };
                 // Opacity fades the whole window, text included (CR-0005), and
                 // the effect's own alpha scales it, never past solid.
@@ -867,12 +898,12 @@ impl SettingsWindow {
                 let glass = spec.style.glass.on(spec.style.shape) != ot_toast::Glass::None;
                 // A dissolve's grains: the window is cut to the cells that
                 // show this frame.
-                let mask: Option<Vec<[i32; 4]>> = look.dissolve.map(|progress| {
-                    ot_toast::effects::dissolve_cells(look.toast, progress)
-                        .into_iter()
-                        .map(px)
-                        .collect()
-                });
+                // A Genie's bands, likewise.
+                let mask: Option<Vec<[i32; 4]>> = look
+                    .dissolve
+                    .map(|progress| ot_toast::effects::dissolve_cells(look.toast, progress))
+                    .or(genie)
+                    .map(|rects| rects.into_iter().map(px).collect());
                 if ot_platform::toast_window::set_shape(
                     &id.window_title(),
                     outline,
@@ -888,12 +919,10 @@ impl SettingsWindow {
                 // transform before it meets the button rects.
                 let pointer = ui.ctx().input(|i| i.pointer.hover_pos());
                 hovered_now.push((id, pointer.is_some()));
-                let pointer = pointer.map(|at| look.transform.inverse() * at);
-
-                // A glow's halo first, under the toast, in the margin.
-                ot_toast::render::halo(ui.painter(), rect, spec, look.halo);
-                let content =
-                    ot_toast::render::frame_with(ui.painter(), rect, spec, look.background);
+                // Mid-warp the buttons are bands on a path, and take no click.
+                let pointer = pointer
+                    .filter(|_| look.genie.is_none())
+                    .map(|at| look.transform.inverse() * at);
 
                 // The colours come from the theme through here, so the renderer
                 // itself still hard-codes none.
@@ -911,16 +940,39 @@ impl SettingsWindow {
                 // The toast's own background picks the text colour, not the
                 // window's theme, which a toast does not follow.
                 let text = Tokens::for_toast(spec);
-                let buttons = ot_toast::content::draw(
-                    ui.painter(),
-                    content,
-                    spec,
-                    text.text,
-                    text.text_dim,
-                    icon,
-                    image,
-                    pointer,
-                );
+                // The whole toast, onto one painter: a glow's halo first,
+                // under it in the margin, then the frame and the content.
+                let draw_toast = |painter: &egui::Painter| {
+                    ot_toast::render::halo(painter, rect, spec, look.halo);
+                    let content =
+                        ot_toast::render::frame_with(painter, rect, spec, look.background);
+                    ot_toast::content::draw(
+                        painter,
+                        content,
+                        spec,
+                        text.text,
+                        text.text_dim,
+                        icon,
+                        image,
+                        pointer,
+                    )
+                };
+                let buttons = match look.genie {
+                    // A warp: the toast once per band, each clipped to its
+                    // slice and drawn through its own transform, on a layer
+                    // of its own (a layer has one transform).
+                    Some(bands) => {
+                        for (index, band) in bands.iter().enumerate() {
+                            let layer = ot_toast::effects::genie_layer(id.0, index);
+                            ui.ctx().set_transform_layer(layer, band.transform);
+                            let _ = draw_toast(
+                                &ui.ctx().layer_painter(layer).with_clip_rect(band.band),
+                            );
+                        }
+                        Vec::new()
+                    }
+                    None => draw_toast(ui.painter()),
+                };
                 // A click on a working button acts on exactly what was drawn:
                 // the rects come back from the renderer. Snooze and Open are
                 // greyed until Phase 4 and take no click (§4.3).

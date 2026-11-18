@@ -82,6 +82,9 @@ pub fn builder(spec: &ToastSpec, title: &str) -> egui::ViewportBuilder {
 /// repainted. Painted from the root's frame, every toast is repainted in the
 /// same frame, which is also the one clock every animation runs on.
 ///
+/// `tray` is the tray icon's centre in points, when Windows says where it is:
+/// what a toast shrinks into.
+///
 /// `paint` is given the ui, the spec, the toast's id, whose
 /// [`ToastId::window_title`] names the window it is painting, and its
 /// [`Look`](crate::effects::Look) this frame: where the toast sits in its
@@ -91,9 +94,11 @@ pub fn show_all(
     ctx: &egui::Context,
     toasts: &Toasts,
     work_area: egui::Rect,
+    tray: Option<egui::Pos2>,
     now: Instant,
     mut paint: impl FnMut(&mut egui::Ui, &ToastSpec, ToastId, &crate::effects::Look),
 ) {
+    let scene = crate::effects::Scene { work_area, tray };
     let slots = toasts.slots(now);
     for (toast, slot) in toasts.visible().iter().zip(slots) {
         let spec = &toast.spec;
@@ -118,7 +123,7 @@ pub fn show_all(
             at,
             size,
             spec.behaviour.position.accent_edge(),
-            work_area,
+            scene,
         );
         ctx.show_viewport_immediate(
             toast.id.viewport_id(),
@@ -150,6 +155,15 @@ pub fn show_all(
             egui::LayerId::background(),
             egui::emath::TSTransform::IDENTITY,
         );
+        // And a Genie's bands, each painted on a layer of its own.
+        if look.genie.is_some() {
+            for band in 0..crate::effects::GENIE_BANDS {
+                ctx.set_transform_layer(
+                    crate::effects::genie_layer(id.0, band),
+                    egui::emath::TSTransform::IDENTITY,
+                );
+            }
+        }
     }
 }
 
