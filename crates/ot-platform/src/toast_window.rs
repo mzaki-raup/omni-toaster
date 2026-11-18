@@ -131,8 +131,8 @@ mod platform {
     use windows::Win32::Foundation::{COLORREF, HWND, LPARAM, RECT};
     use windows::Win32::Graphics::Dwm::{
         DWMNCRP_DISABLED, DWMNCRP_ENABLED, DWMWA_NCRENDERING_POLICY,
-        DWMWA_WINDOW_CORNER_PREFERENCE, DWMWCP_DONOTROUND, DwmExtendFrameIntoClientArea,
-        DwmSetWindowAttribute,
+        DWMWA_TRANSITIONS_FORCEDISABLED, DWMWA_WINDOW_CORNER_PREFERENCE, DWMWCP_DONOTROUND,
+        DwmExtendFrameIntoClientArea, DwmSetWindowAttribute,
     };
     use windows::Win32::Graphics::Gdi::{
         CombineRgn, CreateEllipticRgn, CreateRectRgn, DeleteObject, HRGN, OffsetRgn, RGN_AND,
@@ -328,6 +328,18 @@ mod platform {
                 DWMWA_WINDOW_CORNER_PREFERENCE,
                 std::ptr::from_ref(&DWMWCP_DONOTROUND).cast(),
                 u32::try_from(size_of_val(&DWMWCP_DONOTROUND)).unwrap_or(0),
+            );
+            // No show animation of Windows' own. Windows plays one on a
+            // window it has just made visible, and for its length — about
+            // 300 ms — what is on screen is its transition, not the toast's
+            // frames, so the first third of every entry never showed
+            // (BUG-0011). The toast animates itself.
+            let no_transitions = BOOL::from(true);
+            let _ = DwmSetWindowAttribute(
+                window,
+                DWMWA_TRANSITIONS_FORCEDISABLED,
+                std::ptr::from_ref(&no_transitions).cast(),
+                u32::try_from(size_of_val(&no_transitions)).unwrap_or(0),
             );
             let _ = DwmExtendFrameIntoClientArea(window, &margins);
         }

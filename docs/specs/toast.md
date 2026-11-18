@@ -241,7 +241,10 @@ has been shaped** and given its alpha, and the in-animation starts then — a
 window shown first flashes at full strength before its fade; one whose window
 has not turned up within a second starts anyway, with a warning in the log.
 Hovering during the entry costs the countdown nothing, since it has not
-started.
+started. Windows' own show animation is turned off on every toast window
+(`DWMWA_TRANSITIONS_FORCEDISABLED`): while it played, the screen showed it
+instead of the toast's frames, and the first third of every entry was lost
+(BUG-0011). The toast animates itself.
 
 **One clock.** Every toast is painted in the same frame as the app's root
 window (ADR-016), so all of them animate together, and the frame time measured

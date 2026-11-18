@@ -312,17 +312,18 @@ make all three glass kinds from the accent policy's Acrylic.
 - [ ] Docs: spec · CHANGELOG · GOTCHAS
 
 ### BUG-0011 · The first 150–200 ms of a toast's fade do not reach the screen
-- **State:** Pending · **Spec:** docs/specs/toast.md §5 · **Phase:** 3
+- **State:** Completed · **Spec:** docs/specs/toast.md §5 · **Phase:** 3
 - **Branch:** feat/phase-3-glass-animations
 - **Depends on:** FEAT-0031
-- **Source:** found while investigating BUG-0010, 2026-11-18, filed by the owner's decision the same day. Measured frame by frame over a striped window in a debug build: after a toast's window shows, its picture holds at one early value for 150–200 ms, then jumps to where the fade has got to — the timeline runs on while the window's first frames are slow to reach the screen, so the start of every in-animation skips
-- [ ] Measure it in a release build first — `--test-toast` is debug-only, so fire toasts from Settings ▸ Appearance ▸ Show a Test Toast — and find which part of the first frames is slow (window creation, the first present, the first texture upload)
-- [ ] Test first, if it can be made one: the per-frame brightness capture (`docs/GOTCHAS.md`, Testing) showing the hold, then showing it gone
-- [ ] The fix — for instance, starting the timeline at the first frame that actually reaches the screen, if that can be known
-- [ ] Gate: fmt · clippy -D warnings · test --workspace --locked -j 4 · deny check · --self-test
-- [ ] App: `--data-dir ./tmp-data` — every effect captured frame by frame from the moment the toast appears, in a debug and a release build
-- [ ] Docs: spec · CHANGELOG · GOTCHAS
-- **Notes:** If the hold is only in a debug build, it may be closed as such, with the release measurement as the evidence.
+- **Source:** found while investigating BUG-0010, 2026-11-18, filed by the owner's decision the same day. Measured frame by frame over a striped window in a debug build: after a toast's window shows, its picture holds at one early value for 150–200 ms, then jumps to where the fade has got to
+- **Verified:** the reproducing capture, before and after, in a release and a debug build; the gate; slides and pops on screen
+- [x] Measured in a release build (one toast from Settings ▸ Appearance ▸ Show a Test Toast, over a topmost striped window, a patch's brightness sampled from before the click): the first frame that reached the screen was already a third of the way through a 1-second fade (126 → 98 in one step), and the fade showed for about 680 ms of its 1000 — three runs alike. Not a debug-only effect
+- [x] The cause: Windows' own show animation. A frame takes a few milliseconds, so it was not slow painting; Windows plays a transition on a window it has just made visible, and for its length what is on screen is the transition, not the window's frames, while the toast's timeline runs on
+- [x] Test first: the release capture above is the reproducing check — it failed as described; a unit test would need a real Win32 window and a compositor, so this one is a script (`docs/GOTCHAS.md`, Testing)
+- [x] The fix: `DWMWA_TRANSITIONS_FORCEDISABLED` on every toast window, set with its other compositor settings in `toast_window::set_shape`, while it is still hidden
+- [x] Gate: fmt · clippy -D warnings · test --workspace --locked -j 4 (248 passed) · deny check · --self-test
+- [x] App: `--data-dir ./tmp-data` — after the fix, release: the fade starts at the background (129 → 125 → 123 …) and shows for 950 ms of its 1000, three runs alike; debug: a steady decline from the first frame, no hold, twice; slide from right and pop out captured every 100 ms look right, the pop now visibly small and faint at its start
+- [x] Docs: spec §5 · CHANGELOG · GOTCHAS
 
 ### FEAT-0038 · The action row, with Dismiss working
 - **State:** In-Progress · **Spec:** docs/specs/toast.md §4.3 · §9 · **Phase:** 3
