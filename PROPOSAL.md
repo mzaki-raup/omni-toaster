@@ -67,11 +67,11 @@ The recommended UI framework is **eframe/egui**, with Slint as a documented fall
 | HTTP | `ureq` (blocking) | `reqwest` | Lightweight for periodic API calls. |
 | Serialization | `serde` | | Standard. |
 | Errors | `thiserror` (libraries), `anyhow` (application) | | Standard. |
-| Date and time | `chrono` + `chrono-tz` | `time` | Arithmetic and timezone handling. Malay names come from static tables. |
+| Date and time | `jiff` (ADR-017; `chrono` until 2026-11-19) | `time` | Arithmetic and timezone handling, the IANA database bundled for Windows. Malay names come from static tables. |
 | CI/CD | **Forgejo Actions** on the owner's own Windows machine (`.forgejo/workflows/`), with GitHub Actions (`.github/workflows/`, `windows-latest`) on the public mirror | A single hosted runner | Forgejo holds version authority and publishes the release; GitHub is a read-only mirror that runs the same checks for contributors. Both run fmt, clippy, tests, lints, and release builds. Because the Forgejo runner *is* the development machine, every cargo step there is bounded with `-j 4`. |
 | In-app updater | Signed release manifest (`manifest.json`) + rsign signature, checked over HTTPS; self-replace on restart | `cargo-dist` self-update, winget | Keeps the portable single-exe model: no installer, no admin rights, `OmniToasterData/` untouched. A Phase 9 deliverable. |
 
-**Key Cargo additions for v1.0:** `i18n-embed` (with `fluent-system-ui`), `i18n-embed-fl`, `rust-embed`, `unic-langid`, `chrono-tz`, `adhan`, `ureq`, `rusqlite`, `rodio`, `tray-icon`, `muda`, `window-vibrancy`, `winreg`, `image`, `windows`.
+**Key Cargo additions for v1.0:** `i18n-embed` (with `fluent-system-ui`), `i18n-embed-fl`, `rust-embed`, `unic-langid`, `jiff`, `adhan`, `ureq`, `rusqlite`, `rodio`, `tray-icon`, `muda`, `window-vibrancy`, `winreg`, `image`, `windows`.
 
 ---
 

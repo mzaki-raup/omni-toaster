@@ -205,7 +205,10 @@ fn sweep_old_logs(log_dir: &Path, retention_days: u16) -> usize {
     let Ok(entries) = fs::read_dir(log_dir) else {
         return 0;
     };
-    let cutoff = chrono::Local::now().date_naive() - chrono::Days::new(u64::from(retention_days));
+    let today = jiff::ZonedDateTime::now().date();
+    let Ok(cutoff) = today.checked_sub(jiff::Span::new().days(i64::from(retention_days))) else {
+        return 0;
+    };
     let mut removed = 0;
 
     for entry in entries.filter_map(Result::ok) {
@@ -219,7 +222,7 @@ fn sweep_old_logs(log_dir: &Path, retention_days: u16) -> usize {
             continue;
         };
         let date_part = date_part.strip_suffix(".log").unwrap_or(date_part);
-        let Ok(date) = chrono::NaiveDate::parse_from_str(date_part, "%Y-%m-%d") else {
+        let Ok(date) = date_part.parse::<jiff::civil::Date>() else {
             continue;
         };
         if date < cutoff && fs::remove_file(entry.path()).is_ok() {
@@ -257,7 +260,7 @@ pub fn install_panic_hook(root: &DataRoot, recent: RecentLines, host: HostInfo) 
         if fs::create_dir_all(&crash_dir).is_ok() {
             let name = format!(
                 "{}.txt",
-                chrono::Local::now().format("%Y-%m-%dT%H-%M-%S%.3f")
+                jiff::ZonedDateTime::now().strftime("%Y-%m-%dT%H-%M-%S%.3f")
             );
             let _ = fs::write(crash_dir.join(name), &report);
             prune_crash_reports(&crash_dir);
@@ -286,7 +289,7 @@ fn build_report(
     let _ = writeln!(
         report,
         "when:     {}",
-        chrono::Local::now().format("%Y-%m-%d %H:%M:%S %:z")
+        jiff::ZonedDateTime::now().strftime("%Y-%m-%d %H:%M:%S %:z")
     );
     let _ = writeln!(report, "version:  {}", env!("CARGO_PKG_VERSION"));
     let _ = writeln!(report, "os:       {}", host.os);
@@ -383,9 +386,14 @@ mod tests {
         let log_dir = root.path().join("logs");
         fs::create_dir_all(&log_dir).expect("log dir");
 
-        let today = chrono::Local::now().date_naive();
-        let fresh = format!("app.{}", today.format("%Y-%m-%d"));
-        let aged = format!("app.{}", (today - chrono::Days::new(40)).format("%Y-%m-%d"));
+        let today = jiff::ZonedDateTime::now().date();
+        let fresh = format!("app.{today}");
+        let aged = format!(
+            "app.{}",
+            today
+                .checked_sub(jiff::Span::new().days(40))
+                .expect("forty days ago")
+        );
         // Something that is not a log file at all must survive untouched.
         let unrelated = "notes.txt";
 

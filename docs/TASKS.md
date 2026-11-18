@@ -140,17 +140,18 @@ Phase 4, Scheduler and Reminders, on `feat/phase-4-scheduler`
 date library it will keep.
 
 ### CR-0007 · Move off `chrono`, which is unmaintained, before the scheduler is built on it
-- **State:** Pending · **Spec:** docs/08-decisions.md (ADR-017) · **Phase:** 4
+- **State:** Completed · **Spec:** docs/08-decisions.md (ADR-017) · **Phase:** 4
 - **Branch:** feat/phase-4-scheduler
+- **Verified:** the gate, the bundled-zone test, the toast timestamp and the pause in the running app in both languages
 - **Source:** `cargo deny check`, 2026-11-17: RUSTSEC-2026-0543, "chrono is unmaintained", no safe upgrade; the advisory names `jiff` and `time`
-- [ ] Choose the replacement in an ADR (ADR-017; `jiff` proposed, 2026-11-19: IANA zones bundled for Windows, DST-safe civil arithmetic, MIT or Unlicense) — time zones (Asia/Kuala_Lumpur for JAKIM, `docs/11-prayer-and-azan.md`), DST arithmetic for the scheduler, and what `ot-i18n`'s formatter needs
-- [ ] Replace it in `ot-core` (logging, pause), `ot-i18n` (the formatter), `ot-ui` and the self-test, with the formatter's tests unchanged and passing
-- [ ] Remove RUSTSEC-2026-0543 from `deny.toml`'s ignore list
-- [ ] Test: the formatter's tests in both languages, 12- and 24-hour, UTC+8; the pause timer
-- [ ] Gate: fmt · clippy -D warnings · test --workspace --locked -j 4 · deny check · --self-test
-- [ ] App: `--data-dir ./tmp-data` — the toast timestamp and the pause-until time in both languages
-- [ ] Docs: ADR · README (requirements) · CHANGELOG
-- **Notes:** Ignored in `deny.toml` until then, with the reason: it is not a vulnerability and today `chrono` parses no input from outside the app. Before Phase 4 because the scheduler and the prayer times are where a date library becomes hard to replace.
+- [x] Choose the replacement in an ADR (ADR-017, accepted 2026-11-19: `jiff` 1.0.1, IANA zones bundled for Windows, DST-safe civil arithmetic, MIT or Unlicense) — time zones (Asia/Kuala_Lumpur for JAKIM, `docs/11-prayer-and-azan.md`), DST arithmetic for the scheduler, and what `ot-i18n`'s formatter needs
+- [x] Replace it in `ot-core` (logging, pause), `ot-i18n` (the formatter), `ot-ui` and the self-test, with the formatter's tests unchanged and passing — the formatter takes a `jiff::civil::DateTime`, a pause holds a `jiff::Timestamp` shown in the system zone; `chrono` has left `Cargo.lock`
+- [x] Remove RUSTSEC-2026-0543 from `deny.toml`'s ignore list
+- [x] Test: the formatter's tests in both languages, 12- and 24-hour, UTC+8; the pause timer — the existing tests, moved to `jiff` with their assertions unchanged (the pause's now at a fixed UTC+8 rather than the machine's zone), plus `malaysian_time_resolves_from_the_bundled_zone_database`
+- [x] Gate: fmt · clippy -D warnings · test --workspace --locked -j 4 (260 passed) · deny check · --self-test
+- [x] App: `--data-dir ./tmp-data` — the toast timestamp and the pause-until time in both languages
+- [x] Docs: ADR · README (requirements) · CHANGELOG
+- **Notes:** App, checked 2026-11-19 at 07:14–07:16 local time (UTC+8): the Appearance preview's timestamp read "7:14 am" in English and "07:15" in Malay; For 30 Minutes chosen from OmniToaster's own tray menu (by script, through its icon on the taskbar) at 07:15:45 and 07:16:03 made the status line read "Notifications are paused until 7:45 am." and "Pemberitahuan dijeda sehingga 07:46." README: neither README names the date library, so nothing to change; `PROPOSAL.md` §4's stack row now says `jiff`. Ignored in `deny.toml` until then, with the reason: it is not a vulnerability and today `chrono` parses no input from outside the app. Before Phase 4 because the scheduler and the prayer times are where a date library becomes hard to replace.
 
 ### FEAT-0039 · Migration 003 and the reminder store
 - **State:** Pending · **Spec:** docs/05-data-model-and-storage.md · docs/specs/reminders.md §9 · **Phase:** 4

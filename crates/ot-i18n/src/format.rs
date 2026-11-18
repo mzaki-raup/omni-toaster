@@ -5,7 +5,7 @@
 //! Malay day name is correct even when Windows is set to English — and so a
 //! language switch needs no restart.
 
-use chrono::{Datelike as _, NaiveDateTime, Timelike as _, Weekday};
+use jiff::civil::{DateTime, Weekday};
 
 use crate::Language;
 
@@ -29,7 +29,7 @@ impl TimePrefs {
 }
 
 /// Format a time of day.
-pub fn format_time(when: &NaiveDateTime, prefs: TimePrefs) -> String {
+pub fn format_time(when: &DateTime, prefs: TimePrefs) -> String {
     let (hour, period) = if prefs.twelve_hour {
         let raw = when.hour();
         // 0 reads as 12 am and 12 stays 12 pm.
@@ -69,7 +69,7 @@ pub fn format_time(when: &NaiveDateTime, prefs: TimePrefs) -> String {
 }
 
 /// Format a date and a time together.
-pub fn format_datetime(when: &NaiveDateTime, prefs: TimePrefs) -> String {
+pub fn format_datetime(when: &DateTime, prefs: TimePrefs) -> String {
     let date = crate::text_with(
         "format-date-short",
         &[
@@ -89,13 +89,13 @@ pub fn format_datetime(when: &NaiveDateTime, prefs: TimePrefs) -> String {
 /// The localized name of a weekday.
 pub fn weekday_name(day: Weekday) -> String {
     crate::text(match day {
-        Weekday::Mon => "day-monday",
-        Weekday::Tue => "day-tuesday",
-        Weekday::Wed => "day-wednesday",
-        Weekday::Thu => "day-thursday",
-        Weekday::Fri => "day-friday",
-        Weekday::Sat => "day-saturday",
-        Weekday::Sun => "day-sunday",
+        Weekday::Monday => "day-monday",
+        Weekday::Tuesday => "day-tuesday",
+        Weekday::Wednesday => "day-wednesday",
+        Weekday::Thursday => "day-thursday",
+        Weekday::Friday => "day-friday",
+        Weekday::Saturday => "day-saturday",
+        Weekday::Sunday => "day-sunday",
     })
 }
 
@@ -125,13 +125,9 @@ pub fn month_name(month: u32) -> String {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use chrono::NaiveDate;
 
-    fn at(hour: u32, minute: u32) -> NaiveDateTime {
-        NaiveDate::from_ymd_opt(2026, 11, 8)
-            .expect("a real date")
-            .and_hms_opt(hour, minute, 0)
-            .expect("a real time")
+    fn at(hour: i8, minute: i8) -> DateTime {
+        jiff::civil::date(2026, 11, 8).at(hour, minute, 0, 0)
     }
 
     #[test]
@@ -148,7 +144,7 @@ mod tests {
     /// `format_time` does, so the boundary rules can be checked without a
     /// loaded Fluent bundle (the loader is global and other tests may have
     /// claimed it).
-    fn hour_and_period(when: NaiveDateTime) -> (u32, &'static str) {
+    fn hour_and_period(when: DateTime) -> (i8, &'static str) {
         let raw = when.hour();
         let twelve = match raw % 12 {
             0 => 12,
@@ -169,6 +165,22 @@ mod tests {
         assert!(!TimePrefs::default().twelve_hour);
         assert!(!TimePrefs::for_language(Language::Malay).twelve_hour);
         assert!(TimePrefs::for_language(Language::English).twelve_hour);
+    }
+
+    #[test]
+    fn malaysian_time_resolves_from_the_bundled_zone_database() {
+        // Windows has no IANA database; jiff bundles one (ADR-017). JAKIM's
+        // times are Asia/Kuala_Lumpur whatever the PC's zone is, so this must
+        // resolve on every machine, and be UTC+8.
+        let midnight_utc: jiff::Timestamp = "2026-11-19T00:00:00Z".parse().expect("an instant");
+        let kl = midnight_utc
+            .in_tz("Asia/Kuala_Lumpur")
+            .expect("Asia/Kuala_Lumpur is in the bundled database");
+        assert_eq!(
+            kl.datetime(),
+            jiff::civil::date(2026, 11, 19).at(8, 0, 0, 0)
+        );
+        assert_eq!(kl.offset(), jiff::tz::offset(8));
     }
 
     #[test]

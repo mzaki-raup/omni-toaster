@@ -81,7 +81,7 @@ pub fn run(data_dir: Option<&Path>) -> usize {
     });
 
     failures += check("the date formatter answers in both languages", || {
-        let when = chrono_now();
+        let when = jiff::ZonedDateTime::now().datetime();
         for language in [Language::English, Language::Malay] {
             // The global loader holds one language at a time, so this checks
             // the formatter produces something non-empty with the prefs each
@@ -126,12 +126,6 @@ fn check(name: &str, body: impl FnOnce() -> Result<(), String>) -> usize {
             1
         }
     }
-}
-
-/// Now, as a naive local time. Kept here so the formatter check does not need
-/// chrono as a direct dependency of this crate's public surface.
-fn chrono_now() -> chrono::NaiveDateTime {
-    chrono::Local::now().naive_local()
 }
 
 /// How long the log check keeps looking for its line. Generous, because it

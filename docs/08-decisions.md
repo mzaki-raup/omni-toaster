@@ -495,3 +495,39 @@ reference machine, three toasts, release build: every in and out animation at
 build with it open. The toast windows' own events drive frames beyond the 60
 asked for; that costs 6% of one core while three toasts are on screen, against
 1% with none, which is accepted for the seconds a toast is up.
+
+## ADR-017 · Dates and times with `jiff`, not `chrono`
+
+**Status:** Accepted 2026-11-19 · **Phase:** 4 · **Replaces:** the `chrono` +
+`chrono-tz` row of `PROPOSAL.md` §4
+
+**Context.** RUSTSEC-2026-0543 (2026-11-17) marks `chrono` unmaintained, with
+no upgrade; the advisory names `jiff` and `time`. It was not a vulnerability —
+`chrono` parsed no outside input here — so it was ignored in `deny.toml` with
+CR-0007 to replace it before Phase 4, because the scheduler and the prayer
+times are where a date library becomes hard to replace. What they need:
+
+- **Named time zones.** JAKIM's times are `Asia/Kuala_Lumpur` whatever the PC
+  is set to (`docs/11-prayer-and-azan.md` §4), and Windows ships no IANA
+  database.
+- **Local wall-clock arithmetic that is safe across DST.** "Every day at 07:00"
+  stays 07:00; a time a DST gap skips, or a fold repeats, has one defined
+  answer (`docs/specs/reminders.md` §7).
+- **Absolute instants** for the queue and for a pause, and plain civil dates
+  and times for the formatter.
+
+**Decision.** `jiff` 1.0, default features: `tz-system` reads the Windows zone,
+`tzdb-bundle-platform` bundles the IANA database on Windows, so
+`Asia/Kuala_Lumpur` resolves on every machine without a download. Licence MIT
+or Unlicense; `deny.toml` admits MIT. `chrono` leaves the tree entirely —
+nothing else in the dependency graph used it — and its advisory ignore goes.
+
+**Why not `time`.** It has fixed offsets but no named zones and no DST rules
+without a second crate, so the scheduler would have to assemble what `jiff`
+already does.
+
+**Consequences.** `ot_i18n::format` takes a `jiff::civil::DateTime`; a pause
+holds a `jiff::Timestamp` and is shown in the system zone. Crash-report and
+log-file timestamps use `jiff`'s `strftime`, which they are allowed to:
+they are diagnostics, not user-visible text, so `ot-i18n`'s formatter rule does
+not cover them. The executable grows by the bundled zone database.

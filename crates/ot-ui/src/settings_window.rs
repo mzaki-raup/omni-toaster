@@ -324,7 +324,7 @@ impl SettingsWindow {
         let pause = Pause::default();
         let (tray, status) = match Tray::new(
             &tray_labels(pause),
-            pause.is_active(chrono::Local::now()),
+            pause.is_active(jiff::Timestamp::now()),
             // Which window owns the icon, so a killed run's ghost can be
             // removed on the next start (CR-0003). In the cache: it is
             // derived data, and losing it costs only a ghost.
@@ -437,7 +437,7 @@ impl SettingsWindow {
         ctx.send_viewport_cmd(egui::ViewportCommand::Title(ot_i18n::text(
             "settings-window-title",
         )));
-        self.rebuild_tray(chrono::Local::now());
+        self.rebuild_tray(jiff::Timestamp::now());
         self.save();
         tracing::info!(
             ?language,
@@ -568,7 +568,7 @@ impl SettingsWindow {
 
     /// Act on everything the tray has to say, and keep the menu in step.
     fn handle_tray(&mut self, ctx: &egui::Context) {
-        let now = chrono::Local::now();
+        let now = jiff::Timestamp::now();
         // A lapsed pause clears itself, and the menu goes back to offering a
         // pause rather than a resume.
         let mut menu_is_stale = self.pause.lapse(now);
@@ -618,7 +618,7 @@ impl SettingsWindow {
     }
 
     /// Rebuild the menu and the tooltip for the current language and pause.
-    fn rebuild_tray(&mut self, now: chrono::DateTime<chrono::Local>) {
+    fn rebuild_tray(&mut self, now: jiff::Timestamp) {
         let paused = self.pause.is_active(now);
         let labels = tray_labels(self.pause);
         if let Some(tray) = self.tray.as_mut()
@@ -693,7 +693,7 @@ impl SettingsWindow {
             },
             // Formatted here: ot-i18n owns the one formatter that may turn a
             // time into text, and a spec holds text rather than keys.
-            timestamp: Some(formatted_time(chrono::Local::now())),
+            timestamp: Some(formatted_time(jiff::Timestamp::now())),
             // The test toast's own pictures, like any notification's: chosen
             // under Test Toast Content and never part of the global style.
             icon: self.test_icon.clone(),
@@ -1870,13 +1870,16 @@ fn tooltip_for(pause: Pause) -> String {
     }
 }
 
-/// A time of day through the one formatter. Nothing else may format one
-/// (`docs/10-i18n.md`).
-fn formatted_time(moment: chrono::DateTime<chrono::Local>) -> String {
+/// A time of day through the one formatter, in the PC's own zone. Nothing
+/// else may format one (`docs/10-i18n.md`).
+fn formatted_time(moment: jiff::Timestamp) -> String {
     let prefs = ot_i18n::format::TimePrefs::for_language(
         ot_i18n::current_language().unwrap_or(Language::English),
     );
-    ot_i18n::format::format_time(&moment.naive_local(), prefs)
+    let local = moment
+        .to_zoned_datetime(jiff::tz::TimeZone::system())
+        .datetime();
+    ot_i18n::format::format_time(&local, prefs)
 }
 
 /// The fonts, installed into a fresh `FontDefinitions`.

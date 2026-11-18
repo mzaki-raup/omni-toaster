@@ -31,10 +31,10 @@ publish = false
 # (.claude/rules/rust.md).
 thiserror = "2.0.21"
 
-# Dates and times. Default features are off: chrono's `oldtime` and `wasmbind`
-# pull in weight this project never uses, and `clock` is what gives local time.
-# chrono-tz arrives with the prayer work, which needs Asia/Kuala_Lumpur.
-chrono = { version = "0.4.45", default-features = false, features = ["clock", "std"] }
+# Dates, times and time zones (ADR-017). Default features: the Windows zone,
+# and the IANA database bundled on Windows, which has none of its own —
+# Asia/Kuala_Lumpur must resolve on every machine for the prayer times.
+jiff = "1.0.1"
 
 # Structured logging with daily rotation.
 tracing = "0.1.44"

@@ -26,7 +26,7 @@ workspace = true
 # ot-store. `cargo build --workspace` compiles every member regardless, so the
 # gate still covers the crates listed here.
 [dependencies]
-chrono.workspace = true
+jiff.workspace = true
 ot-core = { path = "../ot-core" }
 ot-i18n = { path = "../ot-i18n" }
 ot-platform = { path = "../ot-platform" }

@@ -11,7 +11,7 @@
 //! say so in the tray tooltip and in the settings status line, because the
 //! worst outcome here is a user who has forgotten they muted it.
 
-use chrono::{DateTime, Duration, Local};
+use jiff::{SignedDuration, Timestamp};
 
 /// The windows the tray menu offers. Fixed by the spec, not a free number.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -32,10 +32,10 @@ impl PauseFor {
     }
 
     /// How long it lasts, or `None` for "until the user resumes".
-    pub fn duration(self) -> Option<Duration> {
+    pub fn duration(self) -> Option<SignedDuration> {
         match self {
-            Self::ThirtyMinutes => Some(Duration::minutes(30)),
-            Self::OneHour => Some(Duration::hours(1)),
+            Self::ThirtyMinutes => Some(SignedDuration::from_mins(30)),
+            Self::OneHour => Some(SignedDuration::from_hours(1)),
             Self::UntilResumed => None,
         }
     }
@@ -51,8 +51,10 @@ pub enum Pause {
     /// Notifications are being delivered.
     #[default]
     Running,
-    /// Paused until this moment, after which it lapses on its own.
-    Until(DateTime<Local>),
+    /// Paused until this moment, after which it lapses on its own. An
+    /// instant, not a wall-clock time: a pause is half an hour of real time
+    /// whatever the clock or the zone does meanwhile.
+    Until(Timestamp),
     /// Paused with no end: only the user resumes it.
     UntilResumed,
 }
@@ -64,7 +66,7 @@ impl Pause {
     /// tested at the times that matter — a pause started at 23:50 ends
     /// tomorrow, and nothing about that may depend on what the clock says
     /// while the test runs.
-    pub fn start(window: PauseFor, now: DateTime<Local>) -> Self {
+    pub fn start(window: PauseFor, now: Timestamp) -> Self {
         match window.duration() {
             Some(duration) => Self::Until(now + duration),
             None => Self::UntilResumed,
@@ -76,7 +78,7 @@ impl Pause {
     /// A pause whose moment has passed is simply not active: it lapses rather
     /// than needing anyone to clear it, so a missed tick cannot leave the app
     /// silent for ever.
-    pub fn is_active(&self, now: DateTime<Local>) -> bool {
+    pub fn is_active(&self, now: Timestamp) -> bool {
         match self {
             Self::Running => false,
             Self::UntilResumed => true,
@@ -86,7 +88,7 @@ impl Pause {
 
     /// When it lapses, for the tooltip and the status line. `None` means it
     /// does not lapse on its own.
-    pub fn expires_at(&self) -> Option<DateTime<Local>> {
+    pub fn expires_at(&self) -> Option<Timestamp> {
         match self {
             Self::Until(moment) => Some(*moment),
             Self::Running | Self::UntilResumed => None,
@@ -95,7 +97,7 @@ impl Pause {
 
     /// Drop a pause that has lapsed, so the state does not keep claiming a
     /// moment in the past. Returns whether anything changed.
-    pub fn lapse(&mut self, now: DateTime<Local>) -> bool {
+    pub fn lapse(&mut self, now: Timestamp) -> bool {
         if matches!(self, Self::Until(_)) && !self.is_active(now) {
             *self = Self::Running;
             return true;
@@ -107,13 +109,24 @@ impl Pause {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use chrono::TimeZone;
+    use jiff::tz::{self, TimeZone};
 
-    fn at(hour: u32, minute: u32) -> DateTime<Local> {
-        Local
-            .with_ymd_and_hms(2026, 11, 9, hour, minute, 0)
-            .single()
+    /// Malaysia's offset, fixed, so nothing depends on the zone of the
+    /// machine running the test.
+    fn zone() -> TimeZone {
+        TimeZone::fixed(tz::offset(8))
+    }
+
+    fn at(hour: i8, minute: i8) -> Timestamp {
+        jiff::civil::date(2026, 11, 9)
+            .at(hour, minute, 0, 0)
+            .to_zoned_datetime(zone())
             .expect("a real local time")
+            .timestamp()
+    }
+
+    fn date_of(moment: Timestamp) -> jiff::civil::Date {
+        moment.to_zoned_datetime(zone()).date()
     }
 
     #[test]
@@ -144,14 +157,11 @@ mod tests {
         let late = at(23, 50);
         let pause = Pause::start(PauseFor::ThirtyMinutes, late);
         let end = pause.expires_at().expect("a timed pause has an end");
-        assert_eq!(end, late + Duration::minutes(30));
-        assert_eq!(
-            end.date_naive(),
-            late.date_naive().succ_opt().expect("tomorrow")
-        );
+        assert_eq!(end, late + SignedDuration::from_mins(30));
+        assert_eq!(date_of(end), date_of(late).tomorrow().expect("tomorrow"));
         assert!(pause.is_active(at(23, 59)), "still paused before midnight");
         assert!(
-            pause.is_active(end - Duration::seconds(1)),
+            pause.is_active(end - SignedDuration::from_secs(1)),
             "still paused a second before it ends, which is after midnight"
         );
         assert!(!pause.is_active(end), "not paused at the moment it ends");
@@ -164,7 +174,7 @@ mod tests {
         assert_eq!(pause.expires_at(), None);
         // Any time at all, including days later.
         assert!(pause.is_active(at(12, 0)));
-        assert!(pause.is_active(at(23, 59) + Duration::days(400)));
+        assert!(pause.is_active(at(23, 59) + SignedDuration::from_hours(24 * 400)));
     }
 
     #[test]
@@ -177,7 +187,7 @@ mod tests {
         assert!(!timed.lapse(at(14, 0)), "already running");
 
         let mut open = Pause::UntilResumed;
-        assert!(!open.lapse(at(23, 59) + Duration::days(7)));
+        assert!(!open.lapse(at(23, 59) + SignedDuration::from_hours(24 * 7)));
         assert_eq!(open, Pause::UntilResumed, "only the user resumes this one");
     }
 
