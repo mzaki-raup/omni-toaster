@@ -199,6 +199,15 @@ unknown easing as `ease-out`, each with a warning, and shrink to tray as an
 in-animation becomes appear. Until an effect is built (FEAT-0032 to FEAT-0034)
 it plays as a fade.
 
+**Settings ▸ Animation** (FEAT-0036) holds them, in this order: Animation
+In (the nine in-effects), Animation Out (those and Shrink to Tray), Duration
+(a slider, 150–1000 ms), Easing, and Reduce Motion — a checkbox, with a line
+under it saying whether Windows' own "Show animations" is on, and, when either
+reduces motion, that every animation plays as a fade. **Play** fires a test
+toast with the choices as they stand; the pane has no preview, since an
+animation cannot be shown in a still one. Every label is a Fluent key in both
+languages, laid out for the longest Malay string and the pseudo-locale.
+
 **Reduced motion** (FEAT-0035) follows the Windows "Show animations" setting
 (`SPI_GETCLIENTAREAANIMATION`, re-read every five seconds and logged when it
 changes) and the `reduce_motion` setting in `[toast.animation]`: either one

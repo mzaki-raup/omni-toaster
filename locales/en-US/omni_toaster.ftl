@@ -113,6 +113,39 @@ toast-glass-acrylic = Acrylic
 # The toast's colour, mostly opaque, with only a hint of the desktop through it.
 toast-glass-mica-like = Mica-Like
 
+## Toast animations, the Animation In and Animation Out dropdowns in
+## Settings ▸ Animation. Title Case: they are list items.
+
+# The toast slides in from beyond the screen's right edge.
+toast-effect-slide-from-right = Slide from Right
+# The toast slides up from beyond the bottom of the screen's working area.
+toast-effect-slide-from-bottom = Slide from Bottom
+# The toast pours out of a point at the bottom of the screen, narrow first, like a genie from a lamp.
+toast-effect-genie-from-bottom = Genie from Bottom
+# The toast grows from its centre, overshooting a little with spring easing.
+toast-effect-pop-out = Pop Out
+# The toast slides out of the screen edge it sits against, like a drawer.
+toast-effect-drawer = Drawer
+# The toast fades in or out. Also what every animation becomes when motion is reduced.
+toast-effect-appear = Appear
+# The toast builds up, or comes apart, grain by grain.
+toast-effect-dissolve = Dissolve
+# A halo in the toast's accent colour swells around it and settles.
+toast-effect-glow = Glow
+# The text is there first; the background fades in behind it.
+toast-effect-alpha-to-solid = Alpha to Solid
+# Out only: the toast pours into the tray icon, like Genie in reverse.
+toast-effect-shrink-to-tray = Shrink to Tray
+
+## How an animation's progress is shaped over its duration, the Easing dropdown.
+
+# The same speed throughout.
+toast-easing-linear = Linear
+# Fast at first, settling gently at the end.
+toast-easing-ease-out = Ease-Out
+# Overshoots a little and settles, like a spring.
+toast-easing-spring = Spring
+
 ## The tray icon and its menu. Title Case for every item, because they are
 ## menu items. The glyph in front of each one is chosen in code, not here.
 
@@ -151,6 +184,29 @@ settings-section-general = General
 settings-section-appearance = Appearance
 # The section holding the image library: pictures uploaded once and used by any notification.
 settings-section-pictures = Picture Library
+# The section holding how toasts arrive and leave.
+settings-section-animation = Animation
+
+## Settings ▸ Animation. Title Case for the labels, sentence case for the hints.
+
+# How a toast arrives.
+settings-animation-enter = Animation In
+# How a toast leaves.
+settings-animation-leave = Animation Out
+# How long each animation takes, in milliseconds.
+settings-animation-duration = Duration
+# How the animation's progress is shaped over its duration.
+settings-animation-easing = Easing
+# A checkbox: play every animation as a fade.
+settings-animation-reduce = Reduce Motion
+# Under Reduce Motion, when Windows' own animations setting is on.
+settings-animation-windows-on = Windows shows animations, so the ones chosen here play unless Reduce Motion is ticked.
+# Under Reduce Motion, when Windows' own animations setting is off.
+settings-animation-windows-off = Windows' animations are turned off, so every animation plays as a fade.
+# Under Reduce Motion, when it is ticked.
+settings-animation-reduced = Every animation plays as a fade.
+# Button: fires a test toast with the animations chosen above.
+settings-animation-play = Play
 
 ## Settings ▸ Appearance. Title Case for the labels, sentence case for the
 ## hints.

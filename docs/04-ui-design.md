@@ -50,7 +50,7 @@ bottom.
 | **General** | Language (System · English · Bahasa Melayu), theme, start with Windows, pause controls, single-instance notice |
 | **Appearance** | Toast shape, corner radius, size, colours, transparency, glass effect, shadow, the monitor, the position, the display duration and stacking — with the live preview |
 | **Picture Library** | Pictures uploaded once and used by any notification: thumbnail, name, Remove, and a question before removing one in use |
-| **Animation** | In and out animation per direction, duration, reduced-motion switch |
+| **Animation** | In and out animation, duration, easing, the Reduce Motion switch with Windows' own "Show animations" stated under it, and Play, which fires a test toast with them (FEAT-0036) |
 | **Notifications** | Display duration, stacking, screen and corner, quiet hours |
 | **Reminders** | The reminder list and editor, categories, lead offsets, snooze defaults |
 | **Prayer** | Source (JAKIM · Calculated), zone picker, per-prayer audio, pre-prayer lead, Imsak and Dhuha switches, the source label |

@@ -146,6 +146,7 @@ mod tests {
         prefs.animation.leave = crate::spec::Effect::ShrinkToTray;
         prefs.animation.duration_ms = 600;
         prefs.animation.easing = crate::spec::Easing::Spring;
+        prefs.animation.reduce_motion = true;
         prefs.behaviour.position = Position::Custom { x: 0.25, y: 0.75 };
         prefs.header.timestamp = false;
         prefs.monitor = Some(MonitorChoice {

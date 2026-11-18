@@ -99,8 +99,10 @@ Windows, jadi hampir setiap aspeknya boleh ditetapkan:
   dari bawah, Genie dari bawah, timbul, laci, muncul, larut, cahaya, lut sinar
   ke padu — setiap satunya dengan pratetap keluar yang bercermin serta "kecut
   ke dulang", tempoh 150–1000 ms dan pelonggaran linear, perlahan di hujung
-  atau pegas. Pilihan kurangkan gerakan mengikut tetapan "Tunjukkan animasi"
-  Windows dan beralih kepada pudar
+  atau pegas, dipilih dalam Tetapan ▸ Animasi, tempat Mainkan menunjukkan
+  toast ujian dengannya. Kurangkan Gerakan — atau tetapan "Tunjukkan animasi"
+  Windows yang dimatikan — memainkan setiap satunya sebagai pudar, dan animasi
+  yang jatuh di bawah 30 fps berakhir sebagai pudar
 - **Tempoh paparan:** 3–60 saat (lalai 8), atau kekal bagi jenis yang mendesak,
   dengan kiraan masa dijeda semasa penuding berada di atas toast
 - **Pengepala:** ikon, tajuk, nama aplikasi dan cap masa, masing-masing boleh

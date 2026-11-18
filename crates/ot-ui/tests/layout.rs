@@ -1,4 +1,5 @@
-//! Layout tests of the real Appearance controls (FEAT-0024).
+//! Layout tests of the real Appearance (FEAT-0024) and Animation (FEAT-0036)
+//! controls.
 //!
 //! `egui_kittest` drives the same functions the settings window calls, with
 //! no window and no GPU, and every widget's rect is checked against the pane
@@ -63,6 +64,9 @@ fn overflowing(width: f32, scale: f32) -> Vec<String> {
                 work_area(),
                 ot_ui::Tokens::DARK,
             );
+            // Settings ▸ Animation (FEAT-0036), with Windows' animations on:
+            // that hint is the longest of the three it can show.
+            ot_ui::animation::controls(ui, columns, &mut prefs, true, ot_ui::Tokens::DARK);
         });
     // The real font set: with `default_fonts` off, the harness's own
     // context would measure every glyph as zero wide and pass anything.

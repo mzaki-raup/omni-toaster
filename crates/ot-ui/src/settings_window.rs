@@ -49,6 +49,8 @@ pub enum Section {
     /// The image library: pictures uploaded once and used by any
     /// notification (Phase 2, `docs/specs/toast.md` §8.1).
     Pictures,
+    /// How toasts arrive and leave (Phase 3, `docs/specs/toast.md` §5).
+    Animation,
 }
 
 impl Section {
@@ -58,11 +60,17 @@ impl Section {
             Self::General => "settings-section-general",
             Self::Appearance => "settings-section-appearance",
             Self::Pictures => "settings-section-pictures",
+            Self::Animation => "settings-section-animation",
         }
     }
 
-    pub fn all() -> [Self; 3] {
-        [Self::General, Self::Appearance, Self::Pictures]
+    pub fn all() -> [Self; 4] {
+        [
+            Self::General,
+            Self::Appearance,
+            Self::Animation,
+            Self::Pictures,
+        ]
     }
 }
 
@@ -779,18 +787,8 @@ impl SettingsWindow {
             toast.note_frame(now);
         }
         // Reduced motion: Windows' "Show animations" off, or forced for
-        // checking. Re-read every few seconds, like the theme.
-        if self
-            .motion_read
-            .is_none_or(|read| read.elapsed() >= ot_platform::motion::POLL_INTERVAL)
-        {
-            let shown = ot_platform::motion::show_animations().unwrap_or(true);
-            if shown != self.windows_animations || self.motion_read.is_none() {
-                tracing::info!(shown, "Windows' Show animations was read");
-            }
-            self.windows_animations = shown;
-            self.motion_read = Some(now);
-        }
+        // checking.
+        self.read_windows_animations(now);
         self.toasts.reduced_motion = !self.windows_animations || self.dev.reduce_motion;
         // The frame-time budget, with the fallback forced by counting every
         // frame as 50 ms when asked to.
@@ -1023,6 +1021,64 @@ impl SettingsWindow {
         for id in dismissed {
             tracing::info!(?id, "a toast was dismissed");
             self.toasts.dismiss(id, now);
+        }
+    }
+
+    /// Whether Windows shows animations, re-read every few seconds like the
+    /// theme, and logged when it changes.
+    fn read_windows_animations(&mut self, now: Instant) {
+        if self.motion_read.is_none_or(|read| {
+            now.saturating_duration_since(read) >= ot_platform::motion::POLL_INTERVAL
+        }) {
+            let shown = ot_platform::motion::show_animations().unwrap_or(true);
+            if shown != self.windows_animations || self.motion_read.is_none() {
+                tracing::info!(shown, "Windows' Show animations was read");
+            }
+            self.windows_animations = shown;
+            self.motion_read = Some(now);
+        }
+    }
+
+    /// Settings ▸ Animation: in and out, duration, easing, Reduce Motion,
+    /// and Play (FEAT-0036).
+    fn animation_pane(&mut self, ui: &mut egui::Ui) {
+        let tokens = self.theme.tokens();
+        self.read_windows_animations(Instant::now());
+        let windows_animations = self.windows_animations;
+
+        egui::ScrollArea::vertical()
+            .auto_shrink([false, false])
+            .show(ui, |ui| {
+                let columns = layout::columns(ui);
+                if crate::animation::controls(
+                    ui,
+                    columns,
+                    &mut self.prefs,
+                    windows_animations,
+                    tokens,
+                ) {
+                    self.prefs_dirty = true;
+                }
+                ui.add_space(layout::ROW_GAP);
+                ui.horizontal_wrapped(|ui| {
+                    ui.add_space(columns.label);
+                    // The play glyph before the label, like every button.
+                    let label = format!("\u{25B6}  {}", ot_i18n::text("settings-animation-play"));
+                    let button = egui::Button::new(label)
+                        .min_size(egui::vec2(0.0, layout::field_height(ui)));
+                    if ui.add(button).clicked() {
+                        self.show_test_toast();
+                    }
+                });
+            });
+
+        // Written when the pointer is released, as in Appearance: a slider
+        // dragged across its range would otherwise rewrite the file a
+        // hundred times.
+        if self.prefs_dirty && !ui.input(|i| i.pointer.any_down()) {
+            self.prefs_dirty = false;
+            self.settings.toast = self.prefs.to_table();
+            self.save();
         }
     }
 
@@ -1755,6 +1811,7 @@ impl eframe::App for SettingsWindow {
                 Section::General => self.general_pane(ui),
                 Section::Appearance => self.appearance_pane(ui),
                 Section::Pictures => self.pictures_pane(ui),
+                Section::Animation => self.animation_pane(ui),
             });
 
         if self.confirming_quit {
@@ -2156,7 +2213,18 @@ mod tests {
             "toast-action-open",
             "toast-action-snooze",
             "toast-action-dismiss",
+            "settings-animation-enter",
+            "settings-animation-leave",
+            "settings-animation-duration",
+            "settings-animation-easing",
+            "settings-animation-reduce",
+            "settings-animation-windows-on",
+            "settings-animation-windows-off",
+            "settings-animation-reduced",
+            "settings-animation-play",
         ]);
+        keys.extend(ot_toast::Effect::all_out().map(ot_toast::Effect::name_key));
+        keys.extend(ot_toast::Easing::all().map(ot_toast::Easing::name_key));
         keys.extend(ot_toast::Shape::all().map(ot_toast::Shape::name_key));
         keys.extend(ot_toast::Glass::all().map(ot_toast::Glass::name_key));
         keys.extend(ot_toast::Position::presets().map(ot_toast::Position::name_key));

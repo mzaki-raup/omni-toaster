@@ -470,6 +470,22 @@ impl Effect {
         [a, b, c, d, e, f, g, h, i, Self::ShrinkToTray]
     }
 
+    /// The Fluent key naming this effect in a picker.
+    pub fn name_key(self) -> &'static str {
+        match self {
+            Self::Appear => "toast-effect-appear",
+            Self::SlideFromRight => "toast-effect-slide-from-right",
+            Self::SlideFromBottom => "toast-effect-slide-from-bottom",
+            Self::GenieFromBottom => "toast-effect-genie-from-bottom",
+            Self::PopOut => "toast-effect-pop-out",
+            Self::Drawer => "toast-effect-drawer",
+            Self::Dissolve => "toast-effect-dissolve",
+            Self::Glow => "toast-effect-glow",
+            Self::AlphaToSolid => "toast-effect-alpha-to-solid",
+            Self::ShrinkToTray => "toast-effect-shrink-to-tray",
+        }
+    }
+
     /// The effect `settings.toml` spells `name`, kebab-case.
     fn from_name(name: &str) -> Option<Self> {
         Self::all_out().into_iter().find(|effect| {
@@ -503,6 +519,19 @@ pub enum Easing {
 }
 
 impl Easing {
+    pub fn all() -> [Self; 3] {
+        [Self::Linear, Self::EaseOut, Self::Spring]
+    }
+
+    /// The Fluent key naming this easing in a picker.
+    pub fn name_key(self) -> &'static str {
+        match self {
+            Self::Linear => "toast-easing-linear",
+            Self::EaseOut => "toast-easing-ease-out",
+            Self::Spring => "toast-easing-spring",
+        }
+    }
+
     /// The shaped progress for `t`, 0.0–1.0. Exactly 0 at 0 and exactly 1
     /// at 1; a spring may pass 1 on the way, which is right for motion and
     /// scale.

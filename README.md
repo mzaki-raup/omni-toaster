@@ -90,8 +90,10 @@ everything about them is a setting:
 - **Animations:** eight-plus in presets — slide from right, slide from bottom,
   Genie from bottom, pop out, drawer, appear, dissolve, glow, alpha-to-solid —
   each with a mirrored out preset plus "shrink to tray", a 150–1000 ms duration
-  and linear, ease-out or spring easing. A reduced-motion option follows the
-  Windows "Show animations" setting and falls back to fade
+  and linear, ease-out or spring easing, chosen in Settings ▸ Animation, where
+  Play shows a test toast with them. Reduce Motion — or Windows' own "Show
+  animations" turned off — plays every one as a fade, and an animation that
+  falls below 30 fps finishes as one
 - **Duration:** 3–60 seconds (default 8), or persistent for urgent types, with
   hover pausing the timer
 - **Header:** icon, title, app name and timestamp, each toggleable

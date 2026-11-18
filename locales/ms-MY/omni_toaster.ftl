@@ -108,6 +108,39 @@ toast-glass-acrylic = Akrilik
 # Warna toast, kebanyakannya legap, dengan sedikit desktop kelihatan.
 toast-glass-mica-like = Seperti Mika
 
+## Animasi toast, menu lungsur Animasi Masuk dan Animasi Keluar dalam
+## Tetapan ▸ Animasi. Huruf Besar Setiap Perkataan: ia item senarai.
+
+# Toast menggelongsor masuk dari luar tepi kanan skrin.
+toast-effect-slide-from-right = Gelongsor dari Kanan
+# Toast menggelongsor naik dari bawah kawasan kerja skrin.
+toast-effect-slide-from-bottom = Gelongsor dari Bawah
+# Toast mengalir keluar dari satu titik di bawah skrin, sempit dahulu, seperti jin keluar dari pelita.
+toast-effect-genie-from-bottom = Jin dari Bawah
+# Toast membesar dari tengahnya, terlebih sedikit dengan pelonggaran pegas.
+toast-effect-pop-out = Timbul
+# Toast menggelongsor keluar dari tepi skrin tempat ia berada, seperti laci.
+toast-effect-drawer = Laci
+# Toast muncul atau hilang secara pudar. Inilah juga yang dimainkan apabila gerakan dikurangkan.
+toast-effect-appear = Muncul
+# Toast terbentuk, atau hancur, butir demi butir.
+toast-effect-dissolve = Larut
+# Lingkaran cahaya dalam warna aksen toast mengembang di sekelilingnya lalu reda.
+toast-effect-glow = Bercahaya
+# Teks muncul dahulu; latar belakang menjadi padu di belakangnya.
+toast-effect-alpha-to-solid = Lut Sinar ke Padu
+# Keluar sahaja: toast mengalir masuk ke ikon dulang, seperti Jin secara terbalik.
+toast-effect-shrink-to-tray = Kecut ke Dulang
+
+## Cara kemajuan animasi dibentuk sepanjang tempohnya, menu lungsur Pelonggaran.
+
+# Kelajuan yang sama sepanjang masa.
+toast-easing-linear = Linear
+# Laju pada mulanya, perlahan dengan lembut pada akhirnya.
+toast-easing-ease-out = Perlahan di Hujung
+# Terlebih sedikit lalu reda, seperti pegas.
+toast-easing-spring = Pegas
+
 ## Ikon dulang dan menunya. Huruf Besar Setiap Perkataan untuk setiap item,
 ## kerana ia item menu. Glif di hadapan setiap satu dipilih dalam kod.
 
@@ -146,6 +179,30 @@ settings-section-general = Umum
 settings-section-appearance = Penampilan
 # Bahagian pustaka gambar: gambar dimuat naik sekali dan digunakan oleh mana-mana pemberitahuan.
 settings-section-pictures = Pustaka Gambar
+# Bahagian yang menetapkan cara toast muncul dan hilang.
+settings-section-animation = Animasi
+
+## Tetapan ▸ Animasi. Huruf Besar Setiap Perkataan untuk label, huruf biasa
+## untuk petunjuk.
+
+# Cara toast muncul.
+settings-animation-enter = Animasi Masuk
+# Cara toast hilang.
+settings-animation-leave = Animasi Keluar
+# Berapa lama setiap animasi, dalam milisaat.
+settings-animation-duration = Tempoh
+# Cara kemajuan animasi dibentuk sepanjang tempohnya.
+settings-animation-easing = Pelonggaran
+# Kotak semak: mainkan setiap animasi sebagai pudar.
+settings-animation-reduce = Kurangkan Gerakan
+# Di bawah Kurangkan Gerakan, apabila tetapan animasi Windows dihidupkan.
+settings-animation-windows-on = Windows menunjukkan animasi, jadi animasi yang dipilih di sini dimainkan kecuali Kurangkan Gerakan ditanda.
+# Di bawah Kurangkan Gerakan, apabila tetapan animasi Windows dimatikan.
+settings-animation-windows-off = Animasi Windows dimatikan, jadi setiap animasi dimainkan sebagai pudar.
+# Di bawah Kurangkan Gerakan, apabila ia ditanda.
+settings-animation-reduced = Setiap animasi dimainkan sebagai pudar.
+# Butang: menunjukkan toast ujian dengan animasi yang dipilih di atas.
+settings-animation-play = Mainkan
 
 ## Tetapan ▸ Penampilan. Huruf Besar Setiap Perkataan untuk label, huruf biasa
 ## untuk petunjuk.

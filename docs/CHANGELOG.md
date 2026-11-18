@@ -21,6 +21,7 @@ Format: [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) · Versioning:
 
 ### Added
 
+- Settings ▸ Animation: the in and out animations, their duration and easing, and Reduce Motion with Windows' own setting stated under it; Play fires a test toast with them. English and Malay (FEAT-0036).
 - Reduced motion: when Windows' "Show animations" is off, or `reduce_motion` is set in `[toast.animation]`, every toast animation plays as a fade. And a frame-time fallback: an animation that falls below 30 fps finishes as a fade, the next toast starts as one, and the log says so (FEAT-0035).
 - Genie from bottom, a toast pouring out of the bottom edge into place in bands, and its mirror; and shrink to tray, Genie's way out into the tray icon, or the screen's corner when Windows will not say where the icon is (FEAT-0034).
 - Three more toast animations, each with its mirror: dissolve (the toast builds up grain by grain), glow (a halo in the accent colour that swells and settles) and alpha to solid (the text first, the background fading in behind it). Windows' shadow on a Rectangle appears once such a toast has arrived (FEAT-0033).

@@ -279,16 +279,17 @@ make all three glass kinds from the accent policy's Acrylic.
 - **Notes:** App, checked 2026-11-19 with slide from right: `--reduce-motion` — the toasts fade in place; `--slow-frames` — they start to slide in, then finish as a fade where they rest, and the log names each with "fell below 30 fps … frame_ms=57". The debug build also triggered the real fallback on its own in one run, at 28.8 fps. **Not checked:** turning Windows' own "Show animations" off and on — that is a system setting this session does not change; `--reduce-motion` stands in for it, and the platform test shows Windows answers the query. The App box stays open for the owner's check of that switch. A full-strength flash on a toast's first visible frame, seen in one of these runs, is BUG-0012.
 
 ### FEAT-0036 · Settings ▸ Animation
-- **State:** Pending · **Spec:** docs/04-ui-design.md · docs/specs/toast.md §5 · **Phase:** 3
+- **State:** In-Progress · **Spec:** docs/04-ui-design.md · docs/specs/toast.md §5 · **Phase:** 3
 - **Branch:** feat/phase-3-glass-animations
 - **Depends on:** FEAT-0031
-- [ ] The pane the UI design names: in and out animation, duration, easing, and the reduced-motion switch with Windows' own setting shown beside it
-- [ ] A Play button that fires a test toast with the chosen animation
-- [ ] Every label a Fluent key in both languages, laid out for the longest Malay string
-- [ ] Test: the pane's widgets stay inside it in English, Malay and the pseudo-locale, at the default and the narrow width; settings round-trip
-- [ ] Gate: fmt · clippy -D warnings · test --workspace --locked -j 4 · deny check · --self-test
+- [x] The pane the UI design names (`ot_ui::animation::controls`, `Section::Animation`): Animation In, Animation Out, Duration (a slider, 150–1000 ms in steps of 10), Easing, and Reduce Motion, with a line under it saying whether Windows' own "Show animations" is on, or that every animation fades; Windows' setting re-read every five seconds for the pane as well as for the toasts
+- [x] A Play button that fires a test toast with the chosen animation
+- [x] Every label a Fluent key in both languages, with a translator comment each — 9 pane keys, 10 effects, 3 easings — laid out for the longest Malay string; the pane saves when the pointer is released, as Appearance does
+- [x] Test: the layout test lays the Animation controls out with Appearance's, in English, Malay and the pseudo-locale, at the default and the narrow width, at 100%, 150% and 200% — nothing runs past the pane; settings round-trip with every animation field; every key is in both catalogues
+- [x] Gate: fmt · clippy -D warnings · test --workspace --locked -j 4 (259 passed) · deny check · --self-test
 - [ ] App: `--data-dir ./tmp-data` — choose each animation and press Play, in both languages and all three themes; the narrow window
 - [ ] Docs: spec · README · CHANGELOG · CHECKLIST · GOTCHAS
+- **Notes:** App, checked 2026-11-19: the pane in English and Dark, in Malay and Light with Reduce Motion ticked and Jin dari Bawah chosen, and in Malay and Dark at the 560-pixel minimum, where each label stacks above its field and the Windows hint wraps; every row on one middle line; the ▶ glyph seen drawn. Play with Slide from Right fired a test toast that was caught mid-slide. **Not checked:** each of the ten effects through Play from the pane (each was watched on screen under FEAT-0032 to FEAT-0034 through the settings file instead), the System theme, and 150% on screen. README and README.ms describe the pane; the README screenshots are retaken with the phase's other screens before the merge.
 
 ### BUG-0009 · Hovering a toast does not pause its countdown
 - **State:** Completed · **Spec:** docs/specs/toast.md §6 · **Phase:** 3
