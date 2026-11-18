@@ -9,6 +9,7 @@ Format: [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) · Versioning:
 
 ### Fixed
 
+- Every toast animation now shows from its first frame: Windows' own show animation, which hid about the first 300 ms of each entry, is turned off on toast windows (BUG-0011).
 - Hovering a toast pauses its countdown, as the spec always said: the pause was in the model, but nothing told it where the pointer was, so a toast under the pointer ran out anyway (BUG-0009).
 
 ### Changed
