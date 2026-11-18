@@ -62,7 +62,7 @@ renders without going through a `ToastSpec` is a defect.
 | Shape | Rectangle, rounded rectangle, pill | Corner radius 0–40 px |
 | Background | Solid colour, gradient | |
 | Opacity | Percent — fades the whole toast, text included (CR-0005) | 70%–100% |
-| Glass effect | None, Blur, Acrylic, Mica-like (§4.2) | Windows 10 1809+; solid fallback otherwise. Turns Windows' shadow off |
+| Glass effect | None, Blur, Acrylic, Mica-like (§4.2) | Rectangle only; greyed out for a rounded rectangle or a pill. Windows 10 1809+; solid fallback otherwise. Turns Windows' shadow off |
 | Border | Width and colour | 0–4 px |
 | Shadow | On or off — Windows' own shadow, which it draws only for the Rectangle shape (CR-0006) | Greyed out for a rounded rectangle or a pill |
 | Header | Icon, title, app name, timestamp | Each toggleable |
@@ -108,14 +108,34 @@ the one call that blurs an inactive window: the accent policy's Acrylic
 (ADR-016). They differ in how much of the toast's background colour lies over
 the blur:
 
-| Kind | Tint over the blur |
-|---|---|
-| None | — the solid background, as in Phase 2 |
-| Blur | Almost none: the desktop, blurred |
-| Acrylic | The background colour, part-transparent |
-| Mica-like | The background colour, mostly opaque: the desktop shows only as a hint of colour |
+| Kind | Tint over the blur | `settings.toml` |
+|---|---|---|
+| None | — the solid background, as in Phase 2 | `none` (the default) |
+| Blur | The background colour at 45%: the lightest glass | `blur` |
+| Acrylic | The background colour at 60% | `acrylic` |
+| Mica-like | The background colour at 88%: the desktop shows only as a hint of colour | `mica-like` |
 
-A gradient tints with its first colour. Where Windows refuses the call, or is
+Blur was first specified as "almost none" (10%). Built that way, the text —
+whose colour follows the toast's own background — vanished over a desktop of
+the opposite lightness, so the owner set 45% on 2026-11-18. An unknown kind in
+`settings.toml` loads as `none` with a logged warning, and the rest of the
+toast's style still loads.
+
+**Rectangle only** (the owner, 2026-11-18). Windows draws the blur over the
+whole window rectangle and ignores the region that cuts a rounded rectangle's
+or a pill's corners, so those shapes with glass would show blurred square
+corners past their edge. The Glass control is greyed out for them, with the
+reason under it, like the shadow; the setting is kept and does nothing until
+the shape is a Rectangle again. Windows 11's own corner rounding would clip
+the blur, but only to its fixed radius, on all four corners and with its own
+shadow, so it can make neither a pill nor the square side the accent bar sits
+on (§4.1).
+
+Opacity still fades the whole window, the blur included, so below 100% the
+unblurred desktop shows faintly through a glass toast.
+
+A gradient tints with its first colour, and the text colour is judged by that
+colour alone. Where Windows refuses the call, or is
 older than 10 1809, the toast is drawn solid and the log says why — a glass
 that silently is not there is a defect. Glass and Windows' shadow exclude each
 other (ADR-016), so a Rectangle with glass has no shadow and the shadow

@@ -94,6 +94,17 @@ toast-shape-rectangle = Segi Empat Tepat
 toast-shape-rounded = Segi Empat Bucu Bulat
 toast-shape-pill = Pil
 
+## Jenis kaca, menu lungsur Kaca dalam Tetapan ▸ Penampilan.
+
+# Tiada kaca: latar belakang toast padu.
+toast-glass-none = Tiada
+# Desktop di belakang toast, dikaburkan, dengan hampir tiada warna toast.
+toast-glass-blur = Kabur
+# Desktop yang dikaburkan di bawah warna toast, separa lut sinar.
+toast-glass-acrylic = Akrilik
+# Warna toast, kebanyakannya legap, dengan sedikit desktop kelihatan.
+toast-glass-mica-like = Seperti Mika
+
 ## Ikon dulang dan menunya. Huruf Besar Setiap Perkataan untuk setiap item,
 ## kerana ia item menu. Glif di hadapan setiap satu dipilih dalam kod.
 
@@ -146,6 +157,14 @@ settings-toast-border = Sempadan
 settings-toast-shadow = Bayang
 # Di bawah kotak semak Bayang apabila ia dikelabukan kerana bentuknya bukan Segi Empat Tepat.
 settings-toast-shadow-hint = Windows melukis bayang hanya untuk bentuk Segi Empat Tepat.
+# Di bawah kotak semak Bayang apabila ia dikelabukan kerana kaca dihidupkan.
+settings-toast-shadow-glass-hint = Windows tidak melukis bayang di belakang kaca.
+# Label menu lungsur yang memilih jenis kaca.
+settings-toast-glass = Kaca
+# Di bawah menu lungsur Kaca apabila ia dikelabukan kerana bentuknya bukan Segi Empat Tepat.
+settings-toast-glass-shape-hint = Kaca hanya tersedia untuk bentuk Segi Empat Tepat: Windows mengaburkan seluruh petak di belakang toast, melepasi bucu bulat.
+# Di bawah menu lungsur Kaca apabila satu jenis kaca dipilih: pratonton tidak dapat mengaburkan apa yang di belakang tetingkap tetapan.
+settings-toast-glass-hint = Pratonton menunjukkan warna, bukan kesan kabur. Tunjukkan toast ujian untuk melihat kesan kabur.
 settings-toast-background = Latar Belakang
 settings-toast-accent = Warna Aksen
 settings-toast-header = Pengepala

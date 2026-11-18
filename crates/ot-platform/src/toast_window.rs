@@ -64,10 +64,26 @@ pub fn make_unobtrusive(prefix: &str) -> usize {
 /// (CR-0006). Windows would also round such a window's corners on its own;
 /// it is told not to.
 ///
+/// `glass` lays Windows' blur behind the window — the accent policy's
+/// Acrylic, the one blur Windows draws for a window that is not active
+/// (ADR-016). The toast paints its own tint over it, so the blur's own tint is
+/// almost nothing. Where Windows will not blur, the toast is meant to be drawn
+/// solid: ask [`glass_available`] before painting.
+///
 /// Called every frame for every toast, so it does nothing unless the window,
-/// its size, the radii, the opacity or the shadow changed since the last call.
-pub fn set_shape(title: &str, radii: [i32; 4], opacity: u8, shadow: bool) {
-    platform::set_shape(title, radii, opacity, shadow);
+/// its size, the radii, the opacity, the shadow or the glass changed since the
+/// last call.
+pub fn set_shape(title: &str, radii: [i32; 4], opacity: u8, shadow: bool, glass: bool) {
+    platform::set_shape(title, radii, opacity, shadow, glass);
+}
+
+/// Whether Windows will blur behind a toast: Windows 10 1809 or later, the
+/// undocumented call present, and no refusal from it so far. The first
+/// failure is logged with its reason, and from then on this says no, so the
+/// toast is drawn solid rather than with a glass that is not there
+/// (`docs/specs/toast.md` §4.2).
+pub fn glass_available() -> bool {
+    platform::glass_available()
 }
 
 /// Drop what [`set_shape`] remembers about a toast that has gone.
@@ -78,7 +94,9 @@ pub fn forget(title: &str) {
 #[cfg(windows)]
 mod platform {
     use std::collections::HashMap;
-    use std::sync::Mutex;
+    use std::ffi::c_void;
+    use std::sync::atomic::{AtomicBool, Ordering};
+    use std::sync::{Mutex, OnceLock};
 
     use windows::Win32::Foundation::{COLORREF, HWND, LPARAM, RECT};
     use windows::Win32::Graphics::Dwm::{
@@ -90,6 +108,8 @@ mod platform {
         CombineRgn, CreateEllipticRgn, CreateRectRgn, DeleteObject, HRGN, RGN_AND, RGN_DIFF,
         RGN_OR, SetWindowRgn,
     };
+    use windows::Win32::System::LibraryLoader::{GetModuleHandleW, GetProcAddress};
+    use windows::Win32::System::SystemInformation::OSVERSIONINFOW;
     use windows::Win32::System::Threading::GetCurrentProcessId;
     use windows::Win32::UI::Controls::MARGINS;
     use windows::Win32::UI::WindowsAndMessaging::{
@@ -97,6 +117,7 @@ mod platform {
         GetWindowThreadProcessId, IsWindow, IsWindowVisible, LWA_ALPHA, SetLayeredWindowAttributes,
         SetWindowLongPtrW, WS_EX_APPWINDOW, WS_EX_LAYERED, WS_EX_NOACTIVATE, WS_EX_TOOLWINDOW,
     };
+    use windows::core::{BOOL, s, w};
 
     /// What the enumeration is looking for, and what it found.
     struct Search {
@@ -108,8 +129,8 @@ mod platform {
         found: Option<HWND>,
     }
 
-    /// The window, client size, radii, opacity and shadow last applied.
-    type Applied = (isize, [i32; 2], [i32; 4], u8, bool);
+    /// The window, client size, radii, opacity, shadow and glass last applied.
+    type Applied = (isize, [i32; 2], [i32; 4], u8, bool, bool);
 
     /// Lets `set_shape` skip both the enumeration and the region rebuild on
     /// every frame where nothing changed.
@@ -146,7 +167,7 @@ mod platform {
         unsafe_code,
         reason = "Win32 calls; each one's contract is argued at the call"
     )]
-    pub(super) fn set_shape(title: &str, radii: [i32; 4], opacity: u8, shadow: bool) {
+    pub(super) fn set_shape(title: &str, radii: [i32; 4], opacity: u8, shadow: bool, glass: bool) {
         let mut shapes = SHAPES
             .lock()
             .unwrap_or_else(std::sync::PoisonError::into_inner);
@@ -192,7 +213,7 @@ mod platform {
             return;
         }
         let size = [client.right - client.left, client.bottom - client.top];
-        let applied = (window.0 as isize, size, radii, opacity, shadow);
+        let applied = (window.0 as isize, size, radii, opacity, shadow, glass);
         if shapes.get(title) == Some(&applied) {
             return;
         }
@@ -263,14 +284,148 @@ mod platform {
             );
             let _ = DwmExtendFrameIntoClientArea(window, &margins);
         }
+        // Glass, or none: the accent is set either way, so a toast whose
+        // glass was turned off stops blurring.
+        if let Some(set_accent) = accent_call() {
+            set_glass(set_accent, window, glass && !shadow);
+        }
         tracing::debug!(
             title,
             ?size,
             ?radii,
             opacity,
             shadow,
+            glass,
             "a toast window was cut to its shape"
         );
+    }
+
+    /// `ACCENT_POLICY`, from the undocumented `SetWindowCompositionAttribute`.
+    #[repr(C)]
+    struct AccentPolicy {
+        state: u32,
+        flags: u32,
+        /// The blur's own tint, AABBGGRR.
+        gradient: u32,
+        animation: u32,
+    }
+
+    /// `WINDOWCOMPOSITIONATTRIBDATA`.
+    #[repr(C)]
+    struct CompositionData {
+        attribute: u32,
+        data: *mut c_void,
+        size: usize,
+    }
+
+    /// What `GetProcAddress` hands back, before it is given its signature.
+    type Export = unsafe extern "system" fn() -> isize;
+    type SetAccent = unsafe extern "system" fn(HWND, *mut CompositionData) -> BOOL;
+    type GetVersion = unsafe extern "system" fn(*mut OSVERSIONINFOW) -> i32;
+
+    /// `WCA_ACCENT_POLICY`.
+    const ACCENT_POLICY: u32 = 19;
+    const ACCENT_DISABLED: u32 = 0;
+    /// `ACCENT_ENABLE_ACRYLICBLURBEHIND`: the one that blurs an inactive
+    /// window. Plain blur-behind (3) draws black on Windows 11 26H2.
+    const ACCENT_ACRYLIC: u32 = 4;
+    /// Draw the gradient colour as the tint.
+    const ACCENT_FLAG_TINT: u32 = 2;
+    /// Almost no tint of its own: the toast paints its tint over the blur.
+    /// Not black: with a black tint — at alpha 0x01 or 0x10 alike — Windows
+    /// 11 26H2 draws the whole window black; a grey one at 0x10 blurs
+    /// (measured twice over red and blue stripes, FEAT-0030).
+    const BLUR_TINT: u32 = 0x1080_8080;
+    /// Windows 10 1809, where the Acrylic accent arrived.
+    const FIRST_BUILD: u32 = 17763;
+
+    /// A refusal from Windows, after which every toast is drawn solid.
+    static REFUSED: AtomicBool = AtomicBool::new(false);
+
+    pub(super) fn glass_available() -> bool {
+        !REFUSED.load(Ordering::Relaxed) && accent_call().is_some()
+    }
+
+    /// The accent call, if this Windows has it and is new enough. Looked up
+    /// once; the reason it is missing is logged once.
+    fn accent_call() -> Option<SetAccent> {
+        static CALL: OnceLock<Option<SetAccent>> = OnceLock::new();
+        *CALL.get_or_init(|| {
+            let build = os_build();
+            if build.is_some_and(|build| build < FIRST_BUILD) {
+                tracing::warn!(?build, "this Windows is older than 10 1809; toasts are drawn solid instead of glass");
+                return None;
+            }
+            // SAFETY: user32 is loaded in every GUI process, and the name
+            // is a NUL-terminated literal. The pointer is transmuted to the
+            // signature the call has had since Windows 7, the one every
+            // caller of this undocumented function uses.
+            #[allow(
+                unsafe_code,
+                reason = "an undocumented user32 export, loaded by name"
+            )]
+            let call = unsafe {
+                GetModuleHandleW(w!("user32.dll"))
+                    .ok()
+                    .and_then(|user32| GetProcAddress(user32, s!("SetWindowCompositionAttribute")))
+                    .map(|address| std::mem::transmute::<Export, SetAccent>(address))
+            };
+            if call.is_none() {
+                tracing::warn!("Windows has no SetWindowCompositionAttribute; toasts are drawn solid instead of glass");
+            }
+            call
+        })
+    }
+
+    /// The Windows build number, from `RtlGetVersion`, which does not lie
+    /// about the version to an exe without a compatibility manifest the way
+    /// `GetVersionEx` does. `None` if it cannot be asked.
+    #[allow(
+        unsafe_code,
+        reason = "an ntdll export loaded by name, and the struct it fills"
+    )]
+    fn os_build() -> Option<u32> {
+        // SAFETY: ntdll is loaded in every process; the name is a literal;
+        // the signature is RtlGetVersion's documented one; the struct is
+        // sized as the call requires before it is passed.
+        unsafe {
+            let ntdll = GetModuleHandleW(w!("ntdll.dll")).ok()?;
+            let address = GetProcAddress(ntdll, s!("RtlGetVersion"))?;
+            let get_version = std::mem::transmute::<Export, GetVersion>(address);
+            let mut info = OSVERSIONINFOW {
+                dwOSVersionInfoSize: u32::try_from(size_of::<OSVERSIONINFOW>()).ok()?,
+                ..OSVERSIONINFOW::default()
+            };
+            (get_version(&mut info) == 0).then_some(info.dwBuildNumber)
+        }
+    }
+
+    /// Turn the blur on or off for one window. A refusal is logged and turns
+    /// glass off for every toast from then on.
+    #[allow(
+        unsafe_code,
+        reason = "the undocumented accent call, with structs laid out as it expects"
+    )]
+    fn set_glass(set_accent: SetAccent, window: HWND, on: bool) {
+        let mut policy = AccentPolicy {
+            state: if on { ACCENT_ACRYLIC } else { ACCENT_DISABLED },
+            flags: if on { ACCENT_FLAG_TINT } else { 0 },
+            gradient: if on { BLUR_TINT } else { 0 },
+            animation: 0,
+        };
+        let mut data = CompositionData {
+            attribute: ACCENT_POLICY,
+            data: std::ptr::from_mut(&mut policy).cast(),
+            size: size_of::<AccentPolicy>(),
+        };
+        // SAFETY: a live window this process owns, and a pointer to `data`,
+        // which points at `policy`; both outlive the synchronous call.
+        let accepted = unsafe { set_accent(window, &mut data) }.as_bool();
+        if on && !accepted && !REFUSED.swap(true, Ordering::Relaxed) {
+            tracing::warn!(
+                "Windows refused the blur behind a toast; toasts are drawn solid instead of glass"
+            );
+        }
     }
 
     pub(super) fn forget(title: &str) {
@@ -387,7 +542,18 @@ mod platform {
         0
     }
 
-    pub(super) fn set_shape(_title: &str, _radii: [i32; 4], _opacity: u8, _shadow: bool) {}
+    pub(super) fn set_shape(
+        _title: &str,
+        _radii: [i32; 4],
+        _opacity: u8,
+        _shadow: bool,
+        _glass: bool,
+    ) {
+    }
+
+    pub(super) fn glass_available() -> bool {
+        false
+    }
 
     pub(super) fn forget(_title: &str) {}
 }
@@ -414,6 +580,7 @@ mod tests {
             "a window title nothing in this process has",
             [12, 0, 12, 0],
             200,
+            true,
             true,
         );
         forget("a window title nothing in this process has");

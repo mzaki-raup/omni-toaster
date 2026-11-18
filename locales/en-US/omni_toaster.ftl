@@ -99,6 +99,17 @@ toast-shape-rectangle = Rectangle
 toast-shape-rounded = Rounded Rectangle
 toast-shape-pill = Pill
 
+## Glass kinds, the Glass dropdown in Settings ▸ Appearance.
+
+# No glass: the toast's background is solid.
+toast-glass-none = None
+# The desktop behind the toast, blurred, with almost none of the toast's colour.
+toast-glass-blur = Blur
+# The blurred desktop under the toast's colour, part-transparent.
+toast-glass-acrylic = Acrylic
+# The toast's colour, mostly opaque, with only a hint of the desktop through it.
+toast-glass-mica-like = Mica-Like
+
 ## The tray icon and its menu. Title Case for every item, because they are
 ## menu items. The glyph in front of each one is chosen in code, not here.
 
@@ -151,6 +162,14 @@ settings-toast-border = Border
 settings-toast-shadow = Shadow
 # Under the Shadow checkbox when it is greyed out because the shape is not Rectangle.
 settings-toast-shadow-hint = Windows draws a shadow only for the Rectangle shape.
+# Under the Shadow checkbox when it is greyed out because glass is on.
+settings-toast-shadow-glass-hint = Windows draws no shadow behind glass.
+# Label of the dropdown choosing the glass kind.
+settings-toast-glass = Glass
+# Under the Glass dropdown when it is greyed out because the shape is not Rectangle.
+settings-toast-glass-shape-hint = Glass is available for the Rectangle shape only: Windows blurs the whole square behind a toast, past rounded corners.
+# Under the Glass dropdown when a glass kind is chosen: the preview cannot blur what is behind the settings window.
+settings-toast-glass-hint = The preview shows the colour, not the blur. Show a test toast to see the blur.
 settings-toast-background = Background
 settings-toast-accent = Accent Colour
 settings-toast-header = Header

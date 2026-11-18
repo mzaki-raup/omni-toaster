@@ -7,7 +7,7 @@
 //! second drawing of a toast anywhere in this file.
 
 use ot_platform::monitors::Monitor;
-use ot_toast::{MonitorChoice, Position, Prefs, Rgba, Shadow, Shape};
+use ot_toast::{Glass, MonitorChoice, Position, Prefs, Rgba, Shadow, Shape};
 
 use crate::layout::{self, Columns};
 use crate::theme::Tokens;
@@ -79,10 +79,54 @@ pub fn style_controls(
         true,
     );
 
+    // Glass before the shadow, because it decides whether there can be one.
+    // Rectangle only: Windows blurs the whole window rectangle, past a
+    // rounded toast's corners (docs/specs/toast.md §4.2). Greyed out rather
+    // than hidden for the others, like the shadow.
+    let rectangle = style.shape == Shape::Rectangle;
+    layout::labelled_row(ui, columns, &ot_i18n::text("settings-toast-glass"), |ui| {
+        ui.add_enabled_ui(rectangle, |ui| {
+            egui::ComboBox::from_id_salt("toast-glass")
+                .width(width)
+                .height(layout::field_height(ui))
+                .selected_text(ot_i18n::text(style.glass.on(style.shape).name_key()))
+                .show_ui(ui, |ui| {
+                    for glass in Glass::all() {
+                        changed |= ui
+                            .selectable_value(
+                                &mut style.glass,
+                                glass,
+                                ot_i18n::text(glass.name_key()),
+                            )
+                            .changed();
+                    }
+                });
+        });
+    });
+    if !rectangle {
+        layout::field_hint(
+            ui,
+            columns,
+            &ot_i18n::text("settings-toast-glass-shape-hint"),
+            tokens.text_dim,
+        );
+    } else if style.glass != Glass::None {
+        // The preview cannot blur what is behind the settings window, so it
+        // says what it does show (docs/specs/toast.md §4.2).
+        layout::field_hint(
+            ui,
+            columns,
+            &ot_i18n::text("settings-toast-glass-hint"),
+            tokens.text_dim,
+        );
+    }
+    ui.add_space(layout::ROW_GAP);
+
     // Windows draws a shadow only for an uncut window, which is the
-    // Rectangle shape (CR-0006). Greyed out rather than hidden for the
-    // others, with the reason under it, so the form does not jump.
-    let shadow_possible = style.shape == Shape::Rectangle;
+    // Rectangle shape (CR-0006), and none behind glass (ADR-016). Greyed out
+    // rather than hidden otherwise, with the reason under it, so the form
+    // does not jump.
+    let shadow_possible = rectangle && style.glass == Glass::None;
     layout::labelled_row(ui, columns, &ot_i18n::text("settings-toast-shadow"), |ui| {
         ui.add_enabled_ui(shadow_possible, |ui| {
             let mut on = style.shadow == Shadow::On;
@@ -93,12 +137,12 @@ pub fn style_controls(
         });
     });
     if !shadow_possible {
-        layout::field_hint(
-            ui,
-            columns,
-            &ot_i18n::text("settings-toast-shadow-hint"),
-            tokens.text_dim,
-        );
+        let reason = if rectangle {
+            "settings-toast-shadow-glass-hint"
+        } else {
+            "settings-toast-shadow-hint"
+        };
+        layout::field_hint(ui, columns, &ot_i18n::text(reason), tokens.text_dim);
     }
     ui.add_space(layout::ROW_GAP);
 

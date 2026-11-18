@@ -81,7 +81,10 @@ everything about them is a setting:
 - **Colour:** solid or gradient background, border width and colour, and a shadow
   for the Rectangle shape
 - **Transparency:** 70–100 % opacity; the whole toast fades, text included
-- **Glass:** none, Blur, Acrylic or Mica-like
+- **Glass:** none, Blur, Acrylic or Mica-like — the desktop behind a Rectangle
+  toast, blurred by Windows, under 45 %, 60 % or 88 % of the toast's colour.
+  Rectangle only, because Windows blurs past rounded corners; Windows 10 1809
+  or later, and drawn solid where Windows refuses. A glass toast has no shadow
 - **Animations:** eight-plus in presets — slide from right, slide from bottom,
   Genie from bottom, pop out, drawer, appear, dissolve, glow, alpha-to-solid —
   each with a mirrored out preset plus "shrink to tray", a 150–1000 ms duration

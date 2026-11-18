@@ -771,18 +771,41 @@ impl SettingsWindow {
             // setting and no category, which is what keeps the preview and
             // the real thing from diverging (docs/specs/toast.md §3).
             let rect = ui.max_rect();
-            let content = ot_toast::render::frame(ui.painter(), rect, spec);
 
-            // The window is cut to the corners just painted, so nothing
-            // outside them shows (BUG-0007). In this window's own pixels:
-            // a toast on a 150% monitor has corners half as large again.
+            // Where Windows will not blur, glass is drawn solid rather than
+            // as a tint over nothing (docs/specs/toast.md §4.2). The reason
+            // is logged once, by ot-platform.
+            let solid;
+            let spec = if spec.style.glass.on(spec.style.shape) != ot_toast::Glass::None
+                && !ot_platform::toast_window::glass_available()
+            {
+                solid = ot_toast::ToastSpec {
+                    style: ot_toast::Style {
+                        glass: ot_toast::Glass::None,
+                        ..spec.style
+                    },
+                    ..spec.clone()
+                };
+                &solid
+            } else {
+                spec
+            };
+
+            // The window is cut to the corners about to be painted, so
+            // nothing outside them shows (BUG-0007). In this window's own
+            // pixels: a toast on a 150% monitor has corners half as large
+            // again. Shaped before painting, so a refusal of the glass is
+            // known by the next frame's paint.
             let pixels = ui.ctx().pixels_per_point();
             let radii = ot_toast::render::corner_radii(spec, rect.height())
                 .map(|radius| (radius * pixels).round() as i32);
             // Opacity fades the whole window, text included (CR-0005).
             let opacity = (spec.alpha() * 255.0).round().clamp(0.0, 255.0) as u8;
-            let shadow = spec.style.shadow.shows(spec.style.shape);
-            ot_platform::toast_window::set_shape(&id.window_title(), radii, opacity, shadow);
+            let shadow = spec.style.shadow.shows(spec.style.shape, spec.style.glass);
+            let glass = spec.style.glass.on(spec.style.shape) != ot_toast::Glass::None;
+            ot_platform::toast_window::set_shape(&id.window_title(), radii, opacity, shadow, glass);
+
+            let content = ot_toast::render::frame(ui.painter(), rect, spec);
 
             // The colours come from the theme through here, so the renderer
             // itself still hard-codes none.
@@ -1854,6 +1877,10 @@ mod tests {
             "settings-toast-border",
             "settings-toast-shadow",
             "settings-toast-shadow-hint",
+            "settings-toast-shadow-glass-hint",
+            "settings-toast-glass",
+            "settings-toast-glass-hint",
+            "settings-toast-glass-shape-hint",
             "settings-toast-background",
             "settings-toast-accent",
             "settings-toast-header",
@@ -1920,6 +1947,7 @@ mod tests {
             "toast-app-name",
         ]);
         keys.extend(ot_toast::Shape::all().map(ot_toast::Shape::name_key));
+        keys.extend(ot_toast::Glass::all().map(ot_toast::Glass::name_key));
         keys.extend(ot_toast::Position::presets().map(ot_toast::Position::name_key));
         keys.push(ot_toast::Position::Custom { x: 0.0, y: 0.0 }.name_key());
         keys

@@ -169,9 +169,94 @@ pub enum Shadow {
 }
 
 impl Shadow {
-    /// Whether a toast of `shape` actually shows a shadow.
-    pub fn shows(self, shape: Shape) -> bool {
-        self == Self::On && shape == Shape::Rectangle
+    /// Whether a toast of `shape` and `glass` actually shows a shadow.
+    ///
+    /// Glass turns it off: Windows' shadow needs non-client rendering, which
+    /// leaves the client area opaque, and glass needs it see-through
+    /// (ADR-016).
+    pub fn shows(self, shape: Shape, glass: Glass) -> bool {
+        self == Self::On && shape == Shape::Rectangle && glass == Glass::None
+    }
+}
+
+/// The desktop blurred behind the toast (`docs/specs/toast.md` §4.2).
+///
+/// All three kinds are the one blur Windows draws for an inactive window —
+/// the accent policy's Acrylic (ADR-016) — and differ only in how much of the
+/// toast's background colour lies over it.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default, Serialize)]
+#[serde(rename_all = "kebab-case")]
+pub enum Glass {
+    /// The solid background, as in Phase 2.
+    #[default]
+    None,
+    Blur,
+    Acrylic,
+    MicaLike,
+}
+
+impl Glass {
+    pub fn all() -> [Self; 4] {
+        [Self::None, Self::Blur, Self::Acrylic, Self::MicaLike]
+    }
+
+    /// The glass a toast of `shape` actually gets: Rectangle only.
+    ///
+    /// Windows draws the blur over the whole window rectangle and ignores the
+    /// region that cuts a rounded toast's corners, so a rounded rectangle or a
+    /// pill with glass would show blurred square corners past its edge. The
+    /// owner chose Rectangle-only on 2026-11-18, like the shadow; the setting
+    /// is kept, and does nothing on the other shapes.
+    pub fn on(self, shape: Shape) -> Self {
+        if shape == Shape::Rectangle {
+            self
+        } else {
+            Self::None
+        }
+    }
+
+    /// How much of the background colour lies over the blur, 0.0–1.0, or
+    /// `None` for a solid toast.
+    pub fn tint(self) -> Option<f32> {
+        match self {
+            Self::None => None,
+            // The lightest of the three. Not "almost none", as first
+            // specified: at 10% the text, chosen for the toast's colour,
+            // vanished over a desktop of the opposite lightness, so the owner
+            // set 45% on 2026-11-18.
+            Self::Blur => Some(0.45),
+            Self::Acrylic => Some(0.6),
+            // Mostly opaque: the desktop shows only as a hint of colour.
+            Self::MicaLike => Some(0.88),
+        }
+    }
+
+    /// The Fluent key naming this kind in the picker.
+    pub fn name_key(self) -> &'static str {
+        match self {
+            Self::None => "toast-glass-none",
+            Self::Blur => "toast-glass-blur",
+            Self::Acrylic => "toast-glass-acrylic",
+            Self::MicaLike => "toast-glass-mica-like",
+        }
+    }
+}
+
+/// An unknown kind loads as `None` with a warning, rather than throwing away
+/// the whole `[toast]` table over one word (`docs/specs/toast.md` §4.2).
+impl<'de> Deserialize<'de> for Glass {
+    fn deserialize<D: serde::Deserializer<'de>>(deserializer: D) -> Result<Self, D::Error> {
+        let name = String::deserialize(deserializer)?;
+        Ok(match name.as_str() {
+            "none" => Self::None,
+            "blur" => Self::Blur,
+            "acrylic" => Self::Acrylic,
+            "mica-like" => Self::MicaLike,
+            other => {
+                tracing::warn!(value = other, "an unknown glass kind was read as none");
+                Self::None
+            }
+        })
     }
 }
 
@@ -250,6 +335,7 @@ pub struct Style {
     pub border: f32,
     pub border_colour: Rgba,
     pub shadow: Shadow,
+    pub glass: Glass,
     /// The one colour that marks this toast's category.
     pub accent: Rgba,
 }
@@ -269,6 +355,7 @@ impl Default for Style {
             border: BORDER.default,
             border_colour: Rgba::new(0x3a, 0x3a, 0x42, 0xff),
             shadow: Shadow::default(),
+            glass: Glass::default(),
             accent: Rgba::new(0x3b, 0x9e, 0xff, 0xff),
         }
     }
@@ -553,10 +640,10 @@ duration_secs = 900.0
 
     #[test]
     fn a_shadow_shows_only_on_a_rectangle_and_old_settings_still_read() {
-        assert!(Shadow::On.shows(Shape::Rectangle));
-        assert!(!Shadow::On.shows(Shape::RoundedRectangle));
-        assert!(!Shadow::On.shows(Shape::Pill));
-        assert!(!Shadow::Off.shows(Shape::Rectangle));
+        assert!(Shadow::On.shows(Shape::Rectangle, Glass::None));
+        assert!(!Shadow::On.shows(Shape::RoundedRectangle, Glass::None));
+        assert!(!Shadow::On.shows(Shape::Pill, Glass::None));
+        assert!(!Shadow::Off.shows(Shape::Rectangle, Glass::None));
 
         // Before CR-0006 a settings file said soft or strong.
         for old in ["soft", "strong"] {
@@ -564,6 +651,69 @@ duration_secs = 900.0
             let read: Shadow = table["shadow"].clone().try_into().expect(old);
             assert_eq!(read, Shadow::On, "{old}");
         }
+    }
+
+    #[test]
+    fn glass_turns_the_shadow_off() {
+        // ADR-016: the shadow keeps the client area opaque, glass needs it
+        // see-through.
+        for glass in [Glass::Blur, Glass::Acrylic, Glass::MicaLike] {
+            assert!(!Shadow::On.shows(Shape::Rectangle, glass), "{glass:?}");
+        }
+    }
+
+    #[test]
+    fn glass_is_for_the_rectangle_only() {
+        // Windows blurs the whole window rectangle, past a rounded toast's
+        // cut corners, so only the Rectangle gets it.
+        assert_eq!(Glass::Acrylic.on(Shape::Rectangle), Glass::Acrylic);
+        assert_eq!(Glass::Acrylic.on(Shape::RoundedRectangle), Glass::None);
+        assert_eq!(Glass::MicaLike.on(Shape::Pill), Glass::None);
+        assert_eq!(Glass::None.on(Shape::Rectangle), Glass::None);
+    }
+
+    #[test]
+    fn each_glass_kind_tints_more_than_the_last_and_none_is_solid() {
+        assert_eq!(Glass::None.tint(), None);
+        let tints: Vec<f32> = [Glass::Blur, Glass::Acrylic, Glass::MicaLike]
+            .iter()
+            .map(|glass| glass.tint().expect("a glass kind has a tint"))
+            .collect();
+        assert!(tints.windows(2).all(|pair| pair[0] < pair[1]), "{tints:?}");
+        assert!(tints.iter().all(|tint| (0.0..1.0).contains(tint)));
+    }
+
+    #[test]
+    fn glass_round_trips_and_an_unknown_kind_loads_as_none() {
+        for glass in Glass::all() {
+            let spec = ToastSpec {
+                style: Style {
+                    glass,
+                    ..Style::default()
+                },
+                ..ToastSpec::default()
+            };
+            let text = toml::to_string(&spec).expect("encodes");
+            let back: ToastSpec = toml::from_str(&text).expect("decodes");
+            assert_eq!(back.style.glass, glass);
+        }
+        let text = "[style]\nglass = \"mica-like\"\n";
+        let spec: ToastSpec = toml::from_str(text).expect("parses");
+        assert_eq!(spec.style.glass, Glass::MicaLike, "kebab-case on disk");
+
+        // One unknown word must not cost the user the rest of their style.
+        let text = "[style]\nwidth = 420.0\nglass = \"frosted\"\n";
+        let spec: ToastSpec = toml::from_str(text).expect("an unknown kind still parses");
+        assert_eq!(spec.style.glass, Glass::None);
+        assert_eq!(spec.style.width, 420.0);
+    }
+
+    #[test]
+    fn every_glass_kind_names_its_own_key() {
+        let mut keys: Vec<&str> = Glass::all().iter().map(|g| g.name_key()).collect();
+        keys.sort_unstable();
+        keys.dedup();
+        assert_eq!(keys.len(), Glass::all().len());
     }
 
     #[test]

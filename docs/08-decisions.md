@@ -471,3 +471,13 @@ counts against the animation budget — the frame-time fallback measures the
 whole frame. A Rectangle toast with glass has no shadow, and Settings says so.
 The undocumented call can disappear in a future Windows; the fallback is the
 plan for that day, not an error.
+
+**Amended 2026-11-18 (FEAT-0030).** Building glass showed two things the spike
+did not. The accent blur covers the **whole window rectangle** and ignores the
+corner region — the spike's "with or without the corner region" was judged on
+the blur, not on the corners — so the owner chose **glass for the Rectangle
+only**, greyed out for the other shapes like the shadow. And a pure black
+accent tint draws the window black, so the accent's own tint is a faint grey
+and the toast paints its tint over it. The owner also set Blur's tint to 45%
+rather than near-transparent, because text chosen for the toast's colour
+vanished over a desktop of the opposite lightness (`docs/specs/toast.md` §4.2).

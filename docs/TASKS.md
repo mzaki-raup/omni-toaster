@@ -167,17 +167,20 @@ make all three glass kinds from the accent policy's Acrylic.
 - [x] Docs: spec §5 and the viewport paragraph · CHANGELOG · GOTCHAS (in FEAT-0028's commit). README and CHECKLIST: nothing a user sees changed
 
 ### FEAT-0030 · Glass: None, Blur, Acrylic, Mica-like
-- **State:** Pending · **Spec:** docs/specs/toast.md §4.2 · **Phase:** 3
+- **State:** In-Progress · **Spec:** docs/specs/toast.md §4.2 · **Phase:** 3
 - **Branch:** feat/phase-3-glass-animations
 - **Depends on:** FEAT-0029
-- [ ] `Glass` in `Style` (`none` by default, kebab-case in `settings.toml`; an unknown value loads as `none` with a warning) and the tint each kind lays over the blur
-- [ ] `ot_platform` applies the accent policy's Acrylic with that tint, loaded by name; a refusal or an old Windows logs and falls back to solid
-- [ ] Glass turns Windows' shadow off, and the Shadow control says why, in both languages
-- [ ] Settings ▸ Appearance: a Glass dropdown (Title Case, both languages), and the preview's note that it shows the tint and not the blur
-- [ ] Test: the tint per kind; a gradient tints with its first colour; settings round-trip; an unknown kind loads as None
-- [ ] Gate: fmt · clippy -D warnings · test --workspace --locked -j 4 · deny check · --self-test
-- [ ] App: `--data-dir ./tmp-data` — each kind over the striped window and over the desktop, in Dark and Light toast colours; a Rectangle with glass shows no shadow; Malay labels fit
+- [x] `Glass` in `Style` (`none` by default, kebab-case in `settings.toml`; an unknown value loads as `none` with a warning) and the tint each kind lays over the blur — 45 %, 60 %, 88 %
+- [x] `ot_platform` applies the accent policy's Acrylic, loaded by name, with a faint grey tint of its own (a black one draws black); Windows older than 10 1809 or a refusal logs once and the toast is drawn solid
+- [x] Glass turns Windows' shadow off, and the Shadow control says why, in both languages
+- [x] Settings ▸ Appearance: a Glass dropdown (Title Case, both languages), and the preview's note that it shows the tint and not the blur
+- [x] Rectangle only (owner, 2026-11-18): Windows blurs the whole window rectangle past a rounded toast's region, so the Glass control is greyed out for the other shapes with the reason, and they draw solid
+- [x] Test: the tint per kind; a gradient tints with its first colour; glass on the Rectangle only; glass turns the shadow off; settings round-trip; an unknown kind loads as None and keeps the rest; text colour under glass follows the first colour
+- [x] Gate: fmt · clippy -D warnings · test --workspace --locked -j 4 (224 passed) · deny check · --self-test
+- [x] App: `--data-dir ./tmp-data` — each kind over the striped window and over the desktop, in Dark and Light toast colours; a Rectangle with glass shows no shadow; Malay labels fit
 - [ ] Docs: spec · README · CHANGELOG · CHECKLIST · GOTCHAS
+- **Notes:** App, checked 2026-11-18 over a window of red and blue stripes (another process): Rectangle Blur, Acrylic and Mica-like each blur, graded, in a dark and a light toast colour; Rounded Rectangle and Pill stay solid with clean corners; the Rectangle with glass has no shadow; at 70 % opacity the blur fades too and the sharp stripes show faintly (spec §4.2); no glass warnings in the log. Over the ordinary desktop (a dark app window): Acrylic shows the blurred window, a light Blur toast keeps dark readable text. Appearance pane in Malay (Dark) and English (Light): the Glass row lines up, the dropdown is greyed with its hint on a rounded rectangle, both hints and the shadow's glass hint wrap inside the pane; the Blur preview's text reads in both themes. **Not checked:** the solid fallback after a refusal, which this Windows never gave; Windows 10; DPI above 100 %. Over OmniToaster's own settings window the blur samples black (GOTCHAS). Docs: spec, ADR-016 amendment, README, CHANGELOG and GOTCHAS done; the Docs box stays open because `README.ms.md` does not exist in the repository yet (a pre-existing gap, not created here) and CHECKLIST moves at the end of the phase.
+- **Owner decisions (2026-11-18):** glass for the Rectangle only; Blur at 45 % instead of "almost none".
 
 ### FEAT-0031 · The animation model and the toast timeline
 - **State:** Pending · **Spec:** docs/specs/toast.md §5 · **Phase:** 3
