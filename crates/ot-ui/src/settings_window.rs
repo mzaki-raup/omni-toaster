@@ -937,6 +937,9 @@ impl SettingsWindow {
                     shadow,
                     glass,
                 ) {
+                    // Shaped and at its starting alpha: shown now, by the
+                    // app rather than by egui (BUG-0012).
+                    ot_platform::toast_window::reveal(&id.window_title());
                     shaped_now.push(id);
                 }
                 // In the toast's own space: a drawer moves it and a pop scales

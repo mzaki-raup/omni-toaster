@@ -262,7 +262,10 @@ has been shaped** and given its alpha, and the in-animation starts then — a
 window shown first flashes at full strength before its fade; one whose window
 has not turned up within a second starts anyway, with a warning in the log.
 Hovering during the entry costs the countdown nothing, since it has not
-started. Windows' own show animation is turned off on every toast window
+started. A toast's window is shown by the app (`toast_window::reveal`), never by egui:
+showing a window, winit rewrites its whole extended style, which took away the
+alpha a toast starts at and showed it at full strength for a frame (BUG-0012).
+Windows' own show animation is turned off on every toast window
 (`DWMWA_TRANSITIONS_FORCEDISABLED`): while it played, the screen showed it
 instead of the toast's frames, and the first third of every entry was lost
 (BUG-0011). The toast animates itself.

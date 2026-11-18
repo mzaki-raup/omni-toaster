@@ -127,6 +127,20 @@ pub fn glass_available() -> bool {
     platform::glass_available()
 }
 
+/// Show the toast window titled exactly `title`, without activating it, once
+/// [`set_shape`] has shaped it and given it its alpha.
+///
+/// Shown here rather than by egui: winit, showing a window, rewrites its
+/// whole extended style from its own flags after `ShowWindow`, which drops
+/// `WS_EX_LAYERED` and with it the toast's alpha, so a toast meant to start
+/// invisible showed at full strength until the next frame put the alpha back
+/// (BUG-0012). The toast's viewport stays hidden as far as egui knows, so
+/// winit never rewrites it. Does nothing for a window not shaped yet, or
+/// already shown.
+pub fn reveal(title: &str) {
+    platform::reveal(title);
+}
+
 /// Drop what [`set_shape`] remembers about a toast that has gone.
 pub fn forget(title: &str) {
     platform::forget(title);
@@ -155,8 +169,9 @@ mod platform {
     use windows::Win32::UI::Controls::MARGINS;
     use windows::Win32::UI::WindowsAndMessaging::{
         EnumWindows, GWL_EXSTYLE, GetClientRect, GetWindowLongPtrW, GetWindowTextW,
-        GetWindowThreadProcessId, IsWindow, IsWindowVisible, LWA_ALPHA, SetLayeredWindowAttributes,
-        SetWindowLongPtrW, WS_EX_APPWINDOW, WS_EX_LAYERED, WS_EX_NOACTIVATE, WS_EX_TOOLWINDOW,
+        GetWindowThreadProcessId, IsWindow, IsWindowVisible, LWA_ALPHA, SW_SHOWNOACTIVATE,
+        SetLayeredWindowAttributes, SetWindowLongPtrW, ShowWindow, WS_EX_APPWINDOW, WS_EX_LAYERED,
+        WS_EX_NOACTIVATE, WS_EX_TOOLWINDOW,
     };
     use windows::core::{BOOL, s, w};
 
@@ -275,7 +290,23 @@ mod platform {
         let applied = (window.0 as isize, size, shape, opacity, shadow, glass);
         let before = shapes.get(title).copied();
         if before == Some(applied) {
-            return true;
+            // Nothing asked for has changed — but something else may have
+            // taken the alpha away: winit rewrites a window's whole extended
+            // style when it shows one, which drops `WS_EX_LAYERED`, and with
+            // it the alpha, so the toast showed at full strength (BUG-0012).
+            // Checked every call, since it is one read.
+            // SAFETY: a plain style read on a window this process owns.
+            let lost = opacity < u8::MAX
+                && unsafe { GetWindowLongPtrW(window, GWL_EXSTYLE) } & WS_EX_LAYERED.0 as isize
+                    == 0;
+            if !lost {
+                return true;
+            }
+            tracing::debug!(
+                title,
+                opacity,
+                "a toast window had lost its alpha; it is put back"
+            );
         }
         // Only the opacity moved — every frame of a fade — so the region and
         // the compositor settings stay as they are, and only the alpha is set.
@@ -290,6 +321,13 @@ mod platform {
             let layered = WS_EX_LAYERED.0 as isize;
             if opacity < u8::MAX {
                 if style & layered == 0 {
+                    if before.is_some_and(|(.., was, _, _)| was < u8::MAX) {
+                        tracing::debug!(
+                            title,
+                            opacity,
+                            "a toast window had lost its alpha; it is put back"
+                        );
+                    }
                     SetWindowLongPtrW(window, GWL_EXSTYLE, style | layered);
                 }
                 let _ = SetLayeredWindowAttributes(window, COLORREF(0), opacity, LWA_ALPHA);
@@ -507,6 +545,39 @@ mod platform {
             tracing::warn!(
                 "Windows refused the blur behind a toast; toasts are drawn solid instead of glass"
             );
+        }
+    }
+
+    #[allow(
+        unsafe_code,
+        reason = "IsWindow, IsWindowVisible, a style write and ShowWindow on a window this process owns"
+    )]
+    pub(super) fn reveal(title: &str) {
+        let shapes = SHAPES
+            .lock()
+            .unwrap_or_else(std::sync::PoisonError::into_inner);
+        let Some(window) = shapes
+            .as_ref()
+            .and_then(|shapes| shapes.get(title))
+            .map(|(window, ..)| HWND(*window as *mut _))
+        else {
+            return;
+        };
+        // SAFETY: IsWindow vets a handle that may be stale; the others act on
+        // a live window this process owns. SW_SHOWNOACTIVATE shows it without
+        // taking focus, which a toast must never do.
+        unsafe {
+            if IsWindow(Some(window)).as_bool() && !IsWindowVisible(window).as_bool() {
+                // Out of the taskbar and Alt+Tab before it shows, not a frame
+                // after: `make_unobtrusive` only sees visible windows.
+                let style = GetWindowLongPtrW(window, GWL_EXSTYLE);
+                let wanted = (style | WS_EX_TOOLWINDOW.0 as isize | WS_EX_NOACTIVATE.0 as isize)
+                    & !(WS_EX_APPWINDOW.0 as isize);
+                if wanted != style {
+                    SetWindowLongPtrW(window, GWL_EXSTYLE, wanted);
+                }
+                let _ = ShowWindow(window, SW_SHOWNOACTIVATE);
+            }
         }
     }
 
@@ -744,6 +815,8 @@ mod platform {
     pub(super) fn glass_available() -> bool {
         false
     }
+
+    pub(super) fn reveal(_title: &str) {}
 
     pub(super) fn forget(_title: &str) {}
 }

@@ -127,12 +127,14 @@ pub fn show_all(
         );
         ctx.show_viewport_immediate(
             toast.id.viewport_id(),
-            // Hidden until it has been shaped and given its alpha, so it
-            // never flashes at full strength before its fade begins.
+            // Hidden as far as egui knows, always: the app shows the window
+            // itself once it is shaped (`ot_platform::toast_window::reveal`).
+            // Shown through egui, winit rewrote the window's extended style
+            // and took its alpha with it (BUG-0012).
             builder(spec, &id.window_title())
                 .with_position(look.window.min)
                 .with_inner_size(look.window.size())
-                .with_visible(toast.is_on_screen()),
+                .with_visible(false),
             |ctx, _class| {
                 // No frame of egui's own: the toast paints its own
                 // background, its own corners and its own shadow, and a panel

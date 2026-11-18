@@ -332,17 +332,18 @@ make all three glass kinds from the accent policy's Acrylic.
 - [x] Docs: spec §5 · CHANGELOG · GOTCHAS
 
 ### BUG-0012 · Now and then a toast's first visible frame is at full strength
-- **State:** Pending · **Spec:** docs/specs/toast.md §5 · **Phase:** 3
+- **State:** Completed · **Spec:** docs/specs/toast.md §5 · **Phase:** 3
 - **Branch:** feat/phase-3-glass-animations
 - **Depends on:** FEAT-0031
 - **Source:** seen twice while checking FEAT-0034 and FEAT-0035, 2026-11-18/19, in debug builds captured every 100 ms: once in three shrink-to-tray runs, and once with `--reduce-motion` (the Pill at full strength at 340 ms, faint at 424, then fading in properly). Not in every run, and not every toast of a run
-- [ ] Reproduce it often enough to measure: many runs, captured frame by frame from the moment a toast is shown, counting the runs it appears in
-- [ ] Find where the frame comes from — the window shown before its alpha takes, a window recreated, or the layered style toggled — from the log of each toast's outlines and its window handle
-- [ ] Test first, if it can be made one
-- [ ] The fix
-- [ ] Gate: fmt · clippy -D warnings · test --workspace --locked -j 4 · deny check · --self-test
-- [ ] App: `--data-dir ./tmp-data` — the same many runs, none with the flash
-- [ ] Docs: spec · CHANGELOG · GOTCHAS
+- **Verified:** the reproducing count before and after, the gate, fades and Dismiss in the running app
+- [x] Reproduce it often enough to measure: the flash itself is intermittent, but its cause is not — `set_shape` now checks, on every call, that a toast meant to be see-through still has `WS_EX_LAYERED`, puts it back if not, and logs it. Before the fix that log line came **once per toast, in every run** (3 of 3 toasts, 3 of 3 runs)
+- [x] Find where the frame comes from: **winit**. Showing a window (`set_visible(true)`, which egui calls when a viewport's builder turns visible) runs `ShowWindow` and then writes the window's whole extended style from winit's own flags (`SetWindowLongW(GWL_EXSTYLE, …)` in `WindowFlags::apply_diff`), which drops `WS_EX_LAYERED` and so the toast's alpha — and `WS_EX_TOOLWINDOW` too, which is why `make_unobtrusive` has had to run every frame. The toast showed at full strength until the next `set_shape` put the alpha back; whether a screen capture caught that gap was chance
+- [x] Test first: the lost-alpha count above is the reproducing check — a unit test would need a real window shown through winit
+- [x] The fix: egui never shows a toast window — its builder always says hidden, so winit never rewrites it — and the app shows it itself once it is shaped and at its starting alpha (`toast_window::reveal`: the tool-window style first, then `ShowWindow(SW_SHOWNOACTIVATE)`). The every-call check stays, as a guard
+- [x] Gate: fmt · clippy -D warnings · test --workspace --locked -j 4 (259 passed) · deny check · --self-test
+- [x] App: `--data-dir ./tmp-data` — after the fix, three runs: no lost alpha logged, every toast fading in from its first frame, captured every 100 ms; Dismiss on a toast mid-entry and on one holding still works, so a window shown outside egui still takes its clicks
+- [x] Docs: spec §5 · CHANGELOG · GOTCHAS
 
 ### FEAT-0038 · The action row, with Dismiss working
 - **State:** In-Progress · **Spec:** docs/specs/toast.md §4.3 · §9 · **Phase:** 3
