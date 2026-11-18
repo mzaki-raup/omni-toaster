@@ -127,7 +127,7 @@ Refs: BUG-0003
 ```
 Version : v0.3.2
 Features : FEAT-0039
-Bugs : BUG-0011
+Bugs : BUG-0012
 Change Request : CR-0008
 ```
 
@@ -298,7 +298,7 @@ make all three glass kinds from the accent policy's Acrylic.
 - [x] Docs: spec (§6 already says it; no design change) · CHANGELOG · GOTCHAS
 
 ### BUG-0010 · A toast's first frames show a white box over a light background
-- **State:** Pending · **Spec:** docs/specs/toast.md §5 · **Phase:** 3
+- **State:** Completed — **closed by the owner, 2026-11-18, as not reproduced**; the boxes below stay open because no fix was made or needed · **Spec:** docs/specs/toast.md §5 · **Phase:** 3
 - **Branch:** feat/phase-3-glass-animations
 - **Depends on:** FEAT-0031
 - **Source:** found while checking FEAT-0032, 2026-11-18. Over a window of red and blue stripes, for roughly the first 150 ms of a fade in a debug build, each toast shows as a faint white box with no content before its real frames arrive. Over a dark desktop it cannot be seen
@@ -310,6 +310,19 @@ make all three glass kinds from the accent policy's Acrylic.
 - [ ] Gate: fmt · clippy -D warnings · test --workspace --locked -j 4 · deny check · --self-test
 - [ ] App: `--data-dir ./tmp-data` — every effect over a light window and a dark one, captured every 50 ms from the moment the toast appears; and the Rectangle with its shadow
 - [ ] Docs: spec · CHANGELOG · GOTCHAS
+
+### BUG-0011 · The first 150–200 ms of a toast's fade do not reach the screen
+- **State:** Pending · **Spec:** docs/specs/toast.md §5 · **Phase:** 3
+- **Branch:** feat/phase-3-glass-animations
+- **Depends on:** FEAT-0031
+- **Source:** found while investigating BUG-0010, 2026-11-18, filed by the owner's decision the same day. Measured frame by frame over a striped window in a debug build: after a toast's window shows, its picture holds at one early value for 150–200 ms, then jumps to where the fade has got to — the timeline runs on while the window's first frames are slow to reach the screen, so the start of every in-animation skips
+- [ ] Measure it in a release build first — `--test-toast` is debug-only, so fire toasts from Settings ▸ Appearance ▸ Show a Test Toast — and find which part of the first frames is slow (window creation, the first present, the first texture upload)
+- [ ] Test first, if it can be made one: the per-frame brightness capture (`docs/GOTCHAS.md`, Testing) showing the hold, then showing it gone
+- [ ] The fix — for instance, starting the timeline at the first frame that actually reaches the screen, if that can be known
+- [ ] Gate: fmt · clippy -D warnings · test --workspace --locked -j 4 · deny check · --self-test
+- [ ] App: `--data-dir ./tmp-data` — every effect captured frame by frame from the moment the toast appears, in a debug and a release build
+- [ ] Docs: spec · CHANGELOG · GOTCHAS
+- **Notes:** If the hold is only in a debug build, it may be closed as such, with the release measurement as the evidence.
 
 ### FEAT-0038 · The action row, with Dismiss working
 - **State:** In-Progress · **Spec:** docs/specs/toast.md §4.3 · §9 · **Phase:** 3
