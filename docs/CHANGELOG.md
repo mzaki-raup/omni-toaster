@@ -7,32 +7,27 @@ Format: [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) · Versioning:
 
 ## Unreleased
 
-### Fixed
+- (nothing yet)
 
-- A toast no longer shows at full strength for a moment before its fade-in: showing the window through winit rewrote its style and took its transparency away, so toast windows are now shown by the app itself (BUG-0012).
-- Every toast animation now shows from its first frame: Windows' own show animation, which hid about the first 300 ms of each entry, is turned off on toast windows (BUG-0011).
-- Hovering a toast pauses its countdown, as the spec always said: the pause was in the model, but nothing told it where the pointer was, so a toast under the pointer ran out anyway (BUG-0009).
-
-### Changed
-
-- The README screenshots show Phase 3: every toast with its action row, a glass toast, Settings ▸ Appearance retaken and Settings ▸ Animation added in both languages, and two GIFs, slide from right and Genie from bottom, recorded from a release build; the Phase 3 rows of `docs/CHECKLIST.md` are written, with the checks left to the owner named.
-- Malay: the Dismiss button reads "Tutup" (close) instead of "Tolak" (reject), matching the spec (FEAT-0038).
-- Toast windows are painted in the app's own frame, and DWM composites their alpha, so whatever a toast leaves unpainted shows the desktop — the groundwork for glass and animations (FEAT-0029, ADR-016). They look exactly as before.
-- The app renders without vsync and paces its own frames, because with vsync each toast window waited for its own screen refresh and three toasts animated at 11–16 fps; release builds now animate at 137 fps or more (FEAT-0031, ADR-016).
-- `cargo deny` ignores RUSTSEC-2026-0543 (`chrono` unmaintained, not vulnerable, no upgrade) with its reason; moving off `chrono` before Phase 4 is CR-0007.
+## 0.11.0 — 2026-11-18
 
 ### Added
 
-- Settings ▸ Animation: the in and out animations, their duration and easing, and Reduce Motion with Windows' own setting stated under it; Play fires a test toast with them. English and Malay (FEAT-0036).
-- Reduced motion: when Windows' "Show animations" is off, or `reduce_motion` is set in `[toast.animation]`, every toast animation plays as a fade. And a frame-time fallback: an animation that falls below 30 fps finishes as a fade, the next toast starts as one, and the log says so (FEAT-0035).
-- Genie from bottom, a toast pouring out of the bottom edge into place in bands, and its mirror; and shrink to tray, Genie's way out into the tray icon, or the screen's corner when Windows will not say where the icon is (FEAT-0034).
-- Three more toast animations, each with its mirror: dissolve (the toast builds up grain by grain), glow (a halo in the accent colour that swells and settles) and alpha to solid (the text first, the background fading in behind it). Windows' shadow on a Rectangle appears once such a toast has arrived (FEAT-0033).
-- Five toast animations, each with its mirror on the way out: slide from right and slide from bottom (in from beyond the screen's working area, never over the taskbar), drawer (out of the edge the toast sits against), pop out (from the centre, overshooting with spring easing) and appear (a fade). Chosen in `[toast.animation]` until the Animation pane exists (FEAT-0032).
-- Toasts have a row of buttons along the bottom, as many as the actions setting asks for (default two): Dismiss, always last, closes the toast with its out-animation, even while it is still arriving; Snooze and Open are shown greyed until reminders give them something to do. A toast that sizes to its content grows by the row (FEAT-0038).
-- Toasts fade in and fade out: each enters, holds for its whole display duration — the countdown starts once it is fully in — and leaves before its window closes, and the toasts beyond a leaving one glide into its place. The `[toast.animation]` settings (effect in and out, 150–1000 ms, linear, ease-out or spring) are read already; every effect plays as a fade until it is built (FEAT-0031).
-- Glass for Rectangle toasts: Settings ▸ Appearance ▸ Glass offers None, Blur, Acrylic and Mica-like — the desktop behind the toast blurred by Windows under 45 %, 60 % or 88 % of the toast's colour. Greyed out for the other shapes, with the reason; a glass toast has no shadow; drawn solid, with a line in the log, where Windows will not blur. New strings in English and Malay (FEAT-0030).
-- `README.ms.md`, the README in Bahasa Melayu, and a link between it and `README.md` at the top of each (FEAT-0037).
-- `assets/sound/notification.mp3`, a stand-in default chime (HTC's *Button* sound, committed on the owner's decision; Phase 9's terms check replaces it if it cannot be cleared). Not embedded until the audio engine exists.
+- Settings Γû╕ Animation (6f2f29a9)
+- Reduced motion and the 30 fps fallback (d2779ff2)
+- Genie from bottom, and shrink to tray (8eaf19aa)
+- Dissolve, glow and alpha to solid, in and out (2b5dbfb4)
+- Slide, drawer, pop out and appear, in and out (12950fa8)
+- The action row, with Dismiss working (a1725913)
+- The toast timeline ΓÇö enter, hold, leave (c8c3b271)
+- Glass for Rectangle toasts ΓÇö Blur, Acrylic, Mica-like (b84da8dc)
+- Paint toasts from the root's frame, with per-pixel alpha (5e14e963)
+
+### Fixed
+
+- Show toast windows ourselves, not through winit (c93c6a25)
+- Turn off Windows' show animation on toast windows (bd96c328)
+- Hovering a toast pauses its countdown (4618d912)
 
 ## 0.10.0 — 2026-11-15
 
