@@ -7,7 +7,7 @@ exit criteria under each heading are that phase's own, and no row in a phase may
 read `Completed` until they all hold. The work itself, by id, is in
 [TASKS.md](TASKS.md).
 
-Last updated: 2026-11-15
+Last updated: 2026-11-19
 
 ## Planning
 > **Done when:** the scaffolding and the specifications describe OmniToaster and point only at files that exist; no reference to the HyperStack project remains.
@@ -111,16 +111,32 @@ Last updated: 2026-11-15
 
 ## Phase 3 — Glass and Animations
 > **Exit criteria:** each animation runs at 60 fps on reference hardware and falls back cleanly.
+>
+> **As of 2026-11-19, demonstrated on this machine, with three checks left to
+> the owner.** *60 fps:* every in- and out-animation was counted from the log
+> in a release build with three toasts on screen — the lowest of any run was
+> shrink to tray out at 97 fps, every other effect 123 fps or more (FEAT-0031
+> to FEAT-0034). This is the development machine; whether it is the reference
+> hardware the criterion means is the owner's to say. *Falls back cleanly:*
+> the frame-time fallback was forced (`--slow-frames`) and also triggered on its
+> own in a loaded debug build: the toast finished as a fade where it was, the
+> next one started as one, and the log named it (FEAT-0035). Reduce Motion in
+> the app and `--reduce-motion` turn every effect into a fade. **Not made
+> here:** Windows' own "Show animations" switch turned off and on (FEAT-0035),
+> shrink to tray with the tray icon in the overflow (FEAT-0034), and any
+> animation at real 150% display scaling (FEAT-0032, FEAT-0038) — each is a
+> system setting this session does not change. The rows they belong to stay
+> In-Progress until the owner has made them.
 
 | Item | State | Notes |
 |---|---|---|
-| Blur | Pending | |
-| Acrylic | Pending | |
-| Mica-like | Pending | Windows 10 1809+ |
-| In animations | Pending | Slide right, slide bottom, Genie, pop out, drawer, appear, dissolve, glow, alpha-to-solid |
-| Out animations | Pending | Mirrors, plus shrink to tray |
-| Reduced-motion fallback | Pending | Follows the Windows "Show animations" setting |
-| Frame-time fallbacks | Pending | Fade below 30 fps |
+| Blur | Completed | FEAT-0030. Rectangle only (owner, 2026-11-18): the desktop blurred under 45 % of the toast's colour; the other shapes are greyed out with the reason |
+| Acrylic | Completed | FEAT-0030. 60 %; `docs/screenshots/toast-glass.png` |
+| Mica-like | Completed | FEAT-0030. 88 %; Windows 10 1809+. Checked on Windows 11 only — the solid fallback after a refusal was never needed here, and Windows 10 was not available |
+| In animations | In-Progress | FEAT-0032 to FEAT-0034, FEAT-0036. All nine, each seen on screen, fired from Settings ▸ Animation ▸ Play, and placed inside the work area at every one of the nine positions; 123 fps or more in a release build with three toasts. Open: real 150% scaling (owner) |
+| Out animations | In-Progress | The nine mirrors, plus shrink to tray (97 fps or more). Open: shrink to tray with the icon in the overflow (owner) |
+| Reduced-motion fallback | In-Progress | FEAT-0035, FEAT-0036. Windows' setting is read every five seconds and stated in the pane; Reduce Motion and `--reduce-motion` fade every effect. Open: Windows' own switch turned off and on (owner) |
+| Frame-time fallbacks | Completed | FEAT-0035. Below 30 fps — the median of six frames — the toast finishes as a fade and the next starts as one, logged; forced and seen happen unforced |
 
 ## Phase 4 — Scheduler and Reminders
 > **Exit criteria:** the scheduling tests pass, reminders fire within one second of target, and the date format is correct for each language.

@@ -195,7 +195,20 @@ pub fn place(
     stack_index: usize,
     gap: f32,
 ) -> egui::Pos2 {
-    let stack_offset = (size.y + gap) * stack_index as f32;
+    place_at(work_area, size, position, stack_index as f32, gap)
+}
+
+/// [`place`], at a fractional place in the stack: what a toast is given
+/// while the one before it leaves and it moves up into the room
+/// (`docs/specs/toast.md` §5).
+pub fn place_at(
+    work_area: egui::Rect,
+    size: egui::Vec2,
+    position: Position,
+    slot: f32,
+    gap: f32,
+) -> egui::Pos2 {
+    let stack_offset = (size.y + gap) * slot.max(0.0);
     let direction = position.stack_direction(work_area);
 
     let (mut x, mut y) = match position {

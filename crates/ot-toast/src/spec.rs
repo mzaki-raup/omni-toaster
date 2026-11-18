@@ -40,6 +40,10 @@ pub const MAX_VISIBLE: IntRange = IntRange::new(1, 5, 3);
 pub const ACTIONS: IntRange = IntRange::new(1, 3, 2);
 /// Between one toast and the next in a stack.
 pub const STACK_GAP: Range = Range::new(0.0, 40.0, 8.0);
+/// The height of a toast that sizes to its content, before its action row.
+pub const AUTO_HEIGHT: f32 = 120.0;
+/// The action row and the gap above it, which an auto-height toast grows by.
+pub const ACTION_ROW: f32 = 32.0;
 /// Animation duration, in milliseconds.
 pub const ANIMATION_MS: IntRange = IntRange::new(150, 1000, 350);
 
@@ -169,9 +173,94 @@ pub enum Shadow {
 }
 
 impl Shadow {
-    /// Whether a toast of `shape` actually shows a shadow.
-    pub fn shows(self, shape: Shape) -> bool {
-        self == Self::On && shape == Shape::Rectangle
+    /// Whether a toast of `shape` and `glass` actually shows a shadow.
+    ///
+    /// Glass turns it off: Windows' shadow needs non-client rendering, which
+    /// leaves the client area opaque, and glass needs it see-through
+    /// (ADR-016).
+    pub fn shows(self, shape: Shape, glass: Glass) -> bool {
+        self == Self::On && shape == Shape::Rectangle && glass == Glass::None
+    }
+}
+
+/// The desktop blurred behind the toast (`docs/specs/toast.md` §4.2).
+///
+/// All three kinds are the one blur Windows draws for an inactive window —
+/// the accent policy's Acrylic (ADR-016) — and differ only in how much of the
+/// toast's background colour lies over it.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default, Serialize)]
+#[serde(rename_all = "kebab-case")]
+pub enum Glass {
+    /// The solid background, as in Phase 2.
+    #[default]
+    None,
+    Blur,
+    Acrylic,
+    MicaLike,
+}
+
+impl Glass {
+    pub fn all() -> [Self; 4] {
+        [Self::None, Self::Blur, Self::Acrylic, Self::MicaLike]
+    }
+
+    /// The glass a toast of `shape` actually gets: Rectangle only.
+    ///
+    /// Windows draws the blur over the whole window rectangle and ignores the
+    /// region that cuts a rounded toast's corners, so a rounded rectangle or a
+    /// pill with glass would show blurred square corners past its edge. The
+    /// owner chose Rectangle-only on 2026-11-18, like the shadow; the setting
+    /// is kept, and does nothing on the other shapes.
+    pub fn on(self, shape: Shape) -> Self {
+        if shape == Shape::Rectangle {
+            self
+        } else {
+            Self::None
+        }
+    }
+
+    /// How much of the background colour lies over the blur, 0.0–1.0, or
+    /// `None` for a solid toast.
+    pub fn tint(self) -> Option<f32> {
+        match self {
+            Self::None => None,
+            // The lightest of the three. Not "almost none", as first
+            // specified: at 10% the text, chosen for the toast's colour,
+            // vanished over a desktop of the opposite lightness, so the owner
+            // set 45% on 2026-11-18.
+            Self::Blur => Some(0.45),
+            Self::Acrylic => Some(0.6),
+            // Mostly opaque: the desktop shows only as a hint of colour.
+            Self::MicaLike => Some(0.88),
+        }
+    }
+
+    /// The Fluent key naming this kind in the picker.
+    pub fn name_key(self) -> &'static str {
+        match self {
+            Self::None => "toast-glass-none",
+            Self::Blur => "toast-glass-blur",
+            Self::Acrylic => "toast-glass-acrylic",
+            Self::MicaLike => "toast-glass-mica-like",
+        }
+    }
+}
+
+/// An unknown kind loads as `None` with a warning, rather than throwing away
+/// the whole `[toast]` table over one word (`docs/specs/toast.md` §4.2).
+impl<'de> Deserialize<'de> for Glass {
+    fn deserialize<D: serde::Deserializer<'de>>(deserializer: D) -> Result<Self, D::Error> {
+        let name = String::deserialize(deserializer)?;
+        Ok(match name.as_str() {
+            "none" => Self::None,
+            "blur" => Self::Blur,
+            "acrylic" => Self::Acrylic,
+            "mica-like" => Self::MicaLike,
+            other => {
+                tracing::warn!(value = other, "an unknown glass kind was read as none");
+                Self::None
+            }
+        })
     }
 }
 
@@ -189,6 +278,53 @@ impl Rgba {
     pub const fn parts(self) -> (u8, u8, u8, u8) {
         let [r, g, b, a] = self.0.to_be_bytes();
         (r, g, b, a)
+    }
+}
+
+/// One button in the action row (`docs/specs/toast.md` §4.3).
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum Action {
+    Open,
+    Snooze,
+    Dismiss,
+}
+
+impl Action {
+    /// The buttons for the actions setting, left to right: Dismiss is always
+    /// there and always last.
+    pub fn for_count(count: u32) -> &'static [Self] {
+        match count {
+            0 | 1 => &[Self::Dismiss],
+            2 => &[Self::Snooze, Self::Dismiss],
+            _ => &[Self::Open, Self::Snooze, Self::Dismiss],
+        }
+    }
+
+    /// Whether pressing it does anything yet. Snooze and Open act on a
+    /// reminder, and reminders arrive in Phase 4; until then they are drawn
+    /// greyed (the owner's choice, 2026-11-18).
+    pub fn works(self) -> bool {
+        self == Self::Dismiss
+    }
+}
+
+/// The buttons' labels, already in the user's language: a spec holds text,
+/// never keys, like every other string in it.
+#[derive(Debug, Clone, PartialEq, Eq, Default, Serialize, Deserialize)]
+#[serde(default, deny_unknown_fields)]
+pub struct ActionLabels {
+    pub open: String,
+    pub snooze: String,
+    pub dismiss: String,
+}
+
+impl ActionLabels {
+    pub fn get(&self, action: Action) -> &str {
+        match action {
+            Action::Open => &self.open,
+            Action::Snooze => &self.snooze,
+            Action::Dismiss => &self.dismiss,
+        }
     }
 }
 
@@ -232,6 +368,9 @@ pub struct Content {
     /// asks for it, not before.
     pub body_bold: bool,
     pub body_italic: bool,
+    /// The action row's labels; which buttons show is the actions setting
+    /// (`Behaviour::actions`).
+    pub action_labels: ActionLabels,
 }
 
 /// What it looks like.
@@ -250,8 +389,19 @@ pub struct Style {
     pub border: f32,
     pub border_colour: Rgba,
     pub shadow: Shadow,
+    pub glass: Glass,
     /// The one colour that marks this toast's category.
     pub accent: Rgba,
+}
+
+impl Style {
+    /// The toast's height in points: the fixed one, or the content's own
+    /// with the action row added, so the row never costs the body a line
+    /// (`docs/specs/toast.md` §4.3). The window, the stack, the preview and
+    /// the placement map all ask here.
+    pub fn toast_height(&self) -> f32 {
+        self.height.unwrap_or(AUTO_HEIGHT + ACTION_ROW)
+    }
 }
 
 impl Default for Style {
@@ -269,8 +419,201 @@ impl Default for Style {
             border: BORDER.default,
             border_colour: Rgba::new(0x3a, 0x3a, 0x42, 0xff),
             shadow: Shadow::default(),
+            glass: Glass::default(),
             accent: Rgba::new(0x3b, 0x9e, 0xff, 0xff),
         }
+    }
+}
+
+/// How a toast arrives and leaves (`docs/specs/toast.md` §5).
+///
+/// The out list is the in list plus "shrink to tray", Genie's own way out.
+/// Until each effect is built (FEAT-0032 to FEAT-0034) it plays as a fade,
+/// which is also what reduced motion and a slow frame fall back to.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default, Serialize)]
+#[serde(rename_all = "kebab-case")]
+pub enum Effect {
+    /// A fade: the alpha ramp every other effect falls back to.
+    #[default]
+    Appear,
+    SlideFromRight,
+    SlideFromBottom,
+    GenieFromBottom,
+    PopOut,
+    Drawer,
+    Dissolve,
+    Glow,
+    AlphaToSolid,
+    /// Out only: Genie's mirror, towards the tray icon.
+    ShrinkToTray,
+}
+
+impl Effect {
+    /// Every effect a toast may arrive with.
+    pub fn all_in() -> [Self; 9] {
+        [
+            Self::SlideFromRight,
+            Self::SlideFromBottom,
+            Self::GenieFromBottom,
+            Self::PopOut,
+            Self::Drawer,
+            Self::Appear,
+            Self::Dissolve,
+            Self::Glow,
+            Self::AlphaToSolid,
+        ]
+    }
+
+    /// Every effect a toast may leave with: the same, plus shrink to tray.
+    pub fn all_out() -> [Self; 10] {
+        let [a, b, c, d, e, f, g, h, i] = Self::all_in();
+        [a, b, c, d, e, f, g, h, i, Self::ShrinkToTray]
+    }
+
+    /// The Fluent key naming this effect in a picker.
+    pub fn name_key(self) -> &'static str {
+        match self {
+            Self::Appear => "toast-effect-appear",
+            Self::SlideFromRight => "toast-effect-slide-from-right",
+            Self::SlideFromBottom => "toast-effect-slide-from-bottom",
+            Self::GenieFromBottom => "toast-effect-genie-from-bottom",
+            Self::PopOut => "toast-effect-pop-out",
+            Self::Drawer => "toast-effect-drawer",
+            Self::Dissolve => "toast-effect-dissolve",
+            Self::Glow => "toast-effect-glow",
+            Self::AlphaToSolid => "toast-effect-alpha-to-solid",
+            Self::ShrinkToTray => "toast-effect-shrink-to-tray",
+        }
+    }
+
+    /// The effect `settings.toml` spells `name`, kebab-case.
+    fn from_name(name: &str) -> Option<Self> {
+        Self::all_out().into_iter().find(|effect| {
+            toml::Value::try_from(effect).is_ok_and(|value| value.as_str() == Some(name))
+        })
+    }
+}
+
+/// An unknown effect loads as Appear with a warning, rather than throwing
+/// away the whole `[toast]` table over one word.
+impl<'de> Deserialize<'de> for Effect {
+    fn deserialize<D: serde::Deserializer<'de>>(deserializer: D) -> Result<Self, D::Error> {
+        let name = String::deserialize(deserializer)?;
+        Ok(Self::from_name(&name).unwrap_or_else(|| {
+            tracing::warn!(value = %name, "an unknown animation was read as appear");
+            Self::Appear
+        }))
+    }
+}
+
+/// How an animation's progress is shaped over its duration (§5).
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default, Serialize)]
+#[serde(rename_all = "kebab-case")]
+pub enum Easing {
+    Linear,
+    /// Cubic: fast at first, settling at the end.
+    #[default]
+    EaseOut,
+    /// A damped overshoot that settles within the duration.
+    Spring,
+}
+
+impl Easing {
+    pub fn all() -> [Self; 3] {
+        [Self::Linear, Self::EaseOut, Self::Spring]
+    }
+
+    /// The Fluent key naming this easing in a picker.
+    pub fn name_key(self) -> &'static str {
+        match self {
+            Self::Linear => "toast-easing-linear",
+            Self::EaseOut => "toast-easing-ease-out",
+            Self::Spring => "toast-easing-spring",
+        }
+    }
+
+    /// The shaped progress for `t`, 0.0–1.0. Exactly 0 at 0 and exactly 1
+    /// at 1; a spring may pass 1 on the way, which is right for motion and
+    /// scale.
+    pub fn apply(self, t: f32) -> f32 {
+        let t = if t.is_finite() {
+            t.clamp(0.0, 1.0)
+        } else {
+            1.0
+        };
+        match self {
+            Self::Linear => t,
+            Self::EaseOut => 1.0 - (1.0 - t).powi(3),
+            Self::Spring if t >= 1.0 => 1.0,
+            // Decays to within a quarter of a percent by the end, and peaks
+            // about 14% past the target a third of the way in.
+            Self::Spring => 1.0 - (-6.0 * t).exp() * (3.0 * std::f32::consts::PI * t).cos(),
+        }
+    }
+
+    /// The same, for an alpha, which never overshoots past solid (§5).
+    pub fn apply_alpha(self, t: f32) -> f32 {
+        self.apply(t).clamp(0.0, 1.0)
+    }
+}
+
+/// An unknown easing loads as ease-out with a warning.
+impl<'de> Deserialize<'de> for Easing {
+    fn deserialize<D: serde::Deserializer<'de>>(deserializer: D) -> Result<Self, D::Error> {
+        let name = String::deserialize(deserializer)?;
+        Ok(match name.as_str() {
+            "linear" => Self::Linear,
+            "ease-out" => Self::EaseOut,
+            "spring" => Self::Spring,
+            other => {
+                tracing::warn!(value = other, "an unknown easing was read as ease-out");
+                Self::EaseOut
+            }
+        })
+    }
+}
+
+/// How the toast arrives and leaves.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(default, deny_unknown_fields)]
+pub struct Animation {
+    pub enter: Effect,
+    pub leave: Effect,
+    /// The length of each of the two, in milliseconds: 150–1000.
+    pub duration_ms: u32,
+    pub easing: Easing,
+    /// Play every effect as a fade, whatever Windows says. Windows' own
+    /// "Show animations" being off does the same on its own; this is the
+    /// way to ask for it here (`docs/specs/toast.md` §5).
+    pub reduce_motion: bool,
+}
+
+impl Default for Animation {
+    fn default() -> Self {
+        Self {
+            enter: Effect::default(),
+            leave: Effect::default(),
+            duration_ms: ANIMATION_MS.default,
+            easing: Easing::default(),
+            reduce_motion: false,
+        }
+    }
+}
+
+impl Animation {
+    /// The same, with every effect a fade: what reduced motion and the
+    /// frame-time fallback play.
+    #[must_use]
+    pub fn as_fade(self) -> Self {
+        Self {
+            enter: Effect::Appear,
+            leave: Effect::Appear,
+            ..self
+        }
+    }
+
+    pub fn duration(&self) -> std::time::Duration {
+        std::time::Duration::from_millis(u64::from(self.duration_ms))
     }
 }
 
@@ -311,6 +654,7 @@ impl Default for Behaviour {
 pub struct ToastSpec {
     pub content: Content,
     pub style: Style,
+    pub animation: Animation,
     pub behaviour: Behaviour,
 }
 
@@ -330,6 +674,15 @@ impl ToastSpec {
         self.style.radius = RADIUS.clamp(self.style.radius, "style.radius");
         self.style.opacity = OPACITY.clamp(self.style.opacity, "style.opacity");
         self.style.border = BORDER.clamp(self.style.border, "style.border");
+        self.animation.duration_ms =
+            ANIMATION_MS.clamp(self.animation.duration_ms, "animation.duration_ms");
+        // Shrink to tray is Genie's way out; nothing arrives from the tray.
+        if self.animation.enter == Effect::ShrinkToTray {
+            tracing::warn!(
+                "shrink to tray is an out-animation only; the toast arrives with appear"
+            );
+            self.animation.enter = Effect::Appear;
+        }
 
         self.behaviour.duration_secs = if self.behaviour.persistent {
             // A persistent toast is capped, not endless — but it may outlast
@@ -348,6 +701,11 @@ impl ToastSpec {
         self.behaviour.actions = ACTIONS.clamp(self.behaviour.actions, "behaviour.actions");
         self.behaviour.stack_gap = STACK_GAP.clamp(self.behaviour.stack_gap, "behaviour.stack_gap");
         self
+    }
+
+    /// The buttons in this toast's action row, left to right.
+    pub fn actions(&self) -> &'static [Action] {
+        Action::for_count(self.behaviour.actions)
     }
 
     /// The radius this spec's shape actually draws with, at `height`.
@@ -553,10 +911,10 @@ duration_secs = 900.0
 
     #[test]
     fn a_shadow_shows_only_on_a_rectangle_and_old_settings_still_read() {
-        assert!(Shadow::On.shows(Shape::Rectangle));
-        assert!(!Shadow::On.shows(Shape::RoundedRectangle));
-        assert!(!Shadow::On.shows(Shape::Pill));
-        assert!(!Shadow::Off.shows(Shape::Rectangle));
+        assert!(Shadow::On.shows(Shape::Rectangle, Glass::None));
+        assert!(!Shadow::On.shows(Shape::RoundedRectangle, Glass::None));
+        assert!(!Shadow::On.shows(Shape::Pill, Glass::None));
+        assert!(!Shadow::Off.shows(Shape::Rectangle, Glass::None));
 
         // Before CR-0006 a settings file said soft or strong.
         for old in ["soft", "strong"] {
@@ -564,6 +922,148 @@ duration_secs = 900.0
             let read: Shadow = table["shadow"].clone().try_into().expect(old);
             assert_eq!(read, Shadow::On, "{old}");
         }
+    }
+
+    #[test]
+    fn glass_turns_the_shadow_off() {
+        // ADR-016: the shadow keeps the client area opaque, glass needs it
+        // see-through.
+        for glass in [Glass::Blur, Glass::Acrylic, Glass::MicaLike] {
+            assert!(!Shadow::On.shows(Shape::Rectangle, glass), "{glass:?}");
+        }
+    }
+
+    #[test]
+    fn every_easing_starts_at_zero_and_ends_at_one() {
+        for easing in [Easing::Linear, Easing::EaseOut, Easing::Spring] {
+            assert_eq!(easing.apply(0.0), 0.0, "{easing:?} at 0");
+            assert_eq!(easing.apply(1.0), 1.0, "{easing:?} at 1");
+            // Out of range and not a number: held to the ends, never NaN.
+            assert_eq!(easing.apply(-1.0), 0.0);
+            assert_eq!(easing.apply(2.0), 1.0);
+            assert_eq!(easing.apply(f32::NAN), 1.0);
+        }
+        assert_eq!(Easing::Linear.apply(0.5), 0.5);
+        assert_eq!(Easing::EaseOut.apply(0.5), 0.875, "1 - 0.5³");
+        let spring_half = Easing::Spring.apply(0.5);
+        assert!((0.9..1.1).contains(&spring_half), "{spring_half}");
+    }
+
+    #[test]
+    fn a_spring_overshoots_but_an_alpha_never_passes_solid() {
+        let samples = (0..=100).map(|i| i as f32 / 100.0);
+        let peak = samples
+            .clone()
+            .map(|t| Easing::Spring.apply(t))
+            .fold(0.0_f32, f32::max);
+        assert!(peak > 1.05, "a spring overshoots: peak {peak}");
+        assert!(
+            samples
+                .map(|t| Easing::Spring.apply_alpha(t))
+                .all(|a| (0.0..=1.0).contains(&a)),
+            "an alpha never overshoots past solid (docs/specs/toast.md §5)"
+        );
+        // Settled by the end: the last stretch is already within 1%.
+        assert!((Easing::Spring.apply(0.95) - 1.0).abs() < 0.01);
+    }
+
+    #[test]
+    fn the_animation_is_clamped_and_nothing_arrives_from_the_tray() {
+        let mut spec = ToastSpec::default();
+        assert_eq!(spec.animation.duration_ms, 350, "the spec's default");
+        spec.animation.duration_ms = 5;
+        assert_eq!(
+            spec.clone().clamped().animation.duration_ms,
+            ANIMATION_MS.min
+        );
+        spec.animation.duration_ms = 60_000;
+        assert_eq!(
+            spec.clone().clamped().animation.duration_ms,
+            ANIMATION_MS.max
+        );
+
+        spec.animation.enter = Effect::ShrinkToTray;
+        spec.animation.leave = Effect::ShrinkToTray;
+        let spec = spec.clamped();
+        assert_eq!(spec.animation.enter, Effect::Appear);
+        assert_eq!(spec.animation.leave, Effect::ShrinkToTray, "a fine way out");
+    }
+
+    #[test]
+    fn the_animation_round_trips_and_unknown_words_load_as_defaults() {
+        for effect in Effect::all_out() {
+            let spec = ToastSpec {
+                animation: Animation {
+                    leave: effect,
+                    easing: Easing::Spring,
+                    ..Animation::default()
+                },
+                ..ToastSpec::default()
+            };
+            let text = toml::to_string(&spec).expect("encodes");
+            let back: ToastSpec = toml::from_str(&text).expect("decodes");
+            assert_eq!(back.animation, spec.animation, "{effect:?}");
+        }
+        let text = "[animation]\nenter = \"slide-from-right\"\nleave = \"warp\"\neasing = \"bouncy\"\nduration_ms = 500\n";
+        let spec: ToastSpec = toml::from_str(text).expect("unknown words still parse");
+        assert_eq!(spec.animation.enter, Effect::SlideFromRight);
+        assert_eq!(spec.animation.leave, Effect::Appear);
+        assert_eq!(spec.animation.easing, Easing::EaseOut);
+        assert_eq!(spec.animation.duration_ms, 500, "and the rest is kept");
+    }
+
+    #[test]
+    fn glass_is_for_the_rectangle_only() {
+        // Windows blurs the whole window rectangle, past a rounded toast's
+        // cut corners, so only the Rectangle gets it.
+        assert_eq!(Glass::Acrylic.on(Shape::Rectangle), Glass::Acrylic);
+        assert_eq!(Glass::Acrylic.on(Shape::RoundedRectangle), Glass::None);
+        assert_eq!(Glass::MicaLike.on(Shape::Pill), Glass::None);
+        assert_eq!(Glass::None.on(Shape::Rectangle), Glass::None);
+    }
+
+    #[test]
+    fn each_glass_kind_tints_more_than_the_last_and_none_is_solid() {
+        assert_eq!(Glass::None.tint(), None);
+        let tints: Vec<f32> = [Glass::Blur, Glass::Acrylic, Glass::MicaLike]
+            .iter()
+            .map(|glass| glass.tint().expect("a glass kind has a tint"))
+            .collect();
+        assert!(tints.windows(2).all(|pair| pair[0] < pair[1]), "{tints:?}");
+        assert!(tints.iter().all(|tint| (0.0..1.0).contains(tint)));
+    }
+
+    #[test]
+    fn glass_round_trips_and_an_unknown_kind_loads_as_none() {
+        for glass in Glass::all() {
+            let spec = ToastSpec {
+                style: Style {
+                    glass,
+                    ..Style::default()
+                },
+                ..ToastSpec::default()
+            };
+            let text = toml::to_string(&spec).expect("encodes");
+            let back: ToastSpec = toml::from_str(&text).expect("decodes");
+            assert_eq!(back.style.glass, glass);
+        }
+        let text = "[style]\nglass = \"mica-like\"\n";
+        let spec: ToastSpec = toml::from_str(text).expect("parses");
+        assert_eq!(spec.style.glass, Glass::MicaLike, "kebab-case on disk");
+
+        // One unknown word must not cost the user the rest of their style.
+        let text = "[style]\nwidth = 420.0\nglass = \"frosted\"\n";
+        let spec: ToastSpec = toml::from_str(text).expect("an unknown kind still parses");
+        assert_eq!(spec.style.glass, Glass::None);
+        assert_eq!(spec.style.width, 420.0);
+    }
+
+    #[test]
+    fn every_glass_kind_names_its_own_key() {
+        let mut keys: Vec<&str> = Glass::all().iter().map(|g| g.name_key()).collect();
+        keys.sort_unstable();
+        keys.dedup();
+        assert_eq!(keys.len(), Glass::all().len());
     }
 
     #[test]

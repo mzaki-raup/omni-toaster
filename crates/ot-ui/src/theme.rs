@@ -126,13 +126,16 @@ impl Tokens {
     /// so text from the window's palette could be near-black on near-black.
     ///
     /// The Dark palette's text on a dark fill, the Light palette's on a light
-    /// one. A gradient is judged by the average of its two ends.
+    /// one. A gradient is judged by the average of its two ends — except
+    /// under glass, which tints with the first colour only
+    /// (`docs/specs/toast.md` §4.2).
     pub fn for_toast(spec: &ot_toast::ToastSpec) -> Self {
         let start = luminance(spec.style.background);
-        let fill = spec
-            .style
-            .background_to
-            .map_or(start, |end| (start + luminance(end)) / 2.0);
+        let glass = spec.style.glass.on(spec.style.shape) != ot_toast::Glass::None;
+        let fill = match spec.style.background_to {
+            Some(end) if !glass => (start + luminance(end)) / 2.0,
+            _ => start,
+        };
         // Where black and white text have equal contrast against the fill.
         if fill > 0.179 {
             Self::LIGHT
@@ -330,6 +333,23 @@ mod tests {
         assert_eq!(Tokens::for_toast(&spec), Tokens::LIGHT);
         spec.style.background = ot_toast::Rgba::new(0x10, 0x20, 0x40, 0xff);
         assert_eq!(Tokens::for_toast(&spec), Tokens::DARK, "navy into black");
+    }
+
+    #[test]
+    fn under_glass_the_text_follows_the_first_colour_alone() {
+        // Glass tints with the first colour, so a dark-into-white gradient is
+        // a dark tint, not the mid-grey the average would say.
+        let mut spec = ot_toast::ToastSpec::default();
+        spec.style.shape = ot_toast::Shape::Rectangle;
+        spec.style.background = ot_toast::Rgba::new(0x10, 0x10, 0x10, 0xff);
+        spec.style.background_to = Some(ot_toast::Rgba::new(0xff, 0xff, 0xff, 0xff));
+        assert_eq!(
+            Tokens::for_toast(&spec),
+            Tokens::LIGHT,
+            "solid: the average"
+        );
+        spec.style.glass = ot_toast::Glass::Acrylic;
+        assert_eq!(Tokens::for_toast(&spec), Tokens::DARK, "glass: the first");
     }
 
     #[test]

@@ -83,16 +83,24 @@ everything about them is a setting:
 - **Colour:** solid or gradient background, border width and colour, and a shadow
   for the Rectangle shape
 - **Transparency:** 70–100 % opacity; the whole toast fades, text included
-- **Glass:** none, Blur, Acrylic or Mica-like
+- **Glass:** none, Blur, Acrylic or Mica-like — the desktop behind a Rectangle
+  toast, blurred by Windows, under 45 %, 60 % or 88 % of the toast's colour.
+  Rectangle only, because Windows blurs past rounded corners; Windows 10 1809
+  or later, and drawn solid where Windows refuses. A glass toast has no shadow
 - **Animations:** eight-plus in presets — slide from right, slide from bottom,
   Genie from bottom, pop out, drawer, appear, dissolve, glow, alpha-to-solid —
   each with a mirrored out preset plus "shrink to tray", a 150–1000 ms duration
-  and linear, ease-out or spring easing. A reduced-motion option follows the
-  Windows "Show animations" setting and falls back to fade
+  and linear, ease-out or spring easing, chosen in Settings ▸ Animation, where
+  Play shows a test toast with them. Reduce Motion — or Windows' own "Show
+  animations" turned off — plays every one as a fade, and an animation that
+  falls below 30 fps finishes as one
 - **Duration:** 3–60 seconds (default 8), or persistent for urgent types, with
   hover pausing the timer
 - **Header:** icon, title, app name and timestamp, each toggleable
 - **Body:** text with bold and italic, plus an image (PNG, JPG or WebP, up to 5 MB)
+- **Actions:** one to three buttons along the bottom — Snooze, Dismiss, Open.
+  Dismiss closes the toast with its out-animation; Snooze and Open are shown
+  greyed until reminders arrive in a later phase
 - **Picture Library:** upload a picture once — a mosque, a meeting, an alarm
   clock — name it, and use it in any notification as its icon or its image.
   Removing a picture still in use asks first. Nineteen pictures ship with the
@@ -224,6 +232,18 @@ The same toast over a light window is
 [toast-light.png](docs/screenshots/toast-light.png): a toast keeps its own
 colours whatever the window's theme.
 
+A Rectangle toast with Acrylic glass: the desktop behind it — here a striped
+window — blurred by Windows under 60 % of the toast's colour:
+
+![A Rectangle toast with Acrylic glass over a striped window](docs/screenshots/toast-glass.png)
+
+Slide from right, in and out, and Genie from bottom, pouring out of the screen's
+bottom edge in bands — both recorded from a release build:
+
+![A toast sliding in from the right, holding, and sliding out](docs/screenshots/anim-slide.gif)
+
+![A toast pouring up out of the bottom edge and back down into it](docs/screenshots/anim-genie.gif)
+
 Settings ▸ General, the first screen the app has:
 
 ![Settings ▸ General in the Dark theme](docs/screenshots/settings-general.png)
@@ -236,6 +256,14 @@ Settings ▸ Appearance, where the preview is drawn by the same code as a real t
 ![Settings ▸ Appearance with the live preview](docs/screenshots/settings-appearance.png)
 
 In Bahasa Melayu: [settings-appearance-ms.png](docs/screenshots/settings-appearance-ms.png).
+
+Settings ▸ Animation, where the in and out animations, their duration and
+easing are chosen, Windows' own animation setting is stated under Reduce
+Motion, and Play fires a test toast with them:
+
+![Settings ▸ Animation](docs/screenshots/settings-animation.png)
+
+In Bahasa Melayu: [settings-animation-ms.png](docs/screenshots/settings-animation-ms.png).
 
 Settings ▸ Picture Library, where pictures are uploaded once and named, with
 the ones that ship with the app listed below them:
@@ -251,10 +279,8 @@ taken as its phase lands:
 
 | Image | Shows | Lands in |
 |---|---|---|
-| `docs/screenshots/toast-glass.png` | The Acrylic glass effect | Phase 3 |
 | `docs/screenshots/tray-menu.png` | The tray icon and its menu | Phase 1 |
 | `docs/screenshots/settings-prayer.png` | Settings → Prayer, zone confirmation and source label | Phase 5 |
-| `docs/screenshots/animation-in.gif` | The in and out animations | Phase 3 |
 | `docs/screenshots/flow-reminder.gif` | Creating a reminder and seeing it fire | Phase 4 |
 
 Each screenshot is taken in both English and Malay before Phase 9 ships.

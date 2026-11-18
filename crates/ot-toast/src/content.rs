@@ -51,7 +51,43 @@ pub struct Picture {
 ///
 /// `text_colour` and `dim` come from the theme through the caller, so the
 /// renderer still hard-codes no colour.
+///
+/// The action row takes the bottom of `rect` (§4.3) and the text the rest.
+/// `pointer` is where the pointer is over this toast, if it is, for the
+/// buttons' hover; the return value is where each button was drawn, so the
+/// caller can take a click on exactly what is on screen.
+#[allow(
+    clippy::too_many_arguments,
+    reason = "each is one thing the toast is drawn from; a struct for one call would only rename them"
+)]
 pub fn draw(
+    painter: &egui::Painter,
+    rect: egui::Rect,
+    spec: &ToastSpec,
+    text_colour: egui::Color32,
+    dim: egui::Color32,
+    icon: Option<Picture>,
+    image: Option<Picture>,
+    pointer: Option<egui::Pos2>,
+) -> Vec<(crate::spec::Action, egui::Rect)> {
+    let (body, row) = crate::actions::split(rect);
+    draw_text(painter, body, spec, text_colour, dim, icon, image);
+    match row {
+        Some(row) => crate::actions::draw(
+            painter,
+            row,
+            spec.actions(),
+            |action| spec.content.action_labels.get(action).to_owned(),
+            text_colour,
+            dim,
+            pointer,
+        ),
+        None => Vec::new(),
+    }
+}
+
+/// The header and the body, inside `rect`.
+fn draw_text(
     painter: &egui::Painter,
     rect: egui::Rect,
     spec: &ToastSpec,
@@ -348,6 +384,7 @@ mod tests {
                 egui::Color32::GRAY,
                 None,
                 None,
+                None,
             );
             let mut out = collected.lock().expect("the collector");
             out.push(content);
@@ -513,6 +550,7 @@ mod tests {
                 egui::Color32::GRAY,
                 None,
                 None,
+                None,
             );
         });
     }
@@ -565,9 +603,74 @@ mod tests {
                 egui::Color32::GRAY,
                 Some(picture(64.0)),
                 Some(picture(512.0)),
+                None,
             );
             assert!(rect.contains_rect(content));
         });
+    }
+
+    #[test]
+    fn the_action_row_fits_every_shape_and_width_in_every_language() {
+        // FEAT-0038: three buttons, the most there can be, in English, in
+        // Malay and in the pseudo-locale, on every shape at the narrowest
+        // and the default width — measured with the real UI font, at 100%,
+        // 150% and 200%, since text snaps to physical pixels (FEAT-0024).
+        for scale in [1.0_f32, 1.5, 2.0] {
+            let ctx = ctx();
+            ctx.set_pixels_per_point(scale);
+            let languages = [
+                ("Open", "Snooze", "Dismiss"),
+                ("Buka", "Tunda", "Tutup"),
+                (&*pseudo("Open"), &*pseudo("Snooze"), &*pseudo("Dismiss")),
+            ];
+            for shape in crate::spec::Shape::all() {
+                for width in [crate::spec::WIDTH.min, crate::spec::WIDTH.default] {
+                    for (open, snooze, dismiss) in languages {
+                        let mut spec = spec_with("Waktu Solat Zohor", "Waktu Zohor telah masuk.");
+                        spec.style.shape = shape;
+                        spec.style.width = width;
+                        spec.behaviour.actions = 3;
+                        spec.content.action_labels = crate::spec::ActionLabels {
+                            open: open.to_owned(),
+                            snooze: snooze.to_owned(),
+                            dismiss: dismiss.to_owned(),
+                        };
+                        let spec = spec.clamped();
+                        let _ = ctx.run(Default::default(), |ctx| {
+                        let painter = ctx.layer_painter(egui::LayerId::background());
+                        let frame = egui::Rect::from_min_size(
+                            egui::Pos2::ZERO,
+                            egui::vec2(spec.style.width, spec.style.toast_height()),
+                        );
+                        let content = render::content_rect(frame, &spec);
+                        let buttons = draw(
+                            &painter,
+                            content,
+                            &spec,
+                            egui::Color32::WHITE,
+                            egui::Color32::GRAY,
+                            None,
+                            None,
+                            None,
+                        );
+                        let kinds: Vec<_> = buttons.iter().map(|(a, _)| *a).collect();
+                        assert_eq!(kinds, crate::spec::Action::for_count(3));
+                        for (action, rect) in &buttons {
+                            assert!(
+                                content.expand(0.01).contains_rect(*rect),
+                                "{action:?} left the content of a {width} {shape:?} toast in {dismiss:?} at {scale}x"
+                            );
+                        }
+                        let (_, last) = buttons.last().expect("Dismiss");
+                        assert!(
+                            buttons.iter().all(|(_, r)| r.right() <= last.right()),
+                            "Dismiss is the rightmost"
+                        );
+                    });
+                    }
+                }
+            }
+        }
     }
 
     #[test]

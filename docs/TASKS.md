@@ -126,8 +126,8 @@ Refs: BUG-0003
 
 ```
 Version : v0.3.2
-Features : FEAT-0038
-Bugs : BUG-0009
+Features : FEAT-0039
+Bugs : BUG-0013
 Change Request : CR-0008
 ```
 
@@ -151,6 +151,215 @@ after v0.3.0, which Phase 3 holds on its own branch.
 - [x] App: not applicable — this item ships no user-visible behaviour
 - [x] Docs: README · README.ms · CHANGELOG
 - **Notes:** From now on every change to `README.md` changes `README.ms.md` in the same commit. Malay text is reviewed by a named native speaker before Phase 9, like the locale files.
+
+## v0.3.0 — In-Progress
+
+Phase 3, Glass and Animations. Exit criteria (docs/07-roadmap.md): "Each
+animation runs at 60 fps on the reference machine and falls back cleanly when
+it cannot". The spike (FEAT-0028) set how — ADR-016 — and the owner chose, on
+2026-11-17, to keep Phase 2's corners, shadow and opacity as they are and to
+make all three glass kinds from the accent policy's Acrylic.
+
+### FEAT-0028 · Spike: transparency, glass and frame rate on the reference machine
+- **State:** Completed · **Spec:** docs/08-decisions.md ADR-016 · **Phase:** 3
+- **Branch:** feat/phase-3-glass-animations
+- **Verified:** screen captures over a window of red and blue stripes, and frame counts from the log; the spike code was reverted and none of it is committed
+- [x] Per-pixel alpha: black with the frame as it is; **see-through with the frame extended into the client area**, at alpha 0 and alpha 128 — ADR-015's "no transparent window on this driver" corrected
+- [x] Glass: Windows 11 Mica, Acrylic and Tabbed backdrops draw a flat colour on an inactive window, even one the script tried to activate; the accent policy's plain blur draws black; **the accent policy's Acrylic blurs**, on an inactive window, with or without the corner region
+- [x] Windows' shadow (non-client rendering on) makes the Rectangle opaque black in every mode; with the shadow off it takes the glass like the others
+- [x] Frame rate: three deferred viewports — only the newest is ever repainted (60 fps), the others stop after two frames, with or without vsync and whoever asks; **three immediate viewports all repaint together, 54–56 fps in a debug build** with every window moved each frame
+- [x] ADR-016 recorded; spec §4.2 and §5 rewritten from it; the owner's two decisions recorded there
+- [x] Docs: ADR-016 · spec · ledger
+- **Notes:** The 60 fps criterion is measured in a release build once the animations exist, not here. Not checked: Windows 10, where the accent policy is the long-used path; there is no Windows 10 machine here.
+
+### FEAT-0029 · Toast windows: painted from the root's frame, with per-pixel alpha
+- **State:** Completed · **Spec:** docs/specs/toast.md §5 · ADR-016 · **Phase:** 3
+- **Branch:** feat/phase-3-glass-animations
+- **Depends on:** FEAT-0028
+- **Verified:** the gate, and the running app on a scratch data folder (screen captures over a striped window)
+- [x] Toasts are immediate viewports painted inside the root's frame (`ot_toast::viewport::show_all`); `paint` is an `FnMut` that borrows rather than a cloned `Send + Sync + 'static` closure. Repainting continuously while something animates is FEAT-0031's, where there is something to animate
+- [x] `ot_platform::toast_window` extends each toast's frame into its whole client area (margins −1) and the app clears to alpha 0, so the renderer's alpha reaches the desktop — except a Rectangle with Windows' shadow, which keeps today's path
+- [x] Phase 2's look unchanged: the corner region, window-alpha opacity, the Rectangle-only shadow, the preview
+- [x] Test: the viewport builder still carries every flag (`the_viewport_carries_every_flag_the_spec_names`, unchanged). The alpha reaching the desktop is DWM's doing and is checked on screen, not in a test: no unit test can see it
+- [x] Gate: fmt · clippy -D warnings · test --workspace --locked -j 4 (217) · deny check · --self-test
+- [x] App: `--data-dir ./tmp-data` — three sample toasts (`--test-toast`) over a striped window: corners, opacity at 70% and the Rectangle's shadow look exactly as in v0.10.0; the settings window and its Appearance preview unchanged. Frame counts on this code are FEAT-0031's check; the spike measured the same immediate path
+- [x] Docs: spec §5 and the viewport paragraph · CHANGELOG · GOTCHAS (in FEAT-0028's commit). README and CHECKLIST: nothing a user sees changed
+
+### FEAT-0030 · Glass: None, Blur, Acrylic, Mica-like
+- **State:** Completed · **Spec:** docs/specs/toast.md §4.2 · **Phase:** 3
+- **Branch:** feat/phase-3-glass-animations
+- **Depends on:** FEAT-0029
+- [x] `Glass` in `Style` (`none` by default, kebab-case in `settings.toml`; an unknown value loads as `none` with a warning) and the tint each kind lays over the blur — 45 %, 60 %, 88 %
+- [x] `ot_platform` applies the accent policy's Acrylic, loaded by name, with a faint grey tint of its own (a black one draws black); Windows older than 10 1809 or a refusal logs once and the toast is drawn solid
+- [x] Glass turns Windows' shadow off, and the Shadow control says why, in both languages
+- [x] Settings ▸ Appearance: a Glass dropdown (Title Case, both languages), and the preview's note that it shows the tint and not the blur
+- [x] Rectangle only (owner, 2026-11-18): Windows blurs the whole window rectangle past a rounded toast's region, so the Glass control is greyed out for the other shapes with the reason, and they draw solid
+- [x] Test: the tint per kind; a gradient tints with its first colour; glass on the Rectangle only; glass turns the shadow off; settings round-trip; an unknown kind loads as None and keeps the rest; text colour under glass follows the first colour
+- [x] Gate: fmt · clippy -D warnings · test --workspace --locked -j 4 (224 passed) · deny check · --self-test
+- [x] App: `--data-dir ./tmp-data` — each kind over the striped window and over the desktop, in Dark and Light toast colours; a Rectangle with glass shows no shadow; Malay labels fit
+- [x] Docs: spec · README · CHANGELOG · CHECKLIST · GOTCHAS
+- **Notes:** App, checked 2026-11-18 over a window of red and blue stripes (another process): Rectangle Blur, Acrylic and Mica-like each blur, graded, in a dark and a light toast colour; Rounded Rectangle and Pill stay solid with clean corners; the Rectangle with glass has no shadow; at 70 % opacity the blur fades too and the sharp stripes show faintly (spec §4.2); no glass warnings in the log. Over the ordinary desktop (a dark app window): Acrylic shows the blurred window, a light Blur toast keeps dark readable text. Appearance pane in Malay (Dark) and English (Light): the Glass row lines up, the dropdown is greyed with its hint on a rounded rectangle, both hints and the shadow's glass hint wrap inside the pane; the Blur preview's text reads in both themes. **Not checked:** the solid fallback after a refusal, which this Windows never gave; Windows 10; DPI above 100 %. Over OmniToaster's own settings window the blur samples black (GOTCHAS). Docs: spec, ADR-016 amendment, README and README.ms (the latter once FEAT-0037 created it, 2026-11-18), CHANGELOG and GOTCHAS done; the Docs box stayed open until the CHECKLIST moved at the end of the phase. Screenshots retaken and added when the phase closed, 2026-11-19 (`docs/screenshots/README.md`), and the CHECKLIST's Phase 3 rows written. `toast-glass.png` is a Rectangle with Acrylic over stripes.
+- **Owner decisions (2026-11-18):** glass for the Rectangle only; Blur at 45 % instead of "almost none".
+
+### FEAT-0031 · The animation model and the toast timeline
+- **State:** Completed · **Spec:** docs/specs/toast.md §5 · **Phase:** 3
+- **Branch:** feat/phase-3-glass-animations
+- **Depends on:** FEAT-0029
+- [x] `Animation` in `ToastSpec` and `Prefs`: in kind, out kind, duration (150–1000 ms, default 350, clamped in the model), easing (linear, ease-out, spring); defaults appear and ease-out; unknown words load as defaults with a warning; shrink to tray is out only
+- [x] `LiveToast` enters, holds and leaves, every method taking the time: the countdown starts when the in-animation ends; dismissal and expiry play the out-animation before the window closes; a queued toast has not entered; a leaving toast frees its place at once
+- [x] Toasts below a leaving one move up with the same easing (`Toasts::slots`, `placement::place_at`)
+- [x] The easing curves, with an alpha that never overshoots past solid
+- [x] Every effect plays as a fade of the window's alpha until FEAT-0032 to FEAT-0034 build it; an opacity-only change sets only the alpha, not the region
+- [x] Found on the way and fixed: a toast window flashed at full strength before its fade, because it showed before it was shaped — it now stays hidden until shaped, and enters then
+- [x] Found on the way and fixed: three toasts animated at 11–16 fps in a debug build because each window's present waited for vsync in turn; `vsync: false`, paced at 1/60 s while anything moves (ADR-016 amendment)
+- [x] Test: every stage boundary of the timeline; the countdown excludes the in-animation and hover; a toast dismissed mid-entry leaves from where it is; a toast waits for its window and starts anyway after a second; the stack slots while one leaves; the easing curves at 0, ½ and 1 and the spring's overshoot; the clamp; settings round-trip
+- [x] Gate: fmt · clippy -D warnings · test --workspace --locked -j 4 (234 passed) · deny check · --self-test
+- [x] App: `--data-dir ./tmp-data` — fire a test toast and watch it enter, hold for its whole duration and leave; dismiss one while it enters (done with FEAT-0038's Dismiss, 2026-11-18: dismissed 557 ms and 542 ms into a 1-second entry, each left in the same time, from where it had got to)
+- [x] Docs: spec · README · CHANGELOG · CHECKLIST · GOTCHAS
+- **Notes:** App, checked 2026-11-18: three toasts over the stripes, 1000 ms linear, captured from 36 ms to 5.8 s — nothing on screen until each window was shaped, then a fade in over a second, three seconds held, a fade out with the stack collapsing toward the edge, then gone; no flash. Frame counts from the log (`--log-level debug`), three toasts, reference machine: **release** 137–444 fps for every in and out, settings window open or minimised; **debug** 62 fps open, 46–48 minimised. CPU: 6% of one core with three toasts held, 1% with none. **Not checked yet:** dismissing a toast while it enters — nothing in the app can dismiss one until FEAT-0038 builds the Dismiss button (the owner's choice, 2026-11-18); the model's own test covers it. The App box waits for that. Hovering does nothing on screen yet: BUG-0009. No README text change, since the README already lists the animations. Screenshots retaken and added when the phase closed, 2026-11-19 (`docs/screenshots/README.md`), and the CHECKLIST's Phase 3 rows written.
+
+### FEAT-0032 · Slide from right, slide from bottom, drawer, pop out, appear
+- **State:** In-Progress · **Spec:** docs/specs/toast.md §5 · **Phase:** 3
+- **Branch:** feat/phase-3-glass-animations
+- **Depends on:** FEAT-0031
+- [x] One pure function decides every frame of every effect (`ot_toast::effects::look`): the window's rect, where the toast sits in it, its content's transform, the part that shows, its alpha; the window's region is cut to the toast as transformed and that part (`toast_window::Outline`)
+- [x] Slide from right and from bottom: the window travels in from beyond the work area's edge, clipped to it — never over the taskbar
+- [x] Drawer: the toast slides out of the edge it sits against, only the part that is out showing
+- [x] Pop out: scales from the centre, from 30%, fading in, with a spring's overshoot inside an 8% transparent margin
+- [x] Appear: an alpha ramp; the effects of FEAT-0033 and FEAT-0034 play as it until they are built
+- [x] Each one's mirror as its out-animation (progress run backwards)
+- [x] A click is brought back through the effect's transform before it meets the buttons
+- [x] Found on the way and fixed: egui's layer transforms are one map for the whole context, and every panel shares a layer id, so a toast's transform is cleared as soon as its window is painted (GOTCHAS)
+- [x] Test: every effect rests exactly where the toast belongs; at every preset, slides and drawers start hidden, a pop at 30% and the fades at alpha 0; a slide starts beyond the edge and is clipped to the work area at ½; a drawer's shift and visible half for every edge, against a table; a pop's scale at 0 and ½ and every frame of a spring inside the window; only a pop has a margin
+- [x] Gate: fmt · clippy -D warnings · test --workspace --locked -j 4 (248 passed) · deny check · --self-test
+- [ ] App: `--data-dir ./tmp-data` — each in and out at every corner, at 100% and 150% scaling; frame counts in a release build
+- [x] Docs: spec · README · CHANGELOG · CHECKLIST · GOTCHAS
+- **Notes:** App, checked 2026-11-18 at the default Bottom Right with three toasts, 1-second linear runs (spring for one pop run) captured every 100 ms with the taskbar in frame: slide from right enters from beyond the screen's edge; slide from bottom rises from the taskbar's top edge and never draws over it; the drawer opens out of the right-hand edge and closes back into it; pop grows from small and faint at the centre and shrinks back; appear fades. Clicking where Dismiss rests, while a drawer was still opening, dismissed nothing (the pointer mapped to the body); at rest it dismissed. Release build, three toasts at 350 ms: slide 143–312 fps, drawer 174–361, pop 158–285. **Not checked:** the other eight corners and edges on screen (the preset test covers their geometry), and 150% on screen (GOTCHAS: `--ui-scale`). When three toasts slide in from the same edge together they pass over one another; a single toast does not. **2026-11-19, the other eight positions:** each preset run with drawer, three toasts, the toast windows' rectangles read every 40 ms (no screen capture): every one rests inside the work area with the 16-point margin — Top Left 16,16; Top 1740,16; Top Right 3464,16; Left 16,956; Centre 1740,956; Right 3464,956; Bottom Left 16,1896; Bottom 1740,1896; Bottom Right 3464,1896 on a 3840 × 2064 work area — the stack grows away from its edge and glides back into place when the first toast leaves. Which edge a drawer opens from at each preset is the preset test's (`a_drawer_opens_from_the_edge_the_toast_sits_against`); it was seen on screen at Bottom Right only. **The App box stays open for one check this session cannot make: 150% on screen**, which needs Windows' display scaling changed (the owner's). A faint white box at the very start of every fade, visible over a light background, predates these effects: BUG-0010.
+
+### FEAT-0033 · Dissolve, glow and alpha to solid
+- **State:** Completed · **Spec:** docs/specs/toast.md §5 · **Phase:** 3
+- **Branch:** feat/phase-3-glass-animations
+- **Depends on:** FEAT-0031
+- [x] Dissolve: a noise mask that eats or grows the toast, generated once per toast size and cached (`effects::noise_for`); the window's region is cut to the cells that show, joined into runs per row and built in one `ExtCreateRegion` call
+- [x] Glow: a halo in the accent colour in an 18-point transparent margin, swelling and settling (`render::halo`); the region grows by the halo's reach while there is one
+- [x] Alpha to solid: the background, border and accent bar fade in behind text that is already there (`render::frame_with`)
+- [x] Each one's mirror as its out-animation
+- [x] Windows' shadow waits while a halo or a part-solid background needs the window see-through (`Look::shadow_ok`)
+- [x] Test: the noise is made once per grid (the same `Arc`), the cells grow in order, cover the toast at the end and about half at half way, and never overlap; the halo stays inside the window at every frame of a spring, alone and beside a pop, and has settled on arrival; alpha to solid keeps its text and ends at the toast's own opacity; every preset starts each effect hidden or bare
+- [x] Gate: fmt · clippy -D warnings · test --workspace --locked -j 4 (251 passed) · deny check · --self-test
+- [x] App: `--data-dir ./tmp-data` — each in and out over the striped window, in Dark and Light toast colours; frame counts in a release build
+- [x] Docs: spec · README · CHANGELOG · CHECKLIST · GOTCHAS
+- **Notes:** App, checked 2026-11-18 with three toasts, 1-second linear runs captured every 100 ms: dissolve builds up grain by grain and comes apart in reverse; glow's blue halo shows around each toast over the Light and the Dark settings window and has gone when it arrives; alpha to solid shows crisp text over a part-solid background, the Rectangle included. Release build, three toasts at 350 ms: dissolve 123–299 fps (56.6 at worst before the cells were joined into runs), glow 146–289, alpha to solid 126–552. **2026-11-19, a Light toast colour** (`background` set to near-white in `[toast.style]`), dissolve, glow and alpha to solid captured every ~35 ms over the Light settings window: the text turns dark on the light background, the glow's halo shows in the accent colour and has settled on arrival, dissolve's grains build the light toast, alpha to solid keeps its text crisp while the background comes in; no white box. The light runs were over the Light settings window rather than the stripes. The eight other positions: see FEAT-0032's notes. Screenshots retaken and added when the phase closed, 2026-11-19 (`docs/screenshots/README.md`), and the CHECKLIST's Phase 3 rows written.
+
+### FEAT-0034 · Genie from bottom, and shrink to tray
+- **State:** In-Progress · **Spec:** docs/specs/toast.md §5 · §12 question 2 · **Phase:** 3
+- **Branch:** feat/phase-3-glass-animations
+- **Depends on:** FEAT-0031
+- [x] Genie: a warp from the bottom edge in 24 bands, each the toast clipped to its slice and drawn through its own transform on a layer of its own (`effects::genie_bands`, `genie_layer`), in a window that covers its path for the toast's whole life; the region is cut to where the bands land
+- [x] Shrink to tray: Genie's out-animation, towards the tray icon (`Tray::icon_rect`, physical pixels, divided by the primary monitor's scale), or the work area's bottom-right corner when Windows will not say
+- [x] Answer §12's question 2 from the frame time measured on the reference machine: affordable, no capability check (spec §12)
+- [x] Found on the way and fixed: `set_shape` knew a mask by its number of rects, which suits a dissolve but not a Genie — 24 bands in new places every frame — so the window stayed cut to the warp's first frame; it is now known by a hash of its rects
+- [x] Test: the bands at t = 0 (all hidden below the work area), ½ (the top band in place, the bottom one narrow) and 1 (no warp, the toast where it belongs); every frame's bands touch with no gap and what shows is inside the window; shrink to tray heads for the icon, or the corner without one, and the window covers that path; at every preset both start hidden; two masks of the same size in different places are told apart
+- [x] Gate: fmt · clippy -D warnings · test --workspace --locked -j 4 (254 passed) · deny check · --self-test
+- [ ] App: `--data-dir ./tmp-data` — Genie in and out at each corner, with the tray icon visible and hidden in the overflow; frame counts in a release build
+- [x] Docs: spec · README · CHANGELOG · CHECKLIST · GOTCHAS
+- **Notes:** App, checked 2026-11-19 with three toasts at Bottom Right, 1-second linear runs captured every 100 ms: Genie pours each toast out of the bottom edge, top first, and sinks it back on the way out; shrink to tray pours them down and right into the corner and they vanish at the taskbar. Release build, three toasts at 350 ms: Genie in 189–277 fps, shrink to tray out 97–316, twice. Once in three shrink-to-tray runs the toasts showed at full strength for a frame before their fade; the next two runs did not, and plain Appear did not — recorded, not reproduced. **Not checked:** whether Windows gave the tray icon's position or the corner was used, and the icon visible versus in the overflow — that is the owner's taskbar setting, not changed here; the other eight positions on screen (placement at every preset: FEAT-0032's notes). **The App box stays open for the owner's check** of shrink to tray with the icon in the tray and in the overflow. Screenshots retaken and added when the phase closed, 2026-11-19 (`docs/screenshots/README.md`), and the CHECKLIST's Phase 3 rows written. `anim-genie.gif` is Genie from bottom, release build.
+
+### FEAT-0035 · Reduced motion and the 30 fps fallback
+- **State:** In-Progress · **Spec:** docs/specs/toast.md §5 · **Phase:** 3
+- **Branch:** feat/phase-3-glass-animations
+- **Depends on:** FEAT-0032, FEAT-0033, FEAT-0034
+- [x] Reduced motion follows Windows' "Show animations in Windows" (`SPI_GETCLIENTAREAANIMATION`, `ot_platform::motion`, re-read every five seconds and logged when it changes) and the `reduce_motion` setting (its switch is FEAT-0036's), and turns every animation into a fade (`LiveToast::animation`, `Animation::as_fade`)
+- [x] Frame-time budget: an effect whose frames fall below 30 fps — the median of its last six intervals — finishes as a fade, and the next toast starts as one; logged with the toast and the measured frame time
+- [x] A way to force both for checking: `--reduce-motion` and `--slow-frames` (every frame counted as 50 ms), debug builds only, passed through a `DevOptions` with the other development switches
+- [x] Test: the fallback triggers on a steady series of 50 ms frames and not on one 200 ms frame among 16 ms ones; the next toast starts as a fade and the one after does not; the floor forces it; reduced motion — Windows' or the setting — maps every kind to a fade, and neither leaves the toast's own effect; Windows answers the query
+- [x] Gate: fmt · clippy -D warnings · test --workspace --locked -j 4 (259 passed) · deny check · --self-test
+- [ ] App: `--data-dir ./tmp-data` — Windows' setting off and on, watching a toast; the fallback forced, watching a toast and reading the log
+- [x] Docs: spec · README · CHANGELOG · CHECKLIST · GOTCHAS
+- **Notes:** App, checked 2026-11-19 with slide from right: `--reduce-motion` — the toasts fade in place; `--slow-frames` — they start to slide in, then finish as a fade where they rest, and the log names each with "fell below 30 fps … frame_ms=57". The debug build also triggered the real fallback on its own in one run, at 28.8 fps. **Not checked:** turning Windows' own "Show animations" off and on — that is a system setting this session does not change; `--reduce-motion` stands in for it, and the platform test shows Windows answers the query. The App box stays open for the owner's check of that switch. Screenshots retaken and added when the phase closed, 2026-11-19 (`docs/screenshots/README.md`), and the CHECKLIST's Phase 3 rows written. A debug build under a capture loop fell back on its own again on 2026-11-19 (28.2 fps, logged), which is why the GIFs were recorded from a release build (GOTCHAS, Testing). A full-strength flash on a toast's first visible frame, seen in one of these runs, is BUG-0012.
+
+### FEAT-0036 · Settings ▸ Animation
+- **State:** Completed · **Spec:** docs/04-ui-design.md · docs/specs/toast.md §5 · **Phase:** 3
+- **Branch:** feat/phase-3-glass-animations
+- **Depends on:** FEAT-0031
+- [x] The pane the UI design names (`ot_ui::animation::controls`, `Section::Animation`): Animation In, Animation Out, Duration (a slider, 150–1000 ms in steps of 10), Easing, and Reduce Motion, with a line under it saying whether Windows' own "Show animations" is on, or that every animation fades; Windows' setting re-read every five seconds for the pane as well as for the toasts
+- [x] A Play button that fires a test toast with the chosen animation
+- [x] Every label a Fluent key in both languages, with a translator comment each — 9 pane keys, 10 effects, 3 easings — laid out for the longest Malay string; the pane saves when the pointer is released, as Appearance does
+- [x] Test: the layout test lays the Animation controls out with Appearance's, in English, Malay and the pseudo-locale, at the default and the narrow width, at 100%, 150% and 200% — nothing runs past the pane; settings round-trip with every animation field; every key is in both catalogues
+- [x] Gate: fmt · clippy -D warnings · test --workspace --locked -j 4 (259 passed) · deny check · --self-test
+- [x] App: `--data-dir ./tmp-data` — choose each animation and press Play, in both languages and all three themes; the narrow window
+- [x] Docs: spec · README · CHANGELOG · CHECKLIST · GOTCHAS
+- **Notes:** App, checked 2026-11-19: the pane in English and Dark, in Malay and Light with Reduce Motion ticked and Jin dari Bawah chosen, and in Malay and Dark at the 560-pixel minimum, where each label stacks above its field and the Windows hint wraps; every row on one middle line; the ▶ glyph seen drawn. Play with Slide from Right fired a test toast that was caught mid-slide. **2026-11-19, Play for every in-animation:** each of the nine chosen and Play pressed, the toast captured 350 ms later and the log's "a test toast was fired" read — slide from right (English, Dark), slide from bottom (Malay, Light), drawer (English, System), pop out (Malay, Dark), appear (English, Light), dissolve (Malay, System) with its grains still showing, glow (English, Dark) with its halo, alpha to solid (Malay, Light), Genie from bottom (English, System); shrink to tray is out only. The pane itself in the System theme follows Windows, which is Dark here; Windows' own theme switch, which System follows, was checked in Phase 1 (CR-0002) and not toggled here. **Not checked:** 150% on screen (FEAT-0032). Screenshots retaken and added when the phase closed, 2026-11-19 (`docs/screenshots/README.md`), and the CHECKLIST's Phase 3 rows written. `settings-animation.png` and `-ms.png`. README and README.ms describe the pane and show it.
+
+### BUG-0009 · Hovering a toast does not pause its countdown
+- **State:** Completed · **Spec:** docs/specs/toast.md §6 · **Phase:** 3
+- **Branch:** feat/phase-3-glass-animations
+- **Depends on:** FEAT-0031
+- **Source:** found while building FEAT-0031, 2026-11-18. §6 says hovering pauses the countdown; `LiveToast::set_hovered` does, and its test passes, but nothing in the app ever calls it, so on screen a toast under the pointer runs out as if it were not there. The owner chose to fix it in this phase as its own item
+- **Verified:** the reproducing test, the gate, and the pointer held over a toast in the running app
+- [x] Test first: the pointer over one toast pauses that toast only, and its remaining time runs once the pointer leaves (`the_pointer_over_one_toast_pauses_that_toast_only`; it failed first — `Toasts` had no way to tell a toast by id)
+- [x] Each toast's own viewport reports whether the pointer is over it (`hover_pos` in that viewport's input), and the app passes it to `Toasts::set_hovered` every frame
+- [x] Gate: fmt · clippy -D warnings · test --workspace --locked -j 4 (235 passed) · deny check · --self-test
+- [x] App: `--data-dir ./tmp-data` — three 3-second toasts, the pointer on the bottom one from about a second into its hold: the other two left on time; the hovered one was still alone on screen at 5.6 s, still there 1.5 s after the pointer moved away, and left 2.3 s after it moved — the two seconds it had left plus the leave (log and captures)
+- [x] Docs: spec (§6 already says it; no design change) · CHANGELOG · GOTCHAS
+
+### BUG-0010 · A toast's first frames show a white box over a light background
+- **State:** Completed — **closed by the owner, 2026-11-18, as not reproduced**; the boxes below stay open because no fix was made or needed · **Spec:** docs/specs/toast.md §5 · **Phase:** 3
+- **Branch:** feat/phase-3-glass-animations
+- **Depends on:** FEAT-0031
+- **Source:** found while checking FEAT-0032, 2026-11-18. Over a window of red and blue stripes, for roughly the first 150 ms of a fade in a debug build, each toast shows as a faint white box with no content before its real frames arrive. Over a dark desktop it cannot be seen
+- **What was tried and reverted** (none of it is in the code): starting the fade 150 ms after the window is shown removed the white but showed the toasts at full strength for a frame; keeping the window visible but far off-screen until shaped turned the shadowed Rectangle white for the whole fade. The cause to pin down first is what Windows shows between `ShowWindow` and the window's first present — likely egui not painting a hidden immediate viewport, so the first visible frame has nothing in it
+- **Investigated 2026-11-18 — not reproduced.** The white box came only from capture runs whose striped background window was not reliably on top. With the stripes forced topmost (`SetWindowPos(HWND_TOPMOST)`; WinForms' `TopMost` alone left it under Chrome), the brightness of a patch of the bottom toast's plain background was measured in every frame of a 1-second fade, twice each, on the committed build and on a build that shows each window only after a frame has been painted into it (the way eframe shows its own first window, egui PR 3631). Both read the same: the stripes' 139, then only darker, to the toast's 39 — never brighter, so no white box. Over OmniToaster's own window, light and dark, the same. The trial change made no difference, so it was not kept.
+- **Seen instead, in both builds:** for 150–200 ms after a toast's window shows, its picture does not change — the patch holds at one early value — and then jumps to where the fade has got to. The window's first frames are slow to reach the screen in a debug build while its timeline runs on, so the start of a fade skips. Not measured in a release build, where `--test-toast` does not exist.
+- [ ] Test first, if it can be made one: a frame-by-frame capture over a light window, taken by script, that fails while the white box is there
+- [ ] The fix
+- [ ] Gate: fmt · clippy -D warnings · test --workspace --locked -j 4 · deny check · --self-test
+- [ ] App: `--data-dir ./tmp-data` — every effect over a light window and a dark one, captured every 50 ms from the moment the toast appears; and the Rectangle with its shadow
+- [ ] Docs: spec · CHANGELOG · GOTCHAS
+
+### BUG-0011 · The first 150–200 ms of a toast's fade do not reach the screen
+- **State:** Completed · **Spec:** docs/specs/toast.md §5 · **Phase:** 3
+- **Branch:** feat/phase-3-glass-animations
+- **Depends on:** FEAT-0031
+- **Source:** found while investigating BUG-0010, 2026-11-18, filed by the owner's decision the same day. Measured frame by frame over a striped window in a debug build: after a toast's window shows, its picture holds at one early value for 150–200 ms, then jumps to where the fade has got to
+- **Verified:** the reproducing capture, before and after, in a release and a debug build; the gate; slides and pops on screen
+- [x] Measured in a release build (one toast from Settings ▸ Appearance ▸ Show a Test Toast, over a topmost striped window, a patch's brightness sampled from before the click): the first frame that reached the screen was already a third of the way through a 1-second fade (126 → 98 in one step), and the fade showed for about 680 ms of its 1000 — three runs alike. Not a debug-only effect
+- [x] The cause: Windows' own show animation. A frame takes a few milliseconds, so it was not slow painting; Windows plays a transition on a window it has just made visible, and for its length what is on screen is the transition, not the window's frames, while the toast's timeline runs on
+- [x] Test first: the release capture above is the reproducing check — it failed as described; a unit test would need a real Win32 window and a compositor, so this one is a script (`docs/GOTCHAS.md`, Testing)
+- [x] The fix: `DWMWA_TRANSITIONS_FORCEDISABLED` on every toast window, set with its other compositor settings in `toast_window::set_shape`, while it is still hidden
+- [x] Gate: fmt · clippy -D warnings · test --workspace --locked -j 4 (248 passed) · deny check · --self-test
+- [x] App: `--data-dir ./tmp-data` — after the fix, release: the fade starts at the background (129 → 125 → 123 …) and shows for 950 ms of its 1000, three runs alike; debug: a steady decline from the first frame, no hold, twice; slide from right and pop out captured every 100 ms look right, the pop now visibly small and faint at its start
+- [x] Docs: spec §5 · CHANGELOG · GOTCHAS
+
+### BUG-0012 · Now and then a toast's first visible frame is at full strength
+- **State:** Completed · **Spec:** docs/specs/toast.md §5 · **Phase:** 3
+- **Branch:** feat/phase-3-glass-animations
+- **Depends on:** FEAT-0031
+- **Source:** seen twice while checking FEAT-0034 and FEAT-0035, 2026-11-18/19, in debug builds captured every 100 ms: once in three shrink-to-tray runs, and once with `--reduce-motion` (the Pill at full strength at 340 ms, faint at 424, then fading in properly). Not in every run, and not every toast of a run
+- **Verified:** the reproducing count before and after, the gate, fades and Dismiss in the running app
+- [x] Reproduce it often enough to measure: the flash itself is intermittent, but its cause is not — `set_shape` now checks, on every call, that a toast meant to be see-through still has `WS_EX_LAYERED`, puts it back if not, and logs it. Before the fix that log line came **once per toast, in every run** (3 of 3 toasts, 3 of 3 runs)
+- [x] Find where the frame comes from: **winit**. Showing a window (`set_visible(true)`, which egui calls when a viewport's builder turns visible) runs `ShowWindow` and then writes the window's whole extended style from winit's own flags (`SetWindowLongW(GWL_EXSTYLE, …)` in `WindowFlags::apply_diff`), which drops `WS_EX_LAYERED` and so the toast's alpha — and `WS_EX_TOOLWINDOW` too, which is why `make_unobtrusive` has had to run every frame. The toast showed at full strength until the next `set_shape` put the alpha back; whether a screen capture caught that gap was chance
+- [x] Test first: the lost-alpha count above is the reproducing check — a unit test would need a real window shown through winit
+- [x] The fix: egui never shows a toast window — its builder always says hidden, so winit never rewrites it — and the app shows it itself once it is shaped and at its starting alpha (`toast_window::reveal`: the tool-window style first, then `ShowWindow(SW_SHOWNOACTIVATE)`). The every-call check stays, as a guard
+- [x] Gate: fmt · clippy -D warnings · test --workspace --locked -j 4 (259 passed) · deny check · --self-test
+- [x] App: `--data-dir ./tmp-data` — after the fix, three runs: no lost alpha logged, every toast fading in from its first frame, captured every 100 ms; Dismiss on a toast mid-entry and on one holding still works, so a window shown outside egui still takes its clicks
+- [x] Docs: spec §5 · CHANGELOG · GOTCHAS
+
+### FEAT-0038 · The action row, with Dismiss working
+- **State:** In-Progress · **Spec:** docs/specs/toast.md §4.3 · §9 · **Phase:** 3
+- **Branch:** feat/phase-3-glass-animations
+- **Depends on:** FEAT-0031
+- **Source:** the owner, 2026-11-18, choosing how a toast is dismissed so the timeline's out-animation can be used and checked: "Build the Dismiss button now". Then, the same day, the row's design: the buttons the actions setting asks for, Snooze and Open greyed until Phase 4; a bottom row that an auto-height toast grows to fit; "Tutup" in Malay
+- [x] The spec's action row designed first (§4.3): right-aligned along the bottom, Dismiss always last; 1 → Dismiss, 2 → Snooze · Dismiss, 3 → Open · Snooze · Dismiss; Snooze and Open greyed until Phase 4; an auto-height toast grows by 32 points, a fixed one keeps its height
+- [x] The renderer draws the row from the `ToastSpec` alone (`ot_toast::actions`, labels in `Content::action_labels`), so the preview shows it as well — drawn, not pressed
+- [x] Dismiss plays the out-animation (`Toasts::dismiss`); hover fills a working button more strongly without moving it; a greyed one takes none
+- [x] Labels from `toast-action-*` in both languages, each with a translator comment; the Malay Dismiss is now "Tutup", as `docs/10-i18n.md` and `PROPOSAL.md` say (GOTCHAS, Localization)
+- [x] One height for a toast, `Style::toast_height`, used by the window, the stack, the preview and the placement map
+- [x] Test: the row fits every shape at the narrowest and default widths in English, Malay and the pseudo-locale, at 100%, 150% and 200%, with Dismiss rightmost; the layout never leaves its row however long the labels; the body gives up exactly the row; only Dismiss works yet. The click itself is checked in the app: it is read from the toast window's own input against the rects the renderer returns
+- [x] Gate: fmt · clippy -D warnings · test --workspace --locked -j 4 (241 passed) · deny check · --self-test
+- [ ] App: `--data-dir ./tmp-data` — Dismiss on a holding toast and on one still entering (FEAT-0031's open check), in both languages and at 150% scaling
+- [x] Docs: spec · README · CHANGELOG · CHECKLIST · GOTCHAS
+- **Notes:** App, checked 2026-11-18 with three sample toasts (1 s fade, 8 s hold) and clicks at the computed button positions: in English and in Malay, Dismiss on the bottom toast while it entered (557 ms and 542 ms in) made it leave from there in the same time; the stack closed up; Dismiss on the toast then in the second place, while holding, made that one leave over the full second; Snooze ("Tunda") drawn greyed; hover lit Dismiss without moving it. **Not checked: 150% on screen.** `--ui-scale 1.5` places toasts off the screen (GOTCHAS, Testing), and real 150% means changing Windows' display scaling, which this session does not do; the layout test runs at 150% and 200% instead. The App box stays open for that. README and README.ms describe the row. Screenshots retaken and added when the phase closed, 2026-11-19 (`docs/screenshots/README.md`), and the CHECKLIST's Phase 3 rows written. Every toast screenshot now shows the row.
 
 ## v0.2.1 — Done 2026-11-16
 

@@ -61,8 +61,11 @@ language-ms-my = Bahasa Melayu
 toast-app-name = OmniToaster
 toast-test-title = Test Toast
 toast-test-body = This is what a toast looks like with your current settings.
+# A button in the toast's action row. Shown greyed until reminders exist (Phase 4).
 toast-action-snooze = Snooze
+# A button in the toast's action row that closes the toast with its out-animation.
 toast-action-dismiss = Dismiss
+# A button in the toast's action row. Shown greyed until reminders exist (Phase 4).
 toast-action-open = Open
 
 ## Where a toast appears: nine presets — four corners, four edges and the
@@ -98,6 +101,50 @@ error-import-unreadable = { $name } could not be read.
 toast-shape-rectangle = Rectangle
 toast-shape-rounded = Rounded Rectangle
 toast-shape-pill = Pill
+
+## Glass kinds, the Glass dropdown in Settings ▸ Appearance.
+
+# No glass: the toast's background is solid.
+toast-glass-none = None
+# The desktop behind the toast, blurred, with almost none of the toast's colour.
+toast-glass-blur = Blur
+# The blurred desktop under the toast's colour, part-transparent.
+toast-glass-acrylic = Acrylic
+# The toast's colour, mostly opaque, with only a hint of the desktop through it.
+toast-glass-mica-like = Mica-Like
+
+## Toast animations, the Animation In and Animation Out dropdowns in
+## Settings ▸ Animation. Title Case: they are list items.
+
+# The toast slides in from beyond the screen's right edge.
+toast-effect-slide-from-right = Slide from Right
+# The toast slides up from beyond the bottom of the screen's working area.
+toast-effect-slide-from-bottom = Slide from Bottom
+# The toast pours out of a point at the bottom of the screen, narrow first, like a genie from a lamp.
+toast-effect-genie-from-bottom = Genie from Bottom
+# The toast grows from its centre, overshooting a little with spring easing.
+toast-effect-pop-out = Pop Out
+# The toast slides out of the screen edge it sits against, like a drawer.
+toast-effect-drawer = Drawer
+# The toast fades in or out. Also what every animation becomes when motion is reduced.
+toast-effect-appear = Appear
+# The toast builds up, or comes apart, grain by grain.
+toast-effect-dissolve = Dissolve
+# A halo in the toast's accent colour swells around it and settles.
+toast-effect-glow = Glow
+# The text is there first; the background fades in behind it.
+toast-effect-alpha-to-solid = Alpha to Solid
+# Out only: the toast pours into the tray icon, like Genie in reverse.
+toast-effect-shrink-to-tray = Shrink to Tray
+
+## How an animation's progress is shaped over its duration, the Easing dropdown.
+
+# The same speed throughout.
+toast-easing-linear = Linear
+# Fast at first, settling gently at the end.
+toast-easing-ease-out = Ease-Out
+# Overshoots a little and settles, like a spring.
+toast-easing-spring = Spring
 
 ## The tray icon and its menu. Title Case for every item, because they are
 ## menu items. The glyph in front of each one is chosen in code, not here.
@@ -137,6 +184,29 @@ settings-section-general = General
 settings-section-appearance = Appearance
 # The section holding the image library: pictures uploaded once and used by any notification.
 settings-section-pictures = Picture Library
+# The section holding how toasts arrive and leave.
+settings-section-animation = Animation
+
+## Settings ▸ Animation. Title Case for the labels, sentence case for the hints.
+
+# How a toast arrives.
+settings-animation-enter = Animation In
+# How a toast leaves.
+settings-animation-leave = Animation Out
+# How long each animation takes, in milliseconds.
+settings-animation-duration = Duration
+# How the animation's progress is shaped over its duration.
+settings-animation-easing = Easing
+# A checkbox: play every animation as a fade.
+settings-animation-reduce = Reduce Motion
+# Under Reduce Motion, when Windows' own animations setting is on.
+settings-animation-windows-on = Windows shows animations, so the ones chosen here play unless Reduce Motion is ticked.
+# Under Reduce Motion, when Windows' own animations setting is off.
+settings-animation-windows-off = Windows' animations are turned off, so every animation plays as a fade.
+# Under Reduce Motion, when it is ticked.
+settings-animation-reduced = Every animation plays as a fade.
+# Button: fires a test toast with the animations chosen above.
+settings-animation-play = Play
 
 ## Settings ▸ Appearance. Title Case for the labels, sentence case for the
 ## hints.
@@ -151,6 +221,14 @@ settings-toast-border = Border
 settings-toast-shadow = Shadow
 # Under the Shadow checkbox when it is greyed out because the shape is not Rectangle.
 settings-toast-shadow-hint = Windows draws a shadow only for the Rectangle shape.
+# Under the Shadow checkbox when it is greyed out because glass is on.
+settings-toast-shadow-glass-hint = Windows draws no shadow behind glass.
+# Label of the dropdown choosing the glass kind.
+settings-toast-glass = Glass
+# Under the Glass dropdown when it is greyed out because the shape is not Rectangle.
+settings-toast-glass-shape-hint = Glass is available for the Rectangle shape only: Windows blurs the whole square behind a toast, past rounded corners.
+# Under the Glass dropdown when a glass kind is chosen: the preview cannot blur what is behind the settings window.
+settings-toast-glass-hint = The preview shows the colour, not the blur. Show a test toast to see the blur.
 settings-toast-background = Background
 settings-toast-accent = Accent Colour
 settings-toast-header = Header

@@ -1,6 +1,6 @@
 # Spec — Toasts
 
-**Status:** approved · **Last updated:** 2026-11-13 · **Source:** [PROPOSAL.md](../../PROPOSAL.md) §8.4–8.6
+**Status:** approved · **Last updated:** 2026-11-17 · **Source:** [PROPOSAL.md](../../PROPOSAL.md) §8.4–8.6
 **Owner crates:** `ot-toast`, `ot-ui` · **Phases:** 2 (core), 3 (glass and animations)
 
 ## 1. Purpose
@@ -62,12 +62,12 @@ renders without going through a `ToastSpec` is a defect.
 | Shape | Rectangle, rounded rectangle, pill | Corner radius 0–40 px |
 | Background | Solid colour, gradient | |
 | Opacity | Percent — fades the whole toast, text included (CR-0005) | 70%–100% |
-| Glass effect | None, Blur, Acrylic, Mica-like | Windows 10 1809+; solid fallback otherwise |
+| Glass effect | None, Blur, Acrylic, Mica-like (§4.2) | Rectangle only; greyed out for a rounded rectangle or a pill. Windows 10 1809+; solid fallback otherwise. Turns Windows' shadow off |
 | Border | Width and colour | 0–4 px |
 | Shadow | On or off — Windows' own shadow, which it draws only for the Rectangle shape (CR-0006) | Greyed out for a rounded rectangle or a pill |
 | Header | Icon, title, app name, timestamp | Each toggleable |
 | Body | Text (bold and italic), image | Image max 5 MB; PNG, JPG, WebP |
-| Actions | Snooze, Dismiss, Open | 1–3 buttons |
+| Actions | Snooze, Dismiss, Open, in a row along the bottom (§4.3) | 1–3 buttons (default 2) |
 | Position | One of nine presets, or a custom point, with a monitor choice | Respects the work area; a custom point is clamped into it |
 | Stacking | Max visible 1–5, with a gap | |
 
@@ -98,10 +98,90 @@ At Centre each bar follows the rounded corners round and stops where the
 curve ends. A pill's corners are its whole ends, so its two bars meet in a
 ring. A pill's text is inset for the curve on its round side or sides only.
 
+### 4.2 Glass
+
+The desktop behind the toast, blurred, under the toast's own colour — and
+always a blur that Windows draws, never a picture of the desktop the app takes.
+Windows 11's Mica and Acrylic backdrops draw only their flat fallback on a
+window that is not active, and a toast never is, so all three kinds come from
+the one call that blurs an inactive window: the accent policy's Acrylic
+(ADR-016). They differ in how much of the toast's background colour lies over
+the blur:
+
+| Kind | Tint over the blur | `settings.toml` |
+|---|---|---|
+| None | — the solid background, as in Phase 2 | `none` (the default) |
+| Blur | The background colour at 45%: the lightest glass | `blur` |
+| Acrylic | The background colour at 60% | `acrylic` |
+| Mica-like | The background colour at 88%: the desktop shows only as a hint of colour | `mica-like` |
+
+Blur was first specified as "almost none" (10%). Built that way, the text —
+whose colour follows the toast's own background — vanished over a desktop of
+the opposite lightness, so the owner set 45% on 2026-11-18. An unknown kind in
+`settings.toml` loads as `none` with a logged warning, and the rest of the
+toast's style still loads.
+
+**Rectangle only** (the owner, 2026-11-18). Windows draws the blur over the
+whole window rectangle and ignores the region that cuts a rounded rectangle's
+or a pill's corners, so those shapes with glass would show blurred square
+corners past their edge. The Glass control is greyed out for them, with the
+reason under it, like the shadow; the setting is kept and does nothing until
+the shape is a Rectangle again. Windows 11's own corner rounding would clip
+the blur, but only to its fixed radius, on all four corners and with its own
+shadow, so it can make neither a pill nor the square side the accent bar sits
+on (§4.1).
+
+Opacity still fades the whole window, the blur included, so below 100% the
+unblurred desktop shows faintly through a glass toast.
+
+A gradient tints with its first colour, and the text colour is judged by that
+colour alone. Where Windows refuses the call, or is
+older than 10 1809, the toast is drawn solid and the log says why — a glass
+that silently is not there is a defect. Glass and Windows' shadow exclude each
+other (ADR-016), so a Rectangle with glass has no shadow and the shadow
+control says so. The Settings preview shows the tint over the pane's own
+colour, not a blur: a preview cannot blur what is behind the settings window,
+and says so beside the control.
+
 **Images:** validated by magic bytes, not by extension. Decoded with a pixel
 limit of 4096 × 4096. Resized to a cached thumbnail. An oversize or corrupt
 file is rejected with a localized message naming the reason
 ([06-security-and-privacy.md](../06-security-and-privacy.md)).
+
+### 4.3 The action row
+
+(FEAT-0038, the owner's design, 2026-11-18.) Every toast has a row of buttons
+along the bottom of its content, **right-aligned**, below the body:
+
+| Actions setting | Buttons, left to right |
+|---|---|
+| 1 | Dismiss |
+| 2 (the default) | Snooze · Dismiss |
+| 3 | Open · Snooze · Dismiss |
+
+Dismiss is always there and always last, nearest the screen's edge on the
+right-hand presets. It plays the toast's out-animation (§5).
+
+**Snooze and Open are drawn greyed and do nothing until Phase 4**, when
+reminders give them something to act on; the owner chose to show the final
+layout now rather than a row that grows later. A greyed button takes no hover
+highlight.
+
+**An auto-height toast grows by the row** — 32 points, the row and the gap
+above it — so the body keeps every line it had. A toast with a fixed height
+keeps that height, and the body gives up the room. The window, the stack and
+the placement map all use the grown height.
+
+Each button is sized to its label with the same padding on each side, and is
+at least 64 points wide so a short label is still a comfortable target. If
+the row is wider than the content — the pseudo-locale on a narrow pill — the
+buttons share the width equally and a label that still does not fit ends in an
+ellipsis; Malay's "Tunda · Tutup · Buka" fits every shape at the narrowest
+width. **Hover** fills the button more strongly; it never grows or moves it.
+Colours come from the toast's own text colour, like its text: no colour is
+hard-coded. The labels are `toast-action-*` (§9), carried in the spec as text
+like every other string, so the Settings preview draws the same row — and the
+preview's buttons are drawn, not pressed.
 
 ## 5. Animations
 
@@ -112,15 +192,103 @@ solid.
 **Out:** the mirror of each in-preset, plus "shrink to tray" for Genie.
 
 **Settings:** type, duration 150–1000 ms (default 350 ms), easing (linear,
-ease-out, spring).
+ease-out, spring). Defaults: in and out **appear**, **ease-out**. In
+`settings.toml` they are the `[toast.animation]` table — `enter`, `leave`,
+`duration_ms`, `easing`, kebab-case; an unknown effect loads as `appear` and an
+unknown easing as `ease-out`, each with a warning, and shrink to tray as an
+in-animation becomes appear. Until an effect is built (FEAT-0032 to FEAT-0034)
+it plays as a fade.
 
-**Reduced motion** follows the Windows "Show animations" setting and switches to
-fade only.
+**Settings ▸ Animation** (FEAT-0036) holds them, in this order: Animation
+In (the nine in-effects), Animation Out (those and Shrink to Tray), Duration
+(a slider, 150–1000 ms), Easing, and Reduce Motion — a checkbox, with a line
+under it saying whether Windows' own "Show animations" is on, and, when either
+reduces motion, that every animation plays as a fade. **Play** fires a test
+toast with the choices as they stand; the pane has no preview, since an
+animation cannot be shown in a still one. Every label is a Fluent key in both
+languages, laid out for the longest Malay string and the pseudo-locale.
 
-**Implementation.** Slide and pop are window position and scale updates.
-Dissolve and glow are painted meshes with alpha masks. Genie is a mesh warp.
-Each effect has a frame-time budget and **falls back to fade below 30 fps** —
-the fallback is automatic and logged, never a visible stutter.
+**Reduced motion** (FEAT-0035) follows the Windows "Show animations" setting
+(`SPI_GETCLIENTAREAANIMATION`, re-read every five seconds and logged when it
+changes) and the `reduce_motion` setting in `[toast.animation]`: either one
+makes every effect, in and out, a fade. The setting's switch is the
+Animation pane's (FEAT-0036).
+
+**Implementation.** Appear and alpha to solid are alpha ramps — alpha to
+solid fades the background in behind text that is already there. Dissolve and
+glow are painted with alpha masks; glow's halo lies in a transparent margin.
+Genie is a mesh warp inside a window that covers its path. Every one of them
+needs per-pixel alpha, which the toast window has (ADR-016).
+
+One pure function, `ot_toast::effects::look`, decides each frame of each
+effect (FEAT-0032): the window's rect, where the toast sits in it, the
+transform its content is drawn with, the part of the window that shows, and
+an alpha. The window is cut to the toast as transformed, intersected with
+that part, so nothing outside it shows or takes a click. An out-animation is
+its in-animation run backwards.
+
+| Effect | What moves | What shows |
+|---|---|---|
+| Slide from right / from bottom | The **window**, from just beyond the work area's right or bottom edge to its place | Only what is inside the work area: never over the taskbar, never on the monitor next door |
+| Drawer | The **toast inside its window**, out of the edge it sits against (§4.1; the centre opens from the top) | Only the part that is out |
+| Pop out | The toast, **scaled** from its centre from 30% to full size, fading in as it grows | All of it; the window has a transparent margin of 8% of the toast's size on each side, room for a spring's overshoot (about 14%) |
+| Appear | Nothing: a fade | All of it |
+| Dissolve (FEAT-0033) | Nothing: the toast builds up **grain by grain** — 6-point cells, each with a fixed noise value made once per toast size and cached, showing once the progress passes it | The cells that show: the window's region is cut to them, joined into runs along each row so it stays cheap to rebuild every frame |
+| Glow (FEAT-0033) | A **halo** in the toast's accent colour, swelling while the toast fades in and settled to nothing when it has arrived | All of it; the window has an 18-point transparent margin, and its region grows by the halo's reach while there is one |
+| Genie from bottom (FEAT-0034) | The toast **pours out of a point** on the work area's bottom edge under it, in 24 horizontal bands: the top band leaves first, the bottom one last, each narrowing towards the point and stacked on the one above with no gap. egui scales evenly, so a narrow band is also a short one — a trumpet rather than macOS's bent sheet — and its edge is stepped | The bands within the work area; the window spans the whole path, for the toast's whole life, so it never changes size |
+| Shrink to tray (FEAT-0034, out only) | Genie's warp, into the **tray icon** — or the work area's bottom-right corner when Windows will not say where the icon is | As Genie |
+| Alpha to solid (FEAT-0033) | Only the **background**, border and accent bar fade in; the text is there from the first frame | All of it |
+
+Every toast starts each effect invisible — beyond the edge, shut, or at alpha
+0 — and rests exactly where the stack puts it. A click is brought back
+through the effect's transform before it meets the buttons, so a drawer
+still sliding out has no Dismiss where the resting toast's would be. When
+several toasts slide in from the same edge together, they pass over one
+another on the way to their places. Mid-warp a Genie's buttons are bands on a
+path and take no click. Windows' shadow, on a Rectangle, waits while an effect needs
+the window see-through — a halo, a background not yet solid — and appears when
+the toast has arrived; a window with a transparent margin (pop, glow) never
+has it.
+
+**The timeline.** A toast enters, holds, and leaves. Its display duration
+(§6) counts the hold only: the countdown starts when the in-animation ends,
+and a toast that is dismissed or runs out plays its out-animation before its
+window closes. A toast waiting in the stacking queue has not entered. While a
+toast leaves, the ones below it move up with the same easing rather than
+jumping, and its place is free at once, so a queued toast starts to enter
+while it goes. A toast dismissed while it enters leaves from where it had got
+to, taking only as long as it had come. Its window is kept **hidden until it
+has been shaped** and given its alpha, and the in-animation starts then — a
+window shown first flashes at full strength before its fade; one whose window
+has not turned up within a second starts anyway, with a warning in the log.
+Hovering during the entry costs the countdown nothing, since it has not
+started. A toast's window is shown by the app (`toast_window::reveal`), never by egui:
+showing a window, winit rewrites its whole extended style, which took away the
+alpha a toast starts at and showed it at full strength for a frame (BUG-0012).
+Windows' own show animation is turned off on every toast window
+(`DWMWA_TRANSITIONS_FORCEDISABLED`): while it played, the screen showed it
+instead of the toast's frames, and the first third of every entry was lost
+(BUG-0011). The toast animates itself.
+
+**One clock.** Every toast is painted in the same frame as the app's root
+window (ADR-016), so all of them animate together, and the frame time measured
+is the whole frame's. Each effect has a frame-time budget and **falls back to
+fade below 30 fps** — the fallback is automatic and logged, never a visible
+stutter. While a toast animates, the intervals between its last six frames
+are kept; when their median is slower than 1/30 s, that toast finishes as a
+fade and the next toast to arrive starts as one, and the log names the toast
+and the frame time measured. A median, so a single slow frame — a window being
+created — does not trigger it. In a debug build `--reduce-motion` and
+`--slow-frames` (every frame counted as 50 ms) force the two for checking. 60 fps is measured on the reference machine (ADR-016), in a release
+build. **There is no vsync**: with it, each window's present waited for the
+next refresh in turn, and four windows held a frame to 12–32 fps. Instead a
+frame is asked for every 1/60 s while anything moves, and none while nothing
+does except at the moment a countdown runs out. Every animation logs, at debug
+level, the frames it took and its frame rate — the measurement itself.
+
+**Easing.** Linear, ease-out (cubic), and spring (a damped overshoot that
+settles within the duration). Spring applies to motion and scale; an alpha
+never overshoots past solid.
 
 ## 6. Duration
 
@@ -354,8 +522,12 @@ cargo run -p omnitoaster -- --data-dir ./tmp-data
    the toast is taller than 80 px. The shape decides its own radius —
    rectangle is always 0, pill is always half the height, and only the rounded
    rectangle uses the number on the slider.
-2. Whether Genie's mesh warp is affordable on integrated graphics, or should be
-   gated behind a capability check rather than a frame-time fallback.
+2. ~~Whether Genie's mesh warp is affordable on integrated graphics, or should be
+   gated behind a capability check rather than a frame-time fallback.~~
+   **Answered (FEAT-0034): affordable — no capability check.** Measured on the
+   reference machine (Intel Iris Xe), release build, three toasts at 350 ms:
+   Genie in at 189 fps or more and shrink to tray out at 97 or more, twice. The
+   frame-time fallback of FEAT-0035 is the only guard it needs.
 
 ## What is implemented (2026-11-09)
 
@@ -425,7 +597,7 @@ than a rectangle, because its round ends would clip the first glyph. Checked
 in the running app: every shape at 100%, 150% and 200%, in Malay, with nothing
 overflowing.
 
-**The viewport** (FEAT-0018). One deferred viewport per toast, keyed on the
+**The viewport** (FEAT-0018; immediate since FEAT-0029, ADR-016). One viewport per toast, painted in the root window's frame, keyed on the
 toast's own id so it keeps one window instead of getting a new one each frame.
 Several live at once, which is what stacking needs. Hovering pauses the
 countdown, and the surplus beyond `max visible` queues rather than being

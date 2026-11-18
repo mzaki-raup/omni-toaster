@@ -57,8 +57,11 @@ language-ms-my = Bahasa Melayu
 toast-app-name = OmniToaster
 toast-test-title = Toast Ujian
 toast-test-body = Beginilah rupa toast dengan tetapan anda sekarang.
+# Butang dalam baris tindakan toast. Ditunjukkan dikelabukan sehingga peringatan wujud (Fasa 4).
 toast-action-snooze = Tunda
-toast-action-dismiss = Tolak
+# Butang dalam baris tindakan toast yang menutup toast itu. "Tutup", bukan "Tolak": pemberitahuan ditutup, bukan ditolak.
+toast-action-dismiss = Tutup
+# Butang dalam baris tindakan toast. Ditunjukkan dikelabukan sehingga peringatan wujud (Fasa 4).
 toast-action-open = Buka
 
 ## Tempat toast muncul: sembilan kedudukan pratetap — empat bucu, empat tepi
@@ -93,6 +96,50 @@ error-import-unreadable = { $name } tidak dapat dibaca.
 toast-shape-rectangle = Segi Empat Tepat
 toast-shape-rounded = Segi Empat Bucu Bulat
 toast-shape-pill = Pil
+
+## Jenis kaca, menu lungsur Kaca dalam Tetapan ▸ Penampilan.
+
+# Tiada kaca: latar belakang toast padu.
+toast-glass-none = Tiada
+# Desktop di belakang toast, dikaburkan, dengan hampir tiada warna toast.
+toast-glass-blur = Kabur
+# Desktop yang dikaburkan di bawah warna toast, separa lut sinar.
+toast-glass-acrylic = Akrilik
+# Warna toast, kebanyakannya legap, dengan sedikit desktop kelihatan.
+toast-glass-mica-like = Seperti Mika
+
+## Animasi toast, menu lungsur Animasi Masuk dan Animasi Keluar dalam
+## Tetapan ▸ Animasi. Huruf Besar Setiap Perkataan: ia item senarai.
+
+# Toast menggelongsor masuk dari luar tepi kanan skrin.
+toast-effect-slide-from-right = Gelongsor dari Kanan
+# Toast menggelongsor naik dari bawah kawasan kerja skrin.
+toast-effect-slide-from-bottom = Gelongsor dari Bawah
+# Toast mengalir keluar dari satu titik di bawah skrin, sempit dahulu, seperti jin keluar dari pelita.
+toast-effect-genie-from-bottom = Jin dari Bawah
+# Toast membesar dari tengahnya, terlebih sedikit dengan pelonggaran pegas.
+toast-effect-pop-out = Timbul
+# Toast menggelongsor keluar dari tepi skrin tempat ia berada, seperti laci.
+toast-effect-drawer = Laci
+# Toast muncul atau hilang secara pudar. Inilah juga yang dimainkan apabila gerakan dikurangkan.
+toast-effect-appear = Muncul
+# Toast terbentuk, atau hancur, butir demi butir.
+toast-effect-dissolve = Larut
+# Lingkaran cahaya dalam warna aksen toast mengembang di sekelilingnya lalu reda.
+toast-effect-glow = Bercahaya
+# Teks muncul dahulu; latar belakang menjadi padu di belakangnya.
+toast-effect-alpha-to-solid = Lut Sinar ke Padu
+# Keluar sahaja: toast mengalir masuk ke ikon dulang, seperti Jin secara terbalik.
+toast-effect-shrink-to-tray = Kecut ke Dulang
+
+## Cara kemajuan animasi dibentuk sepanjang tempohnya, menu lungsur Pelonggaran.
+
+# Kelajuan yang sama sepanjang masa.
+toast-easing-linear = Linear
+# Laju pada mulanya, perlahan dengan lembut pada akhirnya.
+toast-easing-ease-out = Perlahan di Hujung
+# Terlebih sedikit lalu reda, seperti pegas.
+toast-easing-spring = Pegas
 
 ## Ikon dulang dan menunya. Huruf Besar Setiap Perkataan untuk setiap item,
 ## kerana ia item menu. Glif di hadapan setiap satu dipilih dalam kod.
@@ -132,6 +179,30 @@ settings-section-general = Umum
 settings-section-appearance = Penampilan
 # Bahagian pustaka gambar: gambar dimuat naik sekali dan digunakan oleh mana-mana pemberitahuan.
 settings-section-pictures = Pustaka Gambar
+# Bahagian yang menetapkan cara toast muncul dan hilang.
+settings-section-animation = Animasi
+
+## Tetapan ▸ Animasi. Huruf Besar Setiap Perkataan untuk label, huruf biasa
+## untuk petunjuk.
+
+# Cara toast muncul.
+settings-animation-enter = Animasi Masuk
+# Cara toast hilang.
+settings-animation-leave = Animasi Keluar
+# Berapa lama setiap animasi, dalam milisaat.
+settings-animation-duration = Tempoh
+# Cara kemajuan animasi dibentuk sepanjang tempohnya.
+settings-animation-easing = Pelonggaran
+# Kotak semak: mainkan setiap animasi sebagai pudar.
+settings-animation-reduce = Kurangkan Gerakan
+# Di bawah Kurangkan Gerakan, apabila tetapan animasi Windows dihidupkan.
+settings-animation-windows-on = Windows menunjukkan animasi, jadi animasi yang dipilih di sini dimainkan kecuali Kurangkan Gerakan ditanda.
+# Di bawah Kurangkan Gerakan, apabila tetapan animasi Windows dimatikan.
+settings-animation-windows-off = Animasi Windows dimatikan, jadi setiap animasi dimainkan sebagai pudar.
+# Di bawah Kurangkan Gerakan, apabila ia ditanda.
+settings-animation-reduced = Setiap animasi dimainkan sebagai pudar.
+# Butang: menunjukkan toast ujian dengan animasi yang dipilih di atas.
+settings-animation-play = Mainkan
 
 ## Tetapan ▸ Penampilan. Huruf Besar Setiap Perkataan untuk label, huruf biasa
 ## untuk petunjuk.
@@ -146,6 +217,14 @@ settings-toast-border = Sempadan
 settings-toast-shadow = Bayang
 # Di bawah kotak semak Bayang apabila ia dikelabukan kerana bentuknya bukan Segi Empat Tepat.
 settings-toast-shadow-hint = Windows melukis bayang hanya untuk bentuk Segi Empat Tepat.
+# Di bawah kotak semak Bayang apabila ia dikelabukan kerana kaca dihidupkan.
+settings-toast-shadow-glass-hint = Windows tidak melukis bayang di belakang kaca.
+# Label menu lungsur yang memilih jenis kaca.
+settings-toast-glass = Kaca
+# Di bawah menu lungsur Kaca apabila ia dikelabukan kerana bentuknya bukan Segi Empat Tepat.
+settings-toast-glass-shape-hint = Kaca hanya tersedia untuk bentuk Segi Empat Tepat: Windows mengaburkan seluruh petak di belakang toast, melepasi bucu bulat.
+# Di bawah menu lungsur Kaca apabila satu jenis kaca dipilih: pratonton tidak dapat mengaburkan apa yang di belakang tetingkap tetapan.
+settings-toast-glass-hint = Pratonton menunjukkan warna, bukan kesan kabur. Tunjukkan toast ujian untuk melihat kesan kabur.
 settings-toast-background = Latar Belakang
 settings-toast-accent = Warna Aksen
 settings-toast-header = Pengepala

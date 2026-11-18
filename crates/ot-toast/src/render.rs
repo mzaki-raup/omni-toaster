@@ -48,11 +48,23 @@ pub fn colour(rgba: Rgba, alpha: f32) -> egui::Color32 {
 /// border and by a padding that keeps text off the edge, and inset further on
 /// a pill, whose round ends would otherwise clip the first and last glyph.
 pub fn frame(painter: &egui::Painter, rect: egui::Rect, spec: &ToastSpec) -> egui::Rect {
-    let alpha = 1.0;
+    frame_with(painter, rect, spec, 1.0)
+}
+
+/// [`frame`], with its background, border and accent bar at `background`
+/// (0.0–1.0) of their own alpha: alpha to solid fades them in behind text
+/// that is already there (`docs/specs/toast.md` §5).
+pub fn frame_with(
+    painter: &egui::Painter,
+    rect: egui::Rect,
+    spec: &ToastSpec,
+    background: f32,
+) -> egui::Rect {
+    let alpha = background.clamp(0.0, 1.0);
     let radii = corner_radii(spec, rect.height());
     let corner = to_corner(radii);
 
-    if spec.style.shadow.shows(spec.style.shape) {
+    if spec.style.shadow.shows(spec.style.shape, spec.style.glass) {
         let shadow = egui::epaint::Shadow {
             offset: [0, SHADOW_OFFSET.round() as i8],
             blur: SHADOW_BLUR.round() as u8,
@@ -62,12 +74,15 @@ pub fn frame(painter: &egui::Painter, rect: egui::Rect, spec: &ToastSpec) -> egu
         painter.add(shadow.as_shape(rect, corner));
     }
 
-    match spec.style.background_to {
+    match (glass_fill(spec), spec.style.background_to) {
+        (Some(fill), _) => {
+            painter.rect_filled(rect, corner, fill);
+        }
         // A gradient is painted as a mesh, then clipped to the shape by
         // drawing the rounded frame over it as a stroke-only rect. egui has no
         // rounded gradient fill, and a mesh with rounded corners of its own
         // would need a tessellated path for something the stroke already does.
-        Some(to) => {
+        (None, Some(to)) => {
             gradient(
                 painter,
                 rect,
@@ -76,7 +91,7 @@ pub fn frame(painter: &egui::Painter, rect: egui::Rect, spec: &ToastSpec) -> egu
                 corner,
             );
         }
-        None => {
+        (None, None) => {
             painter.rect_filled(rect, corner, colour(spec.style.background, alpha));
         }
     }
@@ -99,6 +114,38 @@ pub fn frame(painter: &egui::Painter, rect: egui::Rect, spec: &ToastSpec) -> egu
     );
 
     content_rect(rect, spec)
+}
+
+/// What a glass toast paints for its background, or `None` for a solid one.
+///
+/// The background colour, part-transparent, over the blur Windows draws
+/// behind the window (`docs/specs/toast.md` §4.2); a gradient tints with its
+/// first colour. In the Settings preview it lies over the pane instead, which
+/// is the tint without the blur, as the spec says.
+fn glass_fill(spec: &ToastSpec) -> Option<egui::Color32> {
+    spec.style
+        .glass
+        .on(spec.style.shape)
+        .tint()
+        .map(|tint| colour(spec.style.background, tint))
+}
+
+/// A glow's halo around the toast at `rect`, in the toast's accent colour,
+/// `strength` 0.0–1.0 of its fullest (`docs/specs/toast.md` §5). Painted
+/// before the frame, so it lies under the toast and shows only in the
+/// window's transparent margin.
+pub fn halo(painter: &egui::Painter, rect: egui::Rect, spec: &ToastSpec, strength: f32) {
+    let strength = strength.clamp(0.0, 1.0);
+    if strength <= 0.0 {
+        return;
+    }
+    let shadow = egui::epaint::Shadow {
+        offset: [0, 0],
+        blur: (crate::effects::HALO_BLUR * strength).round() as u8,
+        spread: (crate::effects::HALO_SPREAD * strength).round() as u8,
+        color: colour(spec.accent(), 0.9 * strength),
+    };
+    painter.add(shadow.as_shape(rect, to_corner(corner_radii(spec, rect.height()))));
 }
 
 /// The radius of each corner in points, `[nw, ne, sw, se]`.
@@ -289,6 +336,32 @@ mod tests {
                 colour(accent, alpha),
                 egui::Color32::from_rgba_unmultiplied(0x3b, 0x9e, 0xff, expected_a),
                 "at {alpha}"
+            );
+        }
+    }
+
+    #[test]
+    fn glass_tints_with_the_first_colour_and_solid_paints_no_tint() {
+        use crate::spec::Glass;
+        let mut spec = ToastSpec::default();
+        assert_eq!(glass_fill(&spec), None, "no glass: the solid path");
+        spec.style.glass = Glass::Acrylic;
+        assert_eq!(
+            glass_fill(&spec),
+            None,
+            "a rounded rectangle is drawn solid: glass is for the Rectangle"
+        );
+
+        spec.style.shape = Shape::Rectangle;
+        spec.style.background = Rgba::new(0x26, 0x26, 0x2c, 0xff);
+        spec.style.background_to = Some(Rgba::new(0xff, 0x00, 0x00, 0xff));
+        for glass in [Glass::Blur, Glass::Acrylic, Glass::MicaLike] {
+            spec.style.glass = glass;
+            let tint = glass.tint().expect("a tint");
+            assert_eq!(
+                glass_fill(&spec),
+                Some(colour(spec.style.background, tint)),
+                "{glass:?} tints with the first colour, not the gradient's end"
             );
         }
     }

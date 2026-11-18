@@ -90,19 +90,28 @@ Windows, jadi hampir setiap aspeknya boleh ditetapkan:
 - **Warna:** latar belakang padu atau kecerunan, lebar dan warna sempadan, serta
   bayang untuk bentuk Segi Empat Tepat
 - **Lut sinar:** kelegapan 70–100 %; seluruh toast pudar, termasuk teksnya
-- **Kaca:** Tiada, Kabur, Akrilik atau Seperti Mika
+- **Kaca:** Tiada, Kabur, Akrilik atau Seperti Mika — desktop di belakang toast
+  Segi Empat Tepat, dikaburkan oleh Windows, di bawah 45 %, 60 % atau 88 %
+  warna toast. Untuk Segi Empat Tepat sahaja, kerana Windows mengaburkan
+  melepasi bucu bulat; memerlukan Windows 10 1809 atau lebih baharu, dan dilukis
+  padu apabila Windows menolak. Toast berkaca tidak mempunyai bayang
 - **Animasi:** lebih daripada lapan pratetap — gelongsor dari kanan, gelongsor
   dari bawah, Genie dari bawah, timbul, laci, muncul, larut, cahaya, lut sinar
   ke padu — setiap satunya dengan pratetap keluar yang bercermin serta "kecut
   ke dulang", tempoh 150–1000 ms dan pelonggaran linear, perlahan di hujung
-  atau pegas. Pilihan kurangkan gerakan mengikut tetapan "Tunjukkan animasi"
-  Windows dan beralih kepada pudar
+  atau pegas, dipilih dalam Tetapan ▸ Animasi, tempat Mainkan menunjukkan
+  toast ujian dengannya. Kurangkan Gerakan — atau tetapan "Tunjukkan animasi"
+  Windows yang dimatikan — memainkan setiap satunya sebagai pudar, dan animasi
+  yang jatuh di bawah 30 fps berakhir sebagai pudar
 - **Tempoh paparan:** 3–60 saat (lalai 8), atau kekal bagi jenis yang mendesak,
   dengan kiraan masa dijeda semasa penuding berada di atas toast
 - **Pengepala:** ikon, tajuk, nama aplikasi dan cap masa, masing-masing boleh
   dihidupkan atau dimatikan
 - **Isi:** teks dengan huruf tebal dan condong, serta imej (PNG, JPG atau WebP,
   hingga 5 MB)
+- **Tindakan:** satu hingga tiga butang di bahagian bawah — Tunda, Tutup, Buka.
+  Tutup menutup toast dengan animasi keluarnya; Tunda dan Buka dikelabukan
+  sehingga peringatan tiba dalam fasa kemudian
 - **Pustaka Gambar:** muat naik gambar sekali — masjid, mesyuarat, jam loceng —
   namakannya, dan gunakannya dalam mana-mana pemberitahuan sebagai ikon atau
   imejnya. Membuang gambar yang masih digunakan akan meminta pengesahan dahulu.
@@ -243,6 +252,19 @@ Toast yang sama di atas tetingkap cerah ialah
 [toast-light.png](docs/screenshots/toast-light.png): toast mengekalkan warnanya
 sendiri walau apa pun tema tetingkap itu.
 
+Toast Segi Empat Tepat dengan kaca Akrilik: desktop di belakangnya — di sini
+tetingkap berjalur — dikaburkan oleh Windows di bawah 60 % warna toast itu:
+
+![Toast segi empat tepat dengan kaca Akrilik di atas tetingkap berjalur](docs/screenshots/toast-glass.png)
+
+Gelongsor dari Kanan, masuk dan keluar, dan Jin dari Bawah, yang mencurah keluar
+dari tepi bawah skrin berjalur-jalur — kedua-duanya dirakam daripada binaan
+keluaran:
+
+![Toast menggelongsor masuk dari kanan, kekal, dan menggelongsor keluar](docs/screenshots/anim-slide.gif)
+
+![Toast mencurah naik dari tepi bawah dan kembali turun ke dalamnya](docs/screenshots/anim-genie.gif)
+
 Tetapan ▸ Umum, skrin pertama aplikasi ini:
 
 ![Tetapan ▸ Umum dalam tema Gelap](docs/screenshots/settings-general.png)
@@ -256,6 +278,14 @@ sebenar:
 ![Tetapan ▸ Penampilan dengan pratonton langsung](docs/screenshots/settings-appearance.png)
 
 Dalam bahasa Melayu: [settings-appearance-ms.png](docs/screenshots/settings-appearance-ms.png).
+
+Tetapan ▸ Animasi, tempat animasi masuk dan keluar, tempoh dan pelonggarannya
+dipilih, tetapan animasi Windows sendiri dinyatakan di bawah Kurangkan Gerakan,
+dan Mainkan memaparkan toast ujian dengannya:
+
+![Tetapan ▸ Animasi](docs/screenshots/settings-animation.png)
+
+Dalam bahasa Melayu: [settings-animation-ms.png](docs/screenshots/settings-animation-ms.png).
 
 Tetapan ▸ Pustaka Gambar, tempat gambar dimuat naik sekali dan dinamakan,
 dengan gambar yang disertakan bersama aplikasi disenaraikan di bawahnya:
@@ -271,10 +301,8 @@ diambil apabila fasanya siap:
 
 | Imej | Menunjukkan | Dalam fasa |
 |---|---|---|
-| `docs/screenshots/toast-glass.png` | Kesan kaca Akrilik | Fasa 3 |
 | `docs/screenshots/tray-menu.png` | Ikon dulang dan menunya | Fasa 1 |
 | `docs/screenshots/settings-prayer.png` | Tetapan → Solat, pengesahan zon dan label sumber | Fasa 5 |
-| `docs/screenshots/animation-in.gif` | Animasi masuk dan keluar | Fasa 3 |
 | `docs/screenshots/flow-reminder.gif` | Mencipta peringatan dan melihatnya dipaparkan | Fasa 4 |
 
 Setiap tangkapan skrin diambil dalam bahasa Inggeris dan bahasa Melayu sebelum
