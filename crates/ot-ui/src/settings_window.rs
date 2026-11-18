@@ -789,6 +789,12 @@ impl SettingsWindow {
         // in-animation starts now, and they are shown.
         let mut shaped = Vec::new();
         let shaped_now = &mut shaped;
+        // Whether the pointer is over each toast's window this frame. Each
+        // toast is its own viewport with its own input, so the pointer is
+        // read inside it; a toast is never focused, but Windows still sends
+        // the window under the pointer its moves (BUG-0009).
+        let mut hovered = Vec::new();
+        let hovered_now = &mut hovered;
 
         ot_toast::viewport::show_all(
             ctx,
@@ -844,6 +850,7 @@ impl SettingsWindow {
                 ) {
                     shaped_now.push(id);
                 }
+                hovered_now.push((id, ui.ctx().input(|i| i.pointer.hover_pos().is_some())));
 
                 let content = ot_toast::render::frame(ui.painter(), rect, spec);
 
@@ -876,6 +883,9 @@ impl SettingsWindow {
         );
         for id in shaped {
             self.toasts.appear(id, now);
+        }
+        for (id, over) in hovered {
+            self.toasts.set_hovered(id, over, now);
         }
     }
 

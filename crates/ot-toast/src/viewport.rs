@@ -458,6 +458,15 @@ impl Toasts {
         }
     }
 
+    /// Whether the pointer is over this toast's window: hovering pauses its
+    /// countdown (`docs/specs/toast.md` §6). Called every frame for every
+    /// visible toast; telling it what it already knows changes nothing.
+    pub fn set_hovered(&mut self, id: ToastId, hovered: bool, now: Instant) {
+        if let Some(toast) = self.visible.iter_mut().find(|toast| toast.id == id) {
+            toast.set_hovered(hovered, now);
+        }
+    }
+
     /// Dismiss one by id: a visible toast plays its out-animation from
     /// wherever it is, and a queued one never appears.
     pub fn dismiss(&mut self, id: ToastId, now: Instant) {
@@ -814,6 +823,40 @@ mod tests {
             toasts.visible().iter().all(|t| t.id != queued),
             "a dismissed toast must not arrive later from the queue"
         );
+    }
+
+    #[test]
+    fn the_pointer_over_one_toast_pauses_that_toast_only() {
+        // BUG-0009: the model could pause, but nothing told it which toast
+        // the pointer was over, so on screen a hovered toast ran out anyway.
+        let start = t0();
+        let mut toasts = Toasts::new();
+        let under = shown(&mut toasts, spec_lasting(3.0), start);
+        let other = shown(&mut toasts, spec_lasting(3.0), start);
+        let holding = start + ms(ANIM);
+
+        toasts.set_hovered(under, true, holding);
+        toasts.set_hovered(other, false, holding);
+        let past_its_time = holding + ms(3_500);
+        toasts.tick(past_its_time);
+        let find = |toasts: &Toasts, id| toasts.visible().iter().find(|t| t.id == id).cloned();
+        let hovered = find(&toasts, under).expect("still here");
+        assert_eq!(
+            hovered.stage(past_its_time),
+            Stage::Holding,
+            "held by the pointer"
+        );
+        assert!(
+            find(&toasts, other).expect("leaving").is_leaving(),
+            "the other ran out"
+        );
+
+        // The pointer moves away: its remaining three seconds run from there.
+        toasts.set_hovered(under, false, past_its_time);
+        toasts.tick(past_its_time + ms(2_900));
+        assert!(!find(&toasts, under).expect("here").is_leaving());
+        toasts.tick(past_its_time + ms(3_000));
+        assert!(find(&toasts, under).expect("leaving now").is_leaving());
     }
 
     #[test]

@@ -7,6 +7,10 @@ Format: [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) · Versioning:
 
 ## Unreleased
 
+### Fixed
+
+- Hovering a toast pauses its countdown, as the spec always said: the pause was in the model, but nothing told it where the pointer was, so a toast under the pointer ran out anyway (BUG-0009).
+
 ### Changed
 
 - Toast windows are painted in the app's own frame, and DWM composites their alpha, so whatever a toast leaves unpainted shows the desktop — the groundwork for glass and animations (FEAT-0029, ADR-016). They look exactly as before.

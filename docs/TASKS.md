@@ -282,15 +282,16 @@ make all three glass kinds from the accent policy's Acrylic.
 - [ ] Docs: spec · README · CHANGELOG · CHECKLIST · GOTCHAS
 
 ### BUG-0009 · Hovering a toast does not pause its countdown
-- **State:** Pending · **Spec:** docs/specs/toast.md §6 · **Phase:** 3
+- **State:** Completed · **Spec:** docs/specs/toast.md §6 · **Phase:** 3
 - **Branch:** feat/phase-3-glass-animations
 - **Depends on:** FEAT-0031
 - **Source:** found while building FEAT-0031, 2026-11-18. §6 says hovering pauses the countdown; `LiveToast::set_hovered` does, and its test passes, but nothing in the app ever calls it, so on screen a toast under the pointer runs out as if it were not there. The owner chose to fix it in this phase as its own item
-- [ ] Test first: a toast whose window reports the pointer over it stops its countdown, and resumes when the pointer leaves
-- [ ] Each toast's own viewport reports whether the pointer is over it, and the app passes that to `set_hovered` every frame
-- [ ] Gate: fmt · clippy -D warnings · test --workspace --locked -j 4 · deny check · --self-test
-- [ ] App: `--data-dir ./tmp-data` — hold the pointer over a toast past its duration; it stays, and leaves its duration after the pointer moves away
-- [ ] Docs: spec · CHANGELOG · GOTCHAS
+- **Verified:** the reproducing test, the gate, and the pointer held over a toast in the running app
+- [x] Test first: the pointer over one toast pauses that toast only, and its remaining time runs once the pointer leaves (`the_pointer_over_one_toast_pauses_that_toast_only`; it failed first — `Toasts` had no way to tell a toast by id)
+- [x] Each toast's own viewport reports whether the pointer is over it (`hover_pos` in that viewport's input), and the app passes it to `Toasts::set_hovered` every frame
+- [x] Gate: fmt · clippy -D warnings · test --workspace --locked -j 4 (235 passed) · deny check · --self-test
+- [x] App: `--data-dir ./tmp-data` — three 3-second toasts, the pointer on the bottom one from about a second into its hold: the other two left on time; the hovered one was still alone on screen at 5.6 s, still there 1.5 s after the pointer moved away, and left 2.3 s after it moved — the two seconds it had left plus the leave (log and captures)
+- [x] Docs: spec (§6 already says it; no design change) · CHANGELOG · GOTCHAS
 
 ### FEAT-0038 · The action row, with Dismiss working
 - **State:** Pending · **Spec:** docs/specs/toast.md §4 (Actions) · §9 · **Phase:** 3
