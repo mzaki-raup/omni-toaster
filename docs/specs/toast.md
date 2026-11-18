@@ -202,13 +202,32 @@ it plays as a fade.
 **Reduced motion** follows the Windows "Show animations" setting and switches to
 fade only.
 
-**Implementation.** Slide and drawer move the window. Pop scales the toast
-inside a window with a transparent margin, so the overshoot has room. Appear
-and alpha to solid are alpha ramps — alpha to solid fades the background in
-behind text that is already there. Dissolve and glow are painted with alpha
-masks; glow's halo lies in the same transparent margin. Genie is a mesh warp
-inside a window that covers its path. Every one of them needs per-pixel alpha,
-which the toast window has (ADR-016).
+**Implementation.** Appear and alpha to solid are alpha ramps — alpha to
+solid fades the background in behind text that is already there. Dissolve and
+glow are painted with alpha masks; glow's halo lies in a transparent margin.
+Genie is a mesh warp inside a window that covers its path. Every one of them
+needs per-pixel alpha, which the toast window has (ADR-016).
+
+One pure function, `ot_toast::effects::look`, decides each frame of each
+effect (FEAT-0032): the window's rect, where the toast sits in it, the
+transform its content is drawn with, the part of the window that shows, and
+an alpha. The window is cut to the toast as transformed, intersected with
+that part, so nothing outside it shows or takes a click. An out-animation is
+its in-animation run backwards.
+
+| Effect | What moves | What shows |
+|---|---|---|
+| Slide from right / from bottom | The **window**, from just beyond the work area's right or bottom edge to its place | Only what is inside the work area: never over the taskbar, never on the monitor next door |
+| Drawer | The **toast inside its window**, out of the edge it sits against (§4.1; the centre opens from the top) | Only the part that is out |
+| Pop out | The toast, **scaled** from its centre from 30% to full size, fading in as it grows | All of it; the window has a transparent margin of 8% of the toast's size on each side, room for a spring's overshoot (about 14%) |
+| Appear | Nothing: a fade | All of it |
+
+Every toast starts each effect invisible — beyond the edge, shut, or at alpha
+0 — and rests exactly where the stack puts it. A click is brought back
+through the effect's transform before it meets the buttons, so a drawer
+still sliding out has no Dismiss where the resting toast's would be. When
+several toasts slide in from the same edge together, they pass over one
+another on the way to their places.
 
 **The timeline.** A toast enters, holds, and leaves. Its display duration
 (§6) counts the hold only: the countdown starts when the in-animation ends,

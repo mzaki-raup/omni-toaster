@@ -809,11 +809,13 @@ impl SettingsWindow {
             &self.toasts,
             work_area,
             now,
-            move |ui, spec, id, presence| {
+            move |ui, spec, id, look| {
                 // The whole toast comes from the spec: the renderer reads no
                 // setting and no category, which is what keeps the preview and
                 // the real thing from diverging (docs/specs/toast.md §3).
-                let rect = ui.max_rect();
+                // Where it sits in its window, and how its effect moves,
+                // scales and fades it this frame, is the look's (§5).
+                let rect = look.toast;
 
                 // Where Windows will not blur, glass is drawn solid rather than
                 // as a tint over nothing (docs/specs/toast.md §4.2). The reason
@@ -834,32 +836,44 @@ impl SettingsWindow {
                     spec
                 };
 
-                // The window is cut to the corners about to be painted, so
+                // The window is cut to the toast as it is drawn this frame,
+                // corners and all, and to the part its effect lets show, so
                 // nothing outside them shows (BUG-0007). In this window's own
                 // pixels: a toast on a 150% monitor has corners half as large
                 // again. Shaped before painting, so a refusal of the glass is
                 // known by the next frame's paint.
                 let pixels = ui.ctx().pixels_per_point();
-                let radii = ot_toast::render::corner_radii(spec, rect.height())
-                    .map(|radius| (radius * pixels).round() as i32);
-                // Opacity fades the whole window, text included (CR-0005). While
-                // it enters or leaves, the fade every effect plays as until it is
-                // built (FEAT-0032 to FEAT-0034) scales it, never past solid.
-                let fade = spec.animation.easing.apply_alpha(presence);
-                let opacity = (spec.alpha() * fade * 255.0).round().clamp(0.0, 255.0) as u8;
+                let px = |r: egui::Rect| {
+                    [r.left(), r.top(), r.right(), r.bottom()].map(|v| (v * pixels).round() as i32)
+                };
+                let outline = ot_platform::toast_window::Outline {
+                    rect: px(look.drawn()),
+                    radii: ot_toast::render::corner_radii(spec, rect.height())
+                        .map(|radius| (radius * look.scale() * pixels).round() as i32),
+                    clip: px(look.clip),
+                };
+                // Opacity fades the whole window, text included (CR-0005), and
+                // the effect's own alpha scales it, never past solid.
+                let opacity = (spec.alpha() * look.alpha * 255.0)
+                    .round()
+                    .clamp(0.0, 255.0) as u8;
                 let shadow = spec.style.shadow.shows(spec.style.shape, spec.style.glass);
                 let glass = spec.style.glass.on(spec.style.shape) != ot_toast::Glass::None;
                 if ot_platform::toast_window::set_shape(
                     &id.window_title(),
-                    radii,
+                    outline,
                     opacity,
                     shadow,
                     glass,
                 ) {
                     shaped_now.push(id);
                 }
+                // In the toast's own space: a drawer moves it and a pop scales
+                // it, so the pointer is brought back through the same
+                // transform before it meets the button rects.
                 let pointer = ui.ctx().input(|i| i.pointer.hover_pos());
                 hovered_now.push((id, pointer.is_some()));
+                let pointer = pointer.map(|at| look.transform.inverse() * at);
 
                 let content = ot_toast::render::frame(ui.painter(), rect, spec);
 

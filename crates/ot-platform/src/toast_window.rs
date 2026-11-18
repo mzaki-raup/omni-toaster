@@ -47,9 +47,33 @@ pub fn make_unobtrusive(prefix: &str) -> usize {
     platform::make_unobtrusive(prefix)
 }
 
-/// Cut the toast window titled exactly `title` to a rectangle whose corners
-/// have these radii, `[nw, ne, sw, se]`, in physical pixels — all zero means
-/// a plain rectangle — and fade the whole window to `opacity` (255 is solid).
+/// The shape a toast window is cut to, in the window's own physical pixels.
+///
+/// The toast's rect where it is drawn this frame — moved by a drawer, scaled
+/// by a pop — with its corners' radii, `[nw, ne, sw, se]`, intersected with
+/// `clip`, the part of the window that may show: what a slide has inside the
+/// work area, what a drawer has opened. Rects are `[left, top, right, bottom]`.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct Outline {
+    pub rect: [i32; 4],
+    pub radii: [i32; 4],
+    pub clip: [i32; 4],
+}
+
+impl Outline {
+    /// The whole of a `width` × `height` window, with these corners.
+    pub fn whole([width, height]: [i32; 2], radii: [i32; 4]) -> Self {
+        Self {
+            rect: [0, 0, width, height],
+            radii,
+            clip: [0, 0, width, height],
+        }
+    }
+}
+
+/// Cut the toast window titled exactly `title` to `outline` — a plain
+/// rectangle filling the window needs no cut at all — and fade the whole
+/// window to `opacity` (255 is solid).
 ///
 /// The fade is the window's own alpha (`WS_EX_LAYERED`), which Windows
 /// composites against the desktop on any driver: the whole toast, text
@@ -60,8 +84,8 @@ pub fn make_unobtrusive(prefix: &str) -> usize {
 /// (ADR-016).
 ///
 /// `shadow` asks for Windows' own drop shadow, which the compositor draws
-/// only for a window with no region — so only when every radius is zero
-/// (CR-0006). Windows would also round such a window's corners on its own;
+/// only for a window with no region — so only when the outline is the whole
+/// window with every radius zero (CR-0006). Windows would also round such a window's corners on its own;
 /// it is told not to.
 ///
 /// `glass` lays Windows' blur behind the window — the accent policy's
@@ -71,7 +95,7 @@ pub fn make_unobtrusive(prefix: &str) -> usize {
 /// solid: ask [`glass_available`] before painting.
 ///
 /// Called every frame for every toast, so it does nothing unless the window,
-/// its size, the radii, the opacity, the shadow or the glass changed since the
+/// its size, the outline, the opacity, the shadow or the glass changed since the
 /// last call — and when only the opacity changed, as on every frame of a
 /// fade, it sets only the window's alpha.
 ///
@@ -79,8 +103,8 @@ pub fn make_unobtrusive(prefix: &str) -> usize {
 /// egui has created it, a frame or more after it was asked for. The window
 /// may still be hidden: a toast is kept hidden until this says yes, so it
 /// never shows before its alpha is set.
-pub fn set_shape(title: &str, radii: [i32; 4], opacity: u8, shadow: bool, glass: bool) -> bool {
-    platform::set_shape(title, radii, opacity, shadow, glass)
+pub fn set_shape(title: &str, outline: Outline, opacity: u8, shadow: bool, glass: bool) -> bool {
+    platform::set_shape(title, outline, opacity, shadow, glass)
 }
 
 /// Whether Windows will blur behind a toast: Windows 10 1809 or later, the
@@ -111,8 +135,8 @@ mod platform {
         DwmSetWindowAttribute,
     };
     use windows::Win32::Graphics::Gdi::{
-        CombineRgn, CreateEllipticRgn, CreateRectRgn, DeleteObject, HRGN, RGN_AND, RGN_DIFF,
-        RGN_OR, SetWindowRgn,
+        CombineRgn, CreateEllipticRgn, CreateRectRgn, DeleteObject, HRGN, OffsetRgn, RGN_AND,
+        RGN_DIFF, RGN_OR, SetWindowRgn,
     };
     use windows::Win32::System::LibraryLoader::{GetModuleHandleW, GetProcAddress};
     use windows::Win32::System::SystemInformation::OSVERSIONINFOW;
@@ -135,8 +159,9 @@ mod platform {
         found: Option<HWND>,
     }
 
-    /// The window, client size, radii, opacity, shadow and glass last applied.
-    type Applied = (isize, [i32; 2], [i32; 4], u8, bool, bool);
+    /// The window, client size, outline, opacity, shadow and glass last
+    /// applied.
+    type Applied = (isize, [i32; 2], super::Outline, u8, bool, bool);
 
     /// Lets `set_shape` skip both the enumeration and the region rebuild on
     /// every frame where nothing changed.
@@ -175,7 +200,7 @@ mod platform {
     )]
     pub(super) fn set_shape(
         title: &str,
-        radii: [i32; 4],
+        outline: super::Outline,
         opacity: u8,
         shadow: bool,
         glass: bool,
@@ -225,7 +250,7 @@ mod platform {
             return false;
         }
         let size = [client.right - client.left, client.bottom - client.top];
-        let applied = (window.0 as isize, size, radii, opacity, shadow, glass);
+        let applied = (window.0 as isize, size, outline, opacity, shadow, glass);
         let before = shapes.get(title).copied();
         if before == Some(applied) {
             return true;
@@ -233,7 +258,7 @@ mod platform {
         // Only the opacity moved — every frame of a fade — so the region and
         // the compositor settings stay as they are, and only the alpha is set.
         let reshape = before.is_none_or(|(w, s, r, _, sh, g)| {
-            (w, s, r, sh, g) != (window.0 as isize, size, radii, shadow, glass)
+            (w, s, r, sh, g) != (window.0 as isize, size, outline, shadow, glass)
         });
 
         // SAFETY: plain style reads and writes on a window this process
@@ -257,7 +282,7 @@ mod platform {
             return true;
         }
 
-        let region = region(size, radii);
+        let region = region(size, outline);
         // SAFETY: on success the system owns the region and frees it when it
         // is replaced or the window goes; on failure it is still ours and is
         // freed here. `None` removes any region.
@@ -314,7 +339,7 @@ mod platform {
         tracing::debug!(
             title,
             ?size,
-            ?radii,
+            ?outline,
             opacity,
             shadow,
             glass,
@@ -460,16 +485,21 @@ mod platform {
         }
     }
 
-    /// A `width` × `height` rectangle with each corner rounded to its radius,
-    /// or `None` for a plain rectangle, which needs no region.
+    /// The outline as a region: its rect with each corner rounded to its
+    /// radius, cut to its clip — or `None` for the whole window, square,
+    /// which needs no region.
     #[allow(
         unsafe_code,
         reason = "GDI region calls; each one's contract is argued at the call"
     )]
-    fn region([width, height]: [i32; 2], radii: [i32; 4]) -> Option<HRGN> {
-        if radii.iter().all(|r| *r <= 0) {
+    fn region([client_w, client_h]: [i32; 2], outline: super::Outline) -> Option<HRGN> {
+        let covers = |r: [i32; 4]| r[0] <= 0 && r[1] <= 0 && r[2] >= client_w && r[3] >= client_h;
+        if outline.radii.iter().all(|r| *r <= 0) && covers(outline.rect) && covers(outline.clip) {
             return None;
         }
+        let [x0, y0, x1, y1] = outline.rect;
+        let (width, height) = ((x1 - x0).max(0), (y1 - y0).max(0));
+        let radii = outline.radii;
         // SAFETY: GDI region calls on plain integers. Every region made here
         // is either returned (and then owned by the window) or deleted before
         // returning; CombineRgn only writes into a region made here.
@@ -501,6 +531,13 @@ mod platform {
                 let _ = DeleteObject(circle.into());
                 let _ = DeleteObject(rounded.into());
             }
+            // Built at the origin, moved to where the toast is drawn, then
+            // cut to the part that may show.
+            OffsetRgn(shape, x0, y0);
+            let [cx0, cy0, cx1, cy1] = outline.clip;
+            let clip = CreateRectRgn(cx0, cy0, cx1.max(cx0), cy1.max(cy0));
+            CombineRgn(Some(shape), Some(shape), Some(clip), RGN_AND);
+            let _ = DeleteObject(clip.into());
             Some(shape)
         }
     }
@@ -570,7 +607,7 @@ mod platform {
 
     pub(super) fn set_shape(
         _title: &str,
-        _radii: [i32; 4],
+        _outline: super::Outline,
         _opacity: u8,
         _shadow: bool,
         _glass: bool,
@@ -605,7 +642,11 @@ mod tests {
         // first calls always find nothing.
         set_shape(
             "a window title nothing in this process has",
-            [12, 0, 12, 0],
+            Outline {
+                rect: [0, 0, 100, 50],
+                radii: [12, 0, 12, 0],
+                clip: [0, 0, 60, 50],
+            },
             200,
             true,
             true,

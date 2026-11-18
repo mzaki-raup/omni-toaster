@@ -84,14 +84,15 @@ pub fn builder(spec: &ToastSpec, title: &str) -> egui::ViewportBuilder {
 ///
 /// `paint` is given the ui, the spec, the toast's id, whose
 /// [`ToastId::window_title`] names the window it is painting, and its
-/// presence at `now` ([`LiveToast::presence`]), which the effects are drawn
-/// from.
+/// [`Look`](crate::effects::Look) this frame: where the toast sits in its
+/// window, the transform and alpha its effect draws it with, and the part
+/// that shows.
 pub fn show_all(
     ctx: &egui::Context,
     toasts: &Toasts,
     work_area: egui::Rect,
     now: Instant,
-    mut paint: impl FnMut(&mut egui::Ui, &ToastSpec, ToastId, f32),
+    mut paint: impl FnMut(&mut egui::Ui, &ToastSpec, ToastId, &crate::effects::Look),
 ) {
     let slots = toasts.slots(now);
     for (toast, slot) in toasts.visible().iter().zip(slots) {
@@ -109,12 +110,23 @@ pub fn show_all(
             slot,
             spec.behaviour.stack_gap,
         );
+        // The effect on the way in, or its mirror on the way out.
+        let look = crate::effects::look(
+            spec.animation,
+            toast.is_leaving(),
+            presence,
+            at,
+            size,
+            spec.behaviour.position.accent_edge(),
+            work_area,
+        );
         ctx.show_viewport_immediate(
             toast.id.viewport_id(),
             // Hidden until it has been shaped and given its alpha, so it
             // never flashes at full strength before its fade begins.
             builder(spec, &id.window_title())
-                .with_position(at)
+                .with_position(look.window.min)
+                .with_inner_size(look.window.size())
                 .with_visible(toast.is_on_screen()),
             |ctx, _class| {
                 // No frame of egui's own: the toast paints its own
@@ -122,8 +134,21 @@ pub fn show_all(
                 // fill underneath would show through the transparent corners.
                 egui::CentralPanel::default()
                     .frame(egui::Frame::NONE)
-                    .show(ctx, |ui| paint(ui, spec, id, presence));
+                    .show(ctx, |ui| {
+                        // The effect's motion and scale, on everything the
+                        // toast paints (§5).
+                        ctx.set_transform_layer(ui.layer_id(), look.transform);
+                        paint(ui, spec, id, &look);
+                    });
             },
+        );
+        // egui keeps one map of layer transforms for the whole context, and
+        // every viewport's panel has the same layer id, the settings
+        // window's included. The toast's window is painted by now, so its
+        // transform is cleared before it can move the next window's panel.
+        ctx.set_transform_layer(
+            egui::LayerId::background(),
+            egui::emath::TSTransform::IDENTITY,
         );
     }
 }

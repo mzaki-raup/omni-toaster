@@ -9,6 +9,7 @@
 
 pub mod actions;
 pub mod content;
+pub mod effects;
 pub mod placement;
 pub mod prefs;
 pub mod render;

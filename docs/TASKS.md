@@ -127,7 +127,7 @@ Refs: BUG-0003
 ```
 Version : v0.3.2
 Features : FEAT-0039
-Bugs : BUG-0010
+Bugs : BUG-0011
 Change Request : CR-0008
 ```
 
@@ -219,18 +219,22 @@ make all three glass kinds from the accent policy's Acrylic.
 - **Notes:** App, checked 2026-11-18: three toasts over the stripes, 1000 ms linear, captured from 36 ms to 5.8 s — nothing on screen until each window was shaped, then a fade in over a second, three seconds held, a fade out with the stack collapsing toward the edge, then gone; no flash. Frame counts from the log (`--log-level debug`), three toasts, reference machine: **release** 137–444 fps for every in and out, settings window open or minimised; **debug** 62 fps open, 46–48 minimised. CPU: 6% of one core with three toasts held, 1% with none. **Not checked yet:** dismissing a toast while it enters — nothing in the app can dismiss one until FEAT-0038 builds the Dismiss button (the owner's choice, 2026-11-18); the model's own test covers it. The App box waits for that. Hovering does nothing on screen yet: BUG-0009. CHECKLIST moves at the end of the phase; no README change, since the README already lists the animations.
 
 ### FEAT-0032 · Slide from right, slide from bottom, drawer, pop out, appear
-- **State:** Pending · **Spec:** docs/specs/toast.md §5 · **Phase:** 3
+- **State:** In-Progress · **Spec:** docs/specs/toast.md §5 · **Phase:** 3
 - **Branch:** feat/phase-3-glass-animations
 - **Depends on:** FEAT-0031
-- [ ] Slide from right and from bottom: the window travels in from beyond the work area's edge, clipped to it
-- [ ] Drawer: the toast unrolls out of the edge it sits against
-- [ ] Pop out: scales from the centre with overshoot inside a transparent margin
-- [ ] Appear: an alpha ramp
-- [ ] Each one's mirror as its out-animation
-- [ ] Test: the geometry of each at t = 0, ½ and 1 for every position preset, against a table
-- [ ] Gate: fmt · clippy -D warnings · test --workspace --locked -j 4 · deny check · --self-test
+- [x] One pure function decides every frame of every effect (`ot_toast::effects::look`): the window's rect, where the toast sits in it, its content's transform, the part that shows, its alpha; the window's region is cut to the toast as transformed and that part (`toast_window::Outline`)
+- [x] Slide from right and from bottom: the window travels in from beyond the work area's edge, clipped to it — never over the taskbar
+- [x] Drawer: the toast slides out of the edge it sits against, only the part that is out showing
+- [x] Pop out: scales from the centre, from 30%, fading in, with a spring's overshoot inside an 8% transparent margin
+- [x] Appear: an alpha ramp; the effects of FEAT-0033 and FEAT-0034 play as it until they are built
+- [x] Each one's mirror as its out-animation (progress run backwards)
+- [x] A click is brought back through the effect's transform before it meets the buttons
+- [x] Found on the way and fixed: egui's layer transforms are one map for the whole context, and every panel shares a layer id, so a toast's transform is cleared as soon as its window is painted (GOTCHAS)
+- [x] Test: every effect rests exactly where the toast belongs; at every preset, slides and drawers start hidden, a pop at 30% and the fades at alpha 0; a slide starts beyond the edge and is clipped to the work area at ½; a drawer's shift and visible half for every edge, against a table; a pop's scale at 0 and ½ and every frame of a spring inside the window; only a pop has a margin
+- [x] Gate: fmt · clippy -D warnings · test --workspace --locked -j 4 (248 passed) · deny check · --self-test
 - [ ] App: `--data-dir ./tmp-data` — each in and out at every corner, at 100% and 150% scaling; frame counts in a release build
 - [ ] Docs: spec · README · CHANGELOG · CHECKLIST · GOTCHAS
+- **Notes:** App, checked 2026-11-18 at the default Bottom Right with three toasts, 1-second linear runs (spring for one pop run) captured every 100 ms with the taskbar in frame: slide from right enters from beyond the screen's edge; slide from bottom rises from the taskbar's top edge and never draws over it; the drawer opens out of the right-hand edge and closes back into it; pop grows from small and faint at the centre and shrinks back; appear fades. Clicking where Dismiss rests, while a drawer was still opening, dismissed nothing (the pointer mapped to the body); at rest it dismissed. Release build, three toasts at 350 ms: slide 143–312 fps, drawer 174–361, pop 158–285. **Not checked:** the other eight corners and edges on screen (the preset test covers their geometry), and 150% on screen (GOTCHAS: `--ui-scale`). When three toasts slide in from the same edge together they pass over one another; a single toast does not. A faint white box at the very start of every fade, visible over a light background, predates these effects: BUG-0010.
 
 ### FEAT-0033 · Dissolve, glow and alpha to solid
 - **State:** Pending · **Spec:** docs/specs/toast.md §5 · **Phase:** 3
@@ -292,6 +296,18 @@ make all three glass kinds from the accent policy's Acrylic.
 - [x] Gate: fmt · clippy -D warnings · test --workspace --locked -j 4 (235 passed) · deny check · --self-test
 - [x] App: `--data-dir ./tmp-data` — three 3-second toasts, the pointer on the bottom one from about a second into its hold: the other two left on time; the hovered one was still alone on screen at 5.6 s, still there 1.5 s after the pointer moved away, and left 2.3 s after it moved — the two seconds it had left plus the leave (log and captures)
 - [x] Docs: spec (§6 already says it; no design change) · CHANGELOG · GOTCHAS
+
+### BUG-0010 · A toast's first frames show a white box over a light background
+- **State:** Pending · **Spec:** docs/specs/toast.md §5 · **Phase:** 3
+- **Branch:** feat/phase-3-glass-animations
+- **Depends on:** FEAT-0031
+- **Source:** found while checking FEAT-0032, 2026-11-18. Over a window of red and blue stripes, for roughly the first 150 ms of a fade in a debug build, each toast shows as a faint white box with no content before its real frames arrive. Over a dark desktop it cannot be seen
+- **What was tried and reverted** (none of it is in the code): starting the fade 150 ms after the window is shown removed the white but showed the toasts at full strength for a frame; keeping the window visible but far off-screen until shaped turned the shadowed Rectangle white for the whole fade. The cause to pin down first is what Windows shows between `ShowWindow` and the window's first present — likely egui not painting a hidden immediate viewport, so the first visible frame has nothing in it
+- [ ] Test first, if it can be made one: a frame-by-frame capture over a light window, taken by script, that fails while the white box is there
+- [ ] The fix
+- [ ] Gate: fmt · clippy -D warnings · test --workspace --locked -j 4 · deny check · --self-test
+- [ ] App: `--data-dir ./tmp-data` — every effect over a light window and a dark one, captured every 50 ms from the moment the toast appears; and the Rectangle with its shadow
+- [ ] Docs: spec · CHANGELOG · GOTCHAS
 
 ### FEAT-0038 · The action row, with Dismiss working
 - **State:** In-Progress · **Spec:** docs/specs/toast.md §4.3 · §9 · **Phase:** 3
