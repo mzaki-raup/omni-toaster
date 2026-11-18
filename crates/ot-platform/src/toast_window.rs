@@ -72,9 +72,15 @@ pub fn make_unobtrusive(prefix: &str) -> usize {
 ///
 /// Called every frame for every toast, so it does nothing unless the window,
 /// its size, the radii, the opacity, the shadow or the glass changed since the
-/// last call.
-pub fn set_shape(title: &str, radii: [i32; 4], opacity: u8, shadow: bool, glass: bool) {
-    platform::set_shape(title, radii, opacity, shadow, glass);
+/// last call — and when only the opacity changed, as on every frame of a
+/// fade, it sets only the window's alpha.
+///
+/// Returns whether the window exists and carries all of this — false until
+/// egui has created it, a frame or more after it was asked for. The window
+/// may still be hidden: a toast is kept hidden until this says yes, so it
+/// never shows before its alpha is set.
+pub fn set_shape(title: &str, radii: [i32; 4], opacity: u8, shadow: bool, glass: bool) -> bool {
+    platform::set_shape(title, radii, opacity, shadow, glass)
 }
 
 /// Whether Windows will blur behind a toast: Windows 10 1809 or later, the
@@ -167,7 +173,13 @@ mod platform {
         unsafe_code,
         reason = "Win32 calls; each one's contract is argued at the call"
     )]
-    pub(super) fn set_shape(title: &str, radii: [i32; 4], opacity: u8, shadow: bool, glass: bool) {
+    pub(super) fn set_shape(
+        title: &str,
+        radii: [i32; 4],
+        opacity: u8,
+        shadow: bool,
+        glass: bool,
+    ) -> bool {
         let mut shapes = SHAPES
             .lock()
             .unwrap_or_else(std::sync::PoisonError::into_inner);
@@ -201,7 +213,7 @@ mod platform {
                 // Not created yet: egui opens the window a frame after it is
                 // asked for. The next frame tries again.
                 let Some(window) = search.found else {
-                    return;
+                    return false;
                 };
                 window
             }
@@ -210,13 +222,19 @@ mod platform {
         let mut client = RECT::default();
         // SAFETY: a live window this process owns, and a RECT the call fills.
         if unsafe { GetClientRect(window, &mut client) }.is_err() {
-            return;
+            return false;
         }
         let size = [client.right - client.left, client.bottom - client.top];
         let applied = (window.0 as isize, size, radii, opacity, shadow, glass);
-        if shapes.get(title) == Some(&applied) {
-            return;
+        let before = shapes.get(title).copied();
+        if before == Some(applied) {
+            return true;
         }
+        // Only the opacity moved — every frame of a fade — so the region and
+        // the compositor settings stay as they are, and only the alpha is set.
+        let reshape = before.is_none_or(|(w, s, r, _, sh, g)| {
+            (w, s, r, sh, g) != (window.0 as isize, size, radii, shadow, glass)
+        });
 
         // SAFETY: plain style reads and writes on a window this process
         // owns, and a layered-window attribute call on the same window.
@@ -233,6 +251,10 @@ mod platform {
                 // nothing.
                 SetWindowLongPtrW(window, GWL_EXSTYLE, style & !layered);
             }
+        }
+        if !reshape {
+            shapes.insert(title.to_owned(), applied);
+            return true;
         }
 
         let region = region(size, radii);
@@ -298,6 +320,7 @@ mod platform {
             glass,
             "a toast window was cut to its shape"
         );
+        true
     }
 
     /// `ACCENT_POLICY`, from the undocumented `SetWindowCompositionAttribute`.
@@ -499,8 +522,11 @@ mod platform {
             return true.into();
         }
 
-        // SAFETY: the buffer is live and its length bounds the write.
-        if !unsafe { IsWindowVisible(window) }.as_bool() {
+        // A hidden window counts when looking for one by its exact title: a
+        // toast is shaped while still hidden, so it never shows before its
+        // alpha is set. The prefix sweep still skips hidden windows.
+        // SAFETY: IsWindowVisible only reads the window's state.
+        if search.prefix && !unsafe { IsWindowVisible(window) }.as_bool() {
             return true.into();
         }
 
@@ -548,7 +574,8 @@ mod platform {
         _opacity: u8,
         _shadow: bool,
         _glass: bool,
-    ) {
+    ) -> bool {
+        false
     }
 
     pub(super) fn glass_available() -> bool {

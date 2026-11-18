@@ -126,8 +126,8 @@ Refs: BUG-0003
 
 ```
 Version : v0.3.2
-Features : FEAT-0038
-Bugs : BUG-0009
+Features : FEAT-0039
+Bugs : BUG-0010
 Change Request : CR-0008
 ```
 
@@ -202,17 +202,21 @@ make all three glass kinds from the accent policy's Acrylic.
 - **Owner decisions (2026-11-18):** glass for the Rectangle only; Blur at 45 % instead of "almost none".
 
 ### FEAT-0031 · The animation model and the toast timeline
-- **State:** Pending · **Spec:** docs/specs/toast.md §5 · **Phase:** 3
+- **State:** In-Progress · **Spec:** docs/specs/toast.md §5 · **Phase:** 3
 - **Branch:** feat/phase-3-glass-animations
 - **Depends on:** FEAT-0029
-- [ ] `Animation` in `ToastSpec`: in kind, out kind, duration (150–1000 ms, default 350, clamped in the model), easing (linear, ease-out, spring)
-- [ ] `LiveToast` enters, holds and leaves: the countdown starts when the in-animation ends; dismissal and expiry play the out-animation before the window closes; a queued toast has not entered
-- [ ] Toasts below a leaving one move up with the same easing
-- [ ] The easing curves, with an alpha that never overshoots past solid
-- [ ] Test: every phase boundary of the timeline; the countdown excludes the in-animation and hover; a toast dismissed mid-entry leaves from where it is; the easing curves at 0, ½ and 1; the clamp
-- [ ] Gate: fmt · clippy -D warnings · test --workspace --locked -j 4 · deny check · --self-test
+- [x] `Animation` in `ToastSpec` and `Prefs`: in kind, out kind, duration (150–1000 ms, default 350, clamped in the model), easing (linear, ease-out, spring); defaults appear and ease-out; unknown words load as defaults with a warning; shrink to tray is out only
+- [x] `LiveToast` enters, holds and leaves, every method taking the time: the countdown starts when the in-animation ends; dismissal and expiry play the out-animation before the window closes; a queued toast has not entered; a leaving toast frees its place at once
+- [x] Toasts below a leaving one move up with the same easing (`Toasts::slots`, `placement::place_at`)
+- [x] The easing curves, with an alpha that never overshoots past solid
+- [x] Every effect plays as a fade of the window's alpha until FEAT-0032 to FEAT-0034 build it; an opacity-only change sets only the alpha, not the region
+- [x] Found on the way and fixed: a toast window flashed at full strength before its fade, because it showed before it was shaped — it now stays hidden until shaped, and enters then
+- [x] Found on the way and fixed: three toasts animated at 11–16 fps in a debug build because each window's present waited for vsync in turn; `vsync: false`, paced at 1/60 s while anything moves (ADR-016 amendment)
+- [x] Test: every stage boundary of the timeline; the countdown excludes the in-animation and hover; a toast dismissed mid-entry leaves from where it is; a toast waits for its window and starts anyway after a second; the stack slots while one leaves; the easing curves at 0, ½ and 1 and the spring's overshoot; the clamp; settings round-trip
+- [x] Gate: fmt · clippy -D warnings · test --workspace --locked -j 4 (234 passed) · deny check · --self-test
 - [ ] App: `--data-dir ./tmp-data` — fire a test toast and watch it enter, hold for its whole duration and leave; dismiss one while it enters
 - [ ] Docs: spec · README · CHANGELOG · CHECKLIST · GOTCHAS
+- **Notes:** App, checked 2026-11-18: three toasts over the stripes, 1000 ms linear, captured from 36 ms to 5.8 s — nothing on screen until each window was shaped, then a fade in over a second, three seconds held, a fade out with the stack collapsing toward the edge, then gone; no flash. Frame counts from the log (`--log-level debug`), three toasts, reference machine: **release** 137–444 fps for every in and out, settings window open or minimised; **debug** 62 fps open, 46–48 minimised. CPU: 6% of one core with three toasts held, 1% with none. **Not checked yet:** dismissing a toast while it enters — nothing in the app can dismiss one until FEAT-0038 builds the Dismiss button (the owner's choice, 2026-11-18); the model's own test covers it. The App box waits for that. Hovering does nothing on screen yet: BUG-0009. CHECKLIST moves at the end of the phase; no README change, since the README already lists the animations.
 
 ### FEAT-0032 · Slide from right, slide from bottom, drawer, pop out, appear
 - **State:** Pending · **Spec:** docs/specs/toast.md §5 · **Phase:** 3
@@ -275,6 +279,31 @@ make all three glass kinds from the accent policy's Acrylic.
 - [ ] Test: the pane's widgets stay inside it in English, Malay and the pseudo-locale, at the default and the narrow width; settings round-trip
 - [ ] Gate: fmt · clippy -D warnings · test --workspace --locked -j 4 · deny check · --self-test
 - [ ] App: `--data-dir ./tmp-data` — choose each animation and press Play, in both languages and all three themes; the narrow window
+- [ ] Docs: spec · README · CHANGELOG · CHECKLIST · GOTCHAS
+
+### BUG-0009 · Hovering a toast does not pause its countdown
+- **State:** Pending · **Spec:** docs/specs/toast.md §6 · **Phase:** 3
+- **Branch:** feat/phase-3-glass-animations
+- **Depends on:** FEAT-0031
+- **Source:** found while building FEAT-0031, 2026-11-18. §6 says hovering pauses the countdown; `LiveToast::set_hovered` does, and its test passes, but nothing in the app ever calls it, so on screen a toast under the pointer runs out as if it were not there. The owner chose to fix it in this phase as its own item
+- [ ] Test first: a toast whose window reports the pointer over it stops its countdown, and resumes when the pointer leaves
+- [ ] Each toast's own viewport reports whether the pointer is over it, and the app passes that to `set_hovered` every frame
+- [ ] Gate: fmt · clippy -D warnings · test --workspace --locked -j 4 · deny check · --self-test
+- [ ] App: `--data-dir ./tmp-data` — hold the pointer over a toast past its duration; it stays, and leaves its duration after the pointer moves away
+- [ ] Docs: spec · CHANGELOG · GOTCHAS
+
+### FEAT-0038 · The action row, with Dismiss working
+- **State:** Pending · **Spec:** docs/specs/toast.md §4 (Actions) · §9 · **Phase:** 3
+- **Branch:** feat/phase-3-glass-animations
+- **Depends on:** FEAT-0031
+- **Source:** the owner, 2026-11-18, choosing how a toast is dismissed so the timeline's out-animation can be used and checked: "Build the Dismiss button now". Snooze and Open need reminders, so they wait for Phase 4
+- [ ] The spec's action row designed first: where it sits, its buttons' look in every shape, how 1–3 actions lay out, what Snooze and Open do until Phase 4
+- [ ] The renderer draws the row from the `ToastSpec` alone, so the preview shows it as well
+- [ ] Dismiss plays the out-animation (`Toasts::dismiss`); hover highlights a button without moving it
+- [ ] Labels from `toast-action-*` in both languages; the Malay label checked against `docs/10-i18n.md`, which says "Tutup" where the locale file says "Tolak"
+- [ ] Test: the row fits every shape and width in both languages; a click on Dismiss reaches the right toast
+- [ ] Gate: fmt · clippy -D warnings · test --workspace --locked -j 4 · deny check · --self-test
+- [ ] App: `--data-dir ./tmp-data` — Dismiss on a holding toast and on one still entering (FEAT-0031's open check), in both languages and at 150% scaling
 - [ ] Docs: spec · README · CHANGELOG · CHECKLIST · GOTCHAS
 
 ## v0.2.1 — Done 2026-11-16

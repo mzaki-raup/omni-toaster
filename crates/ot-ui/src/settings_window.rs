@@ -33,6 +33,12 @@ const MONITOR_REFRESH: Duration = Duration::from_secs(1);
 /// and its window is usually hidden.
 const TRAY_POLL: Duration = Duration::from_millis(120);
 
+/// The interval between frames while a toast moves: 60 a second. Asked for
+/// at the start of each frame, so the frame's own work falls inside it.
+/// Without vsync nothing else paces the loop, and an unpaced loop spins a
+/// core for the length of every animation.
+const ANIMATION_FRAME: Duration = Duration::from_micros(16_667);
+
 /// The window's sections. Each arrives with the phase that gives it
 /// something to hold; none is stubbed in as an empty tab.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -616,7 +622,7 @@ impl SettingsWindow {
     /// own words beside a built-in default.
     pub fn show_test_toast(&mut self) {
         let spec = self.test_spec();
-        let id = self.toasts.push(spec);
+        let id = self.toasts.push(spec, Instant::now());
         tracing::info!(?id, "a test toast was fired");
     }
 
@@ -651,7 +657,7 @@ impl SettingsWindow {
             if index == 2 {
                 spec.style.border = 2.0;
             }
-            let id = self.toasts.push(spec);
+            let id = self.toasts.push(spec, Instant::now());
             tracing::info!(?id, ?shape, "a sample toast was fired");
         }
     }
@@ -733,16 +739,30 @@ impl SettingsWindow {
         monitor.work_area_rect()
     }
 
-    /// Retire what has had its time, and draw what is left.
+    /// Move every toast along its timeline, close what has gone, and draw
+    /// what is left.
     fn drive_toasts(&mut self, ctx: &egui::Context) {
-        for id in self.toasts.tick() {
-            // A retired toast's viewport is told to close at once, rather
-            // than left until egui notices a frame without it.
+        // One clock for every toast in this frame (docs/specs/toast.md §5).
+        let now = Instant::now();
+        for id in self.toasts.tick(now) {
+            // A gone toast's viewport is told to close at once, rather than
+            // left until egui notices a frame without it.
             ctx.send_viewport_cmd_to(id.viewport_id(), egui::ViewportCommand::Close);
             ot_platform::toast_window::forget(&id.window_title());
         }
         if self.toasts.is_empty() {
             return;
+        }
+        // A frame every sixtieth of a second while anything moves — paced
+        // here, since there is no vsync to do it; otherwise sleep until the
+        // next countdown runs out, rather than poll.
+        if self.toasts.is_animating(now) {
+            ctx.request_repaint_after(ANIMATION_FRAME);
+        } else if let Some(at) = self.toasts.next_change(now) {
+            ctx.request_repaint_after(at.saturating_duration_since(now));
+        }
+        for toast in self.toasts.visible_mut() {
+            toast.note_frame(now);
         }
 
         // `ViewportBuilder` cannot take a window out of Alt+Tab, so the
@@ -765,74 +785,98 @@ impl SettingsWindow {
             let _ = self.pictures_for(content);
         }
         let pictures = self.images.pictures();
+        // The toasts whose windows exist and are shaped this frame: their
+        // in-animation starts now, and they are shown.
+        let mut shaped = Vec::new();
+        let shaped_now = &mut shaped;
 
-        ot_toast::viewport::show_all(ctx, &self.toasts, work_area, move |ui, spec, id| {
-            // The whole toast comes from the spec: the renderer reads no
-            // setting and no category, which is what keeps the preview and
-            // the real thing from diverging (docs/specs/toast.md §3).
-            let rect = ui.max_rect();
+        ot_toast::viewport::show_all(
+            ctx,
+            &self.toasts,
+            work_area,
+            now,
+            move |ui, spec, id, presence| {
+                // The whole toast comes from the spec: the renderer reads no
+                // setting and no category, which is what keeps the preview and
+                // the real thing from diverging (docs/specs/toast.md §3).
+                let rect = ui.max_rect();
 
-            // Where Windows will not blur, glass is drawn solid rather than
-            // as a tint over nothing (docs/specs/toast.md §4.2). The reason
-            // is logged once, by ot-platform.
-            let solid;
-            let spec = if spec.style.glass.on(spec.style.shape) != ot_toast::Glass::None
-                && !ot_platform::toast_window::glass_available()
-            {
-                solid = ot_toast::ToastSpec {
-                    style: ot_toast::Style {
-                        glass: ot_toast::Glass::None,
-                        ..spec.style
-                    },
-                    ..spec.clone()
+                // Where Windows will not blur, glass is drawn solid rather than
+                // as a tint over nothing (docs/specs/toast.md §4.2). The reason
+                // is logged once, by ot-platform.
+                let solid;
+                let spec = if spec.style.glass.on(spec.style.shape) != ot_toast::Glass::None
+                    && !ot_platform::toast_window::glass_available()
+                {
+                    solid = ot_toast::ToastSpec {
+                        style: ot_toast::Style {
+                            glass: ot_toast::Glass::None,
+                            ..spec.style
+                        },
+                        ..spec.clone()
+                    };
+                    &solid
+                } else {
+                    spec
                 };
-                &solid
-            } else {
-                spec
-            };
 
-            // The window is cut to the corners about to be painted, so
-            // nothing outside them shows (BUG-0007). In this window's own
-            // pixels: a toast on a 150% monitor has corners half as large
-            // again. Shaped before painting, so a refusal of the glass is
-            // known by the next frame's paint.
-            let pixels = ui.ctx().pixels_per_point();
-            let radii = ot_toast::render::corner_radii(spec, rect.height())
-                .map(|radius| (radius * pixels).round() as i32);
-            // Opacity fades the whole window, text included (CR-0005).
-            let opacity = (spec.alpha() * 255.0).round().clamp(0.0, 255.0) as u8;
-            let shadow = spec.style.shadow.shows(spec.style.shape, spec.style.glass);
-            let glass = spec.style.glass.on(spec.style.shape) != ot_toast::Glass::None;
-            ot_platform::toast_window::set_shape(&id.window_title(), radii, opacity, shadow, glass);
+                // The window is cut to the corners about to be painted, so
+                // nothing outside them shows (BUG-0007). In this window's own
+                // pixels: a toast on a 150% monitor has corners half as large
+                // again. Shaped before painting, so a refusal of the glass is
+                // known by the next frame's paint.
+                let pixels = ui.ctx().pixels_per_point();
+                let radii = ot_toast::render::corner_radii(spec, rect.height())
+                    .map(|radius| (radius * pixels).round() as i32);
+                // Opacity fades the whole window, text included (CR-0005). While
+                // it enters or leaves, the fade every effect plays as until it is
+                // built (FEAT-0032 to FEAT-0034) scales it, never past solid.
+                let fade = spec.animation.easing.apply_alpha(presence);
+                let opacity = (spec.alpha() * fade * 255.0).round().clamp(0.0, 255.0) as u8;
+                let shadow = spec.style.shadow.shows(spec.style.shape, spec.style.glass);
+                let glass = spec.style.glass.on(spec.style.shape) != ot_toast::Glass::None;
+                if ot_platform::toast_window::set_shape(
+                    &id.window_title(),
+                    radii,
+                    opacity,
+                    shadow,
+                    glass,
+                ) {
+                    shaped_now.push(id);
+                }
 
-            let content = ot_toast::render::frame(ui.painter(), rect, spec);
+                let content = ot_toast::render::frame(ui.painter(), rect, spec);
 
-            // The colours come from the theme through here, so the renderer
-            // itself still hard-codes none.
-            let icon_key = spec
-                .content
-                .icon
-                .as_deref()
-                .unwrap_or(crate::images::APP_ICON);
-            let icon = pictures.get(icon_key).copied();
-            let image = spec
-                .content
-                .image
-                .as_deref()
-                .and_then(|path| pictures.get(&crate::images::image_key(path)).copied());
-            // The toast's own background picks the text colour, not the
-            // window's theme, which a toast does not follow.
-            let text = Tokens::for_toast(spec);
-            ot_toast::content::draw(
-                ui.painter(),
-                content,
-                spec,
-                text.text,
-                text.text_dim,
-                icon,
-                image,
-            );
-        });
+                // The colours come from the theme through here, so the renderer
+                // itself still hard-codes none.
+                let icon_key = spec
+                    .content
+                    .icon
+                    .as_deref()
+                    .unwrap_or(crate::images::APP_ICON);
+                let icon = pictures.get(icon_key).copied();
+                let image = spec
+                    .content
+                    .image
+                    .as_deref()
+                    .and_then(|path| pictures.get(&crate::images::image_key(path)).copied());
+                // The toast's own background picks the text colour, not the
+                // window's theme, which a toast does not follow.
+                let text = Tokens::for_toast(spec);
+                ot_toast::content::draw(
+                    ui.painter(),
+                    content,
+                    spec,
+                    text.text,
+                    text.text_dim,
+                    icon,
+                    image,
+                );
+            },
+        );
+        for id in shaped {
+            self.toasts.appear(id, now);
+        }
     }
 
     /// Bring the settings window back, in front.
@@ -1715,6 +1759,12 @@ pub fn run(
             // Narrow enough to prove the layout survives it, and no narrower:
             // the rules require the window to be checked at this size.
             .with_min_inner_size([560.0, 400.0]),
+        // No vsync. Every toast is its own window painted in the root's frame
+        // (ADR-016), and with vsync each window's present waits for the next
+        // refresh in turn: four windows, four refreshes, 12–32 fps. Windows'
+        // compositor already keeps a windowed app from tearing, so nothing is
+        // lost; the animation paces itself instead (`ANIMATION_FRAME`).
+        vsync: false,
         ..Default::default()
     };
 

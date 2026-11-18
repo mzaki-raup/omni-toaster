@@ -361,6 +361,153 @@ impl Default for Style {
     }
 }
 
+/// How a toast arrives and leaves (`docs/specs/toast.md` §5).
+///
+/// The out list is the in list plus "shrink to tray", Genie's own way out.
+/// Until each effect is built (FEAT-0032 to FEAT-0034) it plays as a fade,
+/// which is also what reduced motion and a slow frame fall back to.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default, Serialize)]
+#[serde(rename_all = "kebab-case")]
+pub enum Effect {
+    /// A fade: the alpha ramp every other effect falls back to.
+    #[default]
+    Appear,
+    SlideFromRight,
+    SlideFromBottom,
+    GenieFromBottom,
+    PopOut,
+    Drawer,
+    Dissolve,
+    Glow,
+    AlphaToSolid,
+    /// Out only: Genie's mirror, towards the tray icon.
+    ShrinkToTray,
+}
+
+impl Effect {
+    /// Every effect a toast may arrive with.
+    pub fn all_in() -> [Self; 9] {
+        [
+            Self::SlideFromRight,
+            Self::SlideFromBottom,
+            Self::GenieFromBottom,
+            Self::PopOut,
+            Self::Drawer,
+            Self::Appear,
+            Self::Dissolve,
+            Self::Glow,
+            Self::AlphaToSolid,
+        ]
+    }
+
+    /// Every effect a toast may leave with: the same, plus shrink to tray.
+    pub fn all_out() -> [Self; 10] {
+        let [a, b, c, d, e, f, g, h, i] = Self::all_in();
+        [a, b, c, d, e, f, g, h, i, Self::ShrinkToTray]
+    }
+
+    /// The effect `settings.toml` spells `name`, kebab-case.
+    fn from_name(name: &str) -> Option<Self> {
+        Self::all_out().into_iter().find(|effect| {
+            toml::Value::try_from(effect).is_ok_and(|value| value.as_str() == Some(name))
+        })
+    }
+}
+
+/// An unknown effect loads as Appear with a warning, rather than throwing
+/// away the whole `[toast]` table over one word.
+impl<'de> Deserialize<'de> for Effect {
+    fn deserialize<D: serde::Deserializer<'de>>(deserializer: D) -> Result<Self, D::Error> {
+        let name = String::deserialize(deserializer)?;
+        Ok(Self::from_name(&name).unwrap_or_else(|| {
+            tracing::warn!(value = %name, "an unknown animation was read as appear");
+            Self::Appear
+        }))
+    }
+}
+
+/// How an animation's progress is shaped over its duration (§5).
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default, Serialize)]
+#[serde(rename_all = "kebab-case")]
+pub enum Easing {
+    Linear,
+    /// Cubic: fast at first, settling at the end.
+    #[default]
+    EaseOut,
+    /// A damped overshoot that settles within the duration.
+    Spring,
+}
+
+impl Easing {
+    /// The shaped progress for `t`, 0.0–1.0. Exactly 0 at 0 and exactly 1
+    /// at 1; a spring may pass 1 on the way, which is right for motion and
+    /// scale.
+    pub fn apply(self, t: f32) -> f32 {
+        let t = if t.is_finite() {
+            t.clamp(0.0, 1.0)
+        } else {
+            1.0
+        };
+        match self {
+            Self::Linear => t,
+            Self::EaseOut => 1.0 - (1.0 - t).powi(3),
+            Self::Spring if t >= 1.0 => 1.0,
+            // Decays to within a quarter of a percent by the end, and peaks
+            // about 14% past the target a third of the way in.
+            Self::Spring => 1.0 - (-6.0 * t).exp() * (3.0 * std::f32::consts::PI * t).cos(),
+        }
+    }
+
+    /// The same, for an alpha, which never overshoots past solid (§5).
+    pub fn apply_alpha(self, t: f32) -> f32 {
+        self.apply(t).clamp(0.0, 1.0)
+    }
+}
+
+/// An unknown easing loads as ease-out with a warning.
+impl<'de> Deserialize<'de> for Easing {
+    fn deserialize<D: serde::Deserializer<'de>>(deserializer: D) -> Result<Self, D::Error> {
+        let name = String::deserialize(deserializer)?;
+        Ok(match name.as_str() {
+            "linear" => Self::Linear,
+            "ease-out" => Self::EaseOut,
+            "spring" => Self::Spring,
+            other => {
+                tracing::warn!(value = other, "an unknown easing was read as ease-out");
+                Self::EaseOut
+            }
+        })
+    }
+}
+
+/// How the toast arrives and leaves.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(default, deny_unknown_fields)]
+pub struct Animation {
+    pub enter: Effect,
+    pub leave: Effect,
+    /// The length of each of the two, in milliseconds: 150–1000.
+    pub duration_ms: u32,
+    pub easing: Easing,
+}
+
+impl Default for Animation {
+    fn default() -> Self {
+        Self {
+            enter: Effect::default(),
+            leave: Effect::default(),
+            duration_ms: ANIMATION_MS.default,
+            easing: Easing::default(),
+        }
+    }
+}
+
+impl Animation {
+    pub fn duration(&self) -> std::time::Duration {
+        std::time::Duration::from_millis(u64::from(self.duration_ms))
+    }
+}
+
 /// How long it stays and where.
 #[derive(Debug, Clone, Copy, PartialEq, Serialize, Deserialize)]
 #[serde(default, deny_unknown_fields)]
@@ -398,6 +545,7 @@ impl Default for Behaviour {
 pub struct ToastSpec {
     pub content: Content,
     pub style: Style,
+    pub animation: Animation,
     pub behaviour: Behaviour,
 }
 
@@ -417,6 +565,15 @@ impl ToastSpec {
         self.style.radius = RADIUS.clamp(self.style.radius, "style.radius");
         self.style.opacity = OPACITY.clamp(self.style.opacity, "style.opacity");
         self.style.border = BORDER.clamp(self.style.border, "style.border");
+        self.animation.duration_ms =
+            ANIMATION_MS.clamp(self.animation.duration_ms, "animation.duration_ms");
+        // Shrink to tray is Genie's way out; nothing arrives from the tray.
+        if self.animation.enter == Effect::ShrinkToTray {
+            tracing::warn!(
+                "shrink to tray is an out-animation only; the toast arrives with appear"
+            );
+            self.animation.enter = Effect::Appear;
+        }
 
         self.behaviour.duration_secs = if self.behaviour.persistent {
             // A persistent toast is capped, not endless — but it may outlast
@@ -660,6 +817,85 @@ duration_secs = 900.0
         for glass in [Glass::Blur, Glass::Acrylic, Glass::MicaLike] {
             assert!(!Shadow::On.shows(Shape::Rectangle, glass), "{glass:?}");
         }
+    }
+
+    #[test]
+    fn every_easing_starts_at_zero_and_ends_at_one() {
+        for easing in [Easing::Linear, Easing::EaseOut, Easing::Spring] {
+            assert_eq!(easing.apply(0.0), 0.0, "{easing:?} at 0");
+            assert_eq!(easing.apply(1.0), 1.0, "{easing:?} at 1");
+            // Out of range and not a number: held to the ends, never NaN.
+            assert_eq!(easing.apply(-1.0), 0.0);
+            assert_eq!(easing.apply(2.0), 1.0);
+            assert_eq!(easing.apply(f32::NAN), 1.0);
+        }
+        assert_eq!(Easing::Linear.apply(0.5), 0.5);
+        assert_eq!(Easing::EaseOut.apply(0.5), 0.875, "1 - 0.5³");
+        let spring_half = Easing::Spring.apply(0.5);
+        assert!((0.9..1.1).contains(&spring_half), "{spring_half}");
+    }
+
+    #[test]
+    fn a_spring_overshoots_but_an_alpha_never_passes_solid() {
+        let samples = (0..=100).map(|i| i as f32 / 100.0);
+        let peak = samples
+            .clone()
+            .map(|t| Easing::Spring.apply(t))
+            .fold(0.0_f32, f32::max);
+        assert!(peak > 1.05, "a spring overshoots: peak {peak}");
+        assert!(
+            samples
+                .map(|t| Easing::Spring.apply_alpha(t))
+                .all(|a| (0.0..=1.0).contains(&a)),
+            "an alpha never overshoots past solid (docs/specs/toast.md §5)"
+        );
+        // Settled by the end: the last stretch is already within 1%.
+        assert!((Easing::Spring.apply(0.95) - 1.0).abs() < 0.01);
+    }
+
+    #[test]
+    fn the_animation_is_clamped_and_nothing_arrives_from_the_tray() {
+        let mut spec = ToastSpec::default();
+        assert_eq!(spec.animation.duration_ms, 350, "the spec's default");
+        spec.animation.duration_ms = 5;
+        assert_eq!(
+            spec.clone().clamped().animation.duration_ms,
+            ANIMATION_MS.min
+        );
+        spec.animation.duration_ms = 60_000;
+        assert_eq!(
+            spec.clone().clamped().animation.duration_ms,
+            ANIMATION_MS.max
+        );
+
+        spec.animation.enter = Effect::ShrinkToTray;
+        spec.animation.leave = Effect::ShrinkToTray;
+        let spec = spec.clamped();
+        assert_eq!(spec.animation.enter, Effect::Appear);
+        assert_eq!(spec.animation.leave, Effect::ShrinkToTray, "a fine way out");
+    }
+
+    #[test]
+    fn the_animation_round_trips_and_unknown_words_load_as_defaults() {
+        for effect in Effect::all_out() {
+            let spec = ToastSpec {
+                animation: Animation {
+                    leave: effect,
+                    easing: Easing::Spring,
+                    ..Animation::default()
+                },
+                ..ToastSpec::default()
+            };
+            let text = toml::to_string(&spec).expect("encodes");
+            let back: ToastSpec = toml::from_str(&text).expect("decodes");
+            assert_eq!(back.animation, spec.animation, "{effect:?}");
+        }
+        let text = "[animation]\nenter = \"slide-from-right\"\nleave = \"warp\"\neasing = \"bouncy\"\nduration_ms = 500\n";
+        let spec: ToastSpec = toml::from_str(text).expect("unknown words still parse");
+        assert_eq!(spec.animation.enter, Effect::SlideFromRight);
+        assert_eq!(spec.animation.leave, Effect::Appear);
+        assert_eq!(spec.animation.easing, Easing::EaseOut);
+        assert_eq!(spec.animation.duration_ms, 500, "and the rest is kept");
     }
 
     #[test]

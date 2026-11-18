@@ -481,3 +481,17 @@ accent tint draws the window black, so the accent's own tint is a faint grey
 and the toast paints its tint over it. The owner also set Blur's tint to 45%
 rather than near-transparent, because text chosen for the toast's colour
 vanished over a desktop of the opposite lightness (`docs/specs/toast.md` §4.2).
+
+**Amended 2026-11-18 (FEAT-0031): no vsync.** With the timeline built, the
+debug build animated three toasts at 11–16 fps, not the spike's 54–56. Frames
+arrived every 62 or 104 ms — whole multiples of the 16.7 ms refresh — while the
+app's own work took 5–10 ms: with vsync, the root and each toast window
+presented in turn, each waiting for the next refresh. A minimised settings
+window made it worse (12 fps against 32). eframe now runs with `vsync: false`;
+the compositor already keeps a windowed app from tearing, and the app paces
+itself, asking for a frame every 1/60 s while anything moves. Measured on the
+reference machine, three toasts, release build: every in and out animation at
+137–444 fps, with the settings window open or minimised; 62 fps in a debug
+build with it open. The toast windows' own events drive frames beyond the 60
+asked for; that costs 6% of one core while three toasts are on screen, against
+1% with none, which is accepted for the seconds a toast is up.

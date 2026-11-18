@@ -13,6 +13,8 @@
 //! (`docs/specs/toast.md` §7). Each gets its own viewport id, derived from the
 //! toast's own id so the same toast keeps its window across frames.
 
+use std::time::{Duration, Instant};
+
 use crate::spec::ToastSpec;
 
 /// The height a toast takes when it sizes to its content.
@@ -86,111 +88,271 @@ pub fn builder(spec: &ToastSpec, title: &str) -> egui::ViewportBuilder {
 /// repainted. Painted from the root's frame, every toast is repainted in the
 /// same frame, which is also the one clock every animation runs on.
 ///
-/// `paint` is given the ui, the spec and the toast's id, whose
-/// [`ToastId::window_title`] names the window it is painting.
+/// `paint` is given the ui, the spec, the toast's id, whose
+/// [`ToastId::window_title`] names the window it is painting, and its
+/// presence at `now` ([`LiveToast::presence`]), which the effects are drawn
+/// from.
 pub fn show_all(
     ctx: &egui::Context,
     toasts: &Toasts,
     work_area: egui::Rect,
-    mut paint: impl FnMut(&mut egui::Ui, &ToastSpec, ToastId),
+    now: Instant,
+    mut paint: impl FnMut(&mut egui::Ui, &ToastSpec, ToastId, f32),
 ) {
-    for (index, toast) in toasts.visible().iter().enumerate() {
+    let slots = toasts.slots(now);
+    for (toast, slot) in toasts.visible().iter().zip(slots) {
         let spec = &toast.spec;
         let id = toast.id;
+        let presence = toast.presence(now);
         let size = egui::vec2(spec.style.width, spec.style.height.unwrap_or(AUTO_HEIGHT));
         // Worked out every frame against the work area in use, rather than
         // once when the toast appeared: the monitor can change underneath it
         // (`docs/specs/toast.md` §7.2).
-        let at = crate::placement::place(
+        let at = crate::placement::place_at(
             work_area,
             size,
             spec.behaviour.position,
-            index,
+            slot,
             spec.behaviour.stack_gap,
         );
         ctx.show_viewport_immediate(
             toast.id.viewport_id(),
-            builder(spec, &id.window_title()).with_position(at),
+            // Hidden until it has been shaped and given its alpha, so it
+            // never flashes at full strength before its fade begins.
+            builder(spec, &id.window_title())
+                .with_position(at)
+                .with_visible(toast.is_on_screen()),
             |ctx, _class| {
                 // No frame of egui's own: the toast paints its own
                 // background, its own corners and its own shadow, and a panel
                 // fill underneath would show through the transparent corners.
                 egui::CentralPanel::default()
                     .frame(egui::Frame::NONE)
-                    .show(ctx, |ui| paint(ui, spec, id));
+                    .show(ctx, |ui| paint(ui, spec, id, presence));
             },
         );
     }
 }
 
-/// What should happen to a toast this frame.
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub enum Disposition {
-    /// Keep it on screen.
-    Keep,
-    /// Its time is up, or it was dismissed.
-    Retire,
+/// Where a toast is in its life (`docs/specs/toast.md` §5): it enters, holds,
+/// and leaves. The two animated stages carry their linear progress, 0.0–1.0,
+/// before any easing.
+#[derive(Debug, Clone, Copy, PartialEq)]
+pub enum Stage {
+    /// Arriving: 0 has just appeared, 1 is fully there.
+    Entering(f32),
+    /// On screen, its countdown running unless the pointer is over it.
+    Holding,
+    /// Going: 1 is still fully there, 0 is gone. A toast dismissed while it
+    /// was entering starts from wherever it had got to, not from 1.
+    Leaving(f32),
+    /// Its out-animation has finished; the window can close.
+    Gone,
 }
 
-/// One toast on screen: its id, its spec, and when it appeared.
+/// How long a toast waits for its window before it starts anyway.
+const APPEAR_WAIT: Duration = Duration::from_secs(1);
+
+/// One toast on screen: its id, its spec, and where it is in its timeline.
+///
+/// Every method that depends on the time takes it, so the whole timeline can
+/// be tested exactly, without sleeping.
 #[derive(Debug, Clone)]
 pub struct LiveToast {
     pub id: ToastId,
     pub spec: ToastSpec,
-    /// Set to `None` while the pointer is over it: hovering pauses the
-    /// countdown (`docs/specs/toast.md` §6), and a paused countdown is one
-    /// that is not running rather than one that is running slowly.
-    shown_at: Option<std::time::Instant>,
-    /// How much of its life it had used when the pointer arrived.
-    elapsed_before_hover: std::time::Duration,
+    /// When it appeared on screen and its in-animation began. Until its
+    /// window exists and has been shaped — a frame or more after it is asked
+    /// for — it has not appeared: a window shown before its alpha is set
+    /// flashes at full strength first.
+    entered: Instant,
+    /// Whether [`LiveToast::appear`] has been called.
+    on_screen: bool,
+    /// When it was created, so a window that never turns up does not keep a
+    /// toast waiting for ever.
+    created: Instant,
+    /// Hold time lost to the pointer, from pauses that have ended.
+    paused: Duration,
+    /// When the pointer arrived, while it is still there.
+    hovered_since: Option<Instant>,
+    /// When it began to leave, and how far in it was at that moment.
+    leaving: Option<(Instant, f32)>,
+    /// Frames painted during the current animation, and when it began, for
+    /// the frame-rate log.
+    frames: u32,
+    counting_since: Instant,
 }
 
 impl LiveToast {
-    pub fn new(id: ToastId, spec: ToastSpec) -> Self {
+    pub fn new(id: ToastId, spec: ToastSpec, now: Instant) -> Self {
         Self {
             id,
             spec: spec.clamped(),
-            shown_at: Some(std::time::Instant::now()),
-            elapsed_before_hover: std::time::Duration::ZERO,
+            entered: now,
+            on_screen: false,
+            created: now,
+            paused: Duration::ZERO,
+            hovered_since: None,
+            leaving: None,
+            frames: 0,
+            counting_since: now,
         }
     }
 
-    /// How long it has been on screen, not counting time under the pointer.
-    pub fn elapsed(&self) -> std::time::Duration {
-        match self.shown_at {
-            Some(at) => self.elapsed_before_hover + at.elapsed(),
-            None => self.elapsed_before_hover,
+    /// Its window is on screen and shaped: the in-animation starts now.
+    /// Calling it again changes nothing.
+    pub fn appear(&mut self, now: Instant) {
+        if !self.on_screen {
+            self.on_screen = true;
+            self.entered = now;
+            self.counting_since = now;
         }
     }
 
-    /// Stop or restart the countdown as the pointer comes and goes.
-    pub fn set_hovered(&mut self, hovered: bool) {
-        match (hovered, self.shown_at) {
-            (true, Some(at)) => {
-                self.elapsed_before_hover += at.elapsed();
-                self.shown_at = None;
+    pub fn is_on_screen(&self) -> bool {
+        self.on_screen
+    }
+
+    fn animation_length(&self) -> Duration {
+        self.spec.animation.duration()
+    }
+
+    /// The moment the in-animation ends and the countdown starts.
+    fn hold_start(&self) -> Instant {
+        self.entered + self.animation_length()
+    }
+
+    /// How long its countdown has run: from the end of the in-animation,
+    /// not counting time under the pointer (`docs/specs/toast.md` §5, §6).
+    pub fn held(&self, now: Instant) -> Duration {
+        let start = self.hold_start();
+        let current_pause = self.hovered_since.map_or(Duration::ZERO, |since| {
+            now.saturating_duration_since(since.max(start))
+        });
+        now.saturating_duration_since(start)
+            .saturating_sub(self.paused)
+            .saturating_sub(current_pause)
+    }
+
+    /// Stop or restart the countdown as the pointer comes and goes. Time
+    /// under the pointer while the toast is still entering costs the
+    /// countdown nothing, because the countdown has not started.
+    pub fn set_hovered(&mut self, hovered: bool, now: Instant) {
+        match (hovered, self.hovered_since) {
+            (true, None) => self.hovered_since = Some(now),
+            (false, Some(since)) => {
+                self.paused += now.saturating_duration_since(since.max(self.hold_start()));
+                self.hovered_since = None;
             }
-            (false, None) => self.shown_at = Some(std::time::Instant::now()),
             _ => {}
         }
     }
 
     pub fn is_paused(&self) -> bool {
-        self.shown_at.is_none()
+        self.hovered_since.is_some()
     }
 
-    /// Whether this toast has had its time.
+    /// Where it is in its life at `now`.
+    pub fn stage(&self, now: Instant) -> Stage {
+        let length = self.animation_length().as_secs_f32().max(f32::EPSILON);
+        if let Some((since, from)) = self.leaving {
+            let left = from - now.saturating_duration_since(since).as_secs_f32() / length;
+            return if left <= 0.0 {
+                Stage::Gone
+            } else {
+                Stage::Leaving(left)
+            };
+        }
+        if !self.on_screen {
+            return Stage::Entering(0.0);
+        }
+        let entering = now.saturating_duration_since(self.entered).as_secs_f32() / length;
+        if entering < 1.0 {
+            Stage::Entering(entering)
+        } else {
+            Stage::Holding
+        }
+    }
+
+    /// How much of the toast is there at `now`, 0.0–1.0, before easing: 1
+    /// while it holds, rising while it enters, falling while it leaves.
+    pub fn presence(&self, now: Instant) -> f32 {
+        match self.stage(now) {
+            Stage::Entering(t) | Stage::Leaving(t) => t.clamp(0.0, 1.0),
+            Stage::Holding => 1.0,
+            Stage::Gone => 0.0,
+        }
+    }
+
+    /// Whether it is moving at `now`, so the next frame is wanted at once.
+    pub fn is_animating(&self, now: Instant) -> bool {
+        matches!(self.stage(now), Stage::Entering(_) | Stage::Leaving(_))
+    }
+
+    /// Begin the out-animation from wherever it is. Leaving again changes
+    /// nothing.
+    pub fn leave(&mut self, now: Instant) {
+        if self.leaving.is_none() {
+            let from = self.presence(now);
+            self.end_animation_log("entered", now);
+            self.leaving = Some((now, from));
+            self.counting_since = now;
+        }
+    }
+
+    pub fn is_leaving(&self) -> bool {
+        self.leaving.is_some()
+    }
+
+    /// Whether its countdown has run out at `now`.
     ///
     /// A persistent toast waits to be acknowledged, but not for ever: its cap
     /// is already in the spec's own duration by the time it gets here
     /// (`ToastSpec::clamped`).
-    pub fn disposition(&self) -> Disposition {
-        let allowed =
-            std::time::Duration::from_secs_f32(self.spec.behaviour.duration_secs.max(0.0));
-        if self.elapsed() >= allowed {
-            Disposition::Retire
-        } else {
-            Disposition::Keep
+    fn expired(&self, now: Instant) -> bool {
+        let allowed = Duration::from_secs_f32(self.spec.behaviour.duration_secs.max(0.0));
+        self.stage(now) == Stage::Holding && self.held(now) >= allowed
+    }
+
+    /// When something next changes without anyone touching it: the moment
+    /// its countdown runs out. `None` while it animates (every frame is
+    /// wanted then) or while the pointer holds it.
+    pub fn next_change(&self, now: Instant) -> Option<Instant> {
+        if self.is_animating(now) || self.is_paused() || self.leaving.is_some() {
+            return None;
+        }
+        let allowed = Duration::from_secs_f32(self.spec.behaviour.duration_secs.max(0.0));
+        let start = self.hold_start().max(now);
+        Some(start + allowed.saturating_sub(self.held(now)))
+    }
+
+    /// Count a painted frame of an animation; when the animation has just
+    /// ended, log how many frames it took. The log is the frame-rate
+    /// measurement the phase's exit criterion asks for (ADR-016).
+    pub fn note_frame(&mut self, now: Instant) {
+        match self.stage(now) {
+            Stage::Entering(_) | Stage::Leaving(_) => self.frames += 1,
+            Stage::Holding => self.end_animation_log("entered", now),
+            Stage::Gone => self.end_animation_log("left", now),
+        }
+    }
+
+    fn end_animation_log(&mut self, what: &'static str, now: Instant) {
+        if self.frames > 0 {
+            let ms = now
+                .saturating_duration_since(self.counting_since)
+                .as_secs_f32()
+                * 1000.0;
+            let fps = self.frames as f32 * 1000.0 / ms.max(1.0);
+            tracing::debug!(
+                id = self.id.0,
+                what,
+                frames = self.frames,
+                ms,
+                fps,
+                "a toast animation ended"
+            );
+            self.frames = 0;
         }
     }
 }
@@ -214,17 +376,23 @@ impl Toasts {
     }
 
     /// Show a toast, or queue it when the screen is full.
-    pub fn push(&mut self, spec: ToastSpec) -> ToastId {
+    pub fn push(&mut self, spec: ToastSpec, now: Instant) -> ToastId {
         let id = ToastId(self.next_id);
         self.next_id += 1;
-        let toast = LiveToast::new(id, spec);
+        let toast = LiveToast::new(id, spec, now);
 
-        if self.visible.len() < self.max_visible() {
+        if self.staying() < self.max_visible() {
             self.visible.push(toast);
         } else {
             self.queued.push_back(toast);
         }
         id
+    }
+
+    /// The visible toasts that are not on their way out: a leaving toast
+    /// has given up its place, so the next in the queue may start to enter.
+    fn staying(&self) -> usize {
+        self.visible.iter().filter(|t| !t.is_leaving()).count()
     }
 
     /// How many may be on screen at once.
@@ -240,39 +408,103 @@ impl Toasts {
             }) as usize
     }
 
-    /// Retire whatever has had its time and promote from the queue.
+    /// Start the out-animation of whatever has had its time, drop what has
+    /// finished leaving, and promote from the queue.
     ///
-    /// Returns the ids that left, so their viewports can be closed.
-    pub fn tick(&mut self) -> Vec<ToastId> {
-        let mut retired = Vec::new();
+    /// Returns the ids that are gone, so their viewports can be closed.
+    pub fn tick(&mut self, now: Instant) -> Vec<ToastId> {
+        for toast in &mut self.visible {
+            // A window that has not turned up in a second is not going to be
+            // shaped first; the toast starts anyway rather than wait unseen.
+            if !toast.on_screen && now.saturating_duration_since(toast.created) >= APPEAR_WAIT {
+                tracing::warn!(
+                    id = toast.id.0,
+                    "a toast's window was not ready in time; it starts anyway"
+                );
+                toast.appear(now);
+            }
+            if toast.expired(now) {
+                toast.leave(now);
+            }
+            if toast.stage(now) == Stage::Gone {
+                toast.end_animation_log("left", now);
+            }
+        }
+        let mut gone = Vec::new();
         self.visible.retain(|toast| {
-            if toast.disposition() == Disposition::Retire {
-                retired.push(toast.id);
+            if toast.stage(now) == Stage::Gone {
+                gone.push(toast.id);
                 false
             } else {
                 true
             }
         });
 
-        while self.visible.len() < self.max_visible() {
+        while self.staying() < self.max_visible() {
             match self.queued.pop_front() {
-                // Its countdown starts when it appears, not when it was
-                // pushed: a queued toast nobody has seen has not been shown.
-                Some(mut toast) => {
-                    toast.shown_at = Some(std::time::Instant::now());
-                    toast.elapsed_before_hover = std::time::Duration::ZERO;
-                    self.visible.push(toast);
-                }
+                // It enters when it appears, not when it was pushed: a
+                // queued toast nobody has seen has not been shown.
+                Some(toast) => self.visible.push(LiveToast::new(toast.id, toast.spec, now)),
                 None => break,
             }
         }
-        retired
+        gone
     }
 
-    /// Dismiss one by id, wherever it is.
-    pub fn dismiss(&mut self, id: ToastId) {
-        self.visible.retain(|toast| toast.id != id);
+    /// The toast's window is on screen and shaped: its in-animation starts.
+    pub fn appear(&mut self, id: ToastId, now: Instant) {
+        if let Some(toast) = self.visible.iter_mut().find(|toast| toast.id == id) {
+            toast.appear(now);
+        }
+    }
+
+    /// Dismiss one by id: a visible toast plays its out-animation from
+    /// wherever it is, and a queued one never appears.
+    pub fn dismiss(&mut self, id: ToastId, now: Instant) {
+        if let Some(toast) = self.visible.iter_mut().find(|toast| toast.id == id) {
+            toast.leave(now);
+        }
         self.queued.retain(|toast| toast.id != id);
+    }
+
+    /// Whether any toast is moving at `now`, so every frame is wanted.
+    pub fn is_animating(&self, now: Instant) -> bool {
+        self.visible.iter().any(|toast| toast.is_animating(now))
+    }
+
+    /// The soonest moment something changes on its own — a countdown
+    /// running out — so the app can sleep until then rather than poll.
+    pub fn next_change(&self, now: Instant) -> Option<Instant> {
+        self.visible
+            .iter()
+            .filter_map(|toast| toast.next_change(now))
+            .min()
+    }
+
+    /// Each visible toast's place in the stack at `now`, in toasts from the
+    /// anchor. A leaving toast's own share shrinks with its eased presence,
+    /// so the ones beyond it move up with the same easing rather than
+    /// jumping (`docs/specs/toast.md` §5).
+    pub fn slots(&self, now: Instant) -> Vec<f32> {
+        let mut slot = 0.0;
+        self.visible
+            .iter()
+            .map(|toast| {
+                let here = slot;
+                let share = if toast.is_leaving() {
+                    toast
+                        .spec
+                        .animation
+                        .easing
+                        .apply(toast.presence(now))
+                        .max(0.0)
+                } else {
+                    1.0
+                };
+                slot += share;
+                here
+            })
+            .collect()
     }
 
     pub fn visible(&self) -> &[LiveToast] {
@@ -339,99 +571,264 @@ mod tests {
         assert_ne!(ToastId(7).viewport_id(), ToastId(8).viewport_id());
     }
 
+    /// A fixed start, so every time in these tests is exact.
+    fn t0() -> Instant {
+        Instant::now()
+    }
+
+    fn ms(n: u64) -> Duration {
+        Duration::from_millis(n)
+    }
+
+    /// The default animation is 350 ms each way.
+    const ANIM: u64 = 350;
+
+    /// Push a toast and let its window appear at once, as the app does once
+    /// it has shaped the window.
+    fn shown(toasts: &mut Toasts, spec: ToastSpec, now: Instant) -> ToastId {
+        let id = toasts.push(spec, now);
+        toasts.appear(id, now);
+        id
+    }
+
+    #[test]
+    fn a_toast_waits_for_its_window_and_starts_anyway_after_a_second() {
+        let start = t0();
+        let mut toasts = Toasts::new();
+        let id = toasts.push(spec_lasting(3.0), start);
+        let toast = &toasts.visible()[0];
+        assert!(!toast.is_on_screen());
+        assert_eq!(
+            toast.stage(start + ms(500)),
+            Stage::Entering(0.0),
+            "held at the start"
+        );
+        assert!(
+            toasts.is_animating(start + ms(500)),
+            "and frames keep coming until it shows"
+        );
+
+        // Its window never turned up: after a second it starts regardless.
+        toasts.tick(start + APPEAR_WAIT);
+        let toast = &toasts.visible()[0];
+        assert!(toast.is_on_screen());
+        assert_eq!(toast.stage(start + APPEAR_WAIT), Stage::Entering(0.0));
+        assert_eq!(toast.id, id);
+
+        // Appearing again changes nothing.
+        toasts.appear(id, start + ms(5_000));
+        assert_eq!(
+            toasts.visible()[0].stage(start + APPEAR_WAIT + ms(ANIM)),
+            Stage::Holding
+        );
+    }
+
     #[test]
     fn the_surplus_queues_rather_than_being_dropped() {
         // A fired reminder that silently never appeared is the one failure a
         // notification app may not have.
+        let now = t0();
         let mut toasts = Toasts::new();
         let max = MAX_VISIBLE.default as usize;
         for _ in 0..max + 2 {
-            toasts.push(spec_lasting(60.0));
+            shown(&mut toasts, spec_lasting(60.0), now);
         }
         assert_eq!(toasts.visible().len(), max);
         assert_eq!(toasts.queued_count(), 2, "the surplus is kept, not dropped");
     }
 
     #[test]
-    fn a_queued_toast_starts_its_countdown_when_it_appears() {
-        // Otherwise a toast that waited behind four others would arrive
-        // already expired and flash past unread.
+    fn a_toast_enters_holds_for_its_whole_duration_then_leaves() {
+        let start = t0();
+        let mut toast = LiveToast::new(ToastId(1), spec_lasting(3.0), start);
+        toast.appear(start);
+        assert_eq!(toast.stage(start), Stage::Entering(0.0));
+        assert_eq!(toast.stage(start + ms(ANIM / 2)), Stage::Entering(0.5));
+        assert_eq!(toast.stage(start + ms(ANIM)), Stage::Holding);
+
+        // The countdown starts when the in-animation ends, so the whole
+        // three seconds are on screen in full.
+        assert_eq!(toast.held(start + ms(ANIM)), Duration::ZERO);
+        assert_eq!(toast.held(start + ms(ANIM + 1_000)), ms(1_000));
+        assert!(!toast.expired(start + ms(ANIM + 2_999)));
+        assert!(toast.expired(start + ms(ANIM + 3_000)));
+    }
+
+    #[test]
+    fn expiry_plays_the_out_animation_before_the_window_closes() {
+        let start = t0();
+        let mut toasts = Toasts::new();
+        let id = shown(&mut toasts, spec_lasting(3.0), start);
+        let expires = start + ms(ANIM + 3_000);
+
+        assert!(toasts.tick(expires).is_empty(), "not gone: leaving");
+        let toast = &toasts.visible()[0];
+        assert_eq!(toast.stage(expires), Stage::Leaving(1.0));
+        assert_eq!(toast.stage(expires + ms(ANIM / 2)), Stage::Leaving(0.5));
+
+        assert!(toasts.tick(expires + ms(ANIM / 2)).is_empty());
+        assert_eq!(
+            toasts.tick(expires + ms(ANIM)),
+            vec![id],
+            "gone once it has left"
+        );
+        assert!(toasts.is_empty());
+    }
+
+    #[test]
+    fn a_toast_dismissed_while_entering_leaves_from_where_it_is() {
+        let start = t0();
+        let mut toast = LiveToast::new(ToastId(1), spec_lasting(8.0), start);
+        toast.appear(start);
+        let at = start + ms(ANIM * 2 / 5);
+        let reached = toast.presence(at);
+        assert!((0.39..0.41).contains(&reached), "{reached}");
+
+        toast.leave(at);
+        assert_eq!(
+            toast.stage(at),
+            Stage::Leaving(reached),
+            "no jump to fully there"
+        );
+        // And it takes only as long as it had come: 40% of the way back.
+        assert!(matches!(
+            toast.stage(at + ms(ANIM * 2 / 5 - 5)),
+            Stage::Leaving(_)
+        ));
+        assert_eq!(toast.stage(at + ms(ANIM * 2 / 5 + 5)), Stage::Gone);
+
+        // Leaving twice does not restart it.
+        toast.leave(at + ms(50));
+        assert_eq!(toast.stage(at), Stage::Leaving(reached));
+    }
+
+    #[test]
+    fn hovering_pauses_the_countdown_but_not_the_entry() {
+        let start = t0();
+        let mut toast = LiveToast::new(ToastId(1), spec_lasting(60.0), start);
+        toast.appear(start);
+        let holding = start + ms(ANIM);
+
+        // The pointer arrives while it enters: the entry carries on, and the
+        // countdown, which has not started, loses nothing to it yet.
+        toast.set_hovered(true, start + ms(100));
+        assert!(toast.is_paused());
+        assert_eq!(
+            toast.stage(start + ms(200)),
+            Stage::Entering(200.0 / ANIM as f32)
+        );
+        assert_eq!(
+            toast.held(holding + ms(500)),
+            Duration::ZERO,
+            "paused all along"
+        );
+
+        toast.set_hovered(false, holding + ms(500));
+        assert!(!toast.is_paused());
+        assert_eq!(
+            toast.held(holding + ms(800)),
+            ms(300),
+            "resumes where it stopped"
+        );
+
+        // A pause during the hold costs exactly its own length.
+        toast.set_hovered(true, holding + ms(1_000));
+        toast.set_hovered(false, holding + ms(4_000));
+        assert_eq!(toast.held(holding + ms(5_000)), ms(1_500));
+        assert_eq!(
+            toast.next_change(holding + ms(5_000)),
+            Some(holding + ms(5_000) + ms(58_500))
+        );
+    }
+
+    #[test]
+    fn a_queued_toast_enters_when_it_is_promoted_not_when_it_was_pushed() {
+        // Otherwise a toast that waited behind others would arrive already
+        // expired and flash past unread.
+        let start = t0();
         let mut toasts = Toasts::new();
         let max = MAX_VISIBLE.default as usize;
-        for _ in 0..max {
-            // Already over: these retire on the first tick.
-            toasts.push(spec_lasting(DURATION_FLOOR));
+        let first = shown(&mut toasts, spec_lasting(60.0), start);
+        for _ in 1..max {
+            shown(&mut toasts, spec_lasting(60.0), start);
         }
-        let queued = toasts.push(spec_lasting(60.0));
+        let queued = toasts.push(spec_lasting(60.0), start);
         assert_eq!(toasts.queued_count(), 1);
 
-        std::thread::sleep(std::time::Duration::from_millis(DURATION_FLOOR_MS + 20));
-        let retired = toasts.tick();
-        assert_eq!(retired.len(), max, "the expired ones left");
-        assert_eq!(toasts.queued_count(), 0, "and the queued one was promoted");
-
+        // Dismissing one gives up its place at once: the queued toast starts
+        // to enter while the dismissed one is still leaving.
+        let later = start + ms(30_000);
+        toasts.dismiss(first, later);
+        toasts.tick(later);
+        assert_eq!(toasts.queued_count(), 0);
         let promoted = toasts
             .visible()
             .iter()
             .find(|t| t.id == queued)
-            .expect("the promoted toast");
-        assert!(
-            promoted.elapsed() < std::time::Duration::from_millis(50),
-            "its countdown started on arrival, not on being pushed: {:?}",
-            promoted.elapsed()
-        );
-    }
-
-    /// The shortest a toast may last, which is what makes these tests quick.
-    const DURATION_FLOOR: f32 = 3.0;
-    const DURATION_FLOOR_MS: u64 = 3_000;
-
-    #[test]
-    fn hovering_pauses_the_countdown_and_leaving_resumes_it() {
-        let mut toasts = Toasts::new();
-        let id = toasts.push(spec_lasting(60.0));
-        std::thread::sleep(std::time::Duration::from_millis(30));
-
-        let toast = &mut toasts.visible_mut()[0];
-        toast.set_hovered(true);
-        assert!(toast.is_paused());
-        let at_hover = toast.elapsed();
-
-        std::thread::sleep(std::time::Duration::from_millis(60));
+            .expect("promoted");
         assert_eq!(
-            toast.elapsed(),
-            at_hover,
-            "time under the pointer must not count"
+            promoted.stage(later),
+            Stage::Entering(0.0),
+            "entering from the start"
         );
-
-        toast.set_hovered(false);
-        assert!(!toast.is_paused());
-        std::thread::sleep(std::time::Duration::from_millis(30));
-        assert!(
-            toast.elapsed() > at_hover,
-            "and it resumes where it stopped"
-        );
-        assert_eq!(toasts.visible()[0].id, id);
     }
 
     #[test]
-    fn dismissing_removes_it_from_wherever_it_is() {
+    fn the_toasts_beyond_a_leaving_one_move_up_with_its_easing() {
+        let start = t0();
         let mut toasts = Toasts::new();
-        let first = toasts.push(spec_lasting(60.0));
-        let mut queued_ids = Vec::new();
-        for _ in 0..MAX_VISIBLE.default + 1 {
-            queued_ids.push(toasts.push(spec_lasting(60.0)));
+        let first = shown(&mut toasts, spec_lasting(60.0), start);
+        shown(&mut toasts, spec_lasting(60.0), start);
+        shown(&mut toasts, spec_lasting(60.0), start);
+        let settled = start + ms(ANIM);
+        assert_eq!(toasts.slots(settled), vec![0.0, 1.0, 2.0]);
+
+        toasts.dismiss(first, settled);
+        assert_eq!(
+            toasts.slots(settled),
+            vec![0.0, 1.0, 2.0],
+            "nothing has moved yet"
+        );
+        let halfway = toasts.slots(settled + ms(ANIM / 2));
+        let eased = crate::spec::Easing::EaseOut.apply(0.5);
+        assert!((halfway[1] - eased).abs() < 1e-4, "{halfway:?}");
+        assert!((halfway[2] - (eased + 1.0)).abs() < 1e-4);
+        let gone = toasts.slots(settled + ms(ANIM));
+        assert_eq!(&gone[1..], &[0.0, 1.0], "in the room it left");
+    }
+
+    #[test]
+    fn dismissing_a_queued_toast_means_it_never_appears() {
+        let start = t0();
+        let mut toasts = Toasts::new();
+        for _ in 0..MAX_VISIBLE.default {
+            shown(&mut toasts, spec_lasting(60.0), start);
         }
-        let last_queued = *queued_ids.last().expect("a queued toast");
-
-        toasts.dismiss(first);
-        assert!(toasts.visible().iter().all(|t| t.id != first));
-
-        toasts.dismiss(last_queued);
-        toasts.tick();
+        let queued = toasts.push(spec_lasting(60.0), start);
+        toasts.dismiss(queued, start);
+        assert_eq!(toasts.queued_count(), 0);
+        let first = toasts.visible()[0].id;
+        toasts.dismiss(first, start + ms(ANIM));
+        toasts.tick(start + ms(ANIM * 3));
         assert!(
-            toasts.visible().iter().all(|t| t.id != last_queued),
+            toasts.visible().iter().all(|t| t.id != queued),
             "a dismissed toast must not arrive later from the queue"
         );
+    }
+
+    #[test]
+    fn only_a_moving_toast_wants_every_frame_and_a_still_one_says_when_it_changes() {
+        let start = t0();
+        let mut toasts = Toasts::new();
+        shown(&mut toasts, spec_lasting(3.0), start);
+        assert!(toasts.is_animating(start));
+        assert_eq!(
+            toasts.next_change(start),
+            None,
+            "every frame while it enters"
+        );
+        let holding = start + ms(ANIM);
+        assert!(!toasts.is_animating(holding));
+        assert_eq!(toasts.next_change(holding), Some(holding + ms(3_000)));
     }
 }

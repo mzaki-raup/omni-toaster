@@ -16,5 +16,7 @@ pub mod viewport;
 
 pub use placement::{Position, StackDirection};
 pub use prefs::{Header, MonitorChoice, Prefs};
-pub use spec::{Behaviour, Content, Glass, Rgba, Shadow, Shape, Style, ToastSpec};
-pub use viewport::{Disposition, LiveToast, ToastId, Toasts};
+pub use spec::{
+    Animation, Behaviour, Content, Easing, Effect, Glass, Rgba, Shadow, Shape, Style, ToastSpec,
+};
+pub use viewport::{LiveToast, Stage, ToastId, Toasts};

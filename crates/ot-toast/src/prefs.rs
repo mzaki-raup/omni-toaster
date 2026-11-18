@@ -7,7 +7,7 @@
 
 use serde::{Deserialize, Serialize};
 
-use crate::spec::{Behaviour, Content, Style, ToastSpec};
+use crate::spec::{Animation, Behaviour, Content, Style, ToastSpec};
 
 /// Which parts of the header show.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
@@ -49,6 +49,8 @@ pub struct MonitorChoice {
 #[serde(default, deny_unknown_fields)]
 pub struct Prefs {
     pub style: Style,
+    /// How toasts arrive and leave (`docs/specs/toast.md` §5).
+    pub animation: Animation,
     pub behaviour: Behaviour,
     pub header: Header,
     /// `None` is the primary monitor, whichever that is at the time — the
@@ -112,6 +114,7 @@ impl Prefs {
         ToastSpec {
             content,
             style: self.style,
+            animation: self.animation,
             behaviour: self.behaviour,
         }
         .clamped()
@@ -139,6 +142,10 @@ mod tests {
         let mut prefs = Prefs::default();
         prefs.style.shape = Shape::Pill;
         prefs.style.width = 420.0;
+        prefs.animation.enter = crate::spec::Effect::SlideFromBottom;
+        prefs.animation.leave = crate::spec::Effect::ShrinkToTray;
+        prefs.animation.duration_ms = 600;
+        prefs.animation.easing = crate::spec::Easing::Spring;
         prefs.behaviour.position = Position::Custom { x: 0.25, y: 0.75 };
         prefs.header.timestamp = false;
         prefs.monitor = Some(MonitorChoice {

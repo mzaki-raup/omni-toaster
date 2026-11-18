@@ -157,7 +157,12 @@ solid.
 **Out:** the mirror of each in-preset, plus "shrink to tray" for Genie.
 
 **Settings:** type, duration 150–1000 ms (default 350 ms), easing (linear,
-ease-out, spring).
+ease-out, spring). Defaults: in and out **appear**, **ease-out**. In
+`settings.toml` they are the `[toast.animation]` table — `enter`, `leave`,
+`duration_ms`, `easing`, kebab-case; an unknown effect loads as `appear` and an
+unknown easing as `ease-out`, each with a warning, and shrink to tray as an
+in-animation becomes appear. Until an effect is built (FEAT-0032 to FEAT-0034)
+it plays as a fade.
 
 **Reduced motion** follows the Windows "Show animations" setting and switches to
 fade only.
@@ -175,14 +180,25 @@ which the toast window has (ADR-016).
 and a toast that is dismissed or runs out plays its out-animation before its
 window closes. A toast waiting in the stacking queue has not entered. While a
 toast leaves, the ones below it move up with the same easing rather than
-jumping.
+jumping, and its place is free at once, so a queued toast starts to enter
+while it goes. A toast dismissed while it enters leaves from where it had got
+to, taking only as long as it had come. Its window is kept **hidden until it
+has been shaped** and given its alpha, and the in-animation starts then — a
+window shown first flashes at full strength before its fade; one whose window
+has not turned up within a second starts anyway, with a warning in the log.
+Hovering during the entry costs the countdown nothing, since it has not
+started.
 
 **One clock.** Every toast is painted in the same frame as the app's root
 window (ADR-016), so all of them animate together, and the frame time measured
 is the whole frame's. Each effect has a frame-time budget and **falls back to
 fade below 30 fps** — the fallback is automatic and logged, never a visible
 stutter. 60 fps is measured on the reference machine (ADR-016), in a release
-build.
+build. **There is no vsync**: with it, each window's present waited for the
+next refresh in turn, and four windows held a frame to 12–32 fps. Instead a
+frame is asked for every 1/60 s while anything moves, and none while nothing
+does except at the moment a countdown runs out. Every animation logs, at debug
+level, the frames it took and its frame rate — the measurement itself.
 
 **Easing.** Linear, ease-out (cubic), and spring (a damped overshoot that
 settles within the duration). Spring applies to motion and scale; an alpha
