@@ -15,6 +15,7 @@ Format: [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) · Versioning:
 ### Added
 
 - Glass for Rectangle toasts: Settings ▸ Appearance ▸ Glass offers None, Blur, Acrylic and Mica-like — the desktop behind the toast blurred by Windows under 45 %, 60 % or 88 % of the toast's colour. Greyed out for the other shapes, with the reason; a glass toast has no shadow; drawn solid, with a line in the log, where Windows will not blur. New strings in English and Malay (FEAT-0030).
+- `README.ms.md`, the README in Bahasa Melayu, and a link between it and `README.md` at the top of each (FEAT-0037).
 - `assets/sound/notification.mp3`, a stand-in default chime (HTC's *Button* sound, committed on the owner's decision; Phase 9's terms check replaces it if it cannot be cleared). Not embedded until the audio engine exists.
 
 ## 0.10.0 — 2026-11-15

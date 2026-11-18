@@ -6,6 +6,8 @@
 
 </div>
 
+**English** · [Bahasa Melayu](README.ms.md)
+
 OmniToaster is a portable Windows desktop application that delivers
 customizable, Windows-style toast notifications for reminders, prayer times
 (Azan), weather changes and time announcements. It runs in the system tray,

@@ -125,13 +125,32 @@ Refs: BUG-0003
 ### Latest Vacant/Free Task
 
 ```
-Version : v0.3.1
-Features : FEAT-0037
+Version : v0.3.2
+Features : FEAT-0038
 Bugs : BUG-0009
-Change Request : CR-0007
+Change Request : CR-0008
 ```
 
 ---
+
+## v0.3.1 — Done 2026-11-18
+
+Documentation only: the Malay README the rules have always required. Labelled
+after v0.3.0, which Phase 3 holds on its own branch.
+
+### FEAT-0037 · README.ms.md, the Malay README
+- **State:** Completed · **Spec:** .claude/rules/docs-and-release.md · PROPOSAL.md §11
+- **Branch:** docs/readme-ms
+- **Source:** found while finishing FEAT-0030: the rules require `README.md` and `README.ms.md`, each linking to the other, and the second had never been written. The owner, 2026-11-18: "Do this task here"
+- **Verified:** both files read side by side; every relative link and image resolves; CI on the branch
+- [x] `README.ms.md`: the whole of `README.md` in Malaysian Malay (DBP spelling), commands, paths and code untouched, the same sections, tables and code blocks
+- [x] Settings, shapes, sections and tray terms are the app's own Malay strings from `locales/ms-MY/omni_toaster.ftl` (Tetapan ▸ Penampilan, Pustaka Gambar, Segi Empat Bucu Bulat, Keluar…); the glass kinds use the names Phase 3 gives them (Tiada, Kabur, Akrilik, Seperti Mika)
+- [x] Each README links to the other on its first line under the title
+- [x] Test: every relative link and image path in both files exists; both have the same `##` sections and code blocks
+- [x] Gate: fmt · clippy -D warnings · test --workspace --locked -j 4 (217 passed) · deny check · --self-test — run locally on the branch, then CI
+- [x] App: not applicable — this item ships no user-visible behaviour
+- [x] Docs: README · README.ms · CHANGELOG
+- **Notes:** From now on every change to `README.md` changes `README.ms.md` in the same commit. Malay text is reviewed by a named native speaker before Phase 9, like the locale files.
 
 ## v0.3.0 — In-Progress
 
@@ -179,7 +198,7 @@ make all three glass kinds from the accent policy's Acrylic.
 - [x] Gate: fmt · clippy -D warnings · test --workspace --locked -j 4 (224 passed) · deny check · --self-test
 - [x] App: `--data-dir ./tmp-data` — each kind over the striped window and over the desktop, in Dark and Light toast colours; a Rectangle with glass shows no shadow; Malay labels fit
 - [ ] Docs: spec · README · CHANGELOG · CHECKLIST · GOTCHAS
-- **Notes:** App, checked 2026-11-18 over a window of red and blue stripes (another process): Rectangle Blur, Acrylic and Mica-like each blur, graded, in a dark and a light toast colour; Rounded Rectangle and Pill stay solid with clean corners; the Rectangle with glass has no shadow; at 70 % opacity the blur fades too and the sharp stripes show faintly (spec §4.2); no glass warnings in the log. Over the ordinary desktop (a dark app window): Acrylic shows the blurred window, a light Blur toast keeps dark readable text. Appearance pane in Malay (Dark) and English (Light): the Glass row lines up, the dropdown is greyed with its hint on a rounded rectangle, both hints and the shadow's glass hint wrap inside the pane; the Blur preview's text reads in both themes. **Not checked:** the solid fallback after a refusal, which this Windows never gave; Windows 10; DPI above 100 %. Over OmniToaster's own settings window the blur samples black (GOTCHAS). Docs: spec, ADR-016 amendment, README, CHANGELOG and GOTCHAS done; the Docs box stays open because `README.ms.md` does not exist in the repository yet (a pre-existing gap, not created here) and CHECKLIST moves at the end of the phase.
+- **Notes:** App, checked 2026-11-18 over a window of red and blue stripes (another process): Rectangle Blur, Acrylic and Mica-like each blur, graded, in a dark and a light toast colour; Rounded Rectangle and Pill stay solid with clean corners; the Rectangle with glass has no shadow; at 70 % opacity the blur fades too and the sharp stripes show faintly (spec §4.2); no glass warnings in the log. Over the ordinary desktop (a dark app window): Acrylic shows the blurred window, a light Blur toast keeps dark readable text. Appearance pane in Malay (Dark) and English (Light): the Glass row lines up, the dropdown is greyed with its hint on a rounded rectangle, both hints and the shadow's glass hint wrap inside the pane; the Blur preview's text reads in both themes. **Not checked:** the solid fallback after a refusal, which this Windows never gave; Windows 10; DPI above 100 %. Over OmniToaster's own settings window the blur samples black (GOTCHAS). Docs: spec, ADR-016 amendment, README and README.ms (the latter once FEAT-0037 created it, 2026-11-18), CHANGELOG and GOTCHAS done; the Docs box stays open because CHECKLIST moves at the end of the phase.
 - **Owner decisions (2026-11-18):** glass for the Rectangle only; Blur at 45 % instead of "almost none".
 
 ### FEAT-0031 · The animation model and the toast timeline
