@@ -13,6 +13,7 @@ pub mod autostart;
 pub mod file_dialog;
 pub mod locale;
 pub mod monitors;
+pub mod motion;
 pub mod single_instance;
 pub mod system_theme;
 pub mod title_bar;

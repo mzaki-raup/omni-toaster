@@ -272,6 +272,12 @@ pub struct SettingsWindow {
     /// The attached monitors, and when they were last asked for.
     monitors: Vec<ot_platform::monitors::Monitor>,
     monitors_read: Option<Instant>,
+    /// Whether Windows shows animations, and when it was last asked: off
+    /// means every toast fades (FEAT-0035).
+    windows_animations: bool,
+    motion_read: Option<Instant>,
+    /// The development switches this run was started with.
+    dev: DevOptions,
     /// Whether the chosen monitor was missing last time, so falling back to
     /// the primary one is logged once, not every frame.
     monitor_missing: bool,
@@ -358,6 +364,9 @@ impl SettingsWindow {
             confirming_quit: false,
             monitors: Vec::new(),
             monitors_read: None,
+            windows_animations: true,
+            motion_read: None,
+            dev: DevOptions::default(),
             monitor_missing: false,
             title_bar_dark: None,
             window: None,
@@ -769,6 +778,24 @@ impl SettingsWindow {
         for toast in self.toasts.visible_mut() {
             toast.note_frame(now);
         }
+        // Reduced motion: Windows' "Show animations" off, or forced for
+        // checking. Re-read every few seconds, like the theme.
+        if self
+            .motion_read
+            .is_none_or(|read| read.elapsed() >= ot_platform::motion::POLL_INTERVAL)
+        {
+            let shown = ot_platform::motion::show_animations().unwrap_or(true);
+            if shown != self.windows_animations || self.motion_read.is_none() {
+                tracing::info!(shown, "Windows' Show animations was read");
+            }
+            self.windows_animations = shown;
+            self.motion_read = Some(now);
+        }
+        self.toasts.reduced_motion = !self.windows_animations || self.dev.reduce_motion;
+        // The frame-time budget, with the fallback forced by counting every
+        // frame as 50 ms when asked to.
+        self.toasts.frame_floor = if self.dev.slow_frames { 0.05 } else { 0.0 };
+        self.toasts.budget_frame(now);
 
         // `ViewportBuilder` cannot take a window out of Alt+Tab, so the
         // style is set on the real window once it exists (FEAT-0018). Cheap
@@ -1859,15 +1886,26 @@ pub fn font_definitions() -> Result<egui::FontDefinitions, ot_platform::FontErro
 /// Blocks the calling thread, which is the UI thread: eframe owns the event
 /// loop. Everything that can block belongs on another thread
 /// (`.claude/rules/threads-and-scheduling.md`).
-pub fn run(
-    root: DataRoot,
-    settings: Settings,
-    test_toast: bool,
-    ui_scale: Option<f32>,
-) -> Result<(), WindowError> {
+/// Switches for development builds, set from debug-only command-line flags
+/// (`crates/omnitoaster/src/main.rs`); every one is off in a release.
+#[derive(Debug, Clone, Copy, Default)]
+pub struct DevOptions {
+    /// Fire one toast of each shape at startup.
+    pub test_toast: bool,
+    /// Scale the UI as a larger display scaling would.
+    pub ui_scale: Option<f32>,
+    /// Every toast fades, as with Windows' Show animations off.
+    pub reduce_motion: bool,
+    /// Every frame counts as 50 ms, so the frame-time fallback is forced.
+    pub slow_frames: bool,
+}
+
+pub fn run(root: DataRoot, settings: Settings, dev: DevOptions) -> Result<(), WindowError> {
+    let ui_scale = dev.ui_scale;
     let fonts = font_definitions().map_err(WindowError::Fonts)?;
     let mut window = SettingsWindow::new(root, settings);
-    if test_toast {
+    window.dev = dev;
+    if dev.test_toast {
         window.show_shape_samples();
     }
     let visuals = window.theme().visuals();

@@ -127,7 +127,7 @@ Refs: BUG-0003
 ```
 Version : v0.3.2
 Features : FEAT-0039
-Bugs : BUG-0012
+Bugs : BUG-0013
 Change Request : CR-0008
 ```
 
@@ -266,16 +266,17 @@ make all three glass kinds from the accent policy's Acrylic.
 - **Notes:** App, checked 2026-11-19 with three toasts at Bottom Right, 1-second linear runs captured every 100 ms: Genie pours each toast out of the bottom edge, top first, and sinks it back on the way out; shrink to tray pours them down and right into the corner and they vanish at the taskbar. Release build, three toasts at 350 ms: Genie in 189–277 fps, shrink to tray out 97–316, twice. Once in three shrink-to-tray runs the toasts showed at full strength for a frame before their fade; the next two runs did not, and plain Appear did not — recorded, not reproduced. **Not checked:** whether Windows gave the tray icon's position or the corner was used, and the icon visible versus in the overflow — that is the owner's taskbar setting, not changed here; the other eight positions on screen.
 
 ### FEAT-0035 · Reduced motion and the 30 fps fallback
-- **State:** Pending · **Spec:** docs/specs/toast.md §5 · **Phase:** 3
+- **State:** In-Progress · **Spec:** docs/specs/toast.md §5 · **Phase:** 3
 - **Branch:** feat/phase-3-glass-animations
 - **Depends on:** FEAT-0032, FEAT-0033, FEAT-0034
-- [ ] Reduced motion follows Windows' "Show animations in Windows" (`SPI_GETCLIENTAREAANIMATION`, re-read when it changes) and the Settings switch, and turns every animation into a fade
-- [ ] Frame-time budget: an effect whose frames fall below 30 fps finishes as a fade, and the next toast starts as one; logged with the measured frame time
-- [ ] A way to force both for checking
-- [ ] Test: the fallback triggers on a synthetic frame-time series and not on a single slow frame; reduced motion maps every kind to a fade
-- [ ] Gate: fmt · clippy -D warnings · test --workspace --locked -j 4 · deny check · --self-test
+- [x] Reduced motion follows Windows' "Show animations in Windows" (`SPI_GETCLIENTAREAANIMATION`, `ot_platform::motion`, re-read every five seconds and logged when it changes) and the `reduce_motion` setting (its switch is FEAT-0036's), and turns every animation into a fade (`LiveToast::animation`, `Animation::as_fade`)
+- [x] Frame-time budget: an effect whose frames fall below 30 fps — the median of its last six intervals — finishes as a fade, and the next toast starts as one; logged with the toast and the measured frame time
+- [x] A way to force both for checking: `--reduce-motion` and `--slow-frames` (every frame counted as 50 ms), debug builds only, passed through a `DevOptions` with the other development switches
+- [x] Test: the fallback triggers on a steady series of 50 ms frames and not on one 200 ms frame among 16 ms ones; the next toast starts as a fade and the one after does not; the floor forces it; reduced motion — Windows' or the setting — maps every kind to a fade, and neither leaves the toast's own effect; Windows answers the query
+- [x] Gate: fmt · clippy -D warnings · test --workspace --locked -j 4 (259 passed) · deny check · --self-test
 - [ ] App: `--data-dir ./tmp-data` — Windows' setting off and on, watching a toast; the fallback forced, watching a toast and reading the log
 - [ ] Docs: spec · README · CHANGELOG · CHECKLIST · GOTCHAS
+- **Notes:** App, checked 2026-11-19 with slide from right: `--reduce-motion` — the toasts fade in place; `--slow-frames` — they start to slide in, then finish as a fade where they rest, and the log names each with "fell below 30 fps … frame_ms=57". The debug build also triggered the real fallback on its own in one run, at 28.8 fps. **Not checked:** turning Windows' own "Show animations" off and on — that is a system setting this session does not change; `--reduce-motion` stands in for it, and the platform test shows Windows answers the query. The App box stays open for the owner's check of that switch. A full-strength flash on a toast's first visible frame, seen in one of these runs, is BUG-0012.
 
 ### FEAT-0036 · Settings ▸ Animation
 - **State:** Pending · **Spec:** docs/04-ui-design.md · docs/specs/toast.md §5 · **Phase:** 3
@@ -328,6 +329,19 @@ make all three glass kinds from the accent policy's Acrylic.
 - [x] Gate: fmt · clippy -D warnings · test --workspace --locked -j 4 (248 passed) · deny check · --self-test
 - [x] App: `--data-dir ./tmp-data` — after the fix, release: the fade starts at the background (129 → 125 → 123 …) and shows for 950 ms of its 1000, three runs alike; debug: a steady decline from the first frame, no hold, twice; slide from right and pop out captured every 100 ms look right, the pop now visibly small and faint at its start
 - [x] Docs: spec §5 · CHANGELOG · GOTCHAS
+
+### BUG-0012 · Now and then a toast's first visible frame is at full strength
+- **State:** Pending · **Spec:** docs/specs/toast.md §5 · **Phase:** 3
+- **Branch:** feat/phase-3-glass-animations
+- **Depends on:** FEAT-0031
+- **Source:** seen twice while checking FEAT-0034 and FEAT-0035, 2026-11-18/19, in debug builds captured every 100 ms: once in three shrink-to-tray runs, and once with `--reduce-motion` (the Pill at full strength at 340 ms, faint at 424, then fading in properly). Not in every run, and not every toast of a run
+- [ ] Reproduce it often enough to measure: many runs, captured frame by frame from the moment a toast is shown, counting the runs it appears in
+- [ ] Find where the frame comes from — the window shown before its alpha takes, a window recreated, or the layered style toggled — from the log of each toast's outlines and its window handle
+- [ ] Test first, if it can be made one
+- [ ] The fix
+- [ ] Gate: fmt · clippy -D warnings · test --workspace --locked -j 4 · deny check · --self-test
+- [ ] App: `--data-dir ./tmp-data` — the same many runs, none with the flash
+- [ ] Docs: spec · CHANGELOG · GOTCHAS
 
 ### FEAT-0038 · The action row, with Dismiss working
 - **State:** In-Progress · **Spec:** docs/specs/toast.md §4.3 · §9 · **Phase:** 3

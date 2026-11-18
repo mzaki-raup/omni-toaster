@@ -54,6 +54,14 @@ const KNOWN_FLAGS: &[&str] = &[
     // Debug only.
     #[cfg(debug_assertions)]
     "--ui-scale",
+    // Every toast fades, as with Windows' Show animations off, for checking
+    // reduced motion without changing the machine's settings. Debug only.
+    #[cfg(debug_assertions)]
+    "--reduce-motion",
+    // Every frame counts as 50 ms, forcing the frame-time fallback, for
+    // checking it on a machine fast enough never to need it. Debug only.
+    #[cfg(debug_assertions)]
+    "--slow-frames",
 ];
 
 fn main() -> ExitCode {
@@ -291,7 +299,21 @@ fn main() -> ExitCode {
     #[cfg(not(debug_assertions))]
     let ui_scale = None;
 
-    if let Err(error) = ot_ui::settings_window::run(root, settings, test_toast, ui_scale) {
+    #[cfg(debug_assertions)]
+    let (reduce_motion, slow_frames) = (
+        args.iter().any(|a| a == "--reduce-motion"),
+        args.iter().any(|a| a == "--slow-frames"),
+    );
+    #[cfg(not(debug_assertions))]
+    let (reduce_motion, slow_frames) = (false, false);
+
+    let dev = ot_ui::settings_window::DevOptions {
+        test_toast,
+        ui_scale,
+        reduce_motion,
+        slow_frames,
+    };
+    if let Err(error) = ot_ui::settings_window::run(root, settings, dev) {
         tracing::error!(%error, "the settings window could not be opened");
         eprintln!("OmniToaster cannot show its window: {error}");
         drop(guard);

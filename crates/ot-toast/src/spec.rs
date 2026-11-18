@@ -553,6 +553,10 @@ pub struct Animation {
     /// The length of each of the two, in milliseconds: 150–1000.
     pub duration_ms: u32,
     pub easing: Easing,
+    /// Play every effect as a fade, whatever Windows says. Windows' own
+    /// "Show animations" being off does the same on its own; this is the
+    /// way to ask for it here (`docs/specs/toast.md` §5).
+    pub reduce_motion: bool,
 }
 
 impl Default for Animation {
@@ -562,11 +566,23 @@ impl Default for Animation {
             leave: Effect::default(),
             duration_ms: ANIMATION_MS.default,
             easing: Easing::default(),
+            reduce_motion: false,
         }
     }
 }
 
 impl Animation {
+    /// The same, with every effect a fade: what reduced motion and the
+    /// frame-time fallback play.
+    #[must_use]
+    pub fn as_fade(self) -> Self {
+        Self {
+            enter: Effect::Appear,
+            leave: Effect::Appear,
+            ..self
+        }
+    }
+
     pub fn duration(&self) -> std::time::Duration {
         std::time::Duration::from_millis(u64::from(self.duration_ms))
     }

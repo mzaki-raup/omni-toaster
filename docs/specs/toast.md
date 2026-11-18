@@ -199,8 +199,11 @@ unknown easing as `ease-out`, each with a warning, and shrink to tray as an
 in-animation becomes appear. Until an effect is built (FEAT-0032 to FEAT-0034)
 it plays as a fade.
 
-**Reduced motion** follows the Windows "Show animations" setting and switches to
-fade only.
+**Reduced motion** (FEAT-0035) follows the Windows "Show animations" setting
+(`SPI_GETCLIENTAREAANIMATION`, re-read every five seconds and logged when it
+changes) and the `reduce_motion` setting in `[toast.animation]`: either one
+makes every effect, in and out, a fade. The setting's switch is the
+Animation pane's (FEAT-0036).
 
 **Implementation.** Appear and alpha to solid are alpha ramps — alpha to
 solid fades the background in behind text that is already there. Dissolve and
@@ -259,7 +262,12 @@ instead of the toast's frames, and the first third of every entry was lost
 window (ADR-016), so all of them animate together, and the frame time measured
 is the whole frame's. Each effect has a frame-time budget and **falls back to
 fade below 30 fps** — the fallback is automatic and logged, never a visible
-stutter. 60 fps is measured on the reference machine (ADR-016), in a release
+stutter. While a toast animates, the intervals between its last six frames
+are kept; when their median is slower than 1/30 s, that toast finishes as a
+fade and the next toast to arrive starts as one, and the log names the toast
+and the frame time measured. A median, so a single slow frame — a window being
+created — does not trigger it. In a debug build `--reduce-motion` and
+`--slow-frames` (every frame counted as 50 ms) force the two for checking. 60 fps is measured on the reference machine (ADR-016), in a release
 build. **There is no vsync**: with it, each window's present waited for the
 next refresh in turn, and four windows held a frame to 12–32 fps. Instead a
 frame is asked for every 1/60 s while anything moves, and none while nothing

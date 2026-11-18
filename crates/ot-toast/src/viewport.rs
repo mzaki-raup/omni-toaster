@@ -117,7 +117,7 @@ pub fn show_all(
         );
         // The effect on the way in, or its mirror on the way out.
         let look = crate::effects::look(
-            spec.animation,
+            toast.animation(toasts.reduced_motion),
             toast.is_leaving(),
             presence,
             at,
@@ -183,6 +183,11 @@ pub enum Stage {
     Gone,
 }
 
+/// How many of a toast's last frame intervals the frame-time budget looks at.
+pub const BUDGET_FRAMES: usize = 6;
+/// The slowest interval between frames an effect may keep: 30 fps.
+pub const BUDGET_INTERVAL: f32 = 1.0 / 30.0;
+
 /// How long a toast waits for its window before it starts anyway.
 const APPEAR_WAIT: Duration = Duration::from_secs(1);
 
@@ -214,6 +219,14 @@ pub struct LiveToast {
     /// the frame-rate log.
     frames: u32,
     counting_since: Instant,
+    /// Plays its effects as fades from now on: its frames fell below 30 fps,
+    /// or the toast before it had them fall (FEAT-0035).
+    faded: bool,
+    /// The intervals between its last frames while it animated, in seconds,
+    /// for the frame-time budget; the newest last.
+    intervals: Vec<f32>,
+    /// When its last animated frame was painted.
+    last_frame: Option<Instant>,
 }
 
 impl LiveToast {
@@ -229,6 +242,9 @@ impl LiveToast {
             leaving: None,
             frames: 0,
             counting_since: now,
+            faded: false,
+            intervals: Vec::with_capacity(BUDGET_FRAMES),
+            last_frame: None,
         }
     }
 
@@ -363,6 +379,59 @@ impl LiveToast {
     /// Count a painted frame of an animation; when the animation has just
     /// ended, log how many frames it took. The log is the frame-rate
     /// measurement the phase's exit criterion asks for (ADR-016).
+    /// The animation it plays: its own, or every effect a fade when motion
+    /// is reduced or its frames could not keep up (`docs/specs/toast.md` §5).
+    pub fn animation(&self, reduced: bool) -> crate::spec::Animation {
+        if reduced || self.faded || self.spec.animation.reduce_motion {
+            self.spec.animation.as_fade()
+        } else {
+            self.spec.animation
+        }
+    }
+
+    pub fn is_faded(&self) -> bool {
+        self.faded
+    }
+
+    /// Count a painted frame against the frame-time budget, with at least
+    /// `floor` seconds between frames (a way to force the fallback for
+    /// checking). Returns true on the frame its effect gives up and
+    /// finishes as a fade: the median of its last [`BUDGET_FRAMES`]
+    /// intervals is slower than 30 fps. A median, so one slow frame — a
+    /// window being created, a hitch — does not trigger it.
+    pub fn budget_frame(&mut self, now: Instant, floor: f32) -> bool {
+        if !self.is_animating(now) {
+            self.intervals.clear();
+            self.last_frame = None;
+            return false;
+        }
+        if let Some(last) = self.last_frame {
+            let interval = now.saturating_duration_since(last).as_secs_f32().max(floor);
+            if self.intervals.len() == BUDGET_FRAMES {
+                self.intervals.remove(0);
+            }
+            self.intervals.push(interval);
+        }
+        self.last_frame = Some(now);
+        if self.faded || self.intervals.len() < BUDGET_FRAMES {
+            return false;
+        }
+        let mut sorted = self.intervals.clone();
+        sorted.sort_by(f32::total_cmp);
+        let median = sorted[BUDGET_FRAMES / 2];
+        if median > BUDGET_INTERVAL {
+            self.faded = true;
+            tracing::warn!(
+                id = self.id.0,
+                frame_ms = median * 1000.0,
+                fps = 1.0 / median,
+                "a toast animation fell below 30 fps; it finishes as a fade, and so does the next toast"
+            );
+            return true;
+        }
+        false
+    }
+
     pub fn note_frame(&mut self, now: Instant) {
         match self.stage(now) {
             Stage::Entering(_) | Stage::Leaving(_) => self.frames += 1,
@@ -402,6 +471,15 @@ pub struct Toasts {
     visible: Vec<LiveToast>,
     queued: std::collections::VecDeque<LiveToast>,
     next_id: u64,
+    /// Reduced motion — Windows' "Show animations" off, or forced — so
+    /// every toast fades (FEAT-0035). Set by the app each frame.
+    pub reduced_motion: bool,
+    /// The next toast to arrive starts as a fade: the one before it fell
+    /// below 30 fps.
+    fade_next: bool,
+    /// The least time between frames the budget counts, in seconds: 0 in
+    /// use, raised to force the fallback for checking.
+    pub frame_floor: f32,
 }
 
 impl Toasts {
@@ -413,7 +491,11 @@ impl Toasts {
     pub fn push(&mut self, spec: ToastSpec, now: Instant) -> ToastId {
         let id = ToastId(self.next_id);
         self.next_id += 1;
-        let toast = LiveToast::new(id, spec, now);
+        let mut toast = LiveToast::new(id, spec, now);
+        // The toast before fell below 30 fps: this one starts as a fade.
+        if std::mem::take(&mut self.fade_next) {
+            toast.faded = true;
+        }
 
         if self.staying() < self.max_visible() {
             self.visible.push(toast);
@@ -508,6 +590,18 @@ impl Toasts {
             toast.leave(now);
         }
         self.queued.retain(|toast| toast.id != id);
+    }
+
+    /// Count this frame against every toast's frame-time budget. A toast
+    /// whose effect gives up finishes as a fade, and the next to arrive
+    /// starts as one.
+    pub fn budget_frame(&mut self, now: Instant) {
+        let floor = self.frame_floor;
+        for toast in &mut self.visible {
+            if toast.budget_frame(now, floor) {
+                self.fade_next = true;
+            }
+        }
     }
 
     /// Whether any toast is moving at `now`, so every frame is wanted.
@@ -911,5 +1005,107 @@ mod tests {
         let holding = start + ms(ANIM);
         assert!(!toasts.is_animating(holding));
         assert_eq!(toasts.next_change(holding), Some(holding + ms(3_000)));
+    }
+
+    /// A toast that is entering at `start`, with a long animation so every
+    /// frame below is mid-entry.
+    fn entering(toasts: &mut Toasts, start: Instant) -> ToastId {
+        let mut spec = spec_lasting(60.0);
+        spec.animation.duration_ms = 1000;
+        shown(toasts, spec, start)
+    }
+
+    #[test]
+    fn frames_steadily_below_30_fps_fall_back_to_a_fade_and_the_next_toast_starts_as_one() {
+        let start = t0();
+        let mut toasts = Toasts::new();
+        let slow = entering(&mut toasts, start);
+        // 50 ms a frame: 20 fps.
+        for frame in 0..=BUDGET_FRAMES as u64 {
+            toasts.budget_frame(start + ms(50 * frame));
+        }
+        let toast = toasts
+            .visible()
+            .iter()
+            .find(|t| t.id == slow)
+            .expect("here");
+        assert!(toast.is_faded(), "it finishes as a fade");
+        assert_eq!(toast.animation(false).enter, crate::spec::Effect::Appear);
+
+        // The next toast to arrive starts as one; the one after does not.
+        let next = toasts.push(spec_lasting(60.0), start + ms(400));
+        let after = toasts.push(spec_lasting(60.0), start + ms(400));
+        let faded = |id| {
+            toasts
+                .visible()
+                .iter()
+                .find(|t| t.id == id)
+                .map(LiveToast::is_faded)
+        };
+        assert_eq!(faded(next), Some(true));
+        assert_eq!(faded(after), Some(false));
+    }
+
+    #[test]
+    fn one_slow_frame_does_not_trigger_the_fallback() {
+        let start = t0();
+        let mut toasts = Toasts::new();
+        entering(&mut toasts, start);
+        // 16 ms frames with one of 200 ms among them — a window being made.
+        let mut at = start;
+        for frame in 0..20 {
+            at += if frame == 3 { ms(200) } else { ms(16) };
+            toasts.budget_frame(at);
+        }
+        assert!(!toasts.visible()[0].is_faded());
+    }
+
+    #[test]
+    fn the_floor_forces_the_fallback_for_checking() {
+        let start = t0();
+        let mut toasts = Toasts::new();
+        entering(&mut toasts, start);
+        toasts.frame_floor = 0.05;
+        for frame in 0..=BUDGET_FRAMES as u64 {
+            toasts.budget_frame(start + ms(16 * frame));
+        }
+        assert!(
+            toasts.visible()[0].is_faded(),
+            "fast frames counted as slow"
+        );
+    }
+
+    #[test]
+    fn reduced_motion_makes_every_effect_a_fade() {
+        use crate::spec::Effect;
+        for effect in Effect::all_out() {
+            let mut spec = spec_lasting(8.0);
+            spec.animation.enter = effect;
+            spec.animation.leave = effect;
+            let toast = LiveToast::new(ToastId(1), spec.clone().clamped(), t0());
+            let reduced = toast.animation(true);
+            assert_eq!(
+                (reduced.enter, reduced.leave),
+                (Effect::Appear, Effect::Appear),
+                "{effect:?}"
+            );
+            // The setting does the same without Windows.
+            spec.animation.reduce_motion = true;
+            let own = LiveToast::new(ToastId(2), spec.clamped(), t0()).animation(false);
+            assert_eq!(
+                (own.enter, own.leave),
+                (Effect::Appear, Effect::Appear),
+                "{effect:?}"
+            );
+        }
+        // Neither: the toast's own effect.
+        let mut spec = spec_lasting(8.0);
+        spec.animation.enter = Effect::Glow;
+        assert_eq!(
+            LiveToast::new(ToastId(3), spec, t0())
+                .animation(false)
+                .enter,
+            Effect::Glow
+        );
     }
 }
