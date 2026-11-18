@@ -125,13 +125,32 @@ Refs: BUG-0003
 ### Latest Vacant/Free Task
 
 ```
-Version : v0.0.2
-Features : FEAT-0017
-Bugs : BUG-0003
-Change Request : CR-0002
+Version : v0.3.2
+Features : FEAT-0038
+Bugs : BUG-0009
+Change Request : CR-0008
 ```
 
 ---
+
+## v0.3.1 — Done 2026-11-18
+
+Documentation only: the Malay README the rules have always required. Labelled
+after v0.3.0, which Phase 3 holds on its own branch.
+
+### FEAT-0037 · README.ms.md, the Malay README
+- **State:** Completed · **Spec:** .claude/rules/docs-and-release.md · PROPOSAL.md §11
+- **Branch:** docs/readme-ms
+- **Source:** found while finishing FEAT-0030: the rules require `README.md` and `README.ms.md`, each linking to the other, and the second had never been written. The owner, 2026-11-18: "Do this task here"
+- **Verified:** both files read side by side; every relative link and image resolves; CI on the branch
+- [x] `README.ms.md`: the whole of `README.md` in Malaysian Malay (DBP spelling), commands, paths and code untouched, the same sections, tables and code blocks
+- [x] Settings, shapes, sections and tray terms are the app's own Malay strings from `locales/ms-MY/omni_toaster.ftl` (Tetapan ▸ Penampilan, Pustaka Gambar, Segi Empat Bucu Bulat, Keluar…); the glass kinds use the names Phase 3 gives them (Tiada, Kabur, Akrilik, Seperti Mika)
+- [x] Each README links to the other on its first line under the title
+- [x] Test: every relative link and image path in both files exists; both have the same `##` sections and code blocks
+- [x] Gate: fmt · clippy -D warnings · test --workspace --locked -j 4 (217 passed) · deny check · --self-test — run locally on the branch, then CI
+- [x] App: not applicable — this item ships no user-visible behaviour
+- [x] Docs: README · README.ms · CHANGELOG
+- **Notes:** From now on every change to `README.md` changes `README.ms.md` in the same commit. Malay text is reviewed by a named native speaker before Phase 9, like the locale files.
 
 ## v0.2.1 — Done 2026-11-16
 
