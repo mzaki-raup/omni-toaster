@@ -366,13 +366,7 @@ fn position_map(
         // Scale the toast into the map, and place it with the same function
         // a real toast uses, so the map cannot lie about where it will go.
         let scale = rect.width() / work_area.width().max(1.0);
-        let toast_size = egui::vec2(
-            prefs.style.width,
-            prefs
-                .style
-                .height
-                .unwrap_or(ot_toast::viewport::AUTO_HEIGHT),
-        );
+        let toast_size = egui::vec2(prefs.style.width, prefs.style.toast_height());
         let at = ot_toast::placement::place(
             work_area,
             toast_size,
@@ -445,7 +439,7 @@ pub fn preview(
     icon: Option<ot_toast::content::Picture>,
     image: Option<ot_toast::content::Picture>,
 ) {
-    let height = spec.style.height.unwrap_or(ot_toast::viewport::AUTO_HEIGHT);
+    let height = spec.style.toast_height();
     // The preview is drawn at the toast's real size, so what fits here fits
     // there. A narrow window gets a scrollbar rather than a shrunken lie.
     let size = egui::vec2(spec.style.width, height);
@@ -460,7 +454,9 @@ pub fn preview(
         // The toast's own background picks the text colour, exactly as on a
         // real toast; the window's theme does not.
         let text = Tokens::for_toast(spec);
-        ot_toast::content::draw(
+        // The preview's buttons are drawn, not pressed (§4.3): no pointer,
+        // so none of them lights up as if it could be.
+        let _ = ot_toast::content::draw(
             &painter,
             content,
             spec,
@@ -468,6 +464,7 @@ pub fn preview(
             text.text_dim,
             icon,
             image,
+            None,
         );
     });
 }

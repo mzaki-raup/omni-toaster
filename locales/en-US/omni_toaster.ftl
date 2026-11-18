@@ -61,8 +61,11 @@ language-ms-my = Bahasa Melayu
 toast-app-name = OmniToaster
 toast-test-title = Test Toast
 toast-test-body = This is what a toast looks like with your current settings.
+# A button in the toast's action row. Shown greyed until reminders exist (Phase 4).
 toast-action-snooze = Snooze
+# A button in the toast's action row that closes the toast with its out-animation.
 toast-action-dismiss = Dismiss
+# A button in the toast's action row. Shown greyed until reminders exist (Phase 4).
 toast-action-open = Open
 
 ## Where a toast appears: nine presets — four corners, four edges and the

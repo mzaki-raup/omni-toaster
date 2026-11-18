@@ -214,7 +214,7 @@ make all three glass kinds from the accent policy's Acrylic.
 - [x] Found on the way and fixed: three toasts animated at 11–16 fps in a debug build because each window's present waited for vsync in turn; `vsync: false`, paced at 1/60 s while anything moves (ADR-016 amendment)
 - [x] Test: every stage boundary of the timeline; the countdown excludes the in-animation and hover; a toast dismissed mid-entry leaves from where it is; a toast waits for its window and starts anyway after a second; the stack slots while one leaves; the easing curves at 0, ½ and 1 and the spring's overshoot; the clamp; settings round-trip
 - [x] Gate: fmt · clippy -D warnings · test --workspace --locked -j 4 (234 passed) · deny check · --self-test
-- [ ] App: `--data-dir ./tmp-data` — fire a test toast and watch it enter, hold for its whole duration and leave; dismiss one while it enters
+- [x] App: `--data-dir ./tmp-data` — fire a test toast and watch it enter, hold for its whole duration and leave; dismiss one while it enters (done with FEAT-0038's Dismiss, 2026-11-18: dismissed 557 ms and 542 ms into a 1-second entry, each left in the same time, from where it had got to)
 - [ ] Docs: spec · README · CHANGELOG · CHECKLIST · GOTCHAS
 - **Notes:** App, checked 2026-11-18: three toasts over the stripes, 1000 ms linear, captured from 36 ms to 5.8 s — nothing on screen until each window was shaped, then a fade in over a second, three seconds held, a fade out with the stack collapsing toward the edge, then gone; no flash. Frame counts from the log (`--log-level debug`), three toasts, reference machine: **release** 137–444 fps for every in and out, settings window open or minimised; **debug** 62 fps open, 46–48 minimised. CPU: 6% of one core with three toasts held, 1% with none. **Not checked yet:** dismissing a toast while it enters — nothing in the app can dismiss one until FEAT-0038 builds the Dismiss button (the owner's choice, 2026-11-18); the model's own test covers it. The App box waits for that. Hovering does nothing on screen yet: BUG-0009. CHECKLIST moves at the end of the phase; no README change, since the README already lists the animations.
 
@@ -294,18 +294,20 @@ make all three glass kinds from the accent policy's Acrylic.
 - [x] Docs: spec (§6 already says it; no design change) · CHANGELOG · GOTCHAS
 
 ### FEAT-0038 · The action row, with Dismiss working
-- **State:** Pending · **Spec:** docs/specs/toast.md §4 (Actions) · §9 · **Phase:** 3
+- **State:** In-Progress · **Spec:** docs/specs/toast.md §4.3 · §9 · **Phase:** 3
 - **Branch:** feat/phase-3-glass-animations
 - **Depends on:** FEAT-0031
-- **Source:** the owner, 2026-11-18, choosing how a toast is dismissed so the timeline's out-animation can be used and checked: "Build the Dismiss button now". Snooze and Open need reminders, so they wait for Phase 4
-- [ ] The spec's action row designed first: where it sits, its buttons' look in every shape, how 1–3 actions lay out, what Snooze and Open do until Phase 4
-- [ ] The renderer draws the row from the `ToastSpec` alone, so the preview shows it as well
-- [ ] Dismiss plays the out-animation (`Toasts::dismiss`); hover highlights a button without moving it
-- [ ] Labels from `toast-action-*` in both languages; the Malay label checked against `docs/10-i18n.md`, which says "Tutup" where the locale file says "Tolak"
-- [ ] Test: the row fits every shape and width in both languages; a click on Dismiss reaches the right toast
-- [ ] Gate: fmt · clippy -D warnings · test --workspace --locked -j 4 · deny check · --self-test
+- **Source:** the owner, 2026-11-18, choosing how a toast is dismissed so the timeline's out-animation can be used and checked: "Build the Dismiss button now". Then, the same day, the row's design: the buttons the actions setting asks for, Snooze and Open greyed until Phase 4; a bottom row that an auto-height toast grows to fit; "Tutup" in Malay
+- [x] The spec's action row designed first (§4.3): right-aligned along the bottom, Dismiss always last; 1 → Dismiss, 2 → Snooze · Dismiss, 3 → Open · Snooze · Dismiss; Snooze and Open greyed until Phase 4; an auto-height toast grows by 32 points, a fixed one keeps its height
+- [x] The renderer draws the row from the `ToastSpec` alone (`ot_toast::actions`, labels in `Content::action_labels`), so the preview shows it as well — drawn, not pressed
+- [x] Dismiss plays the out-animation (`Toasts::dismiss`); hover fills a working button more strongly without moving it; a greyed one takes none
+- [x] Labels from `toast-action-*` in both languages, each with a translator comment; the Malay Dismiss is now "Tutup", as `docs/10-i18n.md` and `PROPOSAL.md` say (GOTCHAS, Localization)
+- [x] One height for a toast, `Style::toast_height`, used by the window, the stack, the preview and the placement map
+- [x] Test: the row fits every shape at the narrowest and default widths in English, Malay and the pseudo-locale, at 100%, 150% and 200%, with Dismiss rightmost; the layout never leaves its row however long the labels; the body gives up exactly the row; only Dismiss works yet. The click itself is checked in the app: it is read from the toast window's own input against the rects the renderer returns
+- [x] Gate: fmt · clippy -D warnings · test --workspace --locked -j 4 (241 passed) · deny check · --self-test
 - [ ] App: `--data-dir ./tmp-data` — Dismiss on a holding toast and on one still entering (FEAT-0031's open check), in both languages and at 150% scaling
 - [ ] Docs: spec · README · CHANGELOG · CHECKLIST · GOTCHAS
+- **Notes:** App, checked 2026-11-18 with three sample toasts (1 s fade, 8 s hold) and clicks at the computed button positions: in English and in Malay, Dismiss on the bottom toast while it entered (557 ms and 542 ms in) made it leave from there in the same time; the stack closed up; Dismiss on the toast then in the second place, while holding, made that one leave over the full second; Snooze ("Tunda") drawn greyed; hover lit Dismiss without moving it. **Not checked: 150% on screen.** `--ui-scale 1.5` places toasts off the screen (GOTCHAS, Testing), and real 150% means changing Windows' display scaling, which this session does not do; the layout test runs at 150% and 200% instead. The App box stays open for that. README and README.ms describe the row; their screenshots predate it and are retaken with the phase's other screen changes before the merge. CHECKLIST moves at the end of the phase.
 
 ## v0.2.1 — Done 2026-11-16
 

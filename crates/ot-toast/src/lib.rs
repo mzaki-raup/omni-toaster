@@ -7,6 +7,7 @@
 //! See `docs/03-architecture.md` for where this crate sits and which crates it
 //! may depend on.
 
+pub mod actions;
 pub mod content;
 pub mod placement;
 pub mod prefs;
@@ -17,6 +18,7 @@ pub mod viewport;
 pub use placement::{Position, StackDirection};
 pub use prefs::{Header, MonitorChoice, Prefs};
 pub use spec::{
-    Animation, Behaviour, Content, Easing, Effect, Glass, Rgba, Shadow, Shape, Style, ToastSpec,
+    Action, ActionLabels, Animation, Behaviour, Content, Easing, Effect, Glass, Rgba, Shadow,
+    Shape, Style, ToastSpec,
 };
 pub use viewport::{LiveToast, Stage, ToastId, Toasts};

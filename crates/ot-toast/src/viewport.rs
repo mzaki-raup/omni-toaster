@@ -17,12 +17,6 @@ use std::time::{Duration, Instant};
 
 use crate::spec::ToastSpec;
 
-/// The height a toast takes when it sizes to its content.
-///
-/// A provisional number that the renderer replaces once it knows what it is
-/// drawing (FEAT-0020); a viewport has to be given *some* size when it opens.
-pub const AUTO_HEIGHT: f32 = 120.0;
-
 /// What every toast window's title starts with.
 ///
 /// Never shown — there is no title bar — but it is what a screen reader
@@ -60,7 +54,7 @@ impl ToastId {
 /// being dropped by a later edit — each of them fails silently and visibly
 /// only to a user.
 pub fn builder(spec: &ToastSpec, title: &str) -> egui::ViewportBuilder {
-    let height = spec.style.height.unwrap_or(AUTO_HEIGHT);
+    let height = spec.style.toast_height();
     egui::ViewportBuilder::default()
         // The title is never shown — there is no title bar — but it is what
         // a screen reader and the window list would read.
@@ -104,7 +98,7 @@ pub fn show_all(
         let spec = &toast.spec;
         let id = toast.id;
         let presence = toast.presence(now);
-        let size = egui::vec2(spec.style.width, spec.style.height.unwrap_or(AUTO_HEIGHT));
+        let size = egui::vec2(spec.style.width, spec.style.toast_height());
         // Worked out every frame against the work area in use, rather than
         // once when the toast appeared: the monitor can change underneath it
         // (`docs/specs/toast.md` §7.2).
@@ -206,6 +200,7 @@ impl LiveToast {
             self.on_screen = true;
             self.entered = now;
             self.counting_since = now;
+            tracing::debug!(id = self.id.0, "a toast appeared");
         }
     }
 
@@ -561,7 +556,11 @@ mod tests {
         assert_eq!(built.resizable, Some(false));
         assert_eq!(
             built.inner_size,
-            Some(egui::vec2(ToastSpec::default().style.width, AUTO_HEIGHT))
+            Some(egui::vec2(
+                ToastSpec::default().style.width,
+                crate::spec::AUTO_HEIGHT + crate::spec::ACTION_ROW
+            )),
+            "an auto-height toast grows by its action row"
         );
     }
 

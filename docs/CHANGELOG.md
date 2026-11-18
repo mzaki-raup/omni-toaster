@@ -13,12 +13,14 @@ Format: [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) · Versioning:
 
 ### Changed
 
+- Malay: the Dismiss button reads "Tutup" (close) instead of "Tolak" (reject), matching the spec (FEAT-0038).
 - Toast windows are painted in the app's own frame, and DWM composites their alpha, so whatever a toast leaves unpainted shows the desktop — the groundwork for glass and animations (FEAT-0029, ADR-016). They look exactly as before.
 - The app renders without vsync and paces its own frames, because with vsync each toast window waited for its own screen refresh and three toasts animated at 11–16 fps; release builds now animate at 137 fps or more (FEAT-0031, ADR-016).
 - `cargo deny` ignores RUSTSEC-2026-0543 (`chrono` unmaintained, not vulnerable, no upgrade) with its reason; moving off `chrono` before Phase 4 is CR-0007.
 
 ### Added
 
+- Toasts have a row of buttons along the bottom, as many as the actions setting asks for (default two): Dismiss, always last, closes the toast with its out-animation, even while it is still arriving; Snooze and Open are shown greyed until reminders give them something to do. A toast that sizes to its content grows by the row (FEAT-0038).
 - Toasts fade in and fade out: each enters, holds for its whole display duration — the countdown starts once it is fully in — and leaves before its window closes, and the toasts beyond a leaving one glide into its place. The `[toast.animation]` settings (effect in and out, 150–1000 ms, linear, ease-out or spring) are read already; every effect plays as a fade until it is built (FEAT-0031).
 - Glass for Rectangle toasts: Settings ▸ Appearance ▸ Glass offers None, Blur, Acrylic and Mica-like — the desktop behind the toast blurred by Windows under 45 %, 60 % or 88 % of the toast's colour. Greyed out for the other shapes, with the reason; a glass toast has no shadow; drawn solid, with a line in the log, where Windows will not blur. New strings in English and Malay (FEAT-0030).
 - `README.ms.md`, the README in Bahasa Melayu, and a link between it and `README.md` at the top of each (FEAT-0037).

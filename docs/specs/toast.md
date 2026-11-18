@@ -67,7 +67,7 @@ renders without going through a `ToastSpec` is a defect.
 | Shadow | On or off — Windows' own shadow, which it draws only for the Rectangle shape (CR-0006) | Greyed out for a rounded rectangle or a pill |
 | Header | Icon, title, app name, timestamp | Each toggleable |
 | Body | Text (bold and italic), image | Image max 5 MB; PNG, JPG, WebP |
-| Actions | Snooze, Dismiss, Open | 1–3 buttons |
+| Actions | Snooze, Dismiss, Open, in a row along the bottom (§4.3) | 1–3 buttons (default 2) |
 | Position | One of nine presets, or a custom point, with a monitor choice | Respects the work area; a custom point is clamped into it |
 | Stacking | Max visible 1–5, with a gap | |
 
@@ -147,6 +147,41 @@ and says so beside the control.
 limit of 4096 × 4096. Resized to a cached thumbnail. An oversize or corrupt
 file is rejected with a localized message naming the reason
 ([06-security-and-privacy.md](../06-security-and-privacy.md)).
+
+### 4.3 The action row
+
+(FEAT-0038, the owner's design, 2026-11-18.) Every toast has a row of buttons
+along the bottom of its content, **right-aligned**, below the body:
+
+| Actions setting | Buttons, left to right |
+|---|---|
+| 1 | Dismiss |
+| 2 (the default) | Snooze · Dismiss |
+| 3 | Open · Snooze · Dismiss |
+
+Dismiss is always there and always last, nearest the screen's edge on the
+right-hand presets. It plays the toast's out-animation (§5).
+
+**Snooze and Open are drawn greyed and do nothing until Phase 4**, when
+reminders give them something to act on; the owner chose to show the final
+layout now rather than a row that grows later. A greyed button takes no hover
+highlight.
+
+**An auto-height toast grows by the row** — 32 points, the row and the gap
+above it — so the body keeps every line it had. A toast with a fixed height
+keeps that height, and the body gives up the room. The window, the stack and
+the placement map all use the grown height.
+
+Each button is sized to its label with the same padding on each side, and is
+at least 64 points wide so a short label is still a comfortable target. If
+the row is wider than the content — the pseudo-locale on a narrow pill — the
+buttons share the width equally and a label that still does not fit ends in an
+ellipsis; Malay's "Tunda · Tutup · Buka" fits every shape at the narrowest
+width. **Hover** fills the button more strongly; it never grows or moves it.
+Colours come from the toast's own text colour, like its text: no colour is
+hard-coded. The labels are `toast-action-*` (§9), carried in the spec as text
+like every other string, so the Settings preview draws the same row — and the
+preview's buttons are drawn, not pressed.
 
 ## 5. Animations
 

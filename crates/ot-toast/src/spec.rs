@@ -40,6 +40,10 @@ pub const MAX_VISIBLE: IntRange = IntRange::new(1, 5, 3);
 pub const ACTIONS: IntRange = IntRange::new(1, 3, 2);
 /// Between one toast and the next in a stack.
 pub const STACK_GAP: Range = Range::new(0.0, 40.0, 8.0);
+/// The height of a toast that sizes to its content, before its action row.
+pub const AUTO_HEIGHT: f32 = 120.0;
+/// The action row and the gap above it, which an auto-height toast grows by.
+pub const ACTION_ROW: f32 = 32.0;
 /// Animation duration, in milliseconds.
 pub const ANIMATION_MS: IntRange = IntRange::new(150, 1000, 350);
 
@@ -277,6 +281,53 @@ impl Rgba {
     }
 }
 
+/// One button in the action row (`docs/specs/toast.md` §4.3).
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum Action {
+    Open,
+    Snooze,
+    Dismiss,
+}
+
+impl Action {
+    /// The buttons for the actions setting, left to right: Dismiss is always
+    /// there and always last.
+    pub fn for_count(count: u32) -> &'static [Self] {
+        match count {
+            0 | 1 => &[Self::Dismiss],
+            2 => &[Self::Snooze, Self::Dismiss],
+            _ => &[Self::Open, Self::Snooze, Self::Dismiss],
+        }
+    }
+
+    /// Whether pressing it does anything yet. Snooze and Open act on a
+    /// reminder, and reminders arrive in Phase 4; until then they are drawn
+    /// greyed (the owner's choice, 2026-11-18).
+    pub fn works(self) -> bool {
+        self == Self::Dismiss
+    }
+}
+
+/// The buttons' labels, already in the user's language: a spec holds text,
+/// never keys, like every other string in it.
+#[derive(Debug, Clone, PartialEq, Eq, Default, Serialize, Deserialize)]
+#[serde(default, deny_unknown_fields)]
+pub struct ActionLabels {
+    pub open: String,
+    pub snooze: String,
+    pub dismiss: String,
+}
+
+impl ActionLabels {
+    pub fn get(&self, action: Action) -> &str {
+        match action {
+            Action::Open => &self.open,
+            Action::Snooze => &self.snooze,
+            Action::Dismiss => &self.dismiss,
+        }
+    }
+}
+
 /// What the toast says.
 #[derive(Debug, Clone, PartialEq, Eq, Default, Serialize, Deserialize)]
 #[serde(default, deny_unknown_fields)]
@@ -317,6 +368,9 @@ pub struct Content {
     /// asks for it, not before.
     pub body_bold: bool,
     pub body_italic: bool,
+    /// The action row's labels; which buttons show is the actions setting
+    /// (`Behaviour::actions`).
+    pub action_labels: ActionLabels,
 }
 
 /// What it looks like.
@@ -338,6 +392,16 @@ pub struct Style {
     pub glass: Glass,
     /// The one colour that marks this toast's category.
     pub accent: Rgba,
+}
+
+impl Style {
+    /// The toast's height in points: the fixed one, or the content's own
+    /// with the action row added, so the row never costs the body a line
+    /// (`docs/specs/toast.md` §4.3). The window, the stack, the preview and
+    /// the placement map all ask here.
+    pub fn toast_height(&self) -> f32 {
+        self.height.unwrap_or(AUTO_HEIGHT + ACTION_ROW)
+    }
 }
 
 impl Default for Style {
@@ -592,6 +656,11 @@ impl ToastSpec {
         self.behaviour.actions = ACTIONS.clamp(self.behaviour.actions, "behaviour.actions");
         self.behaviour.stack_gap = STACK_GAP.clamp(self.behaviour.stack_gap, "behaviour.stack_gap");
         self
+    }
+
+    /// The buttons in this toast's action row, left to right.
+    pub fn actions(&self) -> &'static [Action] {
+        Action::for_count(self.behaviour.actions)
     }
 
     /// The radius this spec's shape actually draws with, at `height`.

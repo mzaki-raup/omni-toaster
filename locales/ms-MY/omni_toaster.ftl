@@ -57,8 +57,11 @@ language-ms-my = Bahasa Melayu
 toast-app-name = OmniToaster
 toast-test-title = Toast Ujian
 toast-test-body = Beginilah rupa toast dengan tetapan anda sekarang.
+# Butang dalam baris tindakan toast. Ditunjukkan dikelabukan sehingga peringatan wujud (Fasa 4).
 toast-action-snooze = Tunda
-toast-action-dismiss = Tolak
+# Butang dalam baris tindakan toast yang menutup toast itu. "Tutup", bukan "Tolak": pemberitahuan ditutup, bukan ditolak.
+toast-action-dismiss = Tutup
+# Butang dalam baris tindakan toast. Ditunjukkan dikelabukan sehingga peringatan wujud (Fasa 4).
 toast-action-open = Buka
 
 ## Tempat toast muncul: sembilan kedudukan pratetap — empat bucu, empat tepi

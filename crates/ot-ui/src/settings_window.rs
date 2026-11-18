@@ -669,6 +669,11 @@ impl SettingsWindow {
             title: ot_i18n::text("toast-test-title"),
             body: ot_i18n::text("toast-test-body"),
             app_name: ot_i18n::text("toast-app-name"),
+            action_labels: ot_toast::ActionLabels {
+                open: ot_i18n::text("toast-action-open"),
+                snooze: ot_i18n::text("toast-action-snooze"),
+                dismiss: ot_i18n::text("toast-action-dismiss"),
+            },
             // Formatted here: ot-i18n owns the one formatter that may turn a
             // time into text, and a spec holds text rather than keys.
             timestamp: Some(formatted_time(chrono::Local::now())),
@@ -795,6 +800,9 @@ impl SettingsWindow {
         // the window under the pointer its moves (BUG-0009).
         let mut hovered = Vec::new();
         let hovered_now = &mut hovered;
+        // The toasts whose Dismiss was clicked this frame (FEAT-0038).
+        let mut dismissed = Vec::new();
+        let dismissed_now = &mut dismissed;
 
         ot_toast::viewport::show_all(
             ctx,
@@ -850,7 +858,8 @@ impl SettingsWindow {
                 ) {
                     shaped_now.push(id);
                 }
-                hovered_now.push((id, ui.ctx().input(|i| i.pointer.hover_pos().is_some())));
+                let pointer = ui.ctx().input(|i| i.pointer.hover_pos());
+                hovered_now.push((id, pointer.is_some()));
 
                 let content = ot_toast::render::frame(ui.painter(), rect, spec);
 
@@ -870,7 +879,7 @@ impl SettingsWindow {
                 // The toast's own background picks the text colour, not the
                 // window's theme, which a toast does not follow.
                 let text = Tokens::for_toast(spec);
-                ot_toast::content::draw(
+                let buttons = ot_toast::content::draw(
                     ui.painter(),
                     content,
                     spec,
@@ -878,7 +887,20 @@ impl SettingsWindow {
                     text.text_dim,
                     icon,
                     image,
+                    pointer,
                 );
+                // A click on a working button acts on exactly what was drawn:
+                // the rects come back from the renderer. Snooze and Open are
+                // greyed until Phase 4 and take no click (§4.3).
+                if ui.ctx().input(|i| i.pointer.primary_clicked())
+                    && let Some(at) = pointer
+                    && let Some((action, _)) = buttons
+                        .iter()
+                        .find(|(action, rect)| action.works() && rect.contains(at))
+                    && *action == ot_toast::Action::Dismiss
+                {
+                    dismissed_now.push(id);
+                }
             },
         );
         for id in shaped {
@@ -886,6 +908,10 @@ impl SettingsWindow {
         }
         for (id, over) in hovered {
             self.toasts.set_hovered(id, over, now);
+        }
+        for id in dismissed {
+            tracing::info!(?id, "a toast was dismissed");
+            self.toasts.dismiss(id, now);
         }
     }
 
@@ -2005,6 +2031,9 @@ mod tests {
             "toast-test-title",
             "toast-test-body",
             "toast-app-name",
+            "toast-action-open",
+            "toast-action-snooze",
+            "toast-action-dismiss",
         ]);
         keys.extend(ot_toast::Shape::all().map(ot_toast::Shape::name_key));
         keys.extend(ot_toast::Glass::all().map(ot_toast::Glass::name_key));
