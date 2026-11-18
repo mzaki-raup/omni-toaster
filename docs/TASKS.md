@@ -125,13 +125,156 @@ Refs: BUG-0003
 ### Latest Vacant/Free Task
 
 ```
-Version : v0.3.2
-Features : FEAT-0039
+Version : v0.4.1
+Features : FEAT-0049
 Bugs : BUG-0013
 Change Request : CR-0008
 ```
 
 ---
+
+## v0.4.0 — In-Progress
+
+Phase 4, Scheduler and Reminders, on `feat/phase-4-scheduler`
+(`docs/07-roadmap.md`). CR-0007 runs first, so the scheduler is built on the
+date library it will keep.
+
+### CR-0007 · Move off `chrono`, which is unmaintained, before the scheduler is built on it
+- **State:** Pending · **Spec:** docs/08-decisions.md (ADR-017) · **Phase:** 4
+- **Branch:** feat/phase-4-scheduler
+- **Source:** `cargo deny check`, 2026-11-17: RUSTSEC-2026-0543, "chrono is unmaintained", no safe upgrade; the advisory names `jiff` and `time`
+- [ ] Choose the replacement in an ADR (ADR-017; `jiff` proposed, 2026-11-19: IANA zones bundled for Windows, DST-safe civil arithmetic, MIT or Unlicense) — time zones (Asia/Kuala_Lumpur for JAKIM, `docs/11-prayer-and-azan.md`), DST arithmetic for the scheduler, and what `ot-i18n`'s formatter needs
+- [ ] Replace it in `ot-core` (logging, pause), `ot-i18n` (the formatter), `ot-ui` and the self-test, with the formatter's tests unchanged and passing
+- [ ] Remove RUSTSEC-2026-0543 from `deny.toml`'s ignore list
+- [ ] Test: the formatter's tests in both languages, 12- and 24-hour, UTC+8; the pause timer
+- [ ] Gate: fmt · clippy -D warnings · test --workspace --locked -j 4 · deny check · --self-test
+- [ ] App: `--data-dir ./tmp-data` — the toast timestamp and the pause-until time in both languages
+- [ ] Docs: ADR · README (requirements) · CHANGELOG
+- **Notes:** Ignored in `deny.toml` until then, with the reason: it is not a vulnerability and today `chrono` parses no input from outside the app. Before Phase 4 because the scheduler and the prayer times are where a date library becomes hard to replace.
+
+### FEAT-0039 · Migration 003 and the reminder store
+- **State:** Pending · **Spec:** docs/05-data-model-and-storage.md · docs/specs/reminders.md §9 · **Phase:** 4
+- **Branch:** feat/phase-4-scheduler
+- **Depends on:** CR-0007
+- [ ] `003_locale_keys.sql`: the `category` key columns, `authored_lang` on `reminder`, the built-in type keys — never editing `001` or `002`
+- [ ] `ot-store` reminders: create, read, list, update, delete, parameterized only; `trigger_json` and `recurrence_json` typed in Rust, unknown fields rejected; `next_fire_at` written by the scheduler only
+- [ ] `snooze_log` and `notification_log` writes; `notification_log` pruned at 90 days on start
+- [ ] `--self-test` migrates to 3
+- [ ] Test: `003` on a fresh database and on one at version 2; CRUD round-trip; a malformed `trigger_json` refused; delete cascades to `snooze_log`; pruning keeps 89 days and drops 91
+- [ ] Gate: fmt · clippy -D warnings · test --workspace --locked -j 4 · deny check · --self-test
+- [ ] App: `--data-dir ./tmp-data` — create the database fresh and from a v0.11.0 copy; `--self-test`; the database's `user_version` reads 3
+- [ ] Docs: spec · README · CHANGELOG · CHECKLIST · GOTCHAS
+
+### FEAT-0040 · Recurrence and offsets, in the local wall clock
+- **State:** Pending · **Spec:** docs/specs/reminders.md §4 · §7 · **Phase:** 4
+- **Branch:** feat/phase-4-scheduler
+- **Depends on:** CR-0007
+- [ ] Pure functions in `ot-sched`: the next occurrence after an instant for once, daily, weekly (chosen weekdays), monthly, yearly and every *N* of each, computed in the local wall clock
+- [ ] Offsets before: 1 week, 2 days, 1 day, 1 hour, 15 minutes, custom minutes/hours/days — several per reminder, each its own fire
+- [ ] The 31st and 29 February fall on the month's last day; a wall-clock time a DST gap skips fires at the gap's end, and one a DST fold repeats fires once
+- [ ] Test: every kind across month ends and leap years; "every day at 07:00" stays 07:00 across both DST transitions in a zone that has them (Malaysia has none); several offsets each fire once; every *N* from a start date
+- [ ] Gate: fmt · clippy -D warnings · test --workspace --locked -j 4 · deny check · --self-test
+- [ ] App: `--data-dir ./tmp-data` — not applicable on its own — exercised through FEAT-0041's queue in the app
+- [ ] Docs: spec · README · CHANGELOG · CHECKLIST · GOTCHAS
+- **Notes:** Malaysia has no DST, so the DST cases are proved in tests with a zone that has them, never on this machine's clock.
+
+### FEAT-0041 · The scheduler thread
+- **State:** Pending · **Spec:** docs/specs/reminders.md §7 · §12 · docs/03-architecture.md · **Phase:** 4
+- **Branch:** feat/phase-4-scheduler
+- **Depends on:** FEAT-0039, FEAT-0040
+- [ ] One named thread owning a queue keyed on each reminder's next fire time, stored and not recomputed per frame
+- [ ] A condition variable with a bounded timeout, re-reading the wall clock on every wake — never a long sleep
+- [ ] Recompute after an edit, midnight, a clock change, a time-zone change and a system resume; the three Windows events come through an `ot-platform` interface
+- [ ] Fire events to the UI over a bounded channel drained at frame start — a fired reminder is never dropped; edits come back the same way
+- [ ] Fires within one second of target
+- [ ] Test: the queue orders and fires; a simulated resume and a simulated clock jump recompute rather than trust the queue; a full channel holds the fire rather than dropping it; fire latency under one second in a timed test
+- [ ] Gate: fmt · clippy -D warnings · test --workspace --locked -j 4 · deny check · --self-test
+- [ ] App: `--data-dir ./tmp-data` — a reminder two minutes out fires on time, measured from the log's fire line against its target; a reminder edited while queued fires at its new time
+- [ ] Docs: spec · README · CHANGELOG · CHECKLIST · GOTCHAS
+- **Notes:** Changing the system clock or time zone is a system setting this session does not change; those paths are proved with simulated events, and the owner's check is noted if wanted.
+
+### FEAT-0042 · Reminder types and their toasts
+- **State:** Pending · **Spec:** docs/specs/reminders.md §3 · docs/specs/toast.md §8 · docs/10-i18n.md · **Phase:** 4
+- **Branch:** feat/phase-4-scheduler
+- **Depends on:** FEAT-0041
+- [ ] The eleven types, each a stable key with its default template in both languages (`reminder-` keys, with translator comments); user titles stored as typed, with `authored_lang`
+- [ ] One function builds a `ToastSpec` from a reminder and its template, used by the preview and the scheduler alike (ui.md)
+- [ ] Open works (shows the reminder in Settings); every fire is written to `notification_log`
+- [ ] Priority when two want the screen: Alarm before everything else (Azan and announcements come with Phases 5 and 7)
+- [ ] Test: every type key in both catalogues; a reminder's toast built the same way for preview and fire; the user's title untouched in both languages; the log row per fire
+- [ ] Gate: fmt · clippy -D warnings · test --workspace --locked -j 4 · deny check · --self-test
+- [ ] App: `--data-dir ./tmp-data` — a reminder of each type fires, in English and Malay, Dark and Light; Open lands on it
+- [ ] Docs: spec · README · CHANGELOG · CHECKLIST · GOTCHAS
+
+### FEAT-0043 · Snooze, with its limit
+- **State:** Pending · **Spec:** docs/specs/reminders.md §5 · **Phase:** 4
+- **Branch:** feat/phase-4-scheduler
+- **Depends on:** FEAT-0042
+- [ ] Snooze on the toast: 5 minutes, 15 minutes, 1 hour, 1 day, custom; the default chosen in Settings
+- [ ] At most 10 snoozes per reminder by default, then the toast offers only Dismiss and says so; each recorded in `snooze_log` with its count
+- [ ] Test: the limit enforced and recorded; the eleventh snooze refused; a snoozed reminder's next fire time; the count survives a restart
+- [ ] Gate: fmt · clippy -D warnings · test --workspace --locked -j 4 · deny check · --self-test
+- [ ] App: `--data-dir ./tmp-data` — snooze a toast, see it return; reach the limit (with a low limit set) and read the toast's line, in both languages
+- [ ] Docs: spec · README · CHANGELOG · CHECKLIST · GOTCHAS
+
+### FEAT-0044 · Persistent alarms and the display duration
+- **State:** Pending · **Spec:** docs/specs/reminders.md · docs/specs/toast.md §6 · **Phase:** 4
+- **Branch:** feat/phase-4-scheduler
+- **Depends on:** FEAT-0042
+- [ ] Alarm and the other urgent types stay until acted on, capped at 10 minutes, then logged as missed
+- [ ] Every other type keeps the 3–60 s display duration and hover pause Phase 2 and 3 built
+- [ ] Test: an alarm outlives its display duration and closes at the cap; a normal reminder does not
+- [ ] Gate: fmt · clippy -D warnings · test --workspace --locked -j 4 · deny check · --self-test
+- [ ] App: `--data-dir ./tmp-data` — an alarm left alone stays up, then goes at the cap (cap shortened for the check)
+- [ ] Docs: spec · README · CHANGELOG · CHECKLIST · GOTCHAS
+- **Notes:** The Duration row of the CHECKLIST is mostly Phase 2's (FEAT-0026) and BUG-0009's; this item adds the alarm exception.
+
+### FEAT-0045 · Missed reminders
+- **State:** Pending · **Spec:** docs/specs/reminders.md §6 · **Phase:** 4
+- **Branch:** feat/phase-4-scheduler
+- **Depends on:** FEAT-0041
+- [ ] At start, reminders whose time passed while the PC was off or asleep are listed — not fired all at once — with Dismiss and Snooze
+- [ ] Catch-up windows: 1 hour for Azan, 24 hours for everything else, both configurable; older ones dropped with a log line and a `missed` row
+- [ ] Test: inside the window listed, outside dropped and logged, at both window edges; the list after a simulated resume
+- [ ] Gate: fmt · clippy -D warnings · test --workspace --locked -j 4 · deny check · --self-test
+- [ ] App: `--data-dir ./tmp-data` — quit the app, let a reminder's time pass, start it again: the list shows it; dismiss and snooze from the list, in both languages
+- [ ] Docs: spec · README · CHANGELOG · CHECKLIST · GOTCHAS
+
+### FEAT-0046 · Settings ▸ Reminders
+- **State:** Pending · **Spec:** docs/04-ui-design.md · docs/specs/reminders.md §10 · **Phase:** 4
+- **Branch:** feat/phase-4-scheduler
+- **Depends on:** FEAT-0042, FEAT-0043
+- [ ] The list, with an empty state in a sentence, and the editor: title, body, type, date and time (the shared date and time fields), offsets, recurrence, snooze default
+- [ ] Validation in the user's language, said where the field is; deleting a reminder and clearing history guarded by a confirmation
+- [ ] Every label a Fluent key in both files, laid out for the longest Malay string; Title Case labels, sentence-case hints
+- [ ] Test: the layout test lays the pane out in English, Malay and the pseudo-locale at 100%, 150% and 200%; validation messages; the guards
+- [ ] Gate: fmt · clippy -D warnings · test --workspace --locked -j 4 · deny check · --self-test
+- [ ] App: `--data-dir ./tmp-data` — create, edit, delete (guarded) a reminder; let it fire; check the history row — in both languages, all three themes, the narrow window
+- [ ] Docs: spec · README · CHANGELOG · CHECKLIST · GOTCHAS
+- **Notes:** A long reminder list is tested for per-frame cost, not three rows (ui.md).
+
+### FEAT-0047 · The shared date formatter, for reminders
+- **State:** Pending · **Spec:** docs/10-i18n.md · docs/specs/reminders.md §11 · **Phase:** 4
+- **Branch:** feat/phase-4-scheduler
+- **Depends on:** CR-0007
+- [ ] `ot-i18n` formats every date and time a reminder shows: the next fire, offsets ("1 day before"), recurrence ("every 2 weeks on Monday and Thursday"), the missed list — through Fluent variables, never concatenated
+- [ ] Malay `d/m/yyyy`, 24-hour by default, Malay day and month names; English following the Windows regional setting with the 12- or 24-hour choice the user's
+- [ ] Test: each phrase in both languages, 12- and 24-hour; a date in each language against a written table
+- [ ] Gate: fmt · clippy -D warnings · test --workspace --locked -j 4 · deny check · --self-test
+- [ ] App: `--data-dir ./tmp-data` — a reminder's next fire, its offsets and its recurrence read correctly in Settings and on the toast, in both languages
+- [ ] Docs: spec · README · CHANGELOG · CHECKLIST · GOTCHAS
+- **Notes:** This item carries the exit criterion "the date format is correct in each language".
+
+### FEAT-0048 · Fatigue reminders
+- **State:** Pending · **Spec:** docs/specs/reminders.md §3 · **Phase:** 4
+- **Branch:** feat/phase-4-scheduler
+- **Depends on:** FEAT-0042
+- [ ] Eye break, posture, hydration and the work-hour limit, each with its default schedule, each switched on by the user
+- [ ] The work-hour limit counts elapsed wall time from the day's first fatigue reminder
+- [ ] Test: each kind's default schedule; the work-hour count across midnight and a resume
+- [ ] Gate: fmt · clippy -D warnings · test --workspace --locked -j 4 · deny check · --self-test
+- [ ] App: `--data-dir ./tmp-data` — turn on each kind with a short interval and see it fire, in both languages
+- [ ] Docs: spec · README · CHANGELOG · CHECKLIST · GOTCHAS
 
 ## v0.3.1 — Done 2026-11-18
 
@@ -1003,18 +1146,6 @@ of it, then 0004, 0005 and 0006 in any order.
 ---
 
 ## Backlog
-
-### CR-0007 · Move off `chrono`, which is unmaintained, before the scheduler is built on it
-- **State:** Pending · **Spec:** docs/08-decisions.md (a new ADR) · **Phase:** 4
-- **Source:** `cargo deny check`, 2026-11-17: RUSTSEC-2026-0543, "chrono is unmaintained", no safe upgrade; the advisory names `jiff` and `time`
-- [ ] Choose the replacement in an ADR — time zones (Asia/Kuala_Lumpur for JAKIM, `docs/11-prayer-and-azan.md`), DST arithmetic for the scheduler, and what `ot-i18n`'s formatter needs
-- [ ] Replace it in `ot-core` (logging, pause), `ot-i18n` (the formatter), `ot-ui` and the self-test, with the formatter's tests unchanged and passing
-- [ ] Remove RUSTSEC-2026-0543 from `deny.toml`'s ignore list
-- [ ] Test: the formatter's tests in both languages, 12- and 24-hour, UTC+8; the pause timer
-- [ ] Gate: fmt · clippy -D warnings · test --workspace --locked -j 4 · deny check · --self-test
-- [ ] App: `--data-dir ./tmp-data` — the toast timestamp and the pause-until time in both languages
-- [ ] Docs: ADR · README (requirements) · CHANGELOG
-- **Notes:** Ignored in `deny.toml` until then, with the reason: it is not a vulnerability and today `chrono` parses no input from outside the app. Before Phase 4 because the scheduler and the prayer times are where a date library becomes hard to replace.
 
 ### CR-0001 · The product is "OmniToaster", one word, everywhere a user sees it
 - **State:** Completed · **Spec:** docs/01-vision-and-scope.md · **Phase:** 0

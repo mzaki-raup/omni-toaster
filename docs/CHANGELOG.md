@@ -7,7 +7,9 @@ Format: [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) · Versioning:
 
 ## Unreleased
 
-- (nothing yet)
+### Changed
+
+- Phase 4 planned: the reminders spec answers its two open questions (custom recurrence is an interval over the fixed set; the work-hour limit counts wall time), and the locale-keys migration is `003_locale_keys.sql`, JAKIM's `004_jakim.sql`, in the roadmap, the proposal and the CHECKLIST, since Phase 2 took `002` (CR-0007, FEAT-0039 to FEAT-0048).
 
 ## 0.11.0 — 2026-11-18
 

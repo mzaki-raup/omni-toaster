@@ -531,8 +531,9 @@ jakim_prayer_cache (zone_code, date, hijri, imsak, fajr, syuruk, dhuha,
 
 **Migrations (numbered, tracked with `PRAGMA user_version`):**
 - `001_init.sql`: Phase 0 schema (settings, location, category, reminder, snooze_log, notification_log, asset, weather_cache).
-- `002_locale_keys.sql`: category key columns, `authored_lang`, and built-in key identifiers.
-- `003_jakim.sql`: zone table and prayer cache.
+- `002_asset_label.sql`: the image library's labels (Phase 2).
+- `003_locale_keys.sql`: category key columns, `authored_lang`, and built-in key identifiers.
+- `004_jakim.sql`: zone table and prayer cache.
 
 **Rules:**
 - Built-in keys (for example, `prayer-fajr`, `weather-rain`) are stable identifiers. Renaming a key requires a migration.

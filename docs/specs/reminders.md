@@ -1,6 +1,6 @@
 # Spec — Reminders and scheduling
 
-**Status:** approved · **Last updated:** 2026-11-08 · **Source:** [PROPOSAL.md](../../PROPOSAL.md) §8.9, §8.10
+**Status:** approved · **Last updated:** 2026-11-19 · **Source:** [PROPOSAL.md](../../PROPOSAL.md) §8.9, §8.10
 **Owner crates:** `ot-sched`, `ot-store`, `ot-ui` · **Phase:** 4
 
 ## 1. Purpose
@@ -30,7 +30,9 @@ changes with the UI language
 ([05-data-model-and-storage.md](../05-data-model-and-storage.md)).
 
 Fatigue covers all four sub-kinds, each with its own default schedule, and the
-user chooses which to enable.
+user chooses which to enable. The work-hour limit counts **elapsed wall time**
+from the first fatigue reminder of the day, not measured activity (§14,
+question 2).
 
 ## 4. Triggers
 
@@ -39,7 +41,10 @@ user chooses which to enable.
   (minutes, hours, days). A reminder may carry several offsets, each firing
   separately.
 - **Recurrence:** once · daily · weekly · monthly · yearly (anniversaries) ·
-  custom pattern.
+  custom pattern. **Custom** is an interval over the fixed set — every *N*
+  days, weeks, months or years — and weekly may name several weekdays; there is
+  no expression language (§14, question 1). A monthly or yearly date the month
+  does not have (the 31st, 29 February) falls on the month's last day.
 
 `trigger_json` and `recurrence_json` hold the detail; `next_fire_at` is the one
 denormalized field the scheduler reads.
@@ -98,7 +103,8 @@ priority** and is never suppressed
 
 `reminder`, `snooze_log`, `notification_log`, `category` — see
 [05-data-model-and-storage.md](../05-data-model-and-storage.md). Migration
-`002_locale_keys.sql` belongs to this phase.
+`003_locale_keys.sql` belongs to this phase — it was planned as `002`, which
+Phase 2's `002_asset_label.sql` took.
 
 `notification_log` records every fire with its action and source, which is what
 makes the history pane and the "did it actually fire?" question answerable. It
@@ -136,7 +142,7 @@ back the same way. Nothing blocks the UI thread; nothing calls `block_on`
 | Resume | a queue built before a simulated resume is recomputed, not trusted |
 | Missed | items inside the window are listed, items outside are dropped and logged |
 | Timing | a reminder fires within one second of target |
-| Migration | `002` on a fresh and on an existing database |
+| Migration | `003` on a fresh and on an existing database |
 
 Then in the running app: create a reminder, let it fire, snooze it, dismiss it,
 check the history row.
@@ -147,11 +153,17 @@ cargo run -p omnitoaster -- --data-dir ./tmp-data
 
 ## 14. Open questions
 
-1. Whether a "custom pattern" recurrence needs a real expression language or
-   whether the fixed set plus an interval covers every case the owner wants.
-2. Whether the work-hour-limit fatigue kind needs to track actual activity, or
-   only elapsed wall time since the day's first reminder.
+1. ~~Whether a "custom pattern" recurrence needs a real expression language or
+   whether the fixed set plus an interval covers every case the owner wants.~~
+   **Answered 2026-11-19, when Phase 4 started on the owner's "just proceed":**
+   the fixed set plus an interval and chosen weekdays (§4). Reopened if the
+   owner wants more.
+2. ~~Whether the work-hour-limit fatigue kind needs to track actual activity, or
+   only elapsed wall time since the day's first reminder.~~ **Answered the same
+   way:** elapsed wall time (§3). Tracking activity would need input hooks the
+   app has no other use for.
 
-## What is implemented (2026-11-08)
+## What is implemented (2026-11-19)
 
-Nothing. Phase 4 has not started; this file is the requirement.
+Nothing yet. Phase 4 started on `feat/phase-4-scheduler`; its items are
+CR-0007 and FEAT-0039 to FEAT-0048 in `docs/TASKS.md` under `v0.4.0`.

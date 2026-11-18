@@ -153,7 +153,7 @@ Last updated: 2026-11-19
 | DST-safe scheduling | Pending | Recompute on resume and clock change |
 | Localized reminder types | Pending | Templates in both languages |
 | Shared date formatter | Pending | The only formatter in the workspace |
-| Migration 002 | Pending | `002_locale_keys.sql` |
+| Migration 003 | Pending | `003_locale_keys.sql` — `002` went to `002_asset_label.sql` in Phase 2 |
 
 ## Phase 5 — Location, Prayer and Azan
 > **Exit criteria:** the parser passes the fixtures for three zones; live JAKIM times match the official portal on the same dates for at least three zones; the fallback chain passes with the network disabled; prayer labels match the reference table in both languages.
@@ -164,7 +164,7 @@ Last updated: 2026-11-19
 | Zone table | Pending | `data/jakim_zones.csv`, reviewed commits only |
 | JAKIM client | Pending | HTTPS, 10 s timeout, backoff 1/5/15 min, no polling |
 | Parser with fixtures | Pending | `tests/fixtures/jakim_sample.json` |
-| Cache and migration 003 | Pending | `003_jakim.sql` |
+| Cache and migration 004 | Pending | `004_jakim.sql` |
 | Fallback chain | Pending | Cache → live → bundled → calculated → last known |
 | Zone selection UI | Pending | Detected zone shown for confirmation, always overridable |
 | Calculated mode with Malaysia preset | Pending | Fajr 20.0°, Isha 18.0°, Asar Shafi'i |
