@@ -327,6 +327,8 @@ struct ReminderToast {
     fired_at: jiff::Timestamp,
     /// How many times this fire has been snoozed already.
     snoozes: u32,
+    /// Whether it waits to be acted on, up to its cap.
+    persistent: bool,
 }
 
 impl SettingsWindow {
@@ -801,8 +803,19 @@ impl SettingsWindow {
             ctx.send_viewport_cmd_to(id.viewport_id(), egui::ViewportCommand::Close);
             ot_platform::toast_window::forget(&id.window_title());
             // A reminder toast that left on its own was shown and nothing
-            // more; its row was written when it appeared.
-            self.reminder_toasts.remove(&id);
+            // more; its row was written when it appeared. A persistent one
+            // waited to be acted on and was not: it closed at its cap, and
+            // that is a missed reminder (docs/specs/reminders.md §8).
+            if let Some(toast) = self.reminder_toasts.remove(&id)
+                && toast.persistent
+            {
+                tracing::info!(reminder = toast.reminder_id, "an alarm closed at its cap");
+                self.record(
+                    toast.reminder_id,
+                    toast.fired_at,
+                    NotificationAction::Missed,
+                );
+            }
         }
         if self.toasts.is_empty() {
             return;
@@ -1764,7 +1777,7 @@ impl SettingsWindow {
                 continue;
             }
             let template = fired.template.as_ref();
-            let spec = crate::reminder_toast::spec(
+            let mut spec = crate::reminder_toast::spec(
                 &self.prefs,
                 &fired.reminder,
                 template,
@@ -1772,6 +1785,12 @@ impl SettingsWindow {
                 fired.snoozes,
                 self.settings.reminders.clamped().snooze_limit,
             );
+            if spec.behaviour.persistent
+                && let Some(cap) = self.dev.alarm_cap_secs
+            {
+                spec.behaviour.duration_secs = cap;
+            }
+            let persistent = spec.behaviour.persistent;
             let id = if crate::reminder_toast::is_urgent(template) {
                 self.toasts.push_first(spec, Instant::now())
             } else {
@@ -1784,6 +1803,7 @@ impl SettingsWindow {
                     reminder_id: fired.reminder_id,
                     fired_at,
                     snoozes: fired.snoozes,
+                    persistent,
                 },
             );
             self.record(fired.reminder_id, fired_at, NotificationAction::Shown);
@@ -2121,6 +2141,9 @@ pub struct DevOptions {
     pub reduce_motion: bool,
     /// Every frame counts as 50 ms, so the frame-time fallback is forced.
     pub slow_frames: bool,
+    /// An alarm's toast closes after this many seconds instead of the
+    /// ten-minute cap, so the cap can be watched.
+    pub alarm_cap_secs: Option<f32>,
 }
 
 pub fn run(

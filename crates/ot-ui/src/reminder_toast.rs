@@ -53,7 +53,9 @@ pub fn content(
 /// A fire's whole toast: [`content`], the user's style, and Snooze — which
 /// works on a reminder's toast, until the fire has been snoozed `limit`
 /// times, when the row offers only Dismiss and says why
-/// (`docs/specs/reminders.md` §5).
+/// (`docs/specs/reminders.md` §5). An urgent type's toast is persistent: it
+/// stays until acted on, up to the ten-minute cap, rather than for the
+/// display duration (`docs/specs/toast.md` §6).
 pub fn spec(
     prefs: &ot_toast::Prefs,
     reminder: &Reminder,
@@ -71,6 +73,10 @@ pub fn spec(
     let mut spec = prefs.spec(content);
     if at_limit {
         spec.behaviour.actions = 1;
+    }
+    if is_urgent(template) {
+        spec.behaviour.persistent = true;
+        spec.behaviour.duration_secs = ot_toast::spec::PERSISTENT_CAP_SECS;
     }
     spec
 }
@@ -271,6 +277,34 @@ mod tests {
             let at = spec(&prefs, &typed, None, None, 10, 10);
             assert_eq!(at.actions(), &[ot_toast::Action::Dismiss]);
             assert_eq!(at.content.note.as_deref(), Some(line));
+        }
+    }
+
+    #[test]
+    fn an_alarm_waits_up_to_the_cap_and_a_task_keeps_the_display_duration() {
+        let mut prefs = ot_toast::Prefs::default();
+        prefs.behaviour.duration_secs = 12.0;
+        let typed = reminder("x", None);
+
+        let alarm = spec(
+            &prefs,
+            &typed,
+            Some(&template("reminder-alarm")),
+            None,
+            0,
+            10,
+        );
+        assert!(alarm.behaviour.persistent);
+        assert_eq!(
+            alarm.behaviour.duration_secs,
+            ot_toast::spec::PERSISTENT_CAP_SECS
+        );
+        assert_eq!(alarm.clone().clamped(), alarm, "the cap survives clamping");
+
+        for key in ["reminder-task", "reminder-timer", "reminder-appointment"] {
+            let other = spec(&prefs, &typed, Some(&template(key)), None, 0, 10);
+            assert!(!other.behaviour.persistent, "{key}");
+            assert_eq!(other.behaviour.duration_secs, 12.0, "{key}");
         }
     }
 

@@ -251,3 +251,8 @@ FEAT-0039 to FEAT-0048 in `docs/TASKS.md` under `v0.4.0`.
   Settings ▸ Reminders holds Snooze Length (5 Minutes, 15 Minutes, 1 Hour,
   1 Day, Custom with Custom Length in minutes) and Snooze Limit, saved to
   `[reminders]` in `settings.toml`.
+- **Persistent alarms (FEAT-0044).** An Alarm's toast stays until acted on,
+  up to ten minutes (`docs/specs/toast.md` §6), and closing at that cap
+  untouched writes a `missed` history row; every other type keeps the 3–60 s
+  display duration. A debug build's `--alarm-cap <seconds>` shortens the cap
+  for checking it.

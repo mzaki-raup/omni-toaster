@@ -223,16 +223,16 @@ date library it will keep.
 - **Notes:** App, 2026-11-19 from 17:46 local time, debug worker on scratch folders with a 1-minute custom snooze. English Dark, limit 2: the reminder fired 10 ms late; Snooze brought it back a minute later (15 ms late, count 1) and again (5 ms late, count 2), and the second return showed only Dismiss beside "No more snoozes for this reminder."; Dismiss closed it. `snooze_log` held counts 1 and 2, the history read shown, snoozed, shown, snoozed, shown, dismissed, and the reminder ended `done`. Malay Light, limit 1: one return, with Tutup beside "Tiada lagi tundaan untuk peringatan ini." whole on one line. Settings ▸ Reminders looked at in English Dark and Malay Light at full width and Malay Dark at the 560 px minimum, where the labels stack above their fields; System mode was not looked at separately (it draws the Dark or Light palette, both seen), and 150% and 200% are held by the layout test, not looked at on screen. README: the Actions line, the scheduling paragraph and the new `settings-reminders.png` / `-ms.png` in both. The spec's "per reminder" is now explicitly per fire: taken literally, a daily reminder could never be snoozed again after its tenth snooze.
 
 ### FEAT-0044 · Persistent alarms and the display duration
-- **State:** Pending · **Spec:** docs/specs/reminders.md · docs/specs/toast.md §6 · **Phase:** 4
+- **State:** Completed · **Spec:** docs/specs/reminders.md · docs/specs/toast.md §6 · **Phase:** 4
 - **Branch:** feat/phase-4-scheduler
 - **Depends on:** FEAT-0042
-- [ ] Alarm and the other urgent types stay until acted on, capped at 10 minutes, then logged as missed
-- [ ] Every other type keeps the 3–60 s display duration and hover pause Phase 2 and 3 built
-- [ ] Test: an alarm outlives its display duration and closes at the cap; a normal reminder does not
-- [ ] Gate: fmt · clippy -D warnings · test --workspace --locked -j 4 · deny check · --self-test
-- [ ] App: `--data-dir ./tmp-data` — an alarm left alone stays up, then goes at the cap (cap shortened for the check)
-- [ ] Docs: spec · README · CHANGELOG · CHECKLIST · GOTCHAS
-- **Notes:** The Duration row of the CHECKLIST is mostly Phase 2's (FEAT-0026) and BUG-0009's; this item adds the alarm exception.
+- [x] Alarm and the other urgent types stay until acted on, capped at 10 minutes, then logged as missed — Alarm is the one urgent reminder type (Azan is Phase 5); `reminder_toast::spec` makes its toast persistent at `PERSISTENT_CAP_SECS`, and a persistent reminder toast that leaves untouched writes `missed`
+- [x] Every other type keeps the 3–60 s display duration and hover pause Phase 2 and 3 built
+- [x] Test: an alarm outlives its display duration and closes at the cap; a normal reminder does not — `viewport.rs` (a persistent toast against a 60 s one, at 61 s, 599.999 s and 600 s) and `reminder_toast.rs` (Alarm persistent at the cap and surviving clamping; Task, Timer and Appointment not)
+- [x] Gate: fmt · clippy -D warnings · test --workspace --locked -j 4 (324 passed) · deny check · --self-test
+- [x] App: `--data-dir ./tmp-data` — an alarm left alone stays up, then goes at the cap (cap shortened for the check)
+- [x] Docs: spec · README · CHANGELOG · CHECKLIST · GOTCHAS
+- **Notes:** App, 2026-11-19 at 18:35 local time, debug worker with the new debug-only `--alarm-cap 30` and an 8 s display duration: an Alarm ("Wake up") and a Task fired together, 12 ms late; at 28 s only the Alarm was on screen, at 42 s still, and it closed 30.7 s after appearing (the cap plus its animations), logging "an alarm closed at its cap"; the history read Wake up shown, Water the plants shown, Wake up missed. Hover pausing an alarm's countdown is the same code as every toast's (Phase 2) and was not looked at again. GOTCHAS: nothing new went wrong. The Duration row of the CHECKLIST is mostly Phase 2's (FEAT-0026) and BUG-0009's; this item adds the alarm exception.
 
 ### FEAT-0045 · Missed reminders
 - **State:** Pending · **Spec:** docs/specs/reminders.md §6 · **Phase:** 4

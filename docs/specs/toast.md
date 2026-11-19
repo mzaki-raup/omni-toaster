@@ -301,7 +301,11 @@ never overshoots past solid.
 - Default 8 seconds, range 3–60 seconds, set in Settings ▸ Appearance ▸
   Display Duration in whole seconds (FEAT-0026).
 - A persistent option for urgent types (Alarm, Azan), capped at 10 minutes.
-- Hovering pauses the countdown.
+  An Alarm's toast is persistent (FEAT-0044; Azan follows in Phase 5): it
+  stays until a button is pressed, up to the cap, and one that reaches the
+  cap untouched is recorded as `missed` in the history. Every other type
+  keeps the display duration.
+- Hovering pauses the countdown, a persistent toast's included.
 
 ## 7. Placement, DPI and monitors
 

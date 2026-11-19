@@ -67,6 +67,11 @@ const KNOWN_FLAGS: &[&str] = &[
     // checking the scheduler before Settings ▸ Reminders exists. Debug only.
     #[cfg(debug_assertions)]
     "--test-reminder",
+    // Shortens the ten-minute cap on an alarm's toast to this many seconds,
+    // for watching it close at the cap without waiting ten minutes. Debug
+    // only.
+    #[cfg(debug_assertions)]
+    "--alarm-cap",
 ];
 
 fn main() -> ExitCode {
@@ -368,11 +373,20 @@ fn main() -> ExitCode {
     #[cfg(not(debug_assertions))]
     let (reduce_motion, slow_frames) = (false, false);
 
+    #[cfg(debug_assertions)]
+    let alarm_cap_secs = value_of(&args, "--alarm-cap")
+        .ok()
+        .flatten()
+        .and_then(|text| text.parse::<f32>().ok());
+    #[cfg(not(debug_assertions))]
+    let alarm_cap_secs = None;
+
     let dev = ot_ui::settings_window::DevOptions {
         test_toast,
         ui_scale,
         reduce_motion,
         slow_frames,
+        alarm_cap_secs,
     };
     if let Err(error) =
         ot_ui::settings_window::run(root, settings, dev, fires, scheduler.commands())

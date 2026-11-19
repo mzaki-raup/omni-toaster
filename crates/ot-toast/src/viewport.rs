@@ -898,6 +898,37 @@ mod tests {
     }
 
     #[test]
+    fn a_persistent_toast_outlives_the_display_duration_and_leaves_at_the_cap() {
+        let start = t0();
+        let mut alarm = ToastSpec::default();
+        alarm.behaviour.persistent = true;
+        alarm.behaviour.duration_secs = crate::spec::PERSISTENT_CAP_SECS;
+        let mut toasts = Toasts::new();
+        let alarm = shown(&mut toasts, alarm.clamped(), start);
+        let normal = shown(&mut toasts, spec_lasting(60.0), start);
+
+        // A minute and a bit in: the ordinary toast has gone, the alarm stays.
+        let later = start + ms(ANIM + 61_000);
+        toasts.tick(later);
+        let leaving = |toasts: &Toasts, id| {
+            toasts
+                .visible()
+                .iter()
+                .find(|t| t.id == id)
+                .is_none_or(LiveToast::is_leaving)
+        };
+        assert!(leaving(&toasts, normal), "the display duration is up");
+        assert!(!leaving(&toasts, alarm), "an alarm waits to be acted on");
+
+        let just_before = start + ms(ANIM + 599_999);
+        toasts.tick(just_before);
+        assert!(!leaving(&toasts, alarm));
+        let at_cap = start + ms(ANIM + 600_000);
+        toasts.tick(at_cap);
+        assert!(leaving(&toasts, alarm), "but not for ever: ten minutes");
+    }
+
+    #[test]
     fn an_urgent_toast_waits_ahead_of_the_queue() {
         let start = t0();
         let mut toasts = Toasts::new();

@@ -50,7 +50,7 @@ image, accent colour, sound and style overrides — in both languages:
 | **Anniversary** | Yearly recurrence |
 | **Fatigue** | Eye breaks, posture and hydration, each on its own schedule |
 | **Timer** | A countdown from now |
-| **Alarm** | A persistent toast that stays until dismissed |
+| **Alarm** | A persistent toast that stays until you act on it, for up to ten minutes |
 | **Payment** and **Appointment** | Offset-before reminders for dated obligations |
 | **Hourly time announcement** | The time spoken aloud in the active language — hourly, every 30 or 15 minutes, start or end of day, or at custom times |
 

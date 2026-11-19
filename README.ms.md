@@ -53,7 +53,7 @@ bahasa:
 | **Ulang tahun** | Berulang setiap tahun |
 | **Keletihan** | Rehat mata, postur badan dan minum air, masing-masing dengan jadualnya sendiri |
 | **Pemasa** | Kiraan detik dari sekarang |
-| **Penggera** | Toast yang terus dipaparkan sehingga ditutup |
+| **Penggera** | Toast yang terus dipaparkan sehingga anda bertindak, hingga sepuluh minit |
 | **Bayaran** dan **Temu janji** | Peringatan sebelum masa untuk urusan bertarikh |
 | **Pengumuman masa setiap jam** | Masa disebut dengan suara dalam bahasa aktif — setiap jam, setiap 30 atau 15 minit, pada awal atau akhir hari, atau pada masa tersuai |
 
