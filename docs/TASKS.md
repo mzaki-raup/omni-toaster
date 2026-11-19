@@ -169,17 +169,17 @@ date library it will keep.
 - **Notes:** App, checked 2026-11-19 at 12:40 local time: the debug worker started on a fresh scratch folder (window "Settings") and on a copy of a version 2 database that this morning's build had made (window "Tetapan"); the log shows 001–003 applied to the fresh one and only 003 to the copy, and both read `user_version` 3 with twelve `reminder-` templates; `--self-test` on the migrated copy passed. README: nothing user-visible changed — both still say reminders are the next phase. New dependency `serde_json` 1.0.154 (with `zmij`), added to `PROPOSAL.md` §4's serialization row; `cargo deny check` passes. The image-library test's hand-picked template id moved from 7 to 107, past the seeded rows (GOTCHAS, Storage and Migrations)
 
 ### FEAT-0040 · Recurrence and offsets, in the local wall clock
-- **State:** Pending · **Spec:** docs/specs/reminders.md §4 · §7 · **Phase:** 4
+- **State:** In-Progress · **Spec:** docs/specs/reminders.md §4 · §7 · **Phase:** 4
 - **Branch:** feat/phase-4-scheduler
 - **Depends on:** CR-0007
-- [ ] Pure functions in `ot-sched`: the next occurrence after an instant for once, daily, weekly (chosen weekdays), monthly, yearly and every *N* of each, computed in the local wall clock
-- [ ] Offsets before: 1 week, 2 days, 1 day, 1 hour, 15 minutes, custom minutes/hours/days — several per reminder, each its own fire
-- [ ] The 31st and 29 February fall on the month's last day; a wall-clock time a DST gap skips fires at the gap's end, and one a DST fold repeats fires once
-- [ ] Test: every kind across month ends and leap years; "every day at 07:00" stays 07:00 across both DST transitions in a zone that has them (Malaysia has none); several offsets each fire once; every *N* from a start date
-- [ ] Gate: fmt · clippy -D warnings · test --workspace --locked -j 4 · deny check · --self-test
+- [x] Pure functions in `ot-sched`: the next occurrence after an instant for once, daily, weekly (chosen weekdays), monthly, yearly and every *N* of each, computed in the local wall clock — `ot_sched::recurrence::next_fire`, which also folds in the offsets and returns the first fire strictly after the instant
+- [x] Offsets before: 1 week, 2 days, 1 day, 1 hour, 15 minutes, custom minutes/hours/days — several per reminder, each its own fire — plus the time itself; minutes and hours as elapsed time, days and weeks as calendar days; two fires at one instant are one
+- [x] The 31st and 29 February fall on the month's last day; a wall-clock time a DST gap skips fires at the gap's end, and one a DST fold repeats fires once
+- [x] Test: every kind across month ends and leap years; "every day at 07:00" stays 07:00 across both DST transitions in a zone that has them (Malaysia has none); several offsets each fire once; every *N* from a start date — 14 tests in `recurrence.rs`, DST in `America/New_York`
+- [x] Gate: fmt · clippy -D warnings · test --workspace --locked -j 4 (286 passed) · deny check · --self-test
 - [ ] App: `--data-dir ./tmp-data` — not applicable on its own — exercised through FEAT-0041's queue in the app
-- [ ] Docs: spec · README · CHANGELOG · CHECKLIST · GOTCHAS
-- **Notes:** Malaysia has no DST, so the DST cases are proved in tests with a zone that has them, never on this machine's clock.
+- [x] Docs: spec · README · CHANGELOG · CHECKLIST · GOTCHAS
+- **Notes:** Malaysia has no DST, so the DST cases are proved in tests with a zone that has them, never on this machine's clock. In-Progress until FEAT-0041's app check fires a recurring reminder through this code — the App box is not ticked for a check that has not run. Spec §4 now says an offset reminder also fires at its own time and that same-instant fires are one; §7 states the gap and fold rules. README: nothing user-visible yet.
 
 ### FEAT-0041 · The scheduler thread
 - **State:** Pending · **Spec:** docs/specs/reminders.md §7 · §12 · docs/03-architecture.md · **Phase:** 4

@@ -9,6 +9,7 @@ Format: [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) · Versioning:
 
 ### Added
 
+- When a reminder fires next: once, or every *N* days, weeks (on chosen weekdays), months or years, in the local wall clock so 07:00 stays 07:00 across a DST change; the 31st and 29 February fall on the month's last day; a time a DST gap skips fires when the gap ends, one a fold repeats fires once; and offsets before the time each fire on their own, days counted as calendar days (FEAT-0040).
 - The reminder store: migration 003 gives templates their built-in keys and one template per reminder type, records the language a title was typed in, and `ot-store` now creates, reads, lists, updates and deletes reminders, refusing a trigger or recurrence it does not understand, records snoozes with their count, and logs every notification, pruning the log at 90 days on start. The database is now at schema version 3, and `--self-test` checks for exactly that (FEAT-0039).
 
 ### Changed

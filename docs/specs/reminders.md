@@ -46,6 +46,14 @@ question 2).
   no expression language (§14, question 1). A monthly or yearly date the month
   does not have (the 31st, 29 February) falls on the month's last day.
 
+A reminder with offsets fires at each offset **and** at its own time: "a week
+before, a day before and on the day" is two offsets. Offsets in minutes and
+hours are elapsed time; offsets in days and weeks are calendar days, so "1 day
+before 07:00" is 07:00 the day before even when a DST change made that day 23
+or 25 hours long. Two fires that land on the same instant — a daily reminder
+whose 1-day offset meets the next day's own fire — are one fire, not two toasts
+at once. An interval of every 0 never fires.
+
 `trigger_json` and `recurrence_json` hold the detail; `next_fire_at` is the one
 denormalized field the scheduler reads.
 
@@ -80,7 +88,9 @@ wrong.
   re-examines the queue, so a suspended machine cannot carry a stale deadline.
 - A recurring reminder's next occurrence is computed in the **local wall clock**,
   not by adding 24 hours — "every day at 07:00" stays 07:00 across a DST
-  boundary.
+  boundary. A wall-clock time a DST gap skips fires when the gap ends (02:30 on
+  a day that jumps from 02:00 to 03:00 fires at 03:00); one a DST fold repeats
+  fires once, on its first pass.
 - JAKIM prayer times are read in `Asia/Kuala_Lumpur` and converted to absolute
   timestamps when the queue is built, regardless of the PC's own zone
   ([11-prayer-and-azan.md](../11-prayer-and-azan.md) §4).
@@ -185,5 +195,12 @@ FEAT-0039 to FEAT-0048 in `docs/TASKS.md` under `v0.4.0`.
 - Snoozes are recorded with their running count; `notification_log` rows are
   written with their action and pruned at 90 days on every start. Instants are
   stored as UTC text (`2026-11-19T00:00:00.000Z`) so they compare as text.
+
+- **Recurrence and offsets (FEAT-0040).** `ot_sched::recurrence::next_fire`
+  gives the first fire strictly after an instant, in a given zone: once, every
+  *N* days, weeks (on chosen weekdays), months or years, counted from the
+  reminder's own date; the 31st and 29 February clamped to the month's end and
+  back again; gaps and folds as §7 says; offsets as §4 says. A pure function,
+  tested in `America/New_York` for DST, since Malaysia has none.
 
 Nothing fires yet: the scheduler thread is FEAT-0041.

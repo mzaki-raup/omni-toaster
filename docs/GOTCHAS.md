@@ -143,7 +143,9 @@ have.
 - **The catalogue filename comes from the crate name unless you override it.** `fluent_language_loader!` and `fl!` both derive it from the calling crate, so a crate named `ot-i18n` looks for `ot-i18n.ftl` and reports "The language file … is not available" for a file that is plainly embedded and parses. `i18n.toml` has no setting for it; construct the loader with `FluentLanguageLoader::new("<domain>", fallback)`, accepting that `fl!` is then unavailable (ADR-006).
 
 ## Scheduler and Time
-Nothing recorded yet.
+- **jiff's `compatible()` does not put a skipped time at the gap's end.** For a wall-clock time inside a DST gap it adds the gap's length — 02:30 on a day that jumps from 02:00 to 03:00 becomes 03:30 — which is a reasonable default and not what the spec asks for. `ot_sched::recurrence::resolve` reads the time with the offset *after* the gap, which lands just before the transition, and takes `tz.following(..)`'s first transition: 03:00. A fold uses `earlier()`, so the repeated hour fires once.
+- **The short DST day is the day of the change, not the day after.** A test asserted that "1 day before 07:00 on Monday 9 March" was 23 hours in New York; it is 24 — both 07:00s are after that Sunday's 02:00 jump. The pair that straddles the change is 07:00 Saturday → 07:00 Sunday. When a DST test's expected length is off by an hour, check which side of the transition each end falls on before suspecting the code.
+- **Malaysia has no DST, so a DST test needs a zone that has one.** Tests of the wall-clock rules use `America/New_York` from jiff's bundled database (2026: forward on 8 March, back on 1 November); the machine's own zone proves nothing here, and changing it is a system setting no session changes.
 
 ## Prayer Times and JAKIM
 Nothing recorded yet.

@@ -6,3 +6,5 @@
 //!
 //! See `docs/03-architecture.md` for where this crate sits and which crates it
 //! may depend on.
+
+pub mod recurrence;
