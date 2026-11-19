@@ -54,6 +54,9 @@ pub enum Section {
     Pictures,
     /// How toasts arrive and leave (Phase 3, `docs/specs/toast.md` §5).
     Animation,
+    /// What Snooze does now; the reminder list and editor with FEAT-0046
+    /// (Phase 4, `docs/specs/reminders.md` §10).
+    Reminders,
 }
 
 impl Section {
@@ -64,15 +67,17 @@ impl Section {
             Self::Appearance => "settings-section-appearance",
             Self::Pictures => "settings-section-pictures",
             Self::Animation => "settings-section-animation",
+            Self::Reminders => "settings-section-reminders",
         }
     }
 
-    pub fn all() -> [Self; 4] {
+    pub fn all() -> [Self; 5] {
         [
             Self::General,
             Self::Appearance,
             Self::Animation,
             Self::Pictures,
+            Self::Reminders,
         ]
     }
 }
@@ -309,7 +314,19 @@ pub struct SettingsWindow {
     scheduler: Option<Sender<ot_sched::scheduler::Command>>,
     /// Which toasts are reminders, and which fire each one is, so a button
     /// press can be written to the history.
-    reminder_toasts: HashMap<ot_toast::ToastId, (i64, jiff::Timestamp)>,
+    reminder_toasts: HashMap<ot_toast::ToastId, ReminderToast>,
+    /// Set when Settings ▸ Reminders changed and has not been written yet;
+    /// written when the pointer is released, as in Appearance.
+    reminders_dirty: bool,
+}
+
+/// Which fire a reminder toast is, for its buttons.
+#[derive(Debug, Clone, Copy)]
+struct ReminderToast {
+    reminder_id: i64,
+    fired_at: jiff::Timestamp,
+    /// How many times this fire has been snoozed already.
+    snoozes: u32,
 }
 
 impl SettingsWindow {
@@ -394,6 +411,7 @@ impl SettingsWindow {
             fires: None,
             scheduler: None,
             reminder_toasts: HashMap::new(),
+            reminders_dirty: false,
         }
     }
 
@@ -1022,7 +1040,7 @@ impl SettingsWindow {
                     && let Some(at) = pointer
                     && let Some((action, _)) = buttons
                         .iter()
-                        .find(|(action, rect)| action.works() && rect.contains(at))
+                        .find(|(action, rect)| spec.enabled(*action) && rect.contains(at))
                 {
                     pressed_now.push((id, *action));
                 }
@@ -1037,17 +1055,41 @@ impl SettingsWindow {
         for (id, action) in pressed {
             tracing::info!(?id, ?action, "a toast button was pressed");
             self.toasts.dismiss(id, now);
-            let recorded = match action {
-                ot_toast::Action::Open => {
-                    // Settings comes forward; landing on the reminder itself
-                    // needs Settings ▸ Reminders (FEAT-0046).
-                    self.show_window(ctx);
-                    NotificationAction::Opened
-                }
-                _ => NotificationAction::Dismissed,
+            if action == ot_toast::Action::Open {
+                // Settings comes forward; landing on the reminder itself
+                // needs the reminder list (FEAT-0046).
+                self.show_window(ctx);
+            }
+            let Some(toast) = self.reminder_toasts.remove(&id) else {
+                continue;
             };
-            if let Some((reminder_id, fired_at)) = self.reminder_toasts.remove(&id) {
-                self.record(reminder_id, fired_at, recorded);
+            match action {
+                // The scheduler records the snooze and its history row, and
+                // refuses one past the limit (docs/specs/reminders.md §5).
+                ot_toast::Action::Snooze => {
+                    let settings = self.settings.reminders.clamped();
+                    self.send(ot_sched::scheduler::Command::Snooze {
+                        reminder_id: toast.reminder_id,
+                        fired_at: toast.fired_at,
+                        minutes: settings.snooze_minutes,
+                        snoozes: toast.snoozes,
+                        limit: settings.snooze_limit,
+                    });
+                }
+                ot_toast::Action::Open => {
+                    self.record(
+                        toast.reminder_id,
+                        toast.fired_at,
+                        NotificationAction::Opened,
+                    );
+                }
+                ot_toast::Action::Dismiss => {
+                    self.record(
+                        toast.reminder_id,
+                        toast.fired_at,
+                        NotificationAction::Dismissed,
+                    );
+                }
             }
         }
     }
@@ -1106,6 +1148,30 @@ impl SettingsWindow {
         if self.prefs_dirty && !ui.input(|i| i.pointer.any_down()) {
             self.prefs_dirty = false;
             self.settings.toast = self.prefs.to_table();
+            self.save();
+        }
+    }
+
+    /// Settings ▸ Reminders: for now, the Snooze section.
+    fn reminders_pane(&mut self, ui: &mut egui::Ui) {
+        let tokens = self.theme.tokens();
+        egui::ScrollArea::vertical()
+            .auto_shrink([false, false])
+            .show(ui, |ui| {
+                let columns = layout::columns(ui);
+                if crate::reminders::snooze_controls(
+                    ui,
+                    columns,
+                    &mut self.settings.reminders,
+                    tokens,
+                ) {
+                    self.reminders_dirty = true;
+                }
+            });
+        // Written when the pointer is released: a slider dragged across its
+        // range would otherwise rewrite the file at every step.
+        if self.reminders_dirty && !ui.input(|i| i.pointer.any_down()) {
+            self.reminders_dirty = false;
             self.save();
         }
     }
@@ -1698,39 +1764,47 @@ impl SettingsWindow {
                 continue;
             }
             let template = fired.template.as_ref();
-            let spec = self.prefs.spec(crate::reminder_toast::content(
+            let spec = crate::reminder_toast::spec(
+                &self.prefs,
                 &fired.reminder,
                 template,
                 Some(formatted_time(now)),
-            ));
+                fired.snoozes,
+                self.settings.reminders.clamped().snooze_limit,
+            );
             let id = if crate::reminder_toast::is_urgent(template) {
                 self.toasts.push_first(spec, Instant::now())
             } else {
                 self.toasts.push(spec, Instant::now())
             };
             tracing::info!(reminder = fired.reminder_id, toast = ?id, "a reminder fire became a toast");
-            self.reminder_toasts
-                .insert(id, (fired.reminder_id, fired_at));
+            self.reminder_toasts.insert(
+                id,
+                ReminderToast {
+                    reminder_id: fired.reminder_id,
+                    fired_at,
+                    snoozes: fired.snoozes,
+                },
+            );
             self.record(fired.reminder_id, fired_at, NotificationAction::Shown);
         }
     }
 
     /// Write a history row, through the scheduler's thread.
     fn record(&self, reminder_id: i64, fired_at: jiff::Timestamp, action: NotificationAction) {
+        self.send(ot_sched::scheduler::Command::Record {
+            reminder_id,
+            fired_at,
+            action,
+        });
+    }
+
+    /// Tell the scheduler something; it holds the store.
+    fn send(&self, command: ot_sched::scheduler::Command) {
         if let Some(scheduler) = &self.scheduler
-            && scheduler
-                .send(ot_sched::scheduler::Command::Record {
-                    reminder_id,
-                    fired_at,
-                    action,
-                })
-                .is_err()
+            && scheduler.send(command).is_err()
         {
-            tracing::warn!(
-                reminder_id,
-                ?action,
-                "the scheduler has stopped; a history row was lost"
-            );
+            tracing::warn!(?command, "the scheduler has stopped; a command was lost");
         }
     }
 
@@ -1900,6 +1974,7 @@ impl eframe::App for SettingsWindow {
                 Section::Appearance => self.appearance_pane(ui),
                 Section::Pictures => self.pictures_pane(ui),
                 Section::Animation => self.animation_pane(ui),
+                Section::Reminders => self.reminders_pane(ui),
             });
 
         if self.confirming_quit {

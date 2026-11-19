@@ -79,11 +79,17 @@ pub fn layout(row: egui::Rect, label_widths: &[f32]) -> Vec<egui::Rect> {
 /// row hard-codes no colour. `pointer` is where the pointer is, in the
 /// painter's coordinates, if it is over this toast: hover fills a working
 /// button more strongly and never grows or moves it.
+#[allow(
+    clippy::too_many_arguments,
+    reason = "each is one thing the row is drawn from; a struct for one call would only rename them"
+)]
 pub fn draw(
     painter: &egui::Painter,
     row: egui::Rect,
     actions: &[Action],
     label: impl Fn(Action) -> String,
+    enabled: impl Fn(Action) -> bool,
+    note: Option<&str>,
     text: egui::Color32,
     dim: egui::Color32,
     pointer: Option<egui::Pos2>,
@@ -99,9 +105,12 @@ pub fn draw(
         })
         .collect();
     let rects = layout(row, &widths);
+    if let Some(note) = note {
+        draw_note(painter, note_rect(row, &rects), note, dim);
+    }
     let corner = egui::CornerRadius::same(6);
     for (action, rect) in actions.iter().zip(&rects) {
-        let works = action.works();
+        let works = enabled(*action);
         let hovered = works && pointer.is_some_and(|at| rect.contains(at));
         let fill = match (works, hovered) {
             (true, true) => 0.24,
@@ -127,6 +136,44 @@ pub fn draw(
         painter.galley(at, galley, colour);
     }
     actions.iter().copied().zip(rects).collect()
+}
+
+/// The room left of the buttons, for the note.
+pub fn note_rect(row: egui::Rect, buttons: &[egui::Rect]) -> egui::Rect {
+    let right = buttons
+        .first()
+        .map_or(row.right(), |first| first.left() - GAP);
+    egui::Rect::from_min_max(
+        row.left_top(),
+        egui::pos2(right.max(row.left()), row.bottom()),
+    )
+}
+
+/// The note's size, a touch under the labels'.
+pub const NOTE_SIZE: f32 = 12.0;
+
+/// The note, dim, on one line, vertically centred in its room. It is the
+/// app's own text and is written to fit; an ellipsis is the last resort at
+/// the narrowest width, not the plan.
+fn draw_note(painter: &egui::Painter, room: egui::Rect, note: &str, dim: egui::Color32) {
+    if room.width() < 1.0 {
+        return;
+    }
+    let mut job = egui::text::LayoutJob::simple(
+        note.to_owned(),
+        egui::FontId::proportional(NOTE_SIZE),
+        dim,
+        room.width(),
+    );
+    job.wrap = egui::text::TextWrapping {
+        max_width: room.width(),
+        max_rows: 1,
+        break_anywhere: false,
+        overflow_character: Some('…'),
+    };
+    let galley = painter.layout_job(job);
+    let at = egui::pos2(room.left(), room.center().y - galley.size().y / 2.0);
+    painter.galley(at, galley, dim);
 }
 
 #[cfg(test)]
@@ -197,9 +244,22 @@ mod tests {
     }
 
     #[test]
-    fn dismiss_and_open_work_and_snooze_waits_for_its_item() {
-        assert!(Action::Dismiss.works());
-        assert!(Action::Open.works());
-        assert!(!Action::Snooze.works());
+    fn snooze_works_only_on_a_toast_with_something_to_snooze() {
+        let mut spec = crate::spec::ToastSpec::default();
+        assert!(spec.enabled(Action::Dismiss));
+        assert!(spec.enabled(Action::Open));
+        assert!(!spec.enabled(Action::Snooze), "the test toast's is greyed");
+        spec.content.snoozable = true;
+        assert!(spec.enabled(Action::Snooze));
+    }
+
+    #[test]
+    fn the_note_sits_left_of_the_buttons_and_inside_the_row() {
+        let row = row(300.0);
+        let buttons = layout(row, &[40.0]);
+        let note = note_rect(row, &buttons);
+        assert_eq!(note.left(), row.left());
+        assert!(note.right() < buttons[0].left(), "apart from Dismiss");
+        assert!(row.contains_rect(note));
     }
 }

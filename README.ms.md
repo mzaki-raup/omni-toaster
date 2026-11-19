@@ -59,8 +59,10 @@ bahasa:
 
 Penjadualan menyokong masa tepat, tempoh sebelum (15 minit hingga seminggu,
 atau tersuai) dan ulangan (sekali, harian, mingguan, bulanan, tahunan). Tunda
-ialah 5 minit hingga sehari, dengan had maksimum bagi setiap peringatan yang
-boleh ditetapkan. Peringatan yang terlepas semasa PC dimatikan atau tidur
+menangguhkan peringatan selama 5 minit, 15 minit, sejam, sehari atau tempoh
+pilihan anda sendiri, yang dipilih dalam Tetapan ▸ Peringatan, sehingga had
+bagi setiap paparan (10 secara lalai); selepas itu toast hanya menawarkan
+Tutup dan menyatakannya. Peringatan yang terlepas semasa PC dimatikan atau tidur
 disenaraikan apabila aplikasi bermula semula.
 
 ## Dwibahasa
@@ -111,7 +113,8 @@ Windows, jadi hampir setiap aspeknya boleh ditetapkan:
   hingga 5 MB)
 - **Tindakan:** satu hingga tiga butang di bahagian bawah — Tunda, Tutup, Buka.
   Tutup menutup toast dengan animasi keluarnya, Buka membawa Tetapan ke
-  hadapan, dan Tunda dikelabukan sehingga ciri tunda tiba
+  hadapan, dan Tunda menangguhkan peringatan; pada toast yang tiada apa-apa
+  untuk ditunda, seperti toast ujian, Tunda dikelabukan
 - **Pustaka Gambar:** muat naik gambar sekali — masjid, mesyuarat, jam loceng —
   namakannya, dan gunakannya dalam mana-mana pemberitahuan sebagai ikon atau
   imejnya. Membuang gambar yang masih digunakan akan meminta pengesahan dahulu.
@@ -293,7 +296,14 @@ dengan gambar yang disertakan bersama aplikasi disenaraikan di bawahnya:
 ![Tetapan ▸ Pustaka Gambar dengan dua gambar yang dimuat naik dan gambar terbina dalam](docs/screenshots/settings-pictures.png)
 
 Skrin yang sama dalam bahasa Melayu:
-[settings-pictures-ms.png](docs/screenshots/settings-pictures-ms.png). Yang
+[settings-pictures-ms.png](docs/screenshots/settings-pictures-ms.png).
+
+Tetapan ▸ Peringatan, tempat tempoh dan had Tunda ditetapkan; senarai
+peringatan dan penyuntingnya menyusul dalam langkah kemudian:
+
+![Tetapan ▸ Peringatan dengan tempoh tunda tersuai](docs/screenshots/settings-reminders.png)
+
+Dalam bahasa Melayu: [settings-reminders-ms.png](docs/screenshots/settings-reminders-ms.png). Yang
 selebihnya **belum ditangkap** — skrinnya belum wujud. Tempatnya telah dikhaskan
 dan prosedur tangkapannya ditulis dalam
 [docs/screenshots/README.md](docs/screenshots/README.md); setiap imej di bawah

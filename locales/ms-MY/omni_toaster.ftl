@@ -57,12 +57,14 @@ language-ms-my = Bahasa Melayu
 toast-app-name = OmniToaster
 toast-test-title = Toast Ujian
 toast-test-body = Beginilah rupa toast dengan tetapan anda sekarang.
-# Butang dalam baris tindakan toast. Ditunjukkan dikelabukan sehingga peringatan wujud (Fasa 4).
+# Butang dalam baris tindakan toast: menangguhkan peringatan selama tempoh yang ditetapkan dalam Tetapan ▸ Peringatan. Dikelabukan pada toast yang tiada apa-apa untuk ditunda.
 toast-action-snooze = Tunda
 # Butang dalam baris tindakan toast yang menutup toast itu. "Tutup", bukan "Tolak": pemberitahuan ditutup, bukan ditolak.
 toast-action-dismiss = Tutup
-# Butang dalam baris tindakan toast. Ditunjukkan dikelabukan sehingga peringatan wujud (Fasa 4).
+# Butang dalam baris tindakan toast yang membawa Tetapan ke hadapan.
 toast-action-open = Buka
+# Ditunjukkan dalam baris tindakan di sebelah Tutup, apabila peringatan telah ditunda sebanyak yang dibenarkan oleh Tetapan ▸ Peringatan.
+toast-snooze-limit = Tiada lagi tundaan untuk peringatan ini.
 
 ## Tempat toast muncul: sembilan kedudukan pratetap — empat bucu, empat tepi
 ## dan tengah — serta kedudukan tersuai. Ditunjukkan dalam
@@ -181,6 +183,34 @@ settings-section-appearance = Penampilan
 settings-section-pictures = Pustaka Gambar
 # Bahagian yang menetapkan cara toast muncul dan hilang.
 settings-section-animation = Animasi
+# Bahagian yang memegang peringatan dan cara Tunda berfungsi.
+settings-section-reminders = Peringatan
+
+## Tetapan ▸ Peringatan: bahagian Tunda. Huruf Besar Setiap Perkataan untuk
+## label dan item senarai, huruf biasa untuk petunjuk.
+
+# Senarai juntai: berapa lama satu tekanan Tunda menangguhkan peringatan.
+settings-snooze-length = Tempoh Tunda
+# Petunjuk di bawah Tempoh Tunda.
+settings-snooze-length-hint = Apa yang dilakukan oleh satu tekanan Tunda pada toast peringatan.
+# Pilihan Tempoh Tunda.
+settings-snooze-5-minutes = 5 Minit
+# Pilihan Tempoh Tunda.
+settings-snooze-15-minutes = 15 Minit
+# Pilihan Tempoh Tunda.
+settings-snooze-1-hour = 1 Jam
+# Pilihan Tempoh Tunda.
+settings-snooze-1-day = 1 Hari
+# Pilihan Tempoh Tunda: tempoh yang ditaip oleh pengguna.
+settings-snooze-custom = Tersuai
+# Medan untuk tempoh tunda tersuai, ditunjukkan apabila Tersuai dipilih.
+settings-snooze-custom-length = Tempoh Tersuai
+# Unit selepas nombor tempoh tersuai.
+settings-snooze-minutes-unit = minit
+# Gelangsar: berapa kali toast satu peringatan boleh ditunda.
+settings-snooze-limit = Had Tundaan
+# Petunjuk di bawah Had Tundaan.
+settings-snooze-limit-hint = Selepas sebanyak ini tundaan, toast hanya menawarkan Tutup.
 
 ## Tetapan ▸ Animasi. Huruf Besar Setiap Perkataan untuk label, huruf biasa
 ## untuk petunjuk.

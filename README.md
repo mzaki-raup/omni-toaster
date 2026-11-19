@@ -55,8 +55,10 @@ image, accent colour, sound and style overrides — in both languages:
 | **Hourly time announcement** | The time spoken aloud in the active language — hourly, every 30 or 15 minutes, start or end of day, or at custom times |
 
 Scheduling supports exact times, offsets before (15 minutes to a week, or
-custom), and recurrence (once, daily, weekly, monthly, yearly). Snooze is 5
-minutes to a day, with a configurable maximum per reminder. Reminders missed
+custom), and recurrence (once, daily, weekly, monthly, yearly). Snooze puts a
+reminder off for 5 minutes, 15 minutes, an hour, a day or a length of your own,
+chosen in Settings ▸ Reminders, up to a limit per fire (10 by default); after
+that the toast offers only Dismiss and says so. Reminders missed
 while the PC was off or asleep are listed at next start.
 
 ## Bilingual
@@ -100,7 +102,8 @@ everything about them is a setting:
 - **Body:** text with bold and italic, plus an image (PNG, JPG or WebP, up to 5 MB)
 - **Actions:** one to three buttons along the bottom — Snooze, Dismiss, Open.
   Dismiss closes the toast with its out-animation, Open brings Settings
-  forward, and Snooze is shown greyed until snoozing arrives
+  forward, and Snooze puts a reminder off; on a toast with nothing to snooze,
+  such as the test toast, Snooze is greyed
 - **Picture Library:** upload a picture once — a mosque, a meeting, an alarm
   clock — name it, and use it in any notification as its icon or its image.
   Removing a picture still in use asks first. Nineteen pictures ship with the
@@ -271,7 +274,14 @@ the ones that ship with the app listed below them:
 ![Settings ▸ Picture Library with two uploaded pictures and the built-in ones](docs/screenshots/settings-pictures.png)
 
 The same screen in Bahasa Melayu:
-[settings-pictures-ms.png](docs/screenshots/settings-pictures-ms.png). The rest
+[settings-pictures-ms.png](docs/screenshots/settings-pictures-ms.png).
+
+Settings ▸ Reminders, where Snooze's length and limit are set; the reminder
+list and its editor join them in a later step:
+
+![Settings ▸ Reminders with a custom snooze length](docs/screenshots/settings-reminders.png)
+
+In Bahasa Melayu: [settings-reminders-ms.png](docs/screenshots/settings-reminders-ms.png). The rest
 are **not captured yet** — the screens do not exist. The places are reserved
 and the capture procedure is written down in
 [docs/screenshots/README.md](docs/screenshots/README.md); each image below is

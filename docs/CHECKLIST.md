@@ -146,7 +146,7 @@ Last updated: 2026-11-19
 | Reminder CRUD | In-Progress | FEAT-0039: the store side — create, read, list, update, delete, typed trigger and recurrence, unknown fields refused. The editor is FEAT-0046 |
 | Offsets | In-Progress | 15 minutes to a week, or custom. FEAT-0040: the rule, tested — several per reminder, each its own fire, day offsets in calendar days. FEAT-0041's scheduler fires them, tested in its core; no offset reminder has fired in the app yet |
 | Recurrence | In-Progress | Once, daily, weekly, monthly, yearly, custom. FEAT-0040: every *N* of each, chosen weekdays, month ends and leap years, tested. FEAT-0041: a daily reminder fired in the app and moved to the next day |
-| Snooze | Pending | 5 minutes to a day; max per reminder |
+| Snooze | Completed | 5 minutes to a day, or custom; max per fire. FEAT-0043: Snooze on the toast, Settings ▸ Reminders' Snooze section, the limit and its line — snoozed and returned in the app in English and Malay, the limit reached with a low limit set |
 | Duration | Pending | 3–60 s, hover pauses |
 | Persistent alarms | Pending | 10-minute cap on urgent types |
 | Missed-reminder handling | Pending | 1 h catch-up for Azan, 24 h for others |

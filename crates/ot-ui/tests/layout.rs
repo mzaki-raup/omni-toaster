@@ -1,5 +1,5 @@
-//! Layout tests of the real Appearance (FEAT-0024) and Animation (FEAT-0036)
-//! controls.
+//! Layout tests of the real Appearance (FEAT-0024), Animation (FEAT-0036)
+//! and Reminders (FEAT-0043) controls.
 //!
 //! `egui_kittest` drives the same functions the settings window calls, with
 //! no window and no GPU, and every widget's rect is checked against the pane
@@ -50,6 +50,10 @@ fn monitors() -> Vec<ot_platform::monitors::Monitor> {
 /// the pane, with its label, so a failure says what overflowed.
 fn overflowing(width: f32, scale: f32) -> Vec<String> {
     let mut prefs = Prefs::default();
+    let mut reminders = ot_core::Reminders {
+        snooze_minutes: 30,
+        ..Default::default()
+    };
     let mut harness = Harness::builder()
         .with_size([width, 4000.0])
         .with_pixels_per_point(scale)
@@ -67,6 +71,9 @@ fn overflowing(width: f32, scale: f32) -> Vec<String> {
             // Settings ▸ Animation (FEAT-0036), with Windows' animations on:
             // that hint is the longest of the three it can show.
             ot_ui::animation::controls(ui, columns, &mut prefs, true, ot_ui::Tokens::DARK);
+            // Settings > Reminders (FEAT-0043), with a custom length so the
+            // Custom Length row is laid out too.
+            ot_ui::reminders::snooze_controls(ui, columns, &mut reminders, ot_ui::Tokens::DARK);
         });
     // The real font set: with `default_fonts` off, the harness's own
     // context would measure every glyph as zero wide and pass anything.

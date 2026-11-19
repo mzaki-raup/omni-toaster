@@ -63,6 +63,16 @@ denormalized field the scheduler reads.
 per reminder**, after which the toast offers only Dismiss and says so. Each
 snooze is recorded in `snooze_log` with its count.
 
+The toast's Snooze puts the reminder off for the length chosen in Settings ▸
+Reminders — 15 minutes by default; a custom length is 1 minute to a week. The
+limit (1 to 50) counts **one fire's chain** of snoozes: a snooze of a snooze
+counts on, and a recurring reminder's next occurrence starts again at zero, so
+a daily reminder is not unsnoozable for ever after its tenth snooze. The
+scheduler refuses a snooze at the limit even if one is asked for. A snoozed
+reminder's status is `snoozed` until its snooze fires, and the waiting snooze
+is the latest `snooze_log` row, so it survives a restart; `next_fire_at` is
+the earlier of the snooze and the reminder's own next time.
+
 ## 6. Missed reminders
 
 If the PC was off or asleep, missed items are listed at next start with dismiss
@@ -234,3 +244,10 @@ FEAT-0039 to FEAT-0048 in `docs/TASKS.md` under `v0.4.0`.
   recorded `shown`, and Dismiss and Open record `dismissed` and `opened`,
   sent to the scheduler's thread, which holds the store. Open brings Settings
   forward; landing on the reminder is FEAT-0046's pane.
+- **Snooze (FEAT-0043).** §5 as written: Snooze on a reminder's toast sends
+  `Command::Snooze` with the fire's count so far and the current length and
+  limit; the scheduler records the snooze, a `snoozed` history row and the
+  `snoozed` status, and queues the return beside the reminder's own schedule.
+  Settings ▸ Reminders holds Snooze Length (5 Minutes, 15 Minutes, 1 Hour,
+  1 Day, Custom with Custom Length in minutes) and Snooze Limit, saved to
+  `[reminders]` in `settings.toml`.

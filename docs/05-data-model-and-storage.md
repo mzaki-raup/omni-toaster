@@ -95,7 +95,7 @@ category          (id, kind, prayer_key | weather_key | type_key,   -- keys, not
 reminder          (id, category_id, title, body, trigger_type, trigger_json,
                    recurrence_json, next_fire_at, status, created_at, updated_at,
                    authored_lang)                          -- 'en-US' | 'ms-MY'; instants are UTC text
-snooze_log        (id, reminder_id, snoozed_until, count)
+snooze_log        (id, reminder_id, snoozed_until, count)   -- count: the snooze's place in its fire's chain
 notification_log  (id, reminder_id, fired_at, action, source)
 asset             (id, sha256 PK, kind, relative_path, bytes, created_at,
                    label)                                   -- the name the user gave it in the image library

@@ -8,9 +8,12 @@ consumers.
 
 ## Status
 
-**Fourteen captured so far.** When Phase 3 closed: `toast-dark.png`, `toast-light.png`, `toast-shapes.png` (retaken, now with the action row) and `toast-glass.png`, real toasts captured from the screen over a plain backdrop window of the capture script's own — dark, light, or red and blue stripes for glass — which covers the screen's corner so no desktop shows, each cropped to its toast's window from a debug build on a scratch `--data-dir`; `anim-slide.gif` and `anim-genie.gif`, one toast fired with Show a Test Toast in a **release** build (a debug build under a capture loop drops below 30 fps and the app rightly finishes the animation as a fade), framed every ~45 ms over the dark backdrop and played back at the captured intervals; and `settings-appearance.png`, `settings-appearance-ms.png` (retaken: the taller preview), `settings-animation.png` and `settings-animation-ms.png` on a fresh scratch folder; `settings-pictures.png` and `settings-pictures-ms.png`, the Picture Library in both languages, taken from a debug build on a scratch `--data-dir` when FEAT-0025 landed, with three plain coloured test pictures; and `settings-general.png` and `settings-general-ms.png`,
+**Sixteen captured so far.** When Phase 3 closed: `toast-dark.png`, `toast-light.png`, `toast-shapes.png` (retaken, now with the action row) and `toast-glass.png`, real toasts captured from the screen over a plain backdrop window of the capture script's own — dark, light, or red and blue stripes for glass — which covers the screen's corner so no desktop shows, each cropped to its toast's window from a debug build on a scratch `--data-dir`; `anim-slide.gif` and `anim-genie.gif`, one toast fired with Show a Test Toast in a **release** build (a debug build under a capture loop drops below 30 fps and the app rightly finishes the animation as a fade), framed every ~45 ms over the dark backdrop and played back at the captured intervals; and `settings-appearance.png`, `settings-appearance-ms.png` (retaken: the taller preview), `settings-animation.png` and `settings-animation-ms.png` on a fresh scratch folder; `settings-pictures.png` and `settings-pictures-ms.png`, the Picture Library in both languages, taken from a debug build on a scratch `--data-dir` when FEAT-0025 landed, with three plain coloured test pictures; and `settings-general.png` and `settings-general-ms.png`,
 the Settings ▸ General pane in both languages, taken from a release build on a
-scratch `--data-dir` when FEAT-0014 landed. Everything else below is still a
+scratch `--data-dir` when FEAT-0014 landed; and `settings-reminders.png` and
+`settings-reminders-ms.png`, Settings ▸ Reminders' Snooze section with a
+custom length, Dark, from a debug build on a scratch `--data-dir` when
+FEAT-0043 landed — to be retaken when FEAT-0046 adds the list and editor. Everything else below is still a
 placeholder name reserved for the phase that first produces that screen; the
 README says plainly that those images do not exist yet rather than linking to
 nothing.
@@ -37,7 +40,8 @@ quantised with `magick <in> -strip -colors 256 -define png:compression-level=9
 | `settings-pictures.png` | Settings ▸ Picture Library: two uploaded pictures and the built-in ones, English | Phase 2 (captured; retaken for FEAT-0027) |
 | `settings-pictures-ms.png` | The same, Bahasa Melayu | Phase 2 (captured; retaken for FEAT-0027) |
 | `settings-prayer.png` | Settings ▸ Prayer with the zone picker and source label | Phase 5 |
-| `settings-reminders.png` | Settings ▸ Reminders, list and editor | Phase 4 |
+| `settings-reminders.png` | Settings ▸ Reminders: the Snooze section now, the list and editor with FEAT-0046 | Phase 4 (captured for FEAT-0043) |
+| `settings-reminders-ms.png` | The same, Bahasa Melayu | Phase 4 (captured for FEAT-0043) |
 | `tray-menu.png` | The tray menu, both languages | Phase 1 |
 | `azan-toast.png` | An Azan toast with the JAKIM source label | Phase 5 |
 | `weather-toast.png` | A weather-change toast | Phase 6 |

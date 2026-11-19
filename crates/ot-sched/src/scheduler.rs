@@ -73,6 +73,16 @@ pub enum Command {
         fired_at: Timestamp,
         action: NotificationAction,
     },
+    /// Snooze a fire for `minutes` from now. `snoozes` is how many times the
+    /// fire being snoozed has been snoozed already; a fire at `limit` is
+    /// refused (`docs/specs/reminders.md` §5).
+    Snooze {
+        reminder_id: i64,
+        fired_at: Timestamp,
+        minutes: u32,
+        snoozes: u32,
+        limit: u32,
+    },
 }
 
 /// One fire, sent to the UI with what it needs to build the toast, so the UI
@@ -85,6 +95,9 @@ pub struct Fired {
     pub reminder: Reminder,
     /// Its template, if it names one.
     pub template: Option<Template>,
+    /// How many times this fire has been snoozed: 0 for a reminder's own
+    /// time, 1 for the first snooze's return, and so on.
+    pub snoozes: u32,
 }
 
 /// The UI's receiving end has gone, so there is no one left to fire to.
@@ -96,15 +109,25 @@ pub fn fire_channel() -> (SyncSender<Fired>, Receiver<Fired>) {
     mpsc::sync_channel(FIRE_CAPACITY)
 }
 
+/// Which of a reminder's fires a queue entry is: its own schedule, or a
+/// snooze of an earlier fire. A reminder may have one of each waiting.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]
+enum Kind {
+    Regular,
+    Snooze,
+}
+
 /// The queue and the rules about it, with no clock and no thread of its own.
 #[derive(Debug)]
 pub struct Core {
     store: Store,
     tz: TimeZone,
     /// Ordered by fire time; the id breaks ties.
-    queue: BTreeSet<(Timestamp, i64)>,
-    /// Each queued reminder's fire, by id.
-    pending: BTreeMap<i64, Fire>,
+    queue: BTreeSet<(Timestamp, i64, Kind)>,
+    /// Each queued fire, by reminder and kind.
+    pending: BTreeMap<(i64, Kind), Fire>,
+    /// Each waiting snooze's place in its chain.
+    chain: BTreeMap<i64, u32>,
     /// Fires the UI's channel had no room for, oldest first.
     held: VecDeque<Fired>,
     /// Everything up to this instant has been fired. A rebuild starts from
@@ -115,7 +138,7 @@ pub struct Core {
 }
 
 impl Core {
-    /// Build the queue from every active reminder, as of `now`.
+    /// Build the queue from every active or snoozed reminder, as of `now`.
     pub fn new(store: Store, now: Timestamp, tz: TimeZone) -> Self {
         let midnight = next_midnight(now, &tz);
         let mut core = Self {
@@ -123,6 +146,7 @@ impl Core {
             tz,
             queue: BTreeSet::new(),
             pending: BTreeMap::new(),
+            chain: BTreeMap::new(),
             held: VecDeque::new(),
             horizon: now,
             midnight,
@@ -133,8 +157,8 @@ impl Core {
 
     /// The next fire waiting, if any.
     pub fn next(&self) -> Option<(i64, Fire)> {
-        let &(_, id) = self.queue.first()?;
-        self.pending.get(&id).map(|fire| (id, *fire))
+        let &(_, id, kind) = self.queue.first()?;
+        self.pending.get(&(id, kind)).map(|fire| (id, *fire))
     }
 
     /// Fires waiting for room in the UI's channel.
@@ -162,14 +186,14 @@ impl Core {
                 reminder_id,
                 fired_at,
                 action,
-            } => {
-                if let Err(error) =
-                    self.store
-                        .log_notification(Some(reminder_id), fired_at, action, None)
-                {
-                    tracing::warn!(%error, reminder = reminder_id, "the notification history could not be written");
-                }
-            }
+            } => self.record(reminder_id, fired_at, action),
+            Command::Snooze {
+                reminder_id,
+                fired_at,
+                minutes,
+                snoozes,
+                limit,
+            } => self.snooze(reminder_id, fired_at, minutes, snoozes, limit, now),
         }
     }
 
@@ -188,18 +212,26 @@ impl Core {
             self.apply(Command::Recompute(Recompute::Midnight), now);
         }
 
-        while let Some(&(at, id)) = self.queue.first() {
+        while let Some(&(at, id, kind)) = self.queue.first() {
             if at > now {
                 break;
             }
             self.queue.pop_first();
-            let Some(fire) = self.pending.remove(&id) else {
+            let Some(fire) = self.pending.remove(&(id, kind)) else {
                 continue;
             };
+            let snoozes = match kind {
+                Kind::Regular => 0,
+                Kind::Snooze => self.chain.remove(&id).unwrap_or(1),
+            };
             // Read again at the moment of firing, so the toast says what the
-            // reminder says now. A row gone or no longer active does not fire.
+            // reminder says now. A row gone, done or cancelled does not fire.
             let reminder = match self.store.reminder(id) {
-                Ok(Some(reminder)) if reminder.status == Status::Active => reminder,
+                Ok(Some(reminder))
+                    if matches!(reminder.status, Status::Active | Status::Snoozed) =>
+                {
+                    reminder
+                }
                 Ok(_) => continue,
                 Err(error) => {
                     tracing::warn!(%error, reminder = id, "a due reminder could not be read");
@@ -215,16 +247,30 @@ impl Core {
                     .ok()
                     .flatten()
             });
-            // The next fire counts from now, not from the one just taken, so
-            // a clock jumped over three days fires a daily reminder once, not
-            // three times (catching up properly is docs/specs/reminders.md
-            // §6, FEAT-0045).
-            self.requeue_after_fire(&reminder, fire.at.max(now));
+            match kind {
+                // The next fire counts from now, not from the one just taken,
+                // so a clock jumped over three days fires a daily reminder
+                // once, not three times (catching up properly is
+                // docs/specs/reminders.md §6, FEAT-0045).
+                Kind::Regular => self.requeue_after_fire(&reminder, fire.at.max(now)),
+                // The snooze is spent: the reminder is active again if its
+                // own schedule has more, and done if not.
+                Kind::Snooze => {
+                    let status = if self.pending.contains_key(&(id, Kind::Regular)) {
+                        Status::Active
+                    } else {
+                        Status::Done
+                    };
+                    self.set_status(id, status);
+                    self.store_next(id);
+                }
+            }
             self.held.push_back(Fired {
                 reminder_id: id,
                 fire,
                 reminder,
                 template,
+                snoozes,
             });
         }
 
@@ -238,7 +284,7 @@ impl Core {
             return HELD_RETRY;
         }
         let mut until = self.midnight;
-        if let Some(&(at, _)) = self.queue.first() {
+        if let Some(&(at, _, _)) = self.queue.first() {
             until = until.min(at);
         }
         Duration::try_from(until.duration_since(now))
@@ -278,6 +324,7 @@ impl Core {
     fn rebuild(&mut self, now: Timestamp) {
         self.queue.clear();
         self.pending.clear();
+        self.chain.clear();
         let after = self.horizon.min(now);
         self.horizon = after;
         match self.store.reminders() {
@@ -291,11 +338,13 @@ impl Core {
         self.midnight = next_midnight(now, &self.tz);
     }
 
-    /// Queue a reminder's first fire after `after`, if it is active and has
-    /// one.
+    /// Queue a reminder's own next fire after `after`, if it is active or
+    /// snoozed and has one, and its waiting snooze if it is snoozed — read
+    /// from the snooze log, which is how a snooze survives a restart.
     fn schedule(&mut self, reminder: &Reminder, after: Timestamp) {
-        self.unschedule(reminder.id);
-        if reminder.status != Status::Active {
+        let id = reminder.id;
+        self.unschedule(id);
+        if !matches!(reminder.status, Status::Active | Status::Snoozed) {
             return;
         }
         let next = next_fire(
@@ -304,11 +353,22 @@ impl Core {
             after,
             &self.tz,
         );
-        self.queue_fire(reminder.id, next);
+        if let Some(fire) = next {
+            self.insert(id, Kind::Regular, fire);
+        }
+        if reminder.status == Status::Snoozed {
+            match self.store.latest_snooze(id) {
+                Ok(Some((until, count))) => self.insert_snooze(id, until, count),
+                Ok(None) => {}
+                Err(error) => tracing::warn!(%error, reminder = id, "a snooze could not be read"),
+            }
+        }
+        self.store_next(id);
     }
 
-    /// After a fire: queue the next one, or mark the reminder done if that
-    /// was its last, so a clock set back cannot fire it a second time.
+    /// After a regular fire: queue the next one, or mark the reminder done if
+    /// that was its last and no snooze is waiting, so a clock set back cannot
+    /// fire it a second time.
     fn requeue_after_fire(&mut self, reminder: &Reminder, after: Timestamp) {
         let id = reminder.id;
         let next = next_fire(
@@ -317,28 +377,115 @@ impl Core {
             after,
             &self.tz,
         );
-        if next.is_none()
-            && let Err(error) = self.store.set_status(id, Status::Done)
-        {
-            tracing::warn!(%error, reminder = id, "a finished reminder could not be marked done");
+        match next {
+            Some(fire) => self.insert(id, Kind::Regular, fire),
+            None if !self.pending.contains_key(&(id, Kind::Snooze)) => {
+                self.set_status(id, Status::Done);
+            }
+            None => {}
         }
-        self.queue_fire(id, next);
+        self.store_next(id);
     }
 
-    fn queue_fire(&mut self, id: i64, next: Option<Fire>) {
-        if let Err(error) = self.store.set_next_fire_at(id, next.map(|fire| fire.at)) {
+    /// Put a fire off. Refused at the limit, and for a reminder that is gone.
+    fn snooze(
+        &mut self,
+        id: i64,
+        fired_at: Timestamp,
+        minutes: u32,
+        snoozes: u32,
+        limit: u32,
+        now: Timestamp,
+    ) {
+        if snoozes >= limit {
+            tracing::warn!(
+                reminder = id,
+                snoozes,
+                limit,
+                "a snooze past the limit was refused"
+            );
+            return;
+        }
+        let Ok(until) = now.checked_add(SignedDuration::from_mins(i64::from(minutes))) else {
+            return;
+        };
+        match self.store.reminder(id) {
+            Ok(Some(_)) => {}
+            Ok(None) => return,
+            Err(error) => {
+                tracing::warn!(%error, reminder = id, "a reminder to snooze could not be read");
+                return;
+            }
+        }
+        let count = snoozes + 1;
+        if let Err(error) = self.store.record_snooze(id, until, count) {
+            tracing::warn!(%error, reminder = id, "a snooze could not be recorded");
+            return;
+        }
+        self.set_status(id, Status::Snoozed);
+        self.record(id, fired_at, NotificationAction::Snoozed);
+        self.insert_snooze(id, until, count);
+        self.store_next(id);
+        tracing::info!(reminder = id, until = %until, count, "a reminder was snoozed");
+    }
+
+    fn insert(&mut self, id: i64, kind: Kind, fire: Fire) {
+        if let Some(old) = self.pending.insert((id, kind), fire) {
+            self.queue.remove(&(old.at, id, kind));
+        }
+        self.queue.insert((fire.at, id, kind));
+    }
+
+    fn insert_snooze(&mut self, id: i64, until: Timestamp, count: u32) {
+        let fire = Fire {
+            at: until,
+            occurrence: until,
+            offset: None,
+        };
+        self.insert(id, Kind::Snooze, fire);
+        self.chain.insert(id, count);
+    }
+
+    /// Store the reminder's earliest waiting fire, of either kind, as its
+    /// `next_fire_at`.
+    fn store_next(&mut self, id: i64) {
+        let next = [Kind::Regular, Kind::Snooze]
+            .iter()
+            .filter_map(|kind| self.pending.get(&(id, *kind)).map(|fire| fire.at))
+            .min();
+        if let Err(error) = self.store.set_next_fire_at(id, next) {
             tracing::warn!(%error, reminder = id, "the next fire time could not be stored");
         }
-        if let Some(fire) = next {
-            self.queue.insert((fire.at, id));
-            self.pending.insert(id, fire);
+    }
+
+    fn set_status(&mut self, id: i64, status: Status) {
+        if let Err(error) = self.store.set_status(id, status) {
+            tracing::warn!(%error, reminder = id, ?status, "a reminder's status could not be stored");
+        }
+    }
+
+    fn record(&mut self, id: i64, fired_at: Timestamp, action: NotificationAction) {
+        if let Err(error) = self
+            .store
+            .log_notification(Some(id), fired_at, action, None)
+        {
+            tracing::warn!(%error, reminder = id, "the notification history could not be written");
         }
     }
 
     fn unschedule(&mut self, id: i64) {
-        if let Some(fire) = self.pending.remove(&id) {
-            self.queue.remove(&(fire.at, id));
+        for kind in [Kind::Regular, Kind::Snooze] {
+            if let Some(fire) = self.pending.remove(&(id, kind)) {
+                self.queue.remove(&(fire.at, id, kind));
+            }
         }
+        self.chain.remove(&id);
+    }
+
+    /// The store back, as after a restart, for tests.
+    #[cfg(test)]
+    fn into_store(self) -> Store {
+        self.store
     }
 }
 
@@ -616,6 +763,172 @@ mod tests {
                 (now, NotificationAction::Opened)
             ]
         );
+    }
+
+    fn snooze(id: i64, fired_at: &str, minutes: u32, snoozes: u32, limit: u32) -> Command {
+        Command::Snooze {
+            reminder_id: id,
+            fired_at: instant(fired_at),
+            minutes,
+            snoozes,
+            limit,
+        }
+    }
+
+    #[test]
+    fn a_snoozed_fire_returns_after_its_minutes_with_its_count() {
+        let store = Store::open_in_memory().expect("opens");
+        let id = store
+            .create_reminder(&draft(at("2026-11-19T10:00"), None))
+            .expect("creates");
+        let (out, fires) = fire_channel();
+        let mut core = Core::new(store, instant("2026-11-19T09:00Z"), TimeZone::UTC);
+        core.tick(instant("2026-11-19T10:00Z"), &out)
+            .expect("connected");
+        assert_eq!(fires.try_recv().expect("fired").snoozes, 0);
+
+        core.apply(
+            snooze(id, "2026-11-19T10:00Z", 5, 0, 10),
+            instant("2026-11-19T10:00:10Z"),
+        );
+        let read = core.store.reminder(id).expect("reads").expect("exists");
+        assert_eq!(read.status, Status::Snoozed, "not done: it is coming back");
+        assert_eq!(read.next_fire_at, Some(instant("2026-11-19T10:05:10Z")));
+        assert_eq!(
+            core.store.latest_snooze(id).expect("reads"),
+            Some((instant("2026-11-19T10:05:10Z"), 1))
+        );
+
+        core.tick(instant("2026-11-19T10:05:09Z"), &out)
+            .expect("connected");
+        assert!(fires.try_recv().is_err(), "not early");
+        core.tick(instant("2026-11-19T10:05:10Z"), &out)
+            .expect("connected");
+        let back = fires.try_recv().expect("returned");
+        assert_eq!(back.snoozes, 1);
+        assert_eq!(back.fire.at, instant("2026-11-19T10:05:10Z"));
+        let read = core.store.reminder(id).expect("reads").expect("exists");
+        assert_eq!(read.status, Status::Done, "a one-off with nothing left");
+        assert!(
+            core.store
+                .history(id)
+                .expect("reads")
+                .contains(&(instant("2026-11-19T10:00Z"), NotificationAction::Snoozed))
+        );
+    }
+
+    #[test]
+    fn the_snooze_after_the_limit_is_refused_and_not_recorded() {
+        let store = Store::open_in_memory().expect("opens");
+        let id = store
+            .create_reminder(&draft(at("2026-11-19T10:00"), None))
+            .expect("creates");
+        let (out, fires) = fire_channel();
+        let mut now = instant("2026-11-19T10:00Z");
+        let mut core = Core::new(store, instant("2026-11-19T09:00Z"), TimeZone::UTC);
+        core.tick(now, &out).expect("connected");
+        let mut fired = fires.try_recv().expect("fired");
+
+        // Three allowed, then the fourth refused: the limit counts each fire's
+        // own chain of snoozes.
+        for expected in 1..=3 {
+            core.apply(
+                Command::Snooze {
+                    reminder_id: id,
+                    fired_at: fired.fire.at,
+                    minutes: 1,
+                    snoozes: fired.snoozes,
+                    limit: 3,
+                },
+                now,
+            );
+            now = now
+                .checked_add(SignedDuration::from_mins(1))
+                .expect("in range");
+            core.tick(now, &out).expect("connected");
+            fired = fires.try_recv().expect("returned");
+            assert_eq!(fired.snoozes, expected);
+        }
+        core.apply(
+            Command::Snooze {
+                reminder_id: id,
+                fired_at: fired.fire.at,
+                minutes: 1,
+                snoozes: fired.snoozes,
+                limit: 3,
+            },
+            now,
+        );
+        assert_eq!(
+            core.store.latest_snooze(id).expect("reads").map(|(_, n)| n),
+            Some(3),
+            "the fourth was not recorded"
+        );
+        assert_eq!(core.next(), None, "and nothing is coming back");
+        let read = core.store.reminder(id).expect("reads").expect("exists");
+        assert_eq!(read.status, Status::Done);
+    }
+
+    #[test]
+    fn a_waiting_snooze_and_its_count_survive_a_restart() {
+        let store = Store::open_in_memory().expect("opens");
+        let id = store
+            .create_reminder(&draft(at("2026-11-19T10:00"), None))
+            .expect("creates");
+        let (out, fires) = fire_channel();
+        let mut core = Core::new(store, instant("2026-11-19T09:00Z"), TimeZone::UTC);
+        core.tick(instant("2026-11-19T10:00Z"), &out)
+            .expect("connected");
+        let _ = fires.try_recv();
+        core.apply(
+            snooze(id, "2026-11-19T10:00Z", 15, 4, 10),
+            instant("2026-11-19T10:00Z"),
+        );
+
+        // The app quits and starts again before the snooze ends.
+        let store = core.into_store();
+        let mut core = Core::new(store, instant("2026-11-19T10:10Z"), TimeZone::UTC);
+        assert_eq!(
+            core.next().map(|(_, fire)| fire.at),
+            Some(instant("2026-11-19T10:15Z"))
+        );
+        core.tick(instant("2026-11-19T10:15Z"), &out)
+            .expect("connected");
+        assert_eq!(fires.try_recv().expect("returned").snoozes, 5);
+    }
+
+    #[test]
+    fn a_recurring_reminder_keeps_its_schedule_and_the_next_occurrence_starts_at_zero() {
+        let store = Store::open_in_memory().expect("opens");
+        let id = store
+            .create_reminder(&draft(at("2026-11-19T10:00"), daily()))
+            .expect("creates");
+        let (out, fires) = fire_channel();
+        let mut core = Core::new(store, instant("2026-11-19T09:00Z"), TimeZone::UTC);
+        core.tick(instant("2026-11-19T10:00Z"), &out)
+            .expect("connected");
+        let _ = fires.try_recv();
+        core.apply(
+            snooze(id, "2026-11-19T10:00Z", 60, 0, 10),
+            instant("2026-11-19T10:00Z"),
+        );
+        let read = core.store.reminder(id).expect("reads").expect("exists");
+        assert_eq!(
+            read.next_fire_at,
+            Some(instant("2026-11-19T11:00Z")),
+            "the snooze is the earlier of its two"
+        );
+
+        core.tick(instant("2026-11-19T11:00Z"), &out)
+            .expect("connected");
+        assert_eq!(fires.try_recv().expect("snooze").snoozes, 1);
+        let read = core.store.reminder(id).expect("reads").expect("exists");
+        assert_eq!(read.status, Status::Active, "its own schedule goes on");
+        assert_eq!(read.next_fire_at, Some(instant("2026-11-20T10:00Z")));
+
+        core.tick(instant("2026-11-20T10:00Z"), &out)
+            .expect("connected");
+        assert_eq!(fires.try_recv().expect("tomorrow").snoozes, 0);
     }
 
     #[test]

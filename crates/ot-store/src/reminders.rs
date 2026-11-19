@@ -437,24 +437,39 @@ impl Store {
         Ok(())
     }
 
-    /// Record a snooze and return its running count, starting at 1.
-    pub fn record_snooze(&self, reminder_id: i64, until: Timestamp) -> Result<u32, StoreError> {
-        let count = self.snooze_count(reminder_id)? + 1;
+    /// Record a snooze. `count` is this snooze's place in its fire's chain:
+    /// 1 for the first snooze of a fire, 2 for a snooze of that snooze, and so
+    /// on — a recurring reminder's next occurrence starts again at 1
+    /// (`docs/specs/reminders.md` §5).
+    pub fn record_snooze(
+        &self,
+        reminder_id: i64,
+        until: Timestamp,
+        count: u32,
+    ) -> Result<(), StoreError> {
         self.conn.execute(
             "INSERT INTO snooze_log (reminder_id, snoozed_until, count) VALUES (?1, ?2, ?3)",
             params![reminder_id, stamp(until), count],
         )?;
-        Ok(count)
+        Ok(())
     }
 
-    /// How many times a reminder has been snoozed.
-    pub fn snooze_count(&self, reminder_id: i64) -> Result<u32, StoreError> {
-        let count: i64 = self.conn.query_row(
-            "SELECT coalesce(max(count), 0) FROM snooze_log WHERE reminder_id = ?1",
-            params![reminder_id],
-            |row| row.get(0),
-        )?;
-        Ok(u32::try_from(count).unwrap_or(u32::MAX))
+    /// A reminder's latest snooze: when it ends and its count. While the
+    /// reminder's status is `snoozed`, this is the snooze still to fire, which
+    /// is how a snooze survives a restart.
+    pub fn latest_snooze(&self, reminder_id: i64) -> Result<Option<(Timestamp, u32)>, StoreError> {
+        let row: Option<(String, i64)> = self
+            .conn
+            .query_row(
+                "SELECT snoozed_until, count FROM snooze_log WHERE reminder_id = ?1                  ORDER BY id DESC LIMIT 1",
+                params![reminder_id],
+                |row| Ok((row.get(0)?, row.get(1)?)),
+            )
+            .optional()?;
+        Ok(row.and_then(|(until, count)| {
+            let until = until.parse().ok()?;
+            Some((until, u32::try_from(count).unwrap_or(u32::MAX)))
+        }))
     }
 
     /// A template by its `category` id, with its picture's relative path, or
@@ -800,20 +815,24 @@ mod tests {
         let id = store.create_reminder(&draft()).expect("creates");
         let other = store.create_reminder(&draft()).expect("creates");
 
-        assert_eq!(store.snooze_count(id).expect("count"), 0);
-        for expected in 1..=3 {
-            let count = store
-                .record_snooze(id, instant("2026-12-18T01:05:00Z"))
+        assert_eq!(store.latest_snooze(id).expect("reads"), None);
+        for count in 1..=3 {
+            store
+                .record_snooze(id, instant("2026-12-18T01:05:00Z"), count)
                 .expect("snoozes");
-            assert_eq!(count, expected);
         }
         store
-            .record_snooze(other, instant("2026-12-18T01:05:00Z"))
+            .record_snooze(other, instant("2026-12-18T01:20:00Z"), 1)
             .expect("snoozes");
         assert_eq!(
-            store.snooze_count(other).expect("count"),
-            1,
-            "counted per reminder"
+            store.latest_snooze(id).expect("reads"),
+            Some((instant("2026-12-18T01:05:00Z"), 3)),
+            "the latest, with its count"
+        );
+        assert_eq!(
+            store.latest_snooze(other).expect("reads"),
+            Some((instant("2026-12-18T01:20:00Z"), 1)),
+            "kept per reminder"
         );
 
         store.delete_reminder(id).expect("deletes");

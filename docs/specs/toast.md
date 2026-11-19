@@ -164,10 +164,14 @@ right-hand presets. It plays the toast's out-animation (§5).
 
 **Open brings Settings forward** (FEAT-0042), and for a reminder's toast
 writes an `opened` row to the history; landing on the reminder itself comes
-with Settings ▸ Reminders (FEAT-0046). **Snooze is drawn greyed and does
-nothing until FEAT-0043**; the owner chose to show the final layout from Phase
-2 rather than a row that grows later. A greyed button takes no hover
-highlight.
+with Settings ▸ Reminders (FEAT-0046). **Snooze works on a reminder's toast**
+(FEAT-0043) and is drawn greyed on one with nothing to snooze — the test
+toast and the preview (`Content::snoozable`). A greyed button takes no hover
+highlight. Once a fire has been snoozed as many times as Settings ▸ Reminders
+allows, its toast offers only Dismiss, with the line
+`toast-snooze-limit` beside it in the row (`Content::note`), dim and on one
+line; a test holds that both languages' lines fit whole on every shape at the
+default width at 100%, 150% and 200%.
 
 **An auto-height toast grows by the row** — 32 points, the row and the gap
 above it — so the body keeps every line it had. A toast with a fixed height

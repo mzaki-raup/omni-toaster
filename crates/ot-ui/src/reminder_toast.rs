@@ -50,6 +50,31 @@ pub fn content(
     }
 }
 
+/// A fire's whole toast: [`content`], the user's style, and Snooze — which
+/// works on a reminder's toast, until the fire has been snoozed `limit`
+/// times, when the row offers only Dismiss and says why
+/// (`docs/specs/reminders.md` §5).
+pub fn spec(
+    prefs: &ot_toast::Prefs,
+    reminder: &Reminder,
+    template: Option<&Template>,
+    timestamp: Option<String>,
+    snoozes: u32,
+    limit: u32,
+) -> ot_toast::ToastSpec {
+    let mut content = content(reminder, template, timestamp);
+    content.snoozable = true;
+    let at_limit = snoozes >= limit;
+    if at_limit {
+        content.note = Some(ot_i18n::text("toast-snooze-limit"));
+    }
+    let mut spec = prefs.spec(content);
+    if at_limit {
+        spec.behaviour.actions = 1;
+    }
+    spec
+}
+
 /// Whether a reminder of this template jumps the toast queue.
 pub fn is_urgent(template: Option<&Template>) -> bool {
     type_key(template) == URGENT_TYPE
@@ -225,6 +250,28 @@ mod tests {
         assert!(is_urgent(Some(&template("reminder-alarm"))));
         assert!(!is_urgent(Some(&template("reminder-timer"))));
         assert!(!is_urgent(None));
+    }
+
+    #[test]
+    fn at_the_limit_the_toast_offers_only_dismiss_and_says_so() {
+        let _turn = LANGUAGE.lock().unwrap_or_else(|e| e.into_inner());
+        let mut prefs = ot_toast::Prefs::default();
+        prefs.behaviour.actions = 3;
+        let typed = reminder("Ubat", None);
+        let below = spec(&prefs, &typed, None, None, 9, 10);
+        assert_eq!(below.actions().len(), 3);
+        assert!(below.enabled(ot_toast::Action::Snooze));
+        assert_eq!(below.content.note, None);
+
+        for (language, line) in [
+            (Language::English, "No more snoozes for this reminder."),
+            (Language::Malay, "Tiada lagi tundaan untuk peringatan ini."),
+        ] {
+            in_language(language);
+            let at = spec(&prefs, &typed, None, None, 10, 10);
+            assert_eq!(at.actions(), &[ot_toast::Action::Dismiss]);
+            assert_eq!(at.content.note.as_deref(), Some(line));
+        }
     }
 
     #[test]

@@ -61,12 +61,14 @@ language-ms-my = Bahasa Melayu
 toast-app-name = OmniToaster
 toast-test-title = Test Toast
 toast-test-body = This is what a toast looks like with your current settings.
-# A button in the toast's action row. Shown greyed until reminders exist (Phase 4).
+# A button in the toast's action row: puts a reminder off for the length set in Settings ▸ Reminders. Greyed on a toast with nothing to snooze.
 toast-action-snooze = Snooze
 # A button in the toast's action row that closes the toast with its out-animation.
 toast-action-dismiss = Dismiss
-# A button in the toast's action row. Shown greyed until reminders exist (Phase 4).
+# A button in the toast's action row that brings Settings forward.
 toast-action-open = Open
+# Shown in the action row beside Dismiss, once a reminder has been snoozed as many times as Settings ▸ Reminders allows.
+toast-snooze-limit = No more snoozes for this reminder.
 
 ## Where a toast appears: nine presets — four corners, four edges and the
 ## centre — plus the custom point. Shown in Settings ▸ Appearance. Title Case,
@@ -186,6 +188,34 @@ settings-section-appearance = Appearance
 settings-section-pictures = Picture Library
 # The section holding how toasts arrive and leave.
 settings-section-animation = Animation
+# The section holding the reminders and what Snooze does.
+settings-section-reminders = Reminders
+
+## Settings ▸ Reminders: the Snooze section. Title Case for the labels and
+## list items, sentence case for the hints.
+
+# A dropdown: how long one press of Snooze puts a reminder off.
+settings-snooze-length = Snooze Length
+# Hint under Snooze Length.
+settings-snooze-length-hint = What one press of Snooze on a reminder's toast does.
+# Snooze Length choice.
+settings-snooze-5-minutes = 5 Minutes
+# Snooze Length choice.
+settings-snooze-15-minutes = 15 Minutes
+# Snooze Length choice.
+settings-snooze-1-hour = 1 Hour
+# Snooze Length choice.
+settings-snooze-1-day = 1 Day
+# Snooze Length choice: a length the user types in.
+settings-snooze-custom = Custom
+# The field for a custom snooze length, shown when Custom is chosen.
+settings-snooze-custom-length = Custom Length
+# The unit after the custom length's number.
+settings-snooze-minutes-unit = minutes
+# A slider: how many times one reminder's toast may be snoozed.
+settings-snooze-limit = Snooze Limit
+# Hint under Snooze Limit.
+settings-snooze-limit-hint = After this many snoozes, the toast offers only Dismiss.
 
 ## Settings ▸ Animation. Title Case for the labels, sentence case for the hints.
 

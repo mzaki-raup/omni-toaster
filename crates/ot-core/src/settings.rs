@@ -40,6 +40,8 @@ pub struct Settings {
     /// table it cannot read falls back to the defaults there rather than
     /// failing the whole file here.
     pub toast: toml::Table,
+    /// Settings ▸ Reminders.
+    pub reminders: Reminders,
 }
 
 /// Settings ▸ General.
@@ -59,6 +61,53 @@ impl Default for General {
         Self {
             language: None,
             theme: "dark".to_string(),
+        }
+    }
+}
+
+/// Settings ▸ Reminders: what the toast's Snooze does
+/// (`docs/specs/reminders.md` §5).
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(default, deny_unknown_fields)]
+pub struct Reminders {
+    /// How long one press of Snooze puts a reminder off, in minutes. One of
+    /// [`SNOOZE_PRESETS`], or a custom value within [`SNOOZE_MINUTES`].
+    pub snooze_minutes: u32,
+    /// How many times one fire may be snoozed before its toast offers only
+    /// Dismiss, within [`SNOOZE_LIMIT`].
+    pub snooze_limit: u32,
+}
+
+/// The snooze durations offered by name, in minutes: 5 minutes, 15 minutes,
+/// 1 hour and 1 day. Anything else is Custom.
+pub const SNOOZE_PRESETS: [u32; 4] = [5, 15, 60, 1440];
+
+/// A custom snooze, in minutes: one minute to one week.
+pub const SNOOZE_MINUTES: std::ops::RangeInclusive<u32> = 1..=10_080;
+
+/// How many snoozes a fire may have.
+pub const SNOOZE_LIMIT: std::ops::RangeInclusive<u32> = 1..=50;
+
+impl Default for Reminders {
+    fn default() -> Self {
+        Self {
+            snooze_minutes: 15,
+            snooze_limit: 10,
+        }
+    }
+}
+
+impl Reminders {
+    /// The values brought into range, so a hand-edited file cannot snooze for
+    /// no time at all or for ever.
+    pub fn clamped(self) -> Self {
+        Self {
+            snooze_minutes: self
+                .snooze_minutes
+                .clamp(*SNOOZE_MINUTES.start(), *SNOOZE_MINUTES.end()),
+            snooze_limit: self
+                .snooze_limit
+                .clamp(*SNOOZE_LIMIT.start(), *SNOOZE_LIMIT.end()),
         }
     }
 }
@@ -262,6 +311,34 @@ mod tests {
 
         let error = Settings::load(&root).expect_err("an unknown key is an error");
         assert!(matches!(error, SettingsError::Parse { .. }));
+    }
+
+    #[test]
+    fn the_snooze_settings_default_round_trip_and_clamp() {
+        let (_dir, root) = scratch();
+        assert_eq!(
+            Settings::default().reminders,
+            Reminders {
+                snooze_minutes: 15,
+                snooze_limit: 10
+            }
+        );
+        let mut settings = Settings::default();
+        settings.reminders.snooze_minutes = 90;
+        settings.reminders.snooze_limit = 3;
+        settings.save(&root).expect("the save succeeds");
+        assert_eq!(
+            Settings::load(&root).expect("parses").reminders,
+            settings.reminders
+        );
+
+        let wild = Reminders {
+            snooze_minutes: 0,
+            snooze_limit: 1000,
+        }
+        .clamped();
+        assert_eq!(wild.snooze_minutes, 1);
+        assert_eq!(wild.snooze_limit, 50);
     }
 
     #[test]

@@ -12,6 +12,7 @@ pub mod images;
 pub mod layout;
 pub mod library;
 pub mod reminder_toast;
+pub mod reminders;
 pub mod settings_window;
 pub mod theme;
 
