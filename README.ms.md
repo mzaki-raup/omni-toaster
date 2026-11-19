@@ -53,7 +53,7 @@ bahasa:
 | **Acara** | Peringatan sekali atau berulang, seperti dalam kalendar |
 | **Tugasan** | Tugasan dengan pencetus sebelum masanya |
 | **Ulang tahun** | Berulang setiap tahun |
-| **Keletihan** | Rehat mata, postur badan dan minum air, masing-masing dengan jadualnya sendiri |
+| **Keletihan** | Rehat mata, postur badan, minum air dan had waktu bekerja, masing-masing dihidupkan dalam Tetapan ▸ Peringatan dengan selang masanya sendiri, dikira dari saat anda mula menggunakan PC |
 | **Pemasa** | Kiraan detik dari sekarang |
 | **Penggera** | Toast yang terus dipaparkan sehingga anda bertindak, hingga sepuluh minit |
 | **Bayaran** dan **Temu janji** | Peringatan sebelum masa untuk urusan bertarikh |

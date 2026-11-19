@@ -55,6 +55,18 @@ pub const MISSED_AFTER: SignedDuration = SignedDuration::from_secs(60);
 /// The catch-up window for a reminder until the settings say otherwise.
 pub const DEFAULT_MISSED_WINDOW_HOURS: u32 = 24;
 
+/// How long the PC may be off or asleep, or the scheduler not running, before
+/// the working day the fatigue reminders count from ends and the next one
+/// starts (`docs/specs/reminders.md` §3).
+pub const WORKDAY_GAP: SignedDuration = SignedDuration::from_hours(1);
+
+/// How often the working day's "still here" mark is written to the database.
+const ALIVE_EVERY: SignedDuration = SignedDuration::from_secs(60);
+
+/// The `settings` keys the working day survives a restart in.
+const WORKDAY_START: &str = "fatigue.workday_start";
+const WORKDAY_ALIVE: &str = "fatigue.last_alive";
+
 /// The most skipped occurrences of one reminder walked through to find its
 /// latest, so a five-minute reminder off for a year cannot stall the thread.
 const MAX_SKIPPED: u32 = 10_000;
@@ -155,6 +167,13 @@ pub struct Core {
     /// How old a missed fire may be and still be listed; older ones are
     /// dropped with a log line and a `missed` row.
     missed_window: SignedDuration,
+    /// When the working day the fatigue reminders count from began, and
+    /// when the scheduler last saw the PC in use; a gap of [`WORKDAY_GAP`]
+    /// between that and now starts a new day.
+    workday_start: Timestamp,
+    last_alive: Timestamp,
+    /// When `last_alive` was last written to the database.
+    alive_written: Timestamp,
 }
 
 impl Core {
@@ -171,9 +190,80 @@ impl Core {
             horizon: now,
             midnight,
             missed_window: SignedDuration::from_hours(i64::from(DEFAULT_MISSED_WINDOW_HOURS)),
+            workday_start: now,
+            last_alive: now,
+            alive_written: now,
         };
+        core.resume_workday(now);
         core.rebuild(now);
         core
+    }
+
+    /// When the current working day began.
+    pub fn workday_start(&self) -> Timestamp {
+        self.workday_start
+    }
+
+    /// Carry on the working day a restart interrupted, if the app was gone
+    /// for less than [`WORKDAY_GAP`]; otherwise this start begins a new one.
+    fn resume_workday(&mut self, now: Timestamp) {
+        let read = |key| {
+            self.store
+                .setting(key)
+                .ok()
+                .flatten()
+                .and_then(|text| text.parse::<Timestamp>().ok())
+        };
+        if let (Some(start), Some(alive)) = (read(WORKDAY_START), read(WORKDAY_ALIVE))
+            && start <= now
+            && now.duration_since(alive) <= WORKDAY_GAP
+        {
+            self.workday_start = start;
+        }
+        self.write_workday(now);
+    }
+
+    fn write_workday(&mut self, now: Timestamp) {
+        self.last_alive = now;
+        self.alive_written = now;
+        for (key, value) in [(WORKDAY_START, self.workday_start), (WORKDAY_ALIVE, now)] {
+            if let Err(error) = self
+                .store
+                .set_setting(key, &ot_store::reminders::stamp(value))
+            {
+                tracing::warn!(%error, "the working day could not be stored");
+            }
+        }
+    }
+
+    /// Note that the PC is in use at `now`. After a gap of [`WORKDAY_GAP`] —
+    /// asleep, off, or the clock jumped — the working day starts again here,
+    /// and the fatigue reminders count from it. Midnight does not end a day.
+    fn observe(&mut self, now: Timestamp) {
+        let gap = now.duration_since(self.last_alive);
+        if gap > WORKDAY_GAP || gap < -WORKDAY_GAP {
+            tracing::info!(gap = %gap, "a new working day began");
+            self.workday_start = now;
+            self.write_workday(now);
+            self.reschedule_fatigue(now);
+            return;
+        }
+        self.last_alive = now;
+        if now.duration_since(self.alive_written) >= ALIVE_EVERY {
+            self.write_workday(now);
+        }
+    }
+
+    /// Requeue every fatigue reminder from the working day's start.
+    fn reschedule_fatigue(&mut self, now: Timestamp) {
+        match self.store.reminders() {
+            Ok(reminders) => {
+                for reminder in reminders.iter().filter(|r| r.draft.trigger.is_fatigue()) {
+                    self.schedule(reminder, now);
+                }
+            }
+            Err(error) => tracing::warn!(%error, "the reminders could not be read"),
+        }
     }
 
     /// Set the catch-up window, in hours (Settings ▸ Reminders).
@@ -235,6 +325,7 @@ impl Core {
 
     /// Fire everything due at `now`, and rebuild first if midnight passed.
     pub fn tick(&mut self, now: Timestamp, out: &SyncSender<Fired>) -> Result<(), Disconnected> {
+        self.observe(now);
         if now >= self.midnight {
             self.apply(Command::Recompute(Recompute::Midnight), now);
         }
@@ -270,6 +361,13 @@ impl Core {
             // inside the catch-up window; the rest are dropped with a log
             // line and one `missed` row (docs/specs/reminders.md §6).
             let late = now.duration_since(fire.at) > MISSED_AFTER;
+            // A fatigue fire that came due while the PC was away is not
+            // worth catching up on: it is skipped, and the next one queued.
+            if late && kind == Kind::Regular && reminder.draft.trigger.is_fatigue() {
+                tracing::debug!(reminder = id, "a late fatigue reminder was skipped");
+                self.requeue_after_fire(&reminder, now);
+                continue;
+            }
             let (fire, dropped) = if late && kind == Kind::Regular {
                 self.latest_skipped(&reminder, fire, now)
             } else {
@@ -438,12 +536,7 @@ impl Core {
                 .unwrap_or(stored),
             _ => after,
         };
-        let next = next_fire(
-            &reminder.draft.trigger,
-            reminder.draft.recurrence.as_ref(),
-            after,
-            &self.tz,
-        );
+        let next = self.next_of(reminder, after);
         if let Some(fire) = next {
             self.insert(id, Kind::Regular, fire);
         }
@@ -462,13 +555,11 @@ impl Core {
     /// fire it a second time.
     fn requeue_after_fire(&mut self, reminder: &Reminder, after: Timestamp) {
         let id = reminder.id;
-        let next = next_fire(
-            &reminder.draft.trigger,
-            reminder.draft.recurrence.as_ref(),
-            after,
-            &self.tz,
-        );
+        let next = self.next_of(reminder, after);
         match next {
+            // A fatigue schedule is never done: the work-hour limit has no
+            // more fires today, and comes again with the next working day.
+            None if reminder.draft.trigger.is_fatigue() => {}
             Some(fire) => self.insert(id, Kind::Regular, fire),
             None if !self.pending.contains_key(&(id, Kind::Snooze)) => {
                 self.set_status(id, Status::Done);
@@ -476,6 +567,20 @@ impl Core {
             None => {}
         }
         self.store_next(id);
+    }
+
+    /// A reminder's own next fire after `after`: from its date and repeat,
+    /// or, for a fatigue schedule, from the working day.
+    fn next_of(&self, reminder: &Reminder, after: Timestamp) -> Option<Fire> {
+        if reminder.draft.trigger.is_fatigue() {
+            return crate::fatigue::next_fire(&reminder.draft.trigger, self.workday_start, after);
+        }
+        next_fire(
+            &reminder.draft.trigger,
+            reminder.draft.recurrence.as_ref(),
+            after,
+            &self.tz,
+        )
     }
 
     /// Put a fire off. Refused at the limit, and for a reminder that is gone.
@@ -1134,6 +1239,181 @@ mod tests {
             .map(|f| (f.reminder_id, f.missed))
             .collect();
         assert_eq!(listed, vec![(first, true), (second, true)]);
+    }
+
+    fn fatigue(trigger: Trigger) -> ReminderDraft {
+        ReminderDraft {
+            category_id: None,
+            title: String::new(),
+            body: None,
+            authored_lang: "en-US".to_owned(),
+            trigger,
+            recurrence: None,
+        }
+    }
+
+    /// Ticks every five minutes from `from` to `to`, as a PC in use would,
+    /// and returns what fired.
+    fn run_through(
+        core: &mut Core,
+        out: &SyncSender<Fired>,
+        fires: &Receiver<Fired>,
+        from: &str,
+        to: &str,
+    ) -> Vec<(i64, Timestamp)> {
+        let (mut now, to) = (instant(from), instant(to));
+        let mut fired = Vec::new();
+        while now <= to {
+            core.tick(now, out).expect("connected");
+            fired.extend(drain(fires));
+            now = now
+                .checked_add(SignedDuration::from_mins(5))
+                .expect("in range");
+        }
+        fired
+    }
+
+    #[test]
+    fn the_work_hour_limit_counts_across_midnight() {
+        // A day begun at 20:00 is not cut at midnight: an 8-hour limit comes
+        // at 04:00, once.
+        let store = Store::open_in_memory().expect("opens");
+        let id = store
+            .create_reminder(&fatigue(Trigger::WorkHours { minutes: 480 }))
+            .expect("creates");
+        let (out, fires) = fire_channel();
+        let mut core = Core::new(store, instant("2026-11-20T20:00Z"), TimeZone::UTC);
+        let fired = run_through(
+            &mut core,
+            &out,
+            &fires,
+            "2026-11-20T20:00Z",
+            "2026-11-21T06:00Z",
+        );
+        assert_eq!(fired, vec![(id, instant("2026-11-21T04:00Z"))]);
+        assert_eq!(core.workday_start(), instant("2026-11-20T20:00Z"));
+        let read = core.store.reminder(id).expect("reads").expect("exists");
+        assert_eq!(
+            read.status,
+            Status::Active,
+            "never done: it comes again tomorrow"
+        );
+    }
+
+    #[test]
+    fn an_hour_away_starts_a_new_working_day_and_the_count_again() {
+        let store = Store::open_in_memory().expect("opens");
+        let limit = store
+            .create_reminder(&fatigue(Trigger::WorkHours { minutes: 120 }))
+            .expect("creates");
+        let eyes = store
+            .create_reminder(&fatigue(Trigger::Every { minutes: 20 }))
+            .expect("creates");
+        let (out, fires) = fire_channel();
+        let mut core = Core::new(store, instant("2026-11-20T09:00Z"), TimeZone::UTC);
+        let morning = run_through(
+            &mut core,
+            &out,
+            &fires,
+            "2026-11-20T09:00Z",
+            "2026-11-20T09:40Z",
+        );
+        assert_eq!(
+            morning,
+            vec![
+                (eyes, instant("2026-11-20T09:20Z")),
+                (eyes, instant("2026-11-20T09:40Z")),
+            ]
+        );
+
+        // Asleep from 09:40 to 13:00; on waking the day starts again, the
+        // breaks due while asleep are skipped, not listed as missed, and the
+        // limit counts from 13:00.
+        core.apply(
+            Command::Recompute(Recompute::Resumed),
+            instant("2026-11-20T13:00Z"),
+        );
+        let afternoon = run_through(
+            &mut core,
+            &out,
+            &fires,
+            "2026-11-20T13:00Z",
+            "2026-11-20T15:00Z",
+        );
+        assert_eq!(core.workday_start(), instant("2026-11-20T13:00Z"));
+        assert!(
+            afternoon
+                .iter()
+                .all(|(_, at)| *at >= instant("2026-11-20T13:20Z"))
+        );
+        assert!(afternoon.contains(&(limit, instant("2026-11-20T15:00Z"))));
+        assert_eq!(
+            afternoon.iter().filter(|(id, _)| *id == eyes).count(),
+            6,
+            "13:20 to 15:00, every 20 minutes"
+        );
+        assert!(
+            core.store.history(eyes).expect("reads").is_empty(),
+            "nothing missed"
+        );
+    }
+
+    #[test]
+    fn a_short_sleep_skips_the_break_it_hid_and_keeps_the_day() {
+        let store = Store::open_in_memory().expect("opens");
+        let eyes = store
+            .create_reminder(&fatigue(Trigger::Every { minutes: 20 }))
+            .expect("creates");
+        let (out, fires) = fire_channel();
+        let mut core = Core::new(store, instant("2026-11-20T09:00Z"), TimeZone::UTC);
+        core.tick(instant("2026-11-20T09:15Z"), &out)
+            .expect("connected");
+        // Asleep 09:15 to 09:45: the 09:20 and 09:40 breaks are behind it.
+        core.tick(instant("2026-11-20T09:45Z"), &out)
+            .expect("connected");
+        assert!(fires.try_recv().is_err(), "skipped, not fired late");
+        assert_eq!(
+            core.workday_start(),
+            instant("2026-11-20T09:00Z"),
+            "same day"
+        );
+        assert_eq!(
+            core.next().map(|(id, fire)| (id, fire.at)),
+            Some((eyes, instant("2026-11-20T10:00Z")))
+        );
+    }
+
+    #[test]
+    fn a_restart_within_the_hour_keeps_the_working_day() {
+        let store = Store::open_in_memory().expect("opens");
+        let limit = store
+            .create_reminder(&fatigue(Trigger::WorkHours { minutes: 480 }))
+            .expect("creates");
+        let (out, fires) = fire_channel();
+        let mut core = Core::new(store, instant("2026-11-20T09:00Z"), TimeZone::UTC);
+        // In use all morning: one tick from 09:00 straight to 12:00 would be
+        // three hours away, which rightly starts a new day.
+        let _ = run_through(
+            &mut core,
+            &out,
+            &fires,
+            "2026-11-20T09:00Z",
+            "2026-11-20T12:00Z",
+        );
+
+        // Quit at 12:00, started again at 12:30: the same day.
+        let store = core.into_store();
+        let core = Core::new(store, instant("2026-11-20T12:30Z"), TimeZone::UTC);
+        assert_eq!(core.workday_start(), instant("2026-11-20T09:00Z"));
+        assert_eq!(
+            core.next().map(|(id, fire)| (id, fire.at)),
+            Some((limit, instant("2026-11-20T17:00Z")))
+        );
+
+        // Started again two hours later instead: a new day.
+        let store = core.into_store();
+        let core = Core::new(store, instant("2026-11-20T14:31Z"), TimeZone::UTC);
+        assert_eq!(core.workday_start(), instant("2026-11-20T14:31Z"));
     }
 
     #[test]

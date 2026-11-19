@@ -99,6 +99,19 @@ fn overflowing(width: f32, scale: f32) -> Vec<String> {
         ],
     )];
     let mut confirming = true;
+    // Fatigue Reminders (FEAT-0048), every kind on.
+    let mut fatigue: Vec<ot_ui::reminders::FatigueRow> = ot_store::reminders::FATIGUE
+        .iter()
+        .map(
+            |(type_key, repeats, minutes)| ot_ui::reminders::FatigueRow {
+                type_key,
+                repeats: *repeats,
+                on: true,
+                minutes: *minutes,
+                unit: None,
+            },
+        )
+        .collect();
     let mut harness = Harness::builder()
         .with_size([width, 4000.0])
         .with_pixels_per_point(scale)
@@ -141,6 +154,12 @@ fn overflowing(width: f32, scale: f32) -> Vec<String> {
                 columns,
                 &mut editor,
                 &problems,
+                ot_ui::Tokens::DARK,
+            );
+            let _ = ot_ui::reminders::fatigue_controls(
+                ui,
+                columns,
+                &mut fatigue,
                 ot_ui::Tokens::DARK,
             );
             let _ = ot_ui::reminders::history(ui, &history_rows, &mut confirming, ot_ui::Tokens::DARK);

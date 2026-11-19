@@ -272,15 +272,16 @@ date library it will keep.
 - **Notes:** App, 2026-11-20 from 03:01 local time, debug worker, a reminder for tomorrow every 2 weeks on Saturday and Sunday with a 1-day offset. This machine's Windows is day first and 12-hour. English: the row read "Custom · every 2 weeks on Saturday and Sunday · next 20/11/2026 at 3:03 am", Repeat's summary "Repeats every 2 weeks on Saturday and Sunday."; the offset fired at 03:03, 16 ms late, its toast headed "21/11/2026 at 3:03 am" with "1 day before" in the action row, and the row then moved to the occurrence. Clock → 24-Hour re-said the open history at once ("20/11/2026 at 03:06") and saved `clock = "24"`. Malay: "Tersuai · setiap 2 minggu pada Sabtu dan Ahad · seterusnya 20/11/2026 pada 03:09", "Berulang setiap 2 minggu pada Sabtu dan Ahad.", and a toast headed "21/11/2026 pada 03:09" with "1 hari sebelum". A month-first Windows was not available to look at; the table test holds it. During the English run an Open press on the toast was logged that no command of the check made — most likely a click at the machine; Dismiss, pressed by the script on a second fire, registered as Dismiss. README: the Clock in both, and `settings-general` and `settings-reminders` retaken in both languages. This item carries the exit criterion "the date format is correct in each language".
 
 ### FEAT-0048 · Fatigue reminders
-- **State:** Pending · **Spec:** docs/specs/reminders.md §3 · **Phase:** 4
+- **State:** Completed · **Spec:** docs/specs/reminders.md §3 · **Phase:** 4
 - **Branch:** feat/phase-4-scheduler
 - **Depends on:** FEAT-0042
-- [ ] Eye break, posture, hydration and the work-hour limit, each with its default schedule, each switched on by the user
-- [ ] The work-hour limit counts elapsed wall time from the day's first fatigue reminder
-- [ ] Test: each kind's default schedule; the work-hour count across midnight and a resume
-- [ ] Gate: fmt · clippy -D warnings · test --workspace --locked -j 4 · deny check · --self-test
-- [ ] App: `--data-dir ./tmp-data` — turn on each kind with a short interval and see it fire, in both languages
-- [ ] Docs: spec · README · CHANGELOG · CHECKLIST · GOTCHAS
+- [x] Eye break, posture, hydration and the work-hour limit, each with its default schedule, each switched on by the user — every 20, 30 and 60 minutes and after 8 hours (`ot_store::reminders::FATIGUE`), all off until switched on in Settings ▸ Reminders' Fatigue Reminders; each kind a managed reminder row with the new `every` or `work_hours` trigger, left out of Your Reminders
+- [x] The work-hour limit counts elapsed wall time from the day's first fatigue reminder — from the start of the working day, where the first fatigue reminder's interval begins; midnight carries on, an hour or more away (off, asleep, not running) starts a new day; kept in `settings` across a restart (spec §3)
+- [x] Test: each kind's default schedule; the work-hour count across midnight and a resume — `fatigue.rs` (each default, strictly-after, never at the start), the core (a limit from 20:00 at 04:00, once, never done; a resume three hours on starting the day again with the limit counted from it and the breaks of the sleep not missed; a half-hour sleep skipping its break and keeping the day; a restart within the hour keeping the day, two hours later not), the store round trip, `set_fatigue` on, change, off, and the section in the layout test
+- [x] Gate: fmt · clippy -D warnings · test --workspace --locked -j 4 (354 passed) · deny check · --self-test
+- [x] App: `--data-dir ./tmp-data` — turn on each kind with a short interval and see it fire, in both languages
+- [x] Docs: spec · README · CHANGELOG · CHECKLIST · GOTCHAS
+- **Notes:** App, 2026-11-20 from 03:19 local time, debug worker. The UI's shortest work-hour limit is an hour, so posture (2 minutes), drink water (3) and the work-hour limit (4 minutes) were planted in the scratch database; Eye Break was switched on through the section at 1 minute, which created its row. English: the working day began at 03:19:33; eye breaks fired every minute from 03:20:33, posture at 03:21:33 and 03:23:33, the drink at 03:22:33 and the work-hour limit once at 03:23:33, each about 10 ms late, the toasts saying each type's own name and text. Malay: the same eight fires from 03:24, "Rehat Mata", "Postur", "Had Waktu Bekerja", and the section reading "minit sekali" and "jam bekerja". The section shows a planted 4-minute limit as "1 hour of work" — the UI's unit is whole hours. A real midnight and a real sleep were not waited for; the tests drive both. The README screenshot of Settings ▸ Reminders shows the list and the editor, above the new section, and was not retaken.
 
 ## v0.3.1 — Done 2026-11-18
 

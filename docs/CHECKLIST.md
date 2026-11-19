@@ -144,7 +144,7 @@ Last updated: 2026-11-19
 | Item | State | Notes |
 |---|---|---|
 | Reminder CRUD | Completed | FEAT-0039: the store side — create, read, list, update, delete, typed trigger and recurrence, unknown fields refused. FEAT-0046: the list and the editor, in the app in both languages, all three themes and the narrow window |
-| Offsets | In-Progress | 15 minutes to a week, or custom. FEAT-0040: the rule, tested — several per reminder, each its own fire, day offsets in calendar days. FEAT-0041's scheduler fires them, tested in its core; no offset reminder has fired in the app yet |
+| Offsets | Completed | 15 minutes to a week, or custom. FEAT-0040: the rule, tested — several per reminder, each its own fire, day offsets in calendar days. FEAT-0041's scheduler fires them; FEAT-0047: a 1-day offset fired in the app, its toast saying "1 day before" and the event's own time, in both languages |
 | Recurrence | Completed | Once, daily, weekly, monthly, yearly, custom. FEAT-0040: every *N* of each, chosen weekdays, month ends and leap years, tested. FEAT-0041: a daily reminder fired in the app and moved to the next day. FEAT-0046: a weekly one (Monday and Thursday) made in the editor and fired |
 | Snooze | Completed | 5 minutes to a day, or custom; max per fire. FEAT-0043: Snooze on the toast, Settings ▸ Reminders' Snooze section, the limit and its line — snoozed and returned in the app in English and Malay, the limit reached with a low limit set |
 | Duration | Completed | 3–60 s, hover pauses. FEAT-0026 and BUG-0009 built it; FEAT-0044 checked that a reminder other than an Alarm keeps it — a Task left after its 8 s in the app |
@@ -153,6 +153,7 @@ Last updated: 2026-11-19
 | DST-safe scheduling | In-Progress | Recompute on resume and clock change. FEAT-0040: occurrences in the wall clock, gap and fold rules, tested in `America/New_York`. FEAT-0041: the queue rebuilt at midnight, on a clock jump, a zone change and a resume (Windows' events through `ot_platform::system_events`), each proved with simulated events; the real clock and zone changes are an owner's check, not made |
 | Localized reminder types | Completed | Templates in both languages. FEAT-0042: twelve type keys with a name and a default text in both files, each fired in the app in English and Malay; Open lands on the reminder since FEAT-0046 |
 | Shared date formatter | Completed | The only formatter in the workspace. FEAT-0047: Malay d/m/yyyy and 24-hour; English following Windows' date order and clock, with the user's Clock over both; offset and repeat phrases with plurals; a written table tested in both languages, and read in the app on the list, the editor and an offset fire's toast in both |
+| Fatigue reminders | Completed | Eye break, posture, hydration, work-hour limit, each off until switched on. FEAT-0048: the defaults and the working day (midnight carries on, an hour away starts again, a restart within the hour keeps it), tested; each kind fired in the app with a short interval in English and Malay |
 | Migration 003 | Completed | FEAT-0039. `003_locale_keys.sql` — `002` went to `002_asset_label.sql` in Phase 2. Tested fresh and on a version 2 database; in the app, a fresh folder and a v0.11.0-era one both read `user_version` 3 |
 
 ## Phase 5 — Location, Prayer and Azan

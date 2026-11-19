@@ -32,6 +32,12 @@ pub enum Trigger {
         at: civil::DateTime,
         offsets: Vec<Offset>,
     },
+    /// A fatigue reminder: every so many minutes of the working day — eye
+    /// break, posture, drink water (`docs/specs/reminders.md` §3).
+    Every { minutes: u32 },
+    /// The work-hour limit: once, so many minutes after the working day
+    /// began.
+    WorkHours { minutes: u32 },
 }
 
 impl Trigger {
@@ -40,9 +46,30 @@ impl Trigger {
         match self {
             Self::At { .. } => "at",
             Self::OffsetBefore { .. } => "offset_before",
+            Self::Every { .. } => "every",
+            Self::WorkHours { .. } => "work_hours",
         }
     }
+
+    /// Whether this is one of the fatigue schedules, which count from the
+    /// working day rather than from a date, and are managed in Settings ▸
+    /// Reminders' Fatigue Reminders rather than in the editor.
+    pub fn is_fatigue(&self) -> bool {
+        matches!(self, Self::Every { .. } | Self::WorkHours { .. })
+    }
 }
+
+/// The fatigue kinds: each one's type key, whether it repeats (`Every`) or
+/// comes once (`WorkHours`), and its default in minutes
+/// (`docs/specs/reminders.md` §3): an eye break every 20 minutes, the
+/// posture every 30, a drink every hour, and the work-hour limit after 8
+/// hours.
+pub const FATIGUE: [(&str, bool, u32); 4] = [
+    ("reminder-fatigue-eye", true, 20),
+    ("reminder-fatigue-posture", true, 30),
+    ("reminder-fatigue-hydration", true, 60),
+    ("reminder-fatigue-work-hours", false, 8 * 60),
+];
 
 /// An offset before the time: 1 week, 2 days, 1 hour, 15 minutes, or custom.
 /// Kept in the unit the user chose, so the editor shows "2 days", not "2880
@@ -736,6 +763,28 @@ mod tests {
                 (fired, NotificationAction::Dismissed)
             ]
         );
+    }
+
+    #[test]
+    fn a_fatigue_schedule_round_trips_and_says_what_it_is() {
+        let store = Store::open_in_memory().expect("opens");
+        for trigger in [
+            Trigger::Every { minutes: 20 },
+            Trigger::WorkHours { minutes: 480 },
+        ] {
+            let mut fatigue = draft();
+            fatigue.trigger = trigger.clone();
+            fatigue.recurrence = None;
+            let id = store.create_reminder(&fatigue).expect("creates");
+            let read = store.reminder(id).expect("reads").expect("exists");
+            assert_eq!(read.draft.trigger, trigger);
+            assert!(read.draft.trigger.is_fatigue());
+        }
+        assert!(!draft().trigger.is_fatigue());
+        let kinds: Vec<&str> = FATIGUE.iter().map(|(key, _, _)| *key).collect();
+        for key in &kinds {
+            assert!(REMINDER_TYPES.contains(key), "{key} is a reminder type");
+        }
     }
 
     #[test]

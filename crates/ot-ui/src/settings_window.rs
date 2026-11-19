@@ -341,6 +341,10 @@ pub struct SettingsWindow {
     /// When to read the list again: just after a save, so the row shows the
     /// next time the scheduler has worked out by then.
     refresh_at: Option<Instant>,
+    /// The fatigue kinds as the section shows them, and whether they were
+    /// changed and not sent yet (sent when the pointer is released).
+    fatigue_rows: Vec<crate::reminders::FatigueRow>,
+    fatigue_dirty: bool,
 }
 
 /// A missed fire in the list: what its buttons act on, and its row's text,
@@ -468,6 +472,8 @@ impl SettingsWindow {
             confirming_clear: false,
             select_when_listed: None,
             refresh_at: None,
+            fatigue_rows: fatigue_rows(None),
+            fatigue_dirty: false,
         }
     }
 
@@ -1315,6 +1321,12 @@ impl SettingsWindow {
                 ui.separator();
                 ui.add_space(layout::ROW_GAP);
                 let columns = layout::columns(ui);
+                if crate::reminders::fatigue_controls(ui, columns, &mut self.fatigue_rows, tokens) {
+                    self.fatigue_dirty = true;
+                }
+                ui.add_space(layout::ROW_GAP);
+                ui.separator();
+                ui.add_space(layout::ROW_GAP);
                 let window = self.settings.reminders.missed_window_hours;
                 if crate::reminders::snooze_controls(
                     ui,
@@ -1398,6 +1410,19 @@ impl SettingsWindow {
                 }
             }
         }
+        // Fatigue changes go to the reminders thread when the pointer is
+        // released, like the settings below: a drag is one change.
+        if self.fatigue_dirty && !ui.input(|i| i.pointer.any_down()) {
+            self.fatigue_dirty = false;
+            if let Some(book) = &self.book {
+                let lang = ot_i18n::current_language()
+                    .unwrap_or(Language::English)
+                    .tag();
+                for row in &self.fatigue_rows {
+                    book.set_fatigue(row.type_key, row.on, row.minutes, lang);
+                }
+            }
+        }
         // Written when the pointer is released: a slider dragged across its
         // range would otherwise rewrite the file at every step.
         if self.reminders_dirty && !ui.input(|i| i.pointer.any_down()) {
@@ -1464,6 +1489,9 @@ impl SettingsWindow {
         let (fresh, replies) = book.drain();
         if fresh && let Some(listing) = book.listing() {
             self.reminder_rows = Some(reminder_rows(listing));
+            if !self.fatigue_dirty {
+                self.fatigue_rows = fatigue_rows(Some(listing));
+            }
             // A fresh list follows a fire, which wrote a history row: the
             // open reminder's history is read again, not left as it was.
             if let Some(id) = self.editor.as_ref().and_then(|editor| editor.id) {
@@ -2460,6 +2488,8 @@ fn reminder_rows(listing: &crate::reminder_book::Listing) -> Vec<crate::reminder
     listing
         .reminders
         .iter()
+        // Fatigue schedules have their own section.
+        .filter(|reminder| !reminder.draft.trigger.is_fatigue())
         .map(|reminder| {
             let type_key = listing
                 .type_of(reminder.draft.category_id)
@@ -2529,6 +2559,37 @@ fn missed_row(
         ),
         can_snooze: snoozes < limit,
     }
+}
+
+/// The fatigue section's rows: each kind from its managed reminder if it has
+/// one (on, with its interval), else off at its default.
+fn fatigue_rows(
+    listing: Option<&crate::reminder_book::Listing>,
+) -> Vec<crate::reminders::FatigueRow> {
+    use ot_store::reminders::Trigger;
+    ot_store::reminders::FATIGUE
+        .iter()
+        .map(|(type_key, repeats, default)| {
+            let stored = listing.and_then(|listing| {
+                let category = listing.category_of(type_key)?;
+                listing
+                    .reminders
+                    .iter()
+                    .find(|r| r.draft.trigger.is_fatigue() && r.draft.category_id == Some(category))
+            });
+            let minutes = match stored.map(|r| &r.draft.trigger) {
+                Some(Trigger::Every { minutes } | Trigger::WorkHours { minutes }) => *minutes,
+                _ => *default,
+            };
+            crate::reminders::FatigueRow {
+                type_key,
+                repeats: *repeats,
+                on: stored.is_some(),
+                minutes,
+                unit: None,
+            }
+        })
+        .collect()
 }
 
 /// The history's name for what happened to a fire.

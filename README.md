@@ -49,7 +49,7 @@ image, accent colour, sound and style overrides — in both languages:
 | **Event** | A one-off or recurring calendar-style reminder |
 | **Task** | A to-do with an offset-before trigger |
 | **Anniversary** | Yearly recurrence |
-| **Fatigue** | Eye breaks, posture and hydration, each on its own schedule |
+| **Fatigue** | Eye breaks, posture, drinking water and a work-hour limit, each switched on in Settings ▸ Reminders with its own interval, counted from when you start using the PC |
 | **Timer** | A countdown from now |
 | **Alarm** | A persistent toast that stays until you act on it, for up to ten minutes |
 | **Payment** and **Appointment** | Offset-before reminders for dated obligations |

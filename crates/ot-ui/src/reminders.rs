@@ -341,3 +341,90 @@ pub fn history(ui: &mut egui::Ui, rows: &[String], confirming: &mut bool, tokens
     });
     cleared
 }
+
+/// One fatigue kind as Settings ▸ Reminders shows it.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct FatigueRow {
+    pub type_key: &'static str,
+    /// Every so many minutes (true), or once after so many hours (false).
+    pub repeats: bool,
+    pub on: bool,
+    /// Minutes apart, or minutes of work before the limit.
+    pub minutes: u32,
+    /// The unit's words for the shown number, and the number and language
+    /// they were built for, so they are not formatted every frame.
+    pub unit: Option<(u32, Option<ot_i18n::Language>, String)>,
+}
+
+/// An interval's range, in minutes, and the work-hour limit's, in hours.
+pub const FATIGUE_MINUTES: std::ops::RangeInclusive<u32> = 1..=240;
+pub const FATIGUE_HOURS: std::ops::RangeInclusive<u32> = 1..=16;
+
+impl FatigueRow {
+    /// The number the row shows: minutes, or whole hours for the limit.
+    pub fn shown(&self) -> u32 {
+        if self.repeats {
+            self.minutes
+        } else {
+            self.minutes.div_ceil(60).max(1)
+        }
+    }
+
+    fn unit_text(&mut self) -> String {
+        let shown = self.shown();
+        let language = ot_i18n::current_language();
+        if self.unit.as_ref().map(|(n, l, _)| (*n, *l)) != Some((shown, language)) {
+            let key = if self.repeats {
+                "settings-fatigue-minutes-apart"
+            } else {
+                "settings-fatigue-hours-of-work"
+            };
+            self.unit = Some((shown, language, ot_i18n::text_with_count(key, shown, &[])));
+        }
+        self.unit
+            .as_ref()
+            .map(|(_, _, text)| text.clone())
+            .unwrap_or_default()
+    }
+}
+
+/// The fatigue reminders: each kind switched on or off, with its interval
+/// (`docs/specs/reminders.md` §3). Returns whether anything changed.
+pub fn fatigue_controls(
+    ui: &mut egui::Ui,
+    columns: Columns,
+    rows: &mut [FatigueRow],
+    tokens: Tokens,
+) -> bool {
+    let mut changed = false;
+    ui.label(egui::RichText::new(ot_i18n::text("settings-fatigue-heading")).strong());
+    ui.add_space(layout::ROW_GAP);
+    for row in rows.iter_mut() {
+        let unit = row.unit_text();
+        layout::labelled_row(ui, columns, &ot_i18n::text(row.type_key), |ui| {
+            changed |= ui.checkbox(&mut row.on, "").changed();
+            let mut shown = row.shown();
+            let range = if row.repeats {
+                FATIGUE_MINUTES
+            } else {
+                FATIGUE_HOURS
+            };
+            if ui
+                .add_enabled(row.on, egui::DragValue::new(&mut shown).range(range))
+                .changed()
+            {
+                row.minutes = if row.repeats { shown } else { shown * 60 };
+                changed = true;
+            }
+            ui.label(egui::RichText::new(unit).color(tokens.text_dim));
+        });
+        ui.add_space(layout::ROW_GAP);
+    }
+    layout::field_hint(
+        ui,
+        columns,
+        &ot_i18n::text("settings-fatigue-hint"),
+        tokens.text_dim,
+    );
+    changed
+}

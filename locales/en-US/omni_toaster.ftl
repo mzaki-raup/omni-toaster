@@ -599,6 +599,20 @@ settings-reminder-row-plain = { $type }
 settings-reminder-row-next-repeat = { $type } · { $repeat } · next { $time }
 # The sentence under Repeat in the editor. $repeat is how it repeats.
 settings-reminder-repeat-summary = Repeats { $repeat }.
+# The heading of the fatigue section in Settings ▸ Reminders: eye break, posture, drink water, work-hour limit.
+settings-fatigue-heading = Fatigue Reminders
+# After an eye break's, posture's or drink's number. $count is that number.
+settings-fatigue-minutes-apart = { $count ->
+    [one] minute apart
+   *[other] minutes apart
+}
+# After the work-hour limit's number. $count is that number.
+settings-fatigue-hours-of-work = { $count ->
+    [one] hour of work
+   *[other] hours of work
+}
+# The hint under the fatigue section.
+settings-fatigue-hint = Each one counts from when you start using the PC. An hour or more away from it starts the day again.
 # Editor field: the reminder's own title.
 settings-reminder-title = Title
 # Editor field: the reminder's own text, shown in its toast.

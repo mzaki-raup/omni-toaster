@@ -585,6 +585,14 @@ settings-reminder-row-plain = { $type }
 settings-reminder-row-next-repeat = { $type } · { $repeat } · seterusnya { $time }
 # Ayat di bawah Ulang dalam penyunting. $repeat ialah cara ia berulang.
 settings-reminder-repeat-summary = Berulang { $repeat }.
+# Tajuk bahagian keletihan dalam Tetapan ▸ Peringatan: rehat mata, postur, minum air, had waktu bekerja.
+settings-fatigue-heading = Peringatan Keletihan
+# Selepas nombor rehat mata, postur atau minum. $count ialah nombor itu.
+settings-fatigue-minutes-apart = minit sekali
+# Selepas nombor had waktu bekerja. $count ialah nombor itu.
+settings-fatigue-hours-of-work = jam bekerja
+# Petunjuk di bawah bahagian keletihan.
+settings-fatigue-hint = Setiap satu dikira dari saat anda mula menggunakan PC. Sejam atau lebih jauh daripadanya memulakan hari semula.
 # Medan penyunting: tajuk peringatan itu sendiri.
 settings-reminder-title = Tajuk
 # Medan penyunting: teks peringatan itu sendiri, ditunjukkan dalam toastnya.

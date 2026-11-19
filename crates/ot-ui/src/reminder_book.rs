@@ -31,6 +31,14 @@ enum Request {
     /// Send the list again: a fire may have moved a next time or finished a
     /// reminder.
     Refresh,
+    /// Switch a fatigue kind on (creating or updating its managed reminder)
+    /// or off (deleting it).
+    SetFatigue {
+        type_key: &'static str,
+        on: bool,
+        minutes: u32,
+        authored_lang: &'static str,
+    },
 }
 
 /// What the thread answers.
@@ -130,6 +138,21 @@ impl Book {
         self.send(Request::Refresh);
     }
 
+    pub fn set_fatigue(
+        &self,
+        type_key: &'static str,
+        on: bool,
+        minutes: u32,
+        authored_lang: &'static str,
+    ) {
+        self.send(Request::SetFatigue {
+            type_key,
+            on,
+            minutes,
+            authored_lang,
+        });
+    }
+
     fn send(&self, request: Request) {
         // Never blocks the UI thread; a full queue is sixteen clicks ahead.
         match self.requests.try_send(request) {
@@ -222,6 +245,20 @@ fn serve(
                 send_list();
                 continue;
             }
+            Request::SetFatigue {
+                type_key,
+                on,
+                minutes,
+                authored_lang,
+            } => match set_fatigue(&store, type_key, on, minutes, authored_lang) {
+                Ok(Some(command)) => {
+                    tell(command);
+                    send_list();
+                    continue;
+                }
+                Ok(None) => continue,
+                Err(error) => Reply::Failed(error),
+            },
         };
         let _ = reply.send(answer);
         send_list();
@@ -260,6 +297,71 @@ fn save(store: &Store, id: Option<i64>, draft: &ReminderDraft) -> Result<i64, St
     }
 }
 
+/// A fatigue kind's managed reminder, created, updated or deleted. Returns
+/// what to tell the scheduler.
+fn set_fatigue(
+    store: &Store,
+    type_key: &str,
+    on: bool,
+    minutes: u32,
+    authored_lang: &str,
+) -> Result<Option<Command>, String> {
+    let Some((_, repeats, _)) = ot_store::reminders::FATIGUE
+        .iter()
+        .find(|(key, _, _)| *key == type_key)
+    else {
+        return Err(format!("{type_key} is not a fatigue kind"));
+    };
+    let category = store
+        .template_for_type(type_key)
+        .map_err(|e| e.to_string())?
+        .map(|template| template.id);
+    let existing = store
+        .reminders()
+        .map_err(|e| e.to_string())?
+        .into_iter()
+        .find(|r| r.draft.trigger.is_fatigue() && r.draft.category_id == category);
+    let trigger = if *repeats {
+        ot_store::reminders::Trigger::Every { minutes }
+    } else {
+        ot_store::reminders::Trigger::WorkHours { minutes }
+    };
+    let draft = ReminderDraft {
+        category_id: category,
+        // No title of its own: the toast says the type's name and text.
+        title: String::new(),
+        body: None,
+        authored_lang: authored_lang.to_owned(),
+        trigger,
+        recurrence: None,
+    };
+    match (on, existing) {
+        (true, None) => {
+            let id = store.create_reminder(&draft).map_err(|e| e.to_string())?;
+            Ok(Some(Command::Changed(id)))
+        }
+        (true, Some(reminder)) => {
+            if reminder.draft.trigger == draft.trigger {
+                return Ok(None);
+            }
+            store
+                .update_reminder(reminder.id, &draft)
+                .map_err(|e| e.to_string())?;
+            store
+                .set_status(reminder.id, Status::Active)
+                .map_err(|e| e.to_string())?;
+            Ok(Some(Command::Changed(reminder.id)))
+        }
+        (false, Some(reminder)) => {
+            store
+                .delete_reminder(reminder.id)
+                .map_err(|e| e.to_string())?;
+            Ok(Some(Command::Removed(reminder.id)))
+        }
+        (false, None) => Ok(None),
+    }
+}
+
 /// The type key of every reminder, for building rows without a lookup each
 /// frame.
 pub fn types_by_reminder(listing: &Listing) -> HashMap<i64, &'static str> {
@@ -286,6 +388,60 @@ mod tests {
             },
             recurrence: None,
         }
+    }
+
+    #[test]
+    fn a_fatigue_kind_is_created_changed_and_removed_and_the_scheduler_told() {
+        let dir = tempfile::tempdir().expect("scratch");
+        let root = ot_core::DataRoot::resolve(Some(dir.path())).expect("root");
+        let store = Store::open(root.path()).expect("opens");
+        let changed = |command: Option<Command>| match command {
+            Some(Command::Changed(id)) => id,
+            other => panic!("expected Changed, got {other:?}"),
+        };
+
+        let id =
+            changed(set_fatigue(&store, "reminder-fatigue-eye", true, 20, "en-US").expect("on"));
+        let read = store.reminder(id).expect("reads").expect("exists");
+        assert_eq!(read.draft.trigger, Trigger::Every { minutes: 20 });
+        assert_eq!(read.draft.title, "", "the type's own name and text");
+        assert_eq!(
+            set_fatigue(&store, "reminder-fatigue-eye", true, 20, "en-US").expect("same"),
+            None,
+            "nothing changed, nothing told"
+        );
+        assert_eq!(
+            changed(set_fatigue(&store, "reminder-fatigue-eye", true, 25, "en-US").expect("edit")),
+            id,
+            "the same row, updated"
+        );
+        assert_eq!(
+            store
+                .reminder(id)
+                .expect("reads")
+                .expect("exists")
+                .draft
+                .trigger,
+            Trigger::Every { minutes: 25 }
+        );
+        let limit = changed(
+            set_fatigue(&store, "reminder-fatigue-work-hours", true, 480, "ms-MY").expect("on"),
+        );
+        assert_eq!(
+            store
+                .reminder(limit)
+                .expect("reads")
+                .expect("exists")
+                .draft
+                .trigger,
+            Trigger::WorkHours { minutes: 480 }
+        );
+        assert_eq!(
+            set_fatigue(&store, "reminder-fatigue-eye", false, 25, "en-US").expect("off"),
+            Some(Command::Removed(id))
+        );
+        assert_eq!(store.reminder(id).expect("reads"), None);
+        assert!(set_fatigue(&store, "reminder-event", true, 5, "en-US").is_err());
     }
 
     #[test]

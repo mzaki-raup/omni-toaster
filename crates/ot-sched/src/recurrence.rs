@@ -49,6 +49,8 @@ pub fn next_fire(
     let (start, offsets) = match trigger {
         Trigger::At { at } => (*at, &[][..]),
         Trigger::OffsetBefore { at, offsets } => (*at, offsets.as_slice()),
+        // Counted from the working day, not from a date: `crate::fatigue`.
+        Trigger::Every { .. } | Trigger::WorkHours { .. } => return None,
     };
     let lead = offsets
         .iter()

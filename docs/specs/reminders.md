@@ -34,6 +34,29 @@ user chooses which to enable. The work-hour limit counts **elapsed wall time**
 from the first fatigue reminder of the day, not measured activity (§14,
 question 2).
 
+As built (FEAT-0048):
+
+| Kind | Default | Range |
+|---|---|---|
+| Eye break | every 20 minutes | 1–240 minutes |
+| Posture | every 30 minutes | 1–240 minutes |
+| Drink water | every 60 minutes | 1–240 minutes |
+| Work-hour limit | once, after 8 hours | 1–16 hours |
+
+All four are off until the user switches them on, in Settings ▸ Reminders'
+Fatigue Reminders. **The day** they count from is the working day: it begins
+when the PC is first in use — the app starts, or the machine wakes — and the
+first break comes one interval in, which is where "the first fatigue
+reminder of the day" sits. Midnight does not end a working day; **an hour or
+more** with the PC off or asleep, or the app not running, does, and the next
+use begins a new one. The day's start is kept in the database (`settings`:
+`fatigue.workday_start`, `fatigue.last_alive`), so a restart within the hour
+carries on the same day. The work-hour limit fires once a day and is never
+`done`. A fatigue fire that came due while the PC was away is skipped, not
+listed as missed. Each kind is a reminder row the section manages — trigger
+`every` or `work_hours`, no title of its own, so its toast says the type's
+name and text — and it is left out of Your Reminders.
+
 ## 4. Triggers
 
 - **At the exact time.**
@@ -314,6 +337,10 @@ FEAT-0039 to FEAT-0048 in `docs/TASKS.md` under `v0.4.0`.
   (the thread), `ot_ui::reminder_editor` (the editor and its validation),
   `ot_ui::reminders` (the list, the history, the missed list, the Snooze
   section) and `ot_ui::fields` (the shared date and time fields).
+- **Fatigue reminders (FEAT-0048).** §3 as built: `ot_sched::fatigue` (the
+  schedule from the day's start), the working day in `scheduler::Core`
+  (`WORKDAY_GAP`, kept in `settings`), `Trigger::Every` and
+  `Trigger::WorkHours` in the store, and the section in `ot_ui::reminders`.
 - **Missed reminders (FEAT-0045).** §6 as written, for every type but Azan,
   whose window comes with it in Phase 5. `Fired::missed` marks a fire more
   than a minute late; `Core::set_missed_window` / `Command::SetMissedWindow`

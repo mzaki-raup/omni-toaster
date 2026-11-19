@@ -99,6 +99,10 @@ impl Editor {
         let (at, offsets) = match &reminder.draft.trigger {
             Trigger::At { at } => (*at, Vec::new()),
             Trigger::OffsetBefore { at, offsets } => (*at, offsets.clone()),
+            // Never opened here: fatigue schedules live in their own section
+            // and are left out of the list. A date of its own keeps the
+            // editor sane if one ever were.
+            Trigger::Every { .. } | Trigger::WorkHours { .. } => (DateTime::default(), Vec::new()),
         };
         let (repeat, every, weekdays) = match &reminder.draft.recurrence {
             Some(recurrence) => (
