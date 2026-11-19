@@ -296,10 +296,27 @@ fn main() -> ExitCode {
         _ => None,
     };
 
+    // Read before the scheduler starts: it needs the catch-up window for the
+    // reminders missed while the app was not running.
+    let settings = match ot_core::Settings::load(&root) {
+        Ok(settings) => settings,
+        Err(error) => {
+            // The file is the user's to edit, so a typo in it must not lock
+            // them out of the app that would let them fix it.
+            tracing::warn!(%error, "the settings file could not be read; using the defaults");
+            eprintln!("({error})");
+            ot_core::Settings::default()
+        }
+    };
+
     // The scheduler takes the store: from here on only its thread writes fire
     // times (docs/specs/reminders.md §12).
     let (fire_out, fires) = ot_sched::scheduler::fire_channel();
-    let scheduler = match ot_sched::scheduler::Scheduler::spawn(store, fire_out) {
+    let scheduler = match ot_sched::scheduler::Scheduler::spawn(
+        store,
+        fire_out,
+        settings.reminders.clamped().missed_window_hours,
+    ) {
         Ok(scheduler) => scheduler,
         Err(error) => {
             tracing::error!(%error, "the scheduler could not be started");
@@ -341,16 +358,6 @@ fn main() -> ExitCode {
     // ends the process: Quit belongs to the tray menu (FEAT-0015), and until
     // that exists there would be no way to stop a process that outlived its
     // only window (docs/specs/tray-and-settings.md §6).
-    let settings = match ot_core::Settings::load(&root) {
-        Ok(settings) => settings,
-        Err(error) => {
-            // The file is the user's to edit, so a typo in it must not lock
-            // them out of the app that would let them fix it.
-            tracing::warn!(%error, "the settings file could not be read; using the defaults");
-            eprintln!("({error})");
-            ot_core::Settings::default()
-        }
-    };
 
     #[cfg(debug_assertions)]
     let test_toast = args.iter().any(|a| a == "--test-toast");

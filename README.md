@@ -59,7 +59,10 @@ custom), and recurrence (once, daily, weekly, monthly, yearly). Snooze puts a
 reminder off for 5 minutes, 15 minutes, an hour, a day or a length of your own,
 chosen in Settings ▸ Reminders, up to a limit per fire (10 by default); after
 that the toast offers only Dismiss and says so. Reminders missed
-while the PC was off or asleep are listed at next start.
+while the PC was off or asleep are not fired all at once at next start: one
+toast says some were missed, and Settings ▸ Reminders lists them with Snooze
+and Dismiss. Ones older than the catch-up window (24 hours by default) are
+dropped and recorded.
 
 ## Bilingual
 
@@ -276,8 +279,9 @@ the ones that ship with the app listed below them:
 The same screen in Bahasa Melayu:
 [settings-pictures-ms.png](docs/screenshots/settings-pictures-ms.png).
 
-Settings ▸ Reminders, where Snooze's length and limit are set; the reminder
-list and its editor join them in a later step:
+Settings ▸ Reminders, with the missed reminders above Snooze's length and
+limit and the catch-up window; the reminder list and its editor join them in a
+later step:
 
 ![Settings ▸ Reminders with a custom snooze length](docs/screenshots/settings-reminders.png)
 

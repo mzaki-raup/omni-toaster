@@ -1,10 +1,11 @@
-//! Settings ▸ Reminders. For now the Snooze section — what one press of the
-//! toast's Snooze does, and how many times one fire may be snoozed
-//! (`docs/specs/reminders.md` §5, FEAT-0043). The reminder list and its
-//! editor join it with FEAT-0046.
+//! Settings ▸ Reminders. For now the missed reminders (FEAT-0045) and the
+//! Snooze section — what one press of the toast's Snooze does, how many times
+//! one fire may be snoozed, and how far back a missed reminder is still
+//! listed (`docs/specs/reminders.md` §5, §6). The reminder list and its
+//! editor join them with FEAT-0046.
 
 use ot_core::Reminders;
-use ot_core::settings::{SNOOZE_LIMIT, SNOOZE_MINUTES, SNOOZE_PRESETS};
+use ot_core::settings::{MISSED_WINDOW_HOURS, SNOOZE_LIMIT, SNOOZE_MINUTES, SNOOZE_PRESETS};
 
 use crate::layout::{self, Columns};
 use crate::theme::Tokens;
@@ -84,13 +85,11 @@ pub fn snooze_controls(
             |ui| {
                 changed |= ui
                     .add(
+                        // The unit is in the label, "(Minutes)": a suffix
+                        // after the number would read "1 minutes".
                         egui::DragValue::new(&mut reminders.snooze_minutes)
                             .range(SNOOZE_MINUTES)
-                            .speed(1.0)
-                            .suffix(format!(
-                                " {}",
-                                ot_i18n::text("settings-snooze-minutes-unit")
-                            )),
+                            .speed(1.0),
                     )
                     .changed();
             },
@@ -112,5 +111,90 @@ pub fn snooze_controls(
     );
     ui.add_space(layout::ROW_GAP);
 
+    layout::labelled_row(
+        ui,
+        columns,
+        &ot_i18n::text("settings-missed-window"),
+        |ui| {
+            // The unit is in the label, "(Hours)", as for the custom length.
+            ui.spacing_mut().slider_width = (columns.field - 60.0).max(80.0);
+            changed |= ui
+                .add(egui::Slider::new(
+                    &mut reminders.missed_window_hours,
+                    MISSED_WINDOW_HOURS,
+                ))
+                .changed();
+        },
+    );
+    layout::field_hint(
+        ui,
+        columns,
+        &ot_i18n::text("settings-missed-window-hint"),
+        tokens.text_dim,
+    );
+    ui.add_space(layout::ROW_GAP);
+
     changed
+}
+
+/// One missed reminder as the list shows it: text already in the user's
+/// language and already formatted, so nothing is formatted per frame.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct MissedRow {
+    /// The reminder's own title as typed, or its type's name.
+    pub title: String,
+    /// "Due …", through the one formatter.
+    pub due: String,
+    /// False once the fire has been snoozed as often as allowed.
+    pub can_snooze: bool,
+}
+
+/// What a button in the missed list asked for.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum MissedAction {
+    Snooze,
+    Dismiss,
+}
+
+/// The missed reminders, each with Snooze and Dismiss, or a sentence saying
+/// there are none (`docs/specs/reminders.md` §6). Returns the row whose button
+/// was pressed, and which.
+pub fn missed_list(
+    ui: &mut egui::Ui,
+    rows: &[MissedRow],
+    tokens: Tokens,
+) -> Option<(usize, MissedAction)> {
+    ui.label(egui::RichText::new(ot_i18n::text("settings-missed-heading")).strong());
+    ui.add_space(layout::ROW_GAP);
+    if rows.is_empty() {
+        ui.label(
+            egui::RichText::new(ot_i18n::text("settings-missed-empty")).color(tokens.text_dim),
+        );
+        return None;
+    }
+    let mut pressed = None;
+    for (index, row) in rows.iter().enumerate() {
+        // The title is the user's, any length: it truncates rather than
+        // pushing the buttons off the pane.
+        ui.add(egui::Label::new(&row.title).truncate());
+        // The due line on its own row, under the title, and the buttons on
+        // the next: a text beside taller buttons would not share their middle
+        // line (ui.md). The buttons wrap on a narrow pane.
+        ui.label(egui::RichText::new(&row.due).color(tokens.text_dim));
+        let height = layout::field_height(ui);
+        ui.horizontal_wrapped(|ui| {
+            let snooze = egui::Button::new(ot_i18n::text("toast-action-snooze"))
+                .min_size(egui::vec2(0.0, height));
+            if ui.add_enabled(row.can_snooze, snooze).clicked() {
+                pressed = Some((index, MissedAction::Snooze));
+            }
+            let dismiss = egui::Button::new(ot_i18n::text("toast-action-dismiss"))
+                .min_size(egui::vec2(0.0, height));
+            if ui.add(dismiss).clicked() {
+                pressed = Some((index, MissedAction::Dismiss));
+            }
+        });
+        ui.add_space(layout::ROW_GAP);
+    }
+    pressed
 }

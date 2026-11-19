@@ -47,6 +47,18 @@ const HELD_RETRY: Duration = Duration::from_millis(100);
 /// before it counts as the clock having been changed.
 const JUMP_TOLERANCE: SignedDuration = SignedDuration::from_secs(2);
 
+/// How late a fire may be and still be a toast. Later than this, the machine
+/// was off or asleep or the clock jumped, and the fire is a missed one
+/// (`docs/specs/reminders.md` §6).
+pub const MISSED_AFTER: SignedDuration = SignedDuration::from_secs(60);
+
+/// The catch-up window for a reminder until the settings say otherwise.
+pub const DEFAULT_MISSED_WINDOW_HOURS: u32 = 24;
+
+/// The most skipped occurrences of one reminder walked through to find its
+/// latest, so a five-minute reminder off for a year cannot stall the thread.
+const MAX_SKIPPED: u32 = 10_000;
+
 /// Why the queue is being rebuilt. Logged, so the log says why a fire time
 /// moved.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -83,6 +95,8 @@ pub enum Command {
         snoozes: u32,
         limit: u32,
     },
+    /// The catch-up window changed in Settings ▸ Reminders.
+    SetMissedWindow { hours: u32 },
 }
 
 /// One fire, sent to the UI with what it needs to build the toast, so the UI
@@ -98,6 +112,9 @@ pub struct Fired {
     /// How many times this fire has been snoozed: 0 for a reminder's own
     /// time, 1 for the first snooze's return, and so on.
     pub snoozes: u32,
+    /// Its time passed while the PC was off or asleep, or the clock jumped:
+    /// listed with the missed reminders rather than shown as a toast.
+    pub missed: bool,
 }
 
 /// The UI's receiving end has gone, so there is no one left to fire to.
@@ -135,6 +152,9 @@ pub struct Core {
     horizon: Timestamp,
     /// The next local midnight, when the queue is rebuilt.
     midnight: Timestamp,
+    /// How old a missed fire may be and still be listed; older ones are
+    /// dropped with a log line and a `missed` row.
+    missed_window: SignedDuration,
 }
 
 impl Core {
@@ -150,9 +170,15 @@ impl Core {
             held: VecDeque::new(),
             horizon: now,
             midnight,
+            missed_window: SignedDuration::from_hours(i64::from(DEFAULT_MISSED_WINDOW_HOURS)),
         };
         core.rebuild(now);
         core
+    }
+
+    /// Set the catch-up window, in hours (Settings ▸ Reminders).
+    pub fn set_missed_window(&mut self, hours: u32) {
+        self.missed_window = SignedDuration::from_hours(i64::from(hours));
     }
 
     /// The next fire waiting, if any.
@@ -194,6 +220,7 @@ impl Core {
                 snoozes,
                 limit,
             } => self.snooze(reminder_id, fired_at, minutes, snoozes, limit, now),
+            Command::SetMissedWindow { hours } => self.set_missed_window(hours),
         }
     }
 
@@ -238,6 +265,31 @@ impl Core {
                     continue;
                 }
             };
+            // A fire this late was missed. Only the latest of a recurring
+            // reminder's skipped occurrences is listed, and only if it is
+            // inside the catch-up window; the rest are dropped with a log
+            // line and one `missed` row (docs/specs/reminders.md §6).
+            let late = now.duration_since(fire.at) > MISSED_AFTER;
+            let (fire, dropped) = if late && kind == Kind::Regular {
+                self.latest_skipped(&reminder, fire, now)
+            } else {
+                (fire, None)
+            };
+            let listed = !late || now.duration_since(fire.at) <= self.missed_window;
+            let dropped = if listed {
+                dropped
+            } else {
+                Some((fire.at, dropped.map_or(1, |(_, n)| n + 1)))
+            };
+            if let Some((newest, count)) = dropped {
+                tracing::info!(
+                    reminder = id,
+                    count,
+                    newest = %newest,
+                    "missed fires older than the catch-up window were dropped"
+                );
+                self.record(id, newest, NotificationAction::Missed);
+            }
             let template = reminder.draft.category_id.and_then(|category| {
                 self.store
                     .template(category)
@@ -265,13 +317,16 @@ impl Core {
                     self.store_next(id);
                 }
             }
-            self.held.push_back(Fired {
-                reminder_id: id,
-                fire,
-                reminder,
-                template,
-                snoozes,
-            });
+            if listed {
+                self.held.push_back(Fired {
+                    reminder_id: id,
+                    fire,
+                    reminder,
+                    template,
+                    snoozes,
+                    missed: late,
+                });
+            }
         }
 
         self.horizon = self.horizon.max(now);
@@ -338,15 +393,51 @@ impl Core {
         self.midnight = next_midnight(now, &self.tz);
     }
 
+    /// Walk a recurring reminder's occurrences from `first` to the latest at
+    /// or before `now`. Returns that one, and the newest skipped before it
+    /// with how many were skipped, if any.
+    fn latest_skipped(
+        &self,
+        reminder: &Reminder,
+        first: Fire,
+        now: Timestamp,
+    ) -> (Fire, Option<(Timestamp, u32)>) {
+        let mut latest = first;
+        let mut skipped: Option<(Timestamp, u32)> = None;
+        while let Some(next) = next_fire(
+            &reminder.draft.trigger,
+            reminder.draft.recurrence.as_ref(),
+            latest.at,
+            &self.tz,
+        ) {
+            if next.at > now || skipped.is_some_and(|(_, n)| n >= MAX_SKIPPED) {
+                break;
+            }
+            skipped = Some((latest.at, skipped.map_or(1, |(_, n)| n + 1)));
+            latest = next;
+        }
+        (latest, skipped)
+    }
+
     /// Queue a reminder's own next fire after `after`, if it is active or
     /// snoozed and has one, and its waiting snooze if it is snoozed — read
     /// from the snooze log, which is how a snooze survives a restart.
+    ///
+    /// A stored next fire time earlier than `after` is a fire nobody saw —
+    /// the app was not running, or the machine slept — so the queue starts
+    /// from it, and `tick` finds it missed rather than skipping it.
     fn schedule(&mut self, reminder: &Reminder, after: Timestamp) {
         let id = reminder.id;
         self.unschedule(id);
         if !matches!(reminder.status, Status::Active | Status::Snoozed) {
             return;
         }
+        let after = match reminder.next_fire_at {
+            Some(stored) if stored <= after => stored
+                .checked_sub(SignedDuration::from_nanos(1))
+                .unwrap_or(stored),
+            _ => after,
+        };
         let next = next_fire(
             &reminder.draft.trigger,
             reminder.draft.recurrence.as_ref(),
@@ -522,11 +613,15 @@ pub struct Scheduler {
 impl Scheduler {
     /// Start the thread. It takes the store for its own: the UI opens its own
     /// connection (`ot_store`'s WAL lets both read and write).
-    pub fn spawn(store: Store, fires: SyncSender<Fired>) -> std::io::Result<Self> {
+    pub fn spawn(
+        store: Store,
+        fires: SyncSender<Fired>,
+        missed_window_hours: u32,
+    ) -> std::io::Result<Self> {
         let (commands, incoming) = mpsc::channel();
         let thread = std::thread::Builder::new()
             .name("scheduler".into())
-            .spawn(move || run(store, &fires, &incoming))?;
+            .spawn(move || run(store, &fires, &incoming, missed_window_hours))?;
         Ok(Self {
             commands,
             _thread: thread,
@@ -539,10 +634,16 @@ impl Scheduler {
     }
 }
 
-fn run(store: Store, fires: &SyncSender<Fired>, commands: &Receiver<Command>) {
+fn run(
+    store: Store,
+    fires: &SyncSender<Fired>,
+    commands: &Receiver<Command>,
+    missed_window_hours: u32,
+) {
     let mut tz = TimeZone::system();
     let mut now = Timestamp::now();
     let mut core = Core::new(store, now, tz.clone());
+    core.set_missed_window(missed_window_hours);
     tracing::info!(next = ?core.next().map(|(id, fire)| (id, fire.at)), "the scheduler started");
 
     loop {
@@ -932,6 +1033,110 @@ mod tests {
     }
 
     #[test]
+    fn a_reminder_due_while_the_app_was_off_is_listed_at_the_next_start() {
+        let store = Store::open_in_memory().expect("opens");
+        let id = store
+            .create_reminder(&draft(at("2026-11-19T10:00"), None))
+            .expect("creates");
+        let core = Core::new(store, instant("2026-11-19T09:00Z"), TimeZone::UTC);
+        // The app quits before 10:00 and starts again at 12:00.
+        let store = core.into_store();
+        let (out, fires) = fire_channel();
+        let mut core = Core::new(store, instant("2026-11-19T12:00Z"), TimeZone::UTC);
+        core.tick(instant("2026-11-19T12:00Z"), &out)
+            .expect("connected");
+        let fired = fires.try_recv().expect("listed, not skipped");
+        assert_eq!(fired.reminder_id, id);
+        assert_eq!(fired.fire.at, instant("2026-11-19T10:00Z"));
+        assert!(fired.missed, "a list entry, not a toast");
+    }
+
+    #[test]
+    fn a_minute_late_is_a_toast_and_later_is_missed() {
+        for (now, missed) in [
+            ("2026-11-19T10:01:00Z", false),
+            ("2026-11-19T10:01:00.001Z", true),
+        ] {
+            let store = Store::open_in_memory().expect("opens");
+            store
+                .create_reminder(&draft(at("2026-11-19T10:00"), None))
+                .expect("creates");
+            let (out, fires) = fire_channel();
+            let mut core = Core::new(store, instant("2026-11-19T09:00Z"), TimeZone::UTC);
+            core.tick(instant(now), &out).expect("connected");
+            assert_eq!(fires.try_recv().expect("delivered").missed, missed, "{now}");
+        }
+    }
+
+    #[test]
+    fn the_catch_up_window_lists_at_its_edge_and_drops_past_it() {
+        for (now, listed) in [
+            ("2026-11-20T10:00:00Z", true),
+            ("2026-11-20T10:00:00.001Z", false),
+        ] {
+            let store = Store::open_in_memory().expect("opens");
+            let id = store
+                .create_reminder(&draft(at("2026-11-19T10:00"), None))
+                .expect("creates");
+            let core = Core::new(store, instant("2026-11-19T09:00Z"), TimeZone::UTC);
+            let store = core.into_store();
+            let (out, fires) = fire_channel();
+            let mut core = Core::new(store, instant(now), TimeZone::UTC);
+            core.tick(instant(now), &out).expect("connected");
+            let history = core.store.history(id).expect("reads");
+            if listed {
+                assert!(fires.try_recv().expect("listed").missed, "{now}");
+                assert!(history.is_empty(), "the UI writes the listed row");
+            } else {
+                assert!(fires.try_recv().is_err(), "dropped at {now}");
+                assert_eq!(
+                    history,
+                    vec![(instant("2026-11-19T10:00Z"), NotificationAction::Missed)]
+                );
+            }
+        }
+    }
+
+    #[test]
+    fn a_shorter_window_drops_what_the_default_would_list() {
+        let store = Store::open_in_memory().expect("opens");
+        store
+            .create_reminder(&draft(at("2026-11-19T10:00"), None))
+            .expect("creates");
+        let (out, fires) = fire_channel();
+        let mut core = Core::new(store, instant("2026-11-19T09:00Z"), TimeZone::UTC);
+        core.apply(
+            Command::SetMissedWindow { hours: 1 },
+            instant("2026-11-19T09:00Z"),
+        );
+        core.tick(instant("2026-11-19T11:00:01Z"), &out)
+            .expect("connected");
+        assert!(fires.try_recv().is_err(), "two hours old, one-hour window");
+    }
+
+    #[test]
+    fn after_a_resume_the_reminders_due_during_the_sleep_are_listed() {
+        let store = Store::open_in_memory().expect("opens");
+        let first = store
+            .create_reminder(&draft(at("2026-11-19T10:00"), None))
+            .expect("creates");
+        let second = store
+            .create_reminder(&draft(at("2026-11-19T10:30"), None))
+            .expect("creates");
+        let (out, fires) = fire_channel();
+        let mut core = Core::new(store, instant("2026-11-19T09:00Z"), TimeZone::UTC);
+        // Asleep from 09:30 to 11:00.
+        let woke = instant("2026-11-19T11:00Z");
+        core.apply(Command::Recompute(Recompute::Resumed), woke);
+        core.tick(woke, &out).expect("connected");
+        let listed: Vec<_> = fires
+            .try_iter()
+            .map(|f| (f.reminder_id, f.missed))
+            .collect();
+        assert_eq!(listed, vec![(first, true), (second, true)]);
+    }
+
+    #[test]
     fn a_removed_reminder_never_fires() {
         let store = Store::open_in_memory().expect("opens");
         let id = store
@@ -975,7 +1180,7 @@ mod tests {
     }
 
     #[test]
-    fn a_clock_jumped_forward_fires_what_it_skipped_once() {
+    fn a_clock_jumped_forward_lists_the_latest_skipped_and_drops_the_rest() {
         let store = Store::open_in_memory().expect("opens");
         let id = store
             .create_reminder(&draft(at("2026-11-19T10:00"), daily()))
@@ -983,12 +1188,22 @@ mod tests {
         let (out, fires) = fire_channel();
         let mut core = Core::new(store, instant("2026-11-19T09:00Z"), TimeZone::UTC);
 
-        // Three days later in one step.
+        // Three days later in one step. Today's 10:00 is two hours old and
+        // inside the window, so it is listed; the three before it are not.
         let later = instant("2026-11-22T12:00Z");
         core.apply(Command::Recompute(Recompute::ClockChanged), later);
         core.tick(later, &out).expect("connected");
 
-        assert_eq!(drain(&fires), vec![(id, instant("2026-11-19T10:00Z"))]);
+        let fired = fires.try_recv().expect("listed");
+        assert_eq!(fired.reminder_id, id);
+        assert_eq!(fired.fire.at, instant("2026-11-22T10:00Z"));
+        assert!(fired.missed);
+        assert!(fires.try_recv().is_err(), "once, not four times");
+        assert_eq!(
+            core.store.history(id).expect("reads"),
+            vec![(instant("2026-11-21T10:00Z"), NotificationAction::Missed)],
+            "the dropped ones are one row, at the newest of them"
+        );
         assert_eq!(
             core.next().map(|(_, fire)| fire.at),
             Some(instant("2026-11-23T10:00Z")),
@@ -1167,7 +1382,7 @@ mod tests {
             .expect("creates");
 
         let (out, fires) = fire_channel();
-        let scheduler = Scheduler::spawn(store, out).expect("starts");
+        let scheduler = Scheduler::spawn(store, out, DEFAULT_MISSED_WINDOW_HOURS).expect("starts");
         let fired = fires.recv_timeout(Duration::from_secs(10)).expect("fires");
         let received = Timestamp::now();
 

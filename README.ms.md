@@ -63,7 +63,10 @@ menangguhkan peringatan selama 5 minit, 15 minit, sejam, sehari atau tempoh
 pilihan anda sendiri, yang dipilih dalam Tetapan ▸ Peringatan, sehingga had
 bagi setiap paparan (10 secara lalai); selepas itu toast hanya menawarkan
 Tutup dan menyatakannya. Peringatan yang terlepas semasa PC dimatikan atau tidur
-disenaraikan apabila aplikasi bermula semula.
+tidak dipaparkan serentak apabila aplikasi bermula semula: satu toast
+memberitahu ada yang terlepas, dan Tetapan ▸ Peringatan menyenaraikannya
+dengan Tunda dan Tutup. Yang lebih lama daripada tempoh susulan (24 jam secara
+lalai) digugurkan dan direkodkan.
 
 ## Dwibahasa
 
@@ -298,8 +301,9 @@ dengan gambar yang disertakan bersama aplikasi disenaraikan di bawahnya:
 Skrin yang sama dalam bahasa Melayu:
 [settings-pictures-ms.png](docs/screenshots/settings-pictures-ms.png).
 
-Tetapan ▸ Peringatan, tempat tempoh dan had Tunda ditetapkan; senarai
-peringatan dan penyuntingnya menyusul dalam langkah kemudian:
+Tetapan ▸ Peringatan, dengan peringatan yang terlepas di atas tempoh dan had
+Tunda serta tempoh susulan; senarai peringatan dan penyuntingnya menyusul dalam
+langkah kemudian:
 
 ![Tetapan ▸ Peringatan dengan tempoh tunda tersuai](docs/screenshots/settings-reminders.png)
 

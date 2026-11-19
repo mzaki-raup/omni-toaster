@@ -235,15 +235,16 @@ date library it will keep.
 - **Notes:** App, 2026-11-19 at 18:35 local time, debug worker with the new debug-only `--alarm-cap 30` and an 8 s display duration: an Alarm ("Wake up") and a Task fired together, 12 ms late; at 28 s only the Alarm was on screen, at 42 s still, and it closed 30.7 s after appearing (the cap plus its animations), logging "an alarm closed at its cap"; the history read Wake up shown, Water the plants shown, Wake up missed. Hover pausing an alarm's countdown is the same code as every toast's (Phase 2) and was not looked at again. GOTCHAS: nothing new went wrong. The Duration row of the CHECKLIST is mostly Phase 2's (FEAT-0026) and BUG-0009's; this item adds the alarm exception.
 
 ### FEAT-0045 · Missed reminders
-- **State:** Pending · **Spec:** docs/specs/reminders.md §6 · **Phase:** 4
+- **State:** In-Progress · **Spec:** docs/specs/reminders.md §6 · **Phase:** 4
 - **Branch:** feat/phase-4-scheduler
 - **Depends on:** FEAT-0041
-- [ ] At start, reminders whose time passed while the PC was off or asleep are listed — not fired all at once — with Dismiss and Snooze
-- [ ] Catch-up windows: 1 hour for Azan, 24 hours for everything else, both configurable; older ones dropped with a log line and a `missed` row
-- [ ] Test: inside the window listed, outside dropped and logged, at both window edges; the list after a simulated resume
-- [ ] Gate: fmt · clippy -D warnings · test --workspace --locked -j 4 · deny check · --self-test
-- [ ] App: `--data-dir ./tmp-data` — quit the app, let a reminder's time pass, start it again: the list shows it; dismiss and snooze from the list, in both languages
-- [ ] Docs: spec · README · CHANGELOG · CHECKLIST · GOTCHAS
+- [x] At start, reminders whose time passed while the PC was off or asleep are listed — not fired all at once — with Dismiss and Snooze — a fire more than a minute late is missed; one toast says so and its Open lands on Settings ▸ Reminders' Missed Reminders, each row with Snooze and Dismiss; a recurring reminder is listed once, at its latest occurrence
+- [ ] Catch-up windows: 1 hour for Azan, 24 hours for everything else, both configurable; older ones dropped with a log line and a `missed` row — the 24-hour window is done and configurable (Catch-Up Window (Hours), 1 to 168); Azan's one-hour window waits for Azan (Phase 5), since nothing fires an Azan before then
+- [x] Test: inside the window listed, outside dropped and logged, at both window edges; the list after a simulated resume — seven scheduler tests: a reminder due while the app was off listed at the next start, the one-minute edge both sides, the window edge both sides (24 h listed, 24 h + 1 ms dropped with its row), a shorter window, a resume listing two, and a clock jumped three days listing the latest and dropping the rest as one row; the missed list in the layout test with a long Malay title
+- [x] Gate: fmt · clippy -D warnings · test --workspace --locked -j 4 (329 passed) · deny check · --self-test
+- [x] App: `--data-dir ./tmp-data` — quit the app, let a reminder's time pass, start it again: the list shows it; dismiss and snooze from the list, in both languages
+- [x] Docs: spec · README · CHANGELOG · CHECKLIST · GOTCHAS
+- **Notes:** App, 2026-11-19 from 22:06 local time, debug worker on scratch folders, with a 1-minute snooze. Each language: a first run stored next fire times for two reminders and quit before either; a third reminder was planted with a stored time 30 hours old; the second run started over a minute after both times. English Dark: the 30-hour one was dropped ("missed fires older than the catch-up window were dropped", a `missed` row); one "Missed Reminders" toast came up with Snooze greyed; its Open showed Settings ▸ Reminders with both listed and "Due 19/11/2026 at 10:07 pm"; Dismiss on one wrote `dismissed`, Snooze on the other wrote `snoozed` and it came back as a toast a minute later, 14 ms late. Malay Light: the same, with "Peringatan Terlepas", "Tunda" and "Tutup", ending on "Tiada peringatan yang terlepas."; the Malay due line read "Sepatutnya pada … pada 22:15" and became "Sepatutnya { $time }". The first row layout centred the due text in a layout that took the whole scroll height — caught on screen, not by the layout test (GOTCHAS); the due text now has its own row. The pane was looked at again in English Dark, Malay Dark and Malay at 560 px; the README screenshots were retaken. In-Progress only for Azan's window.
 
 ### FEAT-0046 · Settings ▸ Reminders
 - **State:** Pending · **Spec:** docs/04-ui-design.md · docs/specs/reminders.md §10 · **Phase:** 4

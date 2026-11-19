@@ -69,6 +69,10 @@ toast-action-dismiss = Dismiss
 toast-action-open = Open
 # Shown in the action row beside Dismiss, once a reminder has been snoozed as many times as Settings ▸ Reminders allows.
 toast-snooze-limit = No more snoozes for this reminder.
+# The title of the one toast that says reminders were missed while the PC was off or asleep.
+toast-missed-title = Missed Reminders
+# The body of that toast. "Open" is the toast's Open button, which shows the list.
+toast-missed-body = Some reminders came due while the PC was off or asleep. Open shows them.
 
 ## Where a toast appears: nine presets — four corners, four edges and the
 ## centre — plus the custom point. Shown in Settings ▸ Appearance. Title Case,
@@ -208,14 +212,22 @@ settings-snooze-1-hour = 1 Hour
 settings-snooze-1-day = 1 Day
 # Snooze Length choice: a length the user types in.
 settings-snooze-custom = Custom
-# The field for a custom snooze length, shown when Custom is chosen.
-settings-snooze-custom-length = Custom Length
-# The unit after the custom length's number.
-settings-snooze-minutes-unit = minutes
+# The field for a custom snooze length, shown when Custom is chosen. The unit is in the label, not after the number.
+settings-snooze-custom-length = Custom Length (Minutes)
 # A slider: how many times one reminder's toast may be snoozed.
 settings-snooze-limit = Snooze Limit
 # Hint under Snooze Limit.
 settings-snooze-limit-hint = After this many snoozes, the toast offers only Dismiss.
+# A slider: how many hours back a reminder missed while the PC was off or asleep is still listed. The unit is in the label.
+settings-missed-window = Catch-Up Window (Hours)
+# Hint under Catch-Up Window.
+settings-missed-window-hint = Reminders missed while the PC was off or asleep are listed if they are this recent; older ones are dropped.
+# The heading of the list of missed reminders, at the top of Settings ▸ Reminders.
+settings-missed-heading = Missed Reminders
+# The missed list's empty state.
+settings-missed-empty = No reminders were missed.
+# Under a missed reminder's title. $time is its date and time, already formatted.
+settings-missed-due = Due { $time }
 
 ## Settings ▸ Animation. Title Case for the labels, sentence case for the hints.
 

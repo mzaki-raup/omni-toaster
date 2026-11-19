@@ -74,6 +74,20 @@ fn overflowing(width: f32, scale: f32) -> Vec<String> {
             // Settings > Reminders (FEAT-0043), with a custom length so the
             // Custom Length row is laid out too.
             ot_ui::reminders::snooze_controls(ui, columns, &mut reminders, ot_ui::Tokens::DARK);
+            // The missed list (FEAT-0045), with a title far longer than the
+            // pane, which must truncate rather than run past it.
+            let _ = ot_ui::reminders::missed_list(
+                ui,
+                &[ot_ui::reminders::MissedRow {
+                    title: "Bayar bil elektrik, air dan cukai pintu sebelum hujung bulan ini supaya tidak dikenakan denda lewat".to_owned(),
+                    due: ot_i18n::text_with(
+                        "settings-missed-due",
+                        &[("time", "Khamis, 19 November 2026, 10:00".into())],
+                    ),
+                    can_snooze: true,
+                }],
+                ot_ui::Tokens::DARK,
+            );
         });
     // The real font set: with `default_fonts` off, the harness's own
     // context would measure every glyph as zero wide and pass anything.

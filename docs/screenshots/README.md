@@ -13,7 +13,9 @@ the Settings ▸ General pane in both languages, taken from a release build on a
 scratch `--data-dir` when FEAT-0014 landed; and `settings-reminders.png` and
 `settings-reminders-ms.png`, Settings ▸ Reminders' Snooze section with a
 custom length, Dark, from a debug build on a scratch `--data-dir` when
-FEAT-0043 landed — to be retaken when FEAT-0046 adds the list and editor. Everything else below is still a
+FEAT-0043 landed and retaken for FEAT-0045 with the missed list's empty
+state and the catch-up window — to be retaken when FEAT-0046 adds the list and
+editor. Everything else below is still a
 placeholder name reserved for the phase that first produces that screen; the
 README says plainly that those images do not exist yet rather than linking to
 nothing.

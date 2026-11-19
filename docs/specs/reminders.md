@@ -86,6 +86,28 @@ and snooze options, rather than firing all at once.
 Both configurable. Anything older than its window is dropped with a log line,
 not shown — a reminder from three weeks ago is noise.
 
+How it works (FEAT-0045):
+
+- A fire is **missed** when it is due more than a minute late — the PC was off
+  or asleep, or the clock jumped. Within a minute it is an ordinary toast.
+- At start, a reminder whose stored `next_fire_at` has passed is queued at that
+  time, not skipped, so the scheduler sees it was missed. The same holds after
+  a resume or a clock jump, which rebuild the queue.
+- Of a recurring reminder's skipped occurrences, only the **latest** is listed,
+  if it is inside the window; the older ones are dropped with one log line
+  giving their count and one `missed` row at the newest of them. A one-off
+  outside the window is dropped the same way.
+- Listed fires are written as `missed` and gathered in **Settings ▸ Reminders,
+  Missed Reminders**, each with its title, "Due …" through the one formatter,
+  and Snooze (greyed at the snooze limit) and Dismiss, which write `snoozed`
+  and `dismissed`. One toast says reminders were missed; its Open lands on the
+  list. The list says "No reminders were missed." when it is empty.
+- The list lives for the run: a missed reminder left there when the app quits
+  has its `missed` row and is not listed again.
+- The window for reminders is Catch-Up Window (Hours) in Settings ▸ Reminders,
+  1 to 168, `[reminders] missed_window_hours`. **Azan's one-hour window comes
+  with Azan in Phase 5**; nothing generates an Azan fire before then.
+
 ## 7. Time correctness
 
 This is where this feature earns its keep, and where it is easiest to get
@@ -256,3 +278,7 @@ FEAT-0039 to FEAT-0048 in `docs/TASKS.md` under `v0.4.0`.
   untouched writes a `missed` history row; every other type keeps the 3–60 s
   display duration. A debug build's `--alarm-cap <seconds>` shortens the cap
   for checking it.
+- **Missed reminders (FEAT-0045).** §6 as written, for every type but Azan,
+  whose window comes with it in Phase 5. `Fired::missed` marks a fire more
+  than a minute late; `Core::set_missed_window` / `Command::SetMissedWindow`
+  carry the window from Settings.

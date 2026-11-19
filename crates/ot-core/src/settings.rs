@@ -76,6 +76,10 @@ pub struct Reminders {
     /// How many times one fire may be snoozed before its toast offers only
     /// Dismiss, within [`SNOOZE_LIMIT`].
     pub snooze_limit: u32,
+    /// How old a reminder missed while the PC was off or asleep may be and
+    /// still be listed at the next start, in hours, within
+    /// [`MISSED_WINDOW_HOURS`] (`docs/specs/reminders.md` §6).
+    pub missed_window_hours: u32,
 }
 
 /// The snooze durations offered by name, in minutes: 5 minutes, 15 minutes,
@@ -88,11 +92,15 @@ pub const SNOOZE_MINUTES: std::ops::RangeInclusive<u32> = 1..=10_080;
 /// How many snoozes a fire may have.
 pub const SNOOZE_LIMIT: std::ops::RangeInclusive<u32> = 1..=50;
 
+/// The catch-up window for missed reminders, in hours: one hour to a week.
+pub const MISSED_WINDOW_HOURS: std::ops::RangeInclusive<u32> = 1..=168;
+
 impl Default for Reminders {
     fn default() -> Self {
         Self {
             snooze_minutes: 15,
             snooze_limit: 10,
+            missed_window_hours: 24,
         }
     }
 }
@@ -108,6 +116,9 @@ impl Reminders {
             snooze_limit: self
                 .snooze_limit
                 .clamp(*SNOOZE_LIMIT.start(), *SNOOZE_LIMIT.end()),
+            missed_window_hours: self
+                .missed_window_hours
+                .clamp(*MISSED_WINDOW_HOURS.start(), *MISSED_WINDOW_HOURS.end()),
         }
     }
 }
@@ -320,7 +331,8 @@ mod tests {
             Settings::default().reminders,
             Reminders {
                 snooze_minutes: 15,
-                snooze_limit: 10
+                snooze_limit: 10,
+                missed_window_hours: 24,
             }
         );
         let mut settings = Settings::default();
@@ -335,10 +347,12 @@ mod tests {
         let wild = Reminders {
             snooze_minutes: 0,
             snooze_limit: 1000,
+            missed_window_hours: 0,
         }
         .clamped();
         assert_eq!(wild.snooze_minutes, 1);
         assert_eq!(wild.snooze_limit, 50);
+        assert_eq!(wild.missed_window_hours, 1);
     }
 
     #[test]

@@ -65,6 +65,10 @@ toast-action-dismiss = Tutup
 toast-action-open = Buka
 # Ditunjukkan dalam baris tindakan di sebelah Tutup, apabila peringatan telah ditunda sebanyak yang dibenarkan oleh Tetapan ▸ Peringatan.
 toast-snooze-limit = Tiada lagi tundaan untuk peringatan ini.
+# Tajuk satu-satunya toast yang memberitahu peringatan terlepas semasa PC dimatikan atau tidur.
+toast-missed-title = Peringatan Terlepas
+# Isi toast itu. "Buka" ialah butang Buka pada toast, yang menunjukkan senarainya.
+toast-missed-body = Beberapa peringatan tiba masanya semasa PC dimatikan atau tidur. Buka untuk melihatnya.
 
 ## Tempat toast muncul: sembilan kedudukan pratetap — empat bucu, empat tepi
 ## dan tengah — serta kedudukan tersuai. Ditunjukkan dalam
@@ -203,14 +207,22 @@ settings-snooze-1-hour = 1 Jam
 settings-snooze-1-day = 1 Hari
 # Pilihan Tempoh Tunda: tempoh yang ditaip oleh pengguna.
 settings-snooze-custom = Tersuai
-# Medan untuk tempoh tunda tersuai, ditunjukkan apabila Tersuai dipilih.
-settings-snooze-custom-length = Tempoh Tersuai
-# Unit selepas nombor tempoh tersuai.
-settings-snooze-minutes-unit = minit
+# Medan untuk tempoh tunda tersuai, ditunjukkan apabila Tersuai dipilih. Unitnya dalam label, bukan selepas nombor.
+settings-snooze-custom-length = Tempoh Tersuai (Minit)
 # Gelangsar: berapa kali toast satu peringatan boleh ditunda.
 settings-snooze-limit = Had Tundaan
 # Petunjuk di bawah Had Tundaan.
 settings-snooze-limit-hint = Selepas sebanyak ini tundaan, toast hanya menawarkan Tutup.
+# Gelangsar: berapa jam ke belakang peringatan yang terlepas semasa PC dimatikan atau tidur masih disenaraikan. Unitnya dalam label.
+settings-missed-window = Tempoh Susulan (Jam)
+# Petunjuk di bawah Tempoh Susulan.
+settings-missed-window-hint = Peringatan yang terlepas semasa PC dimatikan atau tidur disenaraikan jika ia sebaru ini; yang lebih lama digugurkan.
+# Tajuk senarai peringatan yang terlepas, di bahagian atas Tetapan ▸ Peringatan.
+settings-missed-heading = Peringatan Terlepas
+# Keadaan kosong senarai peringatan terlepas.
+settings-missed-empty = Tiada peringatan yang terlepas.
+# Di bawah tajuk peringatan yang terlepas. $time ialah tarikh dan masanya, sudah diformat.
+settings-missed-due = Sepatutnya { $time }
 
 ## Tetapan ▸ Animasi. Huruf Besar Setiap Perkataan untuk label, huruf biasa
 ## untuk petunjuk.

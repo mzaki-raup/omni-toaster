@@ -318,6 +318,22 @@ pub struct SettingsWindow {
     /// Set when Settings ▸ Reminders changed and has not been written yet;
     /// written when the pointer is released, as in Appearance.
     reminders_dirty: bool,
+    /// Reminders missed while the PC was off or asleep, listed in Settings ▸
+    /// Reminders with Snooze and Dismiss (docs/specs/reminders.md §6).
+    missed: Vec<MissedEntry>,
+    /// The one toast saying reminders were missed, while it is up; its Open
+    /// lands on the list.
+    missed_toast: Option<ot_toast::ToastId>,
+}
+
+/// A missed fire in the list: what its buttons act on, and its row's text,
+/// formatted once when it arrived rather than every frame.
+#[derive(Debug, Clone)]
+struct MissedEntry {
+    reminder_id: i64,
+    fired_at: jiff::Timestamp,
+    snoozes: u32,
+    row: crate::reminders::MissedRow,
 }
 
 /// Which fire a reminder toast is, for its buttons.
@@ -414,6 +430,8 @@ impl SettingsWindow {
             scheduler: None,
             reminder_toasts: HashMap::new(),
             reminders_dirty: false,
+            missed: Vec::new(),
+            missed_toast: None,
         }
     }
 
@@ -802,6 +820,9 @@ impl SettingsWindow {
             // left until egui notices a frame without it.
             ctx.send_viewport_cmd_to(id.viewport_id(), egui::ViewportCommand::Close);
             ot_platform::toast_window::forget(&id.window_title());
+            if self.missed_toast == Some(id) {
+                self.missed_toast = None;
+            }
             // A reminder toast that left on its own was shown and nothing
             // more; its row was written when it appeared. A persistent one
             // waited to be acted on and was not: it closed at its cap, and
@@ -1070,8 +1091,15 @@ impl SettingsWindow {
             self.toasts.dismiss(id, now);
             if action == ot_toast::Action::Open {
                 // Settings comes forward; landing on the reminder itself
-                // needs the reminder list (FEAT-0046).
+                // needs the reminder list (FEAT-0046). The missed toast's
+                // Open lands on the missed list.
                 self.show_window(ctx);
+                if self.missed_toast == Some(id) {
+                    self.section = Section::Reminders;
+                }
+            }
+            if self.missed_toast == Some(id) {
+                self.missed_toast = None;
             }
             let Some(toast) = self.reminder_toasts.remove(&id) else {
                 continue;
@@ -1168,10 +1196,18 @@ impl SettingsWindow {
     /// Settings ▸ Reminders: for now, the Snooze section.
     fn reminders_pane(&mut self, ui: &mut egui::Ui) {
         let tokens = self.theme.tokens();
+        let rows: Vec<crate::reminders::MissedRow> =
+            self.missed.iter().map(|entry| entry.row.clone()).collect();
+        let mut pressed = None;
         egui::ScrollArea::vertical()
             .auto_shrink([false, false])
             .show(ui, |ui| {
+                pressed = crate::reminders::missed_list(ui, &rows, tokens);
+                ui.add_space(layout::ROW_GAP);
+                ui.separator();
+                ui.add_space(layout::ROW_GAP);
                 let columns = layout::columns(ui);
+                let window = self.settings.reminders.missed_window_hours;
                 if crate::reminders::snooze_controls(
                     ui,
                     columns,
@@ -1180,7 +1216,36 @@ impl SettingsWindow {
                 ) {
                     self.reminders_dirty = true;
                 }
+                if self.settings.reminders.missed_window_hours != window {
+                    self.send(ot_sched::scheduler::Command::SetMissedWindow {
+                        hours: self.settings.reminders.clamped().missed_window_hours,
+                    });
+                }
             });
+        if let Some((index, action)) = pressed
+            && index < self.missed.len()
+        {
+            let entry = self.missed.remove(index);
+            match action {
+                crate::reminders::MissedAction::Snooze => {
+                    let settings = self.settings.reminders.clamped();
+                    self.send(ot_sched::scheduler::Command::Snooze {
+                        reminder_id: entry.reminder_id,
+                        fired_at: entry.fired_at,
+                        minutes: settings.snooze_minutes,
+                        snoozes: entry.snoozes,
+                        limit: settings.snooze_limit,
+                    });
+                }
+                crate::reminders::MissedAction::Dismiss => {
+                    self.record(
+                        entry.reminder_id,
+                        entry.fired_at,
+                        NotificationAction::Dismissed,
+                    );
+                }
+            }
+        }
         // Written when the pointer is released: a slider dragged across its
         // range would otherwise rewrite the file at every step.
         if self.reminders_dirty && !ui.input(|i| i.pointer.any_down()) {
@@ -1766,8 +1831,35 @@ impl SettingsWindow {
             .take(ot_sched::scheduler::FIRE_CAPACITY)
             .collect();
         let now = jiff::Timestamp::now();
+        let mut any_missed = false;
         for fired in arrived {
             let fired_at = fired.fire.at;
+            // Missed while the PC was off or asleep: listed, not shown, so a
+            // morning does not open with a dozen toasts at once
+            // (docs/specs/reminders.md §6).
+            if fired.missed {
+                let limit = self.settings.reminders.clamped().snooze_limit;
+                let title =
+                    crate::reminder_toast::content(&fired.reminder, fired.template.as_ref(), None)
+                        .title;
+                self.missed.push(MissedEntry {
+                    reminder_id: fired.reminder_id,
+                    fired_at,
+                    snoozes: fired.snoozes,
+                    row: crate::reminders::MissedRow {
+                        title,
+                        due: ot_i18n::text_with(
+                            "settings-missed-due",
+                            &[("time", formatted_datetime(fired_at).into())],
+                        ),
+                        can_snooze: fired.snoozes < limit,
+                    },
+                });
+                tracing::info!(reminder = fired.reminder_id, "a missed reminder was listed");
+                self.record(fired.reminder_id, fired_at, NotificationAction::Missed);
+                any_missed = true;
+                continue;
+            }
             if self.pause.is_active(now) {
                 tracing::info!(
                     reminder = fired.reminder_id,
@@ -1808,6 +1900,30 @@ impl SettingsWindow {
             );
             self.record(fired.reminder_id, fired_at, NotificationAction::Shown);
         }
+        if any_missed {
+            self.announce_missed();
+        }
+    }
+
+    /// The one toast that says reminders were missed, unless it is already
+    /// up or notifications are paused. Built by the same function as every
+    /// toast; it has nothing to snooze.
+    fn announce_missed(&mut self) {
+        if self.missed_toast.is_some() || self.pause.is_active(jiff::Timestamp::now()) {
+            return;
+        }
+        let mut spec = self.prefs.spec(ot_toast::Content {
+            title: ot_i18n::text("toast-missed-title"),
+            body: ot_i18n::text("toast-missed-body"),
+            app_name: ot_i18n::text("toast-app-name"),
+            timestamp: Some(formatted_time(jiff::Timestamp::now())),
+            action_labels: crate::reminder_toast::action_labels(),
+            ..ot_toast::Content::default()
+        });
+        // Open is what the toast is for, and only the three-button row has
+        // it, so this toast has all three whatever the action setting says.
+        spec.behaviour.actions = 3;
+        self.missed_toast = Some(self.toasts.push(spec, Instant::now()));
     }
 
     /// Write a history row, through the scheduler's thread.
@@ -2060,6 +2176,17 @@ fn formatted_time(moment: jiff::Timestamp) -> String {
         .to_zoned_datetime(jiff::tz::TimeZone::system())
         .datetime();
     ot_i18n::format::format_time(&local, prefs)
+}
+
+/// A date and time through the one formatter, in the PC's own zone.
+fn formatted_datetime(moment: jiff::Timestamp) -> String {
+    let prefs = ot_i18n::format::TimePrefs::for_language(
+        ot_i18n::current_language().unwrap_or(Language::English),
+    );
+    let local = moment
+        .to_zoned_datetime(jiff::tz::TimeZone::system())
+        .datetime();
+    ot_i18n::format::format_datetime(&local, prefs)
 }
 
 /// The fonts, installed into a fresh `FontDefinitions`.
