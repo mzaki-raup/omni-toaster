@@ -22,8 +22,9 @@ library, and a live preview in Settings ▸ Appearance. The language and theme
 switch **while it runs**. Double-click the tray icon to open Settings; closing
 the window leaves the app running behind the icon, and Quit is in the tray
 menu, which also pauses all notifications for half an hour, an hour or until
-you resume them. Reminders, the Azan and weather are the next phases, so
-nothing fires a toast on its own yet.
+you resume them. **Reminders** are made in Settings ▸ Reminders and fire as
+toasts on time, with snooze, missed-reminder catch-up and a history; the Azan
+and weather are the next phases.
 `--data-dir`, `--self-test`, `--version`, `--help`, `--lang` and `--worker`
 all work.
 
@@ -53,6 +54,13 @@ image, accent colour, sound and style overrides — in both languages:
 | **Alarm** | A persistent toast that stays until you act on it, for up to ten minutes |
 | **Payment** and **Appointment** | Offset-before reminders for dated obligations |
 | **Hourly time announcement** | The time spoken aloud in the active language — hourly, every 30 or 15 minutes, start or end of day, or at custom times |
+
+Reminders are made and edited in Settings ▸ Reminders: a title and details
+in your own words, one of the types above, a date and a time, any number of
+"remind me before" times, and a repeat. The editor says what is wrong under
+the field it is about, and deleting a reminder or clearing its history asks
+first. Each reminder shows its recent history: shown, snoozed, dismissed,
+opened, missed. Open on a reminder's toast lands on it there.
 
 Scheduling supports exact times, offsets before (15 minutes to a week, or
 custom), and recurrence (once, daily, weekly, monthly, yearly). Snooze puts a
@@ -279,11 +287,11 @@ the ones that ship with the app listed below them:
 The same screen in Bahasa Melayu:
 [settings-pictures-ms.png](docs/screenshots/settings-pictures-ms.png).
 
-Settings ▸ Reminders, with the missed reminders above Snooze's length and
-limit and the catch-up window; the reminder list and its editor join them in a
-later step:
+Settings ▸ Reminders: the missed reminders, your reminders with the one being
+edited, its history, and Snooze's length and limit and the catch-up window
+below:
 
-![Settings ▸ Reminders with a custom snooze length](docs/screenshots/settings-reminders.png)
+![Settings ▸ Reminders with a weekly reminder open in the editor](docs/screenshots/settings-reminders.png)
 
 In Bahasa Melayu: [settings-reminders-ms.png](docs/screenshots/settings-reminders-ms.png). The rest
 are **not captured yet** — the screens do not exist. The places are reserved

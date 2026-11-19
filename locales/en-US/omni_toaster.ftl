@@ -510,3 +510,100 @@ reminder-appointment-body = You have an appointment.
 reminder-custom = Custom
 # Toast body for a Custom reminder that has no text of its own.
 reminder-custom-body = This is your reminder.
+
+## Settings ▸ Reminders: the list and the editor. Title Case for labels,
+## buttons and list items; sentence case for hints, empty states, questions
+## and validation messages.
+
+# The heading above the list of reminders.
+settings-reminders-heading = Your Reminders
+# The button that starts a new reminder in the editor.
+settings-reminders-new = New Reminder
+# Shown while the list is being read.
+settings-reminders-loading = Loading your reminders…
+# The list's empty state.
+settings-reminders-empty = You have no reminders yet. New Reminder makes one.
+# A list row's second line. $type is the reminder's type; $time when it next fires, already formatted.
+settings-reminder-row-next = { $type } · next { $time }
+# A list row's second line for a snoozed reminder. $time is when the snooze ends, already formatted.
+settings-reminder-row-snoozed = { $type } · snoozed until { $time }
+# A list row's second line for a reminder that will not fire again.
+settings-reminder-row-done = { $type } · done
+# A list row's second line while its next time is being worked out.
+settings-reminder-row-plain = { $type }
+# Editor field: the reminder's own title.
+settings-reminder-title = Title
+# Editor field: the reminder's own text, shown in its toast.
+settings-reminder-body = Details
+# Editor field: the reminder's type.
+settings-reminder-type = Type
+# Editor field: the day it is for.
+settings-reminder-date = Date
+# Editor field: the time of day.
+settings-reminder-time = Time
+# Editor field: toasts ahead of the time itself.
+settings-reminder-offsets = Remind Me Before
+# Adds a row to Remind Me Before.
+settings-reminder-offset-add = Add a Time Before
+# Removes one row of Remind Me Before.
+settings-reminder-offset-remove = Remove
+# Hint under Remind Me Before.
+settings-reminder-offsets-hint = Each one is a toast of its own, as well as the one at the time itself.
+# A unit, in the Remind Me Before and Repeat dropdowns.
+settings-unit-minutes = Minutes
+# A unit.
+settings-unit-hours = Hours
+# A unit.
+settings-unit-days = Days
+# A unit.
+settings-unit-weeks = Weeks
+# A unit.
+settings-unit-months = Months
+# A unit.
+settings-unit-years = Years
+# Editor field: how the reminder repeats.
+settings-reminder-repeat = Repeat
+# Repeat choice: it fires once.
+settings-repeat-never = Never
+# Editor field: every how many of the Repeat unit — "Repeat Every 2" with Weeks is every two weeks.
+settings-reminder-every = Repeat Every
+# Editor field: the weekdays of a weekly repeat.
+settings-reminder-weekdays = On
+# Hint under the weekdays.
+settings-reminder-weekdays-hint = With none ticked, it repeats on the date's own weekday.
+# Editor button.
+settings-reminder-save = Save
+# Editor button: leave without saving.
+settings-reminder-cancel = Cancel
+# Editor button, and the confirming button of the Delete question.
+settings-reminder-delete = Delete
+# The button that backs out of the Delete or Clear History question.
+settings-reminder-keep = Keep It
+# The question Delete asks first.
+settings-reminder-delete-confirm = Delete this reminder? Its history stays until it ages out.
+# The heading of the edited reminder's history.
+settings-reminder-history = History
+# The history's empty state.
+settings-reminder-history-empty = Nothing has happened to this reminder yet.
+# The button that clears the edited reminder's history, and the confirming button of its question.
+settings-reminder-history-clear = Clear History
+# The question Clear History asks first.
+settings-reminder-history-clear-confirm = Clear this reminder's history? This cannot be undone.
+# One history line. $time is when, already formatted; $action what happened.
+settings-reminder-history-row = { $time } — { $action }
+# What happened to a fire, in the history.
+settings-history-shown = Shown
+# What happened to a fire.
+settings-history-snoozed = Snoozed
+# What happened to a fire.
+settings-history-dismissed = Dismissed
+# What happened to a fire.
+settings-history-opened = Opened
+# What happened to a fire.
+settings-history-missed = Missed
+# Said under Title when it is empty.
+error-reminder-title-empty = Give the reminder a title.
+# Said under Time when every fire would be in the past.
+error-reminder-time-passed = This time has passed and the reminder does not repeat, so it would never fire.
+# The status line when the reminders could not be read or saved. $reason is the cause.
+settings-status-reminders-failed = Your reminders could not be read or saved: { $reason }

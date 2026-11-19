@@ -54,6 +54,51 @@ fn overflowing(width: f32, scale: f32) -> Vec<String> {
         snooze_minutes: 30,
         ..Default::default()
     };
+    // The editor with every row it can show: an offset, a weekly repeat with
+    // its weekdays, and both validation messages.
+    let mut editor = ot_ui::reminder_editor::Editor::new_at(
+        "2026-11-19T00:00Z".parse().expect("instant"),
+        &jiff::tz::TimeZone::UTC,
+    );
+    editor.id = Some(1);
+    editor.type_key = "reminder-fatigue-work-hours";
+    editor.offsets = vec![ot_store::reminders::Offset {
+        amount: 15,
+        unit: ot_store::reminders::OffsetUnit::Minutes,
+    }];
+    editor.repeat = Some(ot_store::reminders::RecurrenceUnit::Weeks);
+    let problems = [
+        (
+            ot_ui::reminder_editor::Field::Title,
+            "error-reminder-title-empty",
+        ),
+        (
+            ot_ui::reminder_editor::Field::When,
+            "error-reminder-time-passed",
+        ),
+    ];
+    let long = "Mesyuarat jawatankuasa penganjur majlis sambutan hari keluarga syarikat di dewan serbaguna";
+    let rows: Vec<ot_ui::reminders::ListRow> = (0..50)
+        .map(|id| ot_ui::reminders::ListRow {
+            id,
+            title: long.to_owned(),
+            detail: ot_i18n::text_with(
+                "settings-reminder-row-snoozed",
+                &[
+                    ("type", ot_i18n::text("reminder-fatigue-work-hours").into()),
+                    ("time", "Khamis, 19 November 2026, 10:00".into()),
+                ],
+            ),
+        })
+        .collect();
+    let history_rows = vec![ot_i18n::text_with(
+        "settings-reminder-history-row",
+        &[
+            ("time", "19/11/2026 pada 10:00".into()),
+            ("action", ot_i18n::text("settings-history-dismissed").into()),
+        ],
+    )];
+    let mut confirming = true;
     let mut harness = Harness::builder()
         .with_size([width, 4000.0])
         .with_pixels_per_point(scale)
@@ -88,6 +133,17 @@ fn overflowing(width: f32, scale: f32) -> Vec<String> {
                 }],
                 ot_ui::Tokens::DARK,
             );
+            // The list, the editor and the history (FEAT-0046), with the
+            // Clear History question up, its longest state.
+            let _ = ot_ui::reminders::reminder_list(ui, Some(&rows), Some(3), ot_ui::Tokens::DARK);
+            let _ = ot_ui::reminder_editor::editor(
+                ui,
+                columns,
+                &mut editor,
+                &problems,
+                ot_ui::Tokens::DARK,
+            );
+            let _ = ot_ui::reminders::history(ui, &history_rows, &mut confirming, ot_ui::Tokens::DARK);
         });
     // The real font set: with `default_fonts` off, the harness's own
     // context would measure every glyph as zero wide and pass anything.

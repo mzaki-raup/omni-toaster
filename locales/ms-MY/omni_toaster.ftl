@@ -508,3 +508,100 @@ reminder-appointment-body = Anda ada temu janji.
 reminder-custom = Tersuai
 # Toast body for a Custom reminder that has no text of its own.
 reminder-custom-body = Ini peringatan anda.
+
+## Tetapan ▸ Peringatan: senarai dan penyunting. Huruf Besar Setiap Perkataan
+## untuk label, butang dan item senarai; huruf biasa untuk petunjuk, keadaan
+## kosong, soalan dan mesej pengesahan.
+
+# Tajuk di atas senarai peringatan.
+settings-reminders-heading = Peringatan Anda
+# Butang yang memulakan peringatan baharu dalam penyunting.
+settings-reminders-new = Peringatan Baharu
+# Ditunjukkan semasa senarai sedang dibaca.
+settings-reminders-loading = Memuatkan peringatan anda…
+# Keadaan kosong senarai.
+settings-reminders-empty = Anda belum ada peringatan. Peringatan Baharu akan membuatnya.
+# Baris kedua dalam senarai. $type ialah jenis peringatan; $time bila ia seterusnya muncul, sudah diformat.
+settings-reminder-row-next = { $type } · seterusnya { $time }
+# Baris kedua bagi peringatan yang ditunda. $time ialah bila tundaan tamat, sudah diformat.
+settings-reminder-row-snoozed = { $type } · ditunda hingga { $time }
+# Baris kedua bagi peringatan yang tidak akan muncul lagi.
+settings-reminder-row-done = { $type } · selesai
+# Baris kedua semasa masa seterusnya sedang dikira.
+settings-reminder-row-plain = { $type }
+# Medan penyunting: tajuk peringatan itu sendiri.
+settings-reminder-title = Tajuk
+# Medan penyunting: teks peringatan itu sendiri, ditunjukkan dalam toastnya.
+settings-reminder-body = Butiran
+# Medan penyunting: jenis peringatan.
+settings-reminder-type = Jenis
+# Medan penyunting: hari yang dimaksudkan.
+settings-reminder-date = Tarikh
+# Medan penyunting: masa dalam hari.
+settings-reminder-time = Masa
+# Medan penyunting: toast sebelum masa itu sendiri.
+settings-reminder-offsets = Ingatkan Saya Sebelum
+# Menambah baris pada Ingatkan Saya Sebelum.
+settings-reminder-offset-add = Tambah Masa Sebelum
+# Membuang satu baris Ingatkan Saya Sebelum.
+settings-reminder-offset-remove = Buang
+# Petunjuk di bawah Ingatkan Saya Sebelum.
+settings-reminder-offsets-hint = Setiap satu ialah toast tersendiri, selain toast pada masa itu sendiri.
+# Unit, dalam senarai juntai Ingatkan Saya Sebelum dan Ulang.
+settings-unit-minutes = Minit
+# Unit.
+settings-unit-hours = Jam
+# Unit.
+settings-unit-days = Hari
+# Unit.
+settings-unit-weeks = Minggu
+# Unit.
+settings-unit-months = Bulan
+# Unit.
+settings-unit-years = Tahun
+# Medan penyunting: cara peringatan berulang.
+settings-reminder-repeat = Ulang
+# Pilihan Ulang: ia muncul sekali sahaja.
+settings-repeat-never = Tidak Berulang
+# Medan penyunting: setiap berapa unit Ulang — "Ulang Setiap 2" dengan Minggu bermaksud setiap dua minggu.
+settings-reminder-every = Ulang Setiap
+# Medan penyunting: hari dalam minggu bagi ulangan mingguan.
+settings-reminder-weekdays = Pada
+# Petunjuk di bawah hari dalam minggu.
+settings-reminder-weekdays-hint = Jika tiada yang ditanda, ia berulang pada hari dalam minggu tarikh itu sendiri.
+# Butang penyunting.
+settings-reminder-save = Simpan
+# Butang penyunting: keluar tanpa menyimpan.
+settings-reminder-cancel = Batal
+# Butang penyunting, dan butang yang mengesahkan soalan Padam.
+settings-reminder-delete = Padam
+# Butang yang membatalkan soalan Padam atau Kosongkan Sejarah.
+settings-reminder-keep = Kekalkan
+# Soalan yang ditanya oleh Padam dahulu.
+settings-reminder-delete-confirm = Padam peringatan ini? Sejarahnya kekal sehingga luput.
+# Tajuk sejarah peringatan yang sedang disunting.
+settings-reminder-history = Sejarah
+# Keadaan kosong sejarah.
+settings-reminder-history-empty = Belum ada apa-apa berlaku pada peringatan ini.
+# Butang yang mengosongkan sejarah peringatan yang disunting, dan butang yang mengesahkan soalannya.
+settings-reminder-history-clear = Kosongkan Sejarah
+# Soalan yang ditanya oleh Kosongkan Sejarah dahulu.
+settings-reminder-history-clear-confirm = Kosongkan sejarah peringatan ini? Ini tidak boleh dibuat asal.
+# Satu baris sejarah. $time ialah bila, sudah diformat; $action apa yang berlaku.
+settings-reminder-history-row = { $time } — { $action }
+# Apa yang berlaku pada satu paparan, dalam sejarah.
+settings-history-shown = Dipaparkan
+# Apa yang berlaku pada satu paparan.
+settings-history-snoozed = Ditunda
+# Apa yang berlaku pada satu paparan.
+settings-history-dismissed = Ditutup
+# Apa yang berlaku pada satu paparan.
+settings-history-opened = Dibuka
+# Apa yang berlaku pada satu paparan.
+settings-history-missed = Terlepas
+# Dikatakan di bawah Tajuk apabila ia kosong.
+error-reminder-title-empty = Beri peringatan ini tajuk.
+# Dikatakan di bawah Masa apabila setiap paparan sudah berlalu.
+error-reminder-time-passed = Masa ini telah berlalu dan peringatan ini tidak berulang, jadi ia tidak akan muncul.
+# Baris status apabila peringatan tidak dapat dibaca atau disimpan. $reason ialah puncanya.
+settings-status-reminders-failed = Peringatan anda tidak dapat dibaca atau disimpan: { $reason }

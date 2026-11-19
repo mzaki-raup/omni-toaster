@@ -198,3 +198,146 @@ pub fn missed_list(
     }
     pressed
 }
+
+/// One reminder as the list shows it, built once when the list arrives —
+/// never formatted per frame (`.claude/rules/ui.md`, "Per-frame cost").
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct ListRow {
+    pub id: i64,
+    /// The reminder's own title, as typed.
+    pub title: String,
+    /// Its type and when it next fires, or that it is done.
+    pub detail: String,
+}
+
+/// What the reminder list asked for.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum ListAction {
+    New,
+    Select(i64),
+}
+
+/// How tall the list may grow before it scrolls, in rows.
+const LIST_ROWS: usize = 6;
+
+/// The reminders, newest last, with New Reminder above them. `rows` is
+/// `None` while they load. Only the rows in view are laid out, so a list of
+/// a thousand costs what a list of six does.
+pub fn reminder_list(
+    ui: &mut egui::Ui,
+    rows: Option<&[ListRow]>,
+    selected: Option<i64>,
+    tokens: Tokens,
+) -> Option<ListAction> {
+    let mut action = None;
+    // The heading and its button on one middle line (ui.md): the row's
+    // height is set before it opens, or the label centres on a shorter row
+    // than the button makes.
+    let height = layout::field_height(ui);
+    let row = egui::vec2(ui.available_width(), height);
+    ui.allocate_ui_with_layout(
+        row,
+        egui::Layout::left_to_right(egui::Align::Center),
+        |ui| {
+            ui.label(egui::RichText::new(ot_i18n::text("settings-reminders-heading")).strong());
+            if ui
+                .add(
+                    egui::Button::new(ot_i18n::text("settings-reminders-new"))
+                        .min_size(egui::vec2(0.0, height)),
+                )
+                .clicked()
+            {
+                action = Some(ListAction::New);
+            }
+        },
+    );
+    ui.add_space(layout::ROW_GAP);
+    let Some(rows) = rows else {
+        ui.label(
+            egui::RichText::new(ot_i18n::text("settings-reminders-loading")).color(tokens.text_dim),
+        );
+        return action;
+    };
+    if rows.is_empty() {
+        ui.label(
+            egui::RichText::new(ot_i18n::text("settings-reminders-empty")).color(tokens.text_dim),
+        );
+        return action;
+    }
+    let row_height =
+        2.0 * ui.text_style_height(&egui::TextStyle::Body) + ui.spacing().item_spacing.y * 2.0;
+    egui::ScrollArea::vertical()
+        .id_salt("reminder-list")
+        .max_height(row_height * LIST_ROWS as f32)
+        .auto_shrink([false, true])
+        .show_rows(ui, row_height, rows.len(), |ui, range| {
+            for row in &rows[range] {
+                let response = ui
+                    .push_id(row.id, |ui| {
+                        ui.add(
+                            egui::Button::selectable(
+                                selected == Some(row.id),
+                                egui::RichText::new(&row.title),
+                            )
+                            .truncate(),
+                        )
+                    })
+                    .inner;
+                if response.clicked() {
+                    action = Some(ListAction::Select(row.id));
+                }
+                ui.add(
+                    egui::Label::new(egui::RichText::new(&row.detail).color(tokens.text_dim))
+                        .truncate(),
+                );
+            }
+        });
+    action
+}
+
+/// A reminder's history, newest last, already formatted, with Clear
+/// History behind a confirmation. Returns true when the clearing was
+/// confirmed.
+pub fn history(ui: &mut egui::Ui, rows: &[String], confirming: &mut bool, tokens: Tokens) -> bool {
+    let mut cleared = false;
+    ui.label(egui::RichText::new(ot_i18n::text("settings-reminder-history")).strong());
+    ui.add_space(layout::ROW_GAP);
+    if rows.is_empty() {
+        ui.label(
+            egui::RichText::new(ot_i18n::text("settings-reminder-history-empty"))
+                .color(tokens.text_dim),
+        );
+        return false;
+    }
+    // The last twenty: the list is for "did it fire?", not an archive.
+    for row in rows.iter().rev().take(20).rev() {
+        ui.add(egui::Label::new(egui::RichText::new(row).color(tokens.text_dim)).truncate());
+    }
+    ui.add_space(layout::ROW_GAP);
+    ui.horizontal_wrapped(|ui| {
+        let height = layout::field_height(ui);
+        let button = |text: String| egui::Button::new(text).min_size(egui::vec2(0.0, height));
+        if *confirming {
+            ui.label(ot_i18n::text("settings-reminder-history-clear-confirm"));
+            if ui
+                .add(button(ot_i18n::text("settings-reminder-history-clear")))
+                .clicked()
+            {
+                cleared = true;
+                *confirming = false;
+            }
+            if ui
+                .add(button(ot_i18n::text("settings-reminder-keep")))
+                .clicked()
+            {
+                *confirming = false;
+            }
+        } else if ui
+            .add(button(ot_i18n::text("settings-reminder-history-clear")))
+            .clicked()
+        {
+            *confirming = true;
+        }
+    });
+    cleared
+}

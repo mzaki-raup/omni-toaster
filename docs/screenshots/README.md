@@ -13,9 +13,9 @@ the Settings ▸ General pane in both languages, taken from a release build on a
 scratch `--data-dir` when FEAT-0014 landed; and `settings-reminders.png` and
 `settings-reminders-ms.png`, Settings ▸ Reminders' Snooze section with a
 custom length, Dark, from a debug build on a scratch `--data-dir` when
-FEAT-0043 landed and retaken for FEAT-0045 with the missed list's empty
-state and the catch-up window — to be retaken when FEAT-0046 adds the list and
-editor. Everything else below is still a
+FEAT-0043 landed, retaken for FEAT-0045, and retaken again for FEAT-0046 with
+a weekly reminder (one offset, Monday and Thursday) open in the editor, in
+Dark, from a scratch folder a debug build had made through the editor. Everything else below is still a
 placeholder name reserved for the phase that first produces that screen; the
 README says plainly that those images do not exist yet rather than linking to
 nothing.
@@ -42,7 +42,7 @@ quantised with `magick <in> -strip -colors 256 -define png:compression-level=9
 | `settings-pictures.png` | Settings ▸ Picture Library: two uploaded pictures and the built-in ones, English | Phase 2 (captured; retaken for FEAT-0027) |
 | `settings-pictures-ms.png` | The same, Bahasa Melayu | Phase 2 (captured; retaken for FEAT-0027) |
 | `settings-prayer.png` | Settings ▸ Prayer with the zone picker and source label | Phase 5 |
-| `settings-reminders.png` | Settings ▸ Reminders: the Snooze section now, the list and editor with FEAT-0046 | Phase 4 (captured for FEAT-0043) |
+| `settings-reminders.png` | Settings ▸ Reminders: the list with a reminder open in the editor, English | Phase 4 (captured; retaken for FEAT-0045 and FEAT-0046) |
 | `settings-reminders-ms.png` | The same, Bahasa Melayu | Phase 4 (captured for FEAT-0043) |
 | `tray-menu.png` | The tray menu, both languages | Phase 1 |
 | `azan-toast.png` | An Azan toast with the JAKIM source label | Phase 5 |

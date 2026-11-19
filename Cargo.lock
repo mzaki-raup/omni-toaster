@@ -2438,6 +2438,7 @@ dependencies = [
  "ot-store",
  "ot-toast",
  "raw-window-handle",
+ "tempfile",
  "thiserror 2.0.21",
  "tracing",
 ]

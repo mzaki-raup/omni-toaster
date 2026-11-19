@@ -547,6 +547,15 @@ impl Store {
         Ok(history)
     }
 
+    /// Delete one reminder's history — Settings ▸ Reminders' Clear History,
+    /// after the user confirmed it. Returns how many rows went.
+    pub fn clear_history(&self, reminder_id: i64) -> Result<usize, StoreError> {
+        Ok(self.conn.execute(
+            "DELETE FROM notification_log WHERE reminder_id = ?1",
+            params![reminder_id],
+        )?)
+    }
+
     /// Drop `notification_log` rows older than 90 days before `now`, at start.
     /// Returns how many went.
     pub fn prune_notification_log(&self, now: Timestamp) -> Result<usize, StoreError> {
@@ -691,6 +700,22 @@ mod tests {
             let template = store.template_for_type(key).expect("reads");
             assert!(template.is_some(), "{key} has no template");
         }
+    }
+
+    #[test]
+    fn clearing_one_reminders_history_leaves_the_others() {
+        let store = Store::open_in_memory().expect("opens");
+        let id = store.create_reminder(&draft()).expect("creates");
+        let other = store.create_reminder(&draft()).expect("creates");
+        let fired = instant("2026-11-19T02:00:00Z");
+        for reminder in [id, id, other] {
+            store
+                .log_notification(Some(reminder), fired, NotificationAction::Shown, None)
+                .expect("logs");
+        }
+        assert_eq!(store.clear_history(id).expect("clears"), 2);
+        assert!(store.history(id).expect("reads").is_empty());
+        assert_eq!(store.history(other).expect("reads").len(), 1);
     }
 
     #[test]

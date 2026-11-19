@@ -8,9 +8,12 @@
 
 pub mod animation;
 pub mod appearance;
+pub mod fields;
 pub mod images;
 pub mod layout;
 pub mod library;
+pub mod reminder_book;
+pub mod reminder_editor;
 pub mod reminder_toast;
 pub mod reminders;
 pub mod settings_window;

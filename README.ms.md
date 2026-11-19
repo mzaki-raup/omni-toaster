@@ -23,8 +23,10 @@ Tetapan ▸ Penampilan. Bahasa dan tema bertukar **semasa aplikasi berjalan**.
 Dwiklik ikon dulang untuk membuka Tetapan; menutup tetingkap itu membiarkan
 aplikasi terus berjalan di sebalik ikon, dan Keluar terdapat dalam menu dulang,
 yang juga boleh menjeda semua pemberitahuan selama setengah jam, sejam atau
-sehingga anda menyambungnya semula. Peringatan, azan dan cuaca ialah fasa
-seterusnya, jadi belum ada apa-apa yang memaparkan toast dengan sendirinya.
+sehingga anda menyambungnya semula. **Peringatan** dibuat dalam Tetapan ▸
+Peringatan dan dipaparkan sebagai toast tepat pada masanya, dengan tunda,
+susulan peringatan yang terlepas dan sejarah; azan dan cuaca ialah fasa
+seterusnya.
 `--data-dir`, `--self-test`, `--version`, `--help`, `--lang` dan `--worker`
 semuanya berfungsi.
 
@@ -56,6 +58,14 @@ bahasa:
 | **Penggera** | Toast yang terus dipaparkan sehingga anda bertindak, hingga sepuluh minit |
 | **Bayaran** dan **Temu janji** | Peringatan sebelum masa untuk urusan bertarikh |
 | **Pengumuman masa setiap jam** | Masa disebut dengan suara dalam bahasa aktif — setiap jam, setiap 30 atau 15 minit, pada awal atau akhir hari, atau pada masa tersuai |
+
+Peringatan dibuat dan disunting dalam Tetapan ▸ Peringatan: tajuk dan butiran
+dalam kata-kata anda sendiri, salah satu jenis di atas, tarikh dan masa,
+sebarang bilangan masa "ingatkan saya sebelum", dan ulangan. Penyunting
+menyatakan apa yang salah di bawah medan berkenaan, dan memadam peringatan atau
+mengosongkan sejarahnya akan bertanya dahulu. Setiap peringatan menunjukkan
+sejarah terbarunya: dipaparkan, ditunda, ditutup, dibuka, terlepas. Buka pada
+toast peringatan membawa anda terus kepadanya di situ.
 
 Penjadualan menyokong masa tepat, tempoh sebelum (15 minit hingga seminggu,
 atau tersuai) dan ulangan (sekali, harian, mingguan, bulanan, tahunan). Tunda
@@ -301,11 +311,11 @@ dengan gambar yang disertakan bersama aplikasi disenaraikan di bawahnya:
 Skrin yang sama dalam bahasa Melayu:
 [settings-pictures-ms.png](docs/screenshots/settings-pictures-ms.png).
 
-Tetapan ▸ Peringatan, dengan peringatan yang terlepas di atas tempoh dan had
-Tunda serta tempoh susulan; senarai peringatan dan penyuntingnya menyusul dalam
-langkah kemudian:
+Tetapan ▸ Peringatan: peringatan yang terlepas, peringatan anda dengan yang
+sedang disunting, sejarahnya, serta tempoh dan had Tunda dan tempoh susulan di
+bawahnya:
 
-![Tetapan ▸ Peringatan dengan tempoh tunda tersuai](docs/screenshots/settings-reminders.png)
+![Tetapan ▸ Peringatan dengan peringatan mingguan terbuka dalam penyunting](docs/screenshots/settings-reminders.png)
 
 Dalam bahasa Melayu: [settings-reminders-ms.png](docs/screenshots/settings-reminders-ms.png). Yang
 selebihnya **belum ditangkap** — skrinnya belum wujud. Tempatnya telah dikhaskan

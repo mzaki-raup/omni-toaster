@@ -143,15 +143,15 @@ Last updated: 2026-11-19
 
 | Item | State | Notes |
 |---|---|---|
-| Reminder CRUD | In-Progress | FEAT-0039: the store side — create, read, list, update, delete, typed trigger and recurrence, unknown fields refused. The editor is FEAT-0046 |
+| Reminder CRUD | Completed | FEAT-0039: the store side — create, read, list, update, delete, typed trigger and recurrence, unknown fields refused. FEAT-0046: the list and the editor, in the app in both languages, all three themes and the narrow window |
 | Offsets | In-Progress | 15 minutes to a week, or custom. FEAT-0040: the rule, tested — several per reminder, each its own fire, day offsets in calendar days. FEAT-0041's scheduler fires them, tested in its core; no offset reminder has fired in the app yet |
-| Recurrence | In-Progress | Once, daily, weekly, monthly, yearly, custom. FEAT-0040: every *N* of each, chosen weekdays, month ends and leap years, tested. FEAT-0041: a daily reminder fired in the app and moved to the next day |
+| Recurrence | Completed | Once, daily, weekly, monthly, yearly, custom. FEAT-0040: every *N* of each, chosen weekdays, month ends and leap years, tested. FEAT-0041: a daily reminder fired in the app and moved to the next day. FEAT-0046: a weekly one (Monday and Thursday) made in the editor and fired |
 | Snooze | Completed | 5 minutes to a day, or custom; max per fire. FEAT-0043: Snooze on the toast, Settings ▸ Reminders' Snooze section, the limit and its line — snoozed and returned in the app in English and Malay, the limit reached with a low limit set |
 | Duration | Completed | 3–60 s, hover pauses. FEAT-0026 and BUG-0009 built it; FEAT-0044 checked that a reminder other than an Alarm keeps it — a Task left after its 8 s in the app |
 | Persistent alarms | Completed | 10-minute cap on urgent types. FEAT-0044: an Alarm stays until acted on and is recorded missed at the cap; in the app, with the cap shortened to 30 s, it outlived a Task's 8 s and closed at 30 s. Azan joins in Phase 5 |
 | Missed-reminder handling | In-Progress | 1 h catch-up for Azan, 24 h for others. FEAT-0045: everything but Azan — listed in Settings ▸ Reminders with Snooze and Dismiss, older ones dropped and recorded, checked in the app in both languages; Azan's one-hour window comes with Azan (Phase 5) |
 | DST-safe scheduling | In-Progress | Recompute on resume and clock change. FEAT-0040: occurrences in the wall clock, gap and fold rules, tested in `America/New_York`. FEAT-0041: the queue rebuilt at midnight, on a clock jump, a zone change and a resume (Windows' events through `ot_platform::system_events`), each proved with simulated events; the real clock and zone changes are an owner's check, not made |
-| Localized reminder types | In-Progress | Templates in both languages. FEAT-0042: twelve type keys with a name and a default text in both files, each fired in the app in English and Malay; Open landing on the reminder waits for FEAT-0046 |
+| Localized reminder types | Completed | Templates in both languages. FEAT-0042: twelve type keys with a name and a default text in both files, each fired in the app in English and Malay; Open lands on the reminder since FEAT-0046 |
 | Shared date formatter | Pending | The only formatter in the workspace |
 | Migration 003 | Completed | FEAT-0039. `003_locale_keys.sql` — `002` went to `002_asset_label.sql` in Phase 2. Tested fresh and on a version 2 database; in the app, a fresh folder and a v0.11.0-era one both read `user_version` 3 |
 

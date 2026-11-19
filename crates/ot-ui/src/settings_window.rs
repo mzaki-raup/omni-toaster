@@ -324,6 +324,23 @@ pub struct SettingsWindow {
     /// The one toast saying reminders were missed, while it is up; its Open
     /// lands on the list.
     missed_toast: Option<ot_toast::ToastId>,
+    /// The reminders' own thread; `None` until `run` starts it with the
+    /// scheduler's sender, and in the layout tests.
+    book: Option<crate::reminder_book::Book>,
+    /// The list's rows, built when a list arrives, never per frame.
+    reminder_rows: Option<Vec<crate::reminders::ListRow>>,
+    /// The reminder being edited, if any.
+    editor: Option<crate::reminder_editor::Editor>,
+    /// The edited reminder's history, formatted when it arrives.
+    reminder_history: Vec<String>,
+    /// Set while Clear History's question is up.
+    confirming_clear: bool,
+    /// A reminder to open in the editor once the list holds it: after a save,
+    /// or from Open on its toast.
+    select_when_listed: Option<i64>,
+    /// When to read the list again: just after a save, so the row shows the
+    /// next time the scheduler has worked out by then.
+    refresh_at: Option<Instant>,
 }
 
 /// A missed fire in the list: what its buttons act on, and its row's text,
@@ -432,6 +449,13 @@ impl SettingsWindow {
             reminders_dirty: false,
             missed: Vec::new(),
             missed_toast: None,
+            book: None,
+            reminder_rows: None,
+            editor: None,
+            reminder_history: Vec::new(),
+            confirming_clear: false,
+            select_when_listed: None,
+            refresh_at: None,
         }
     }
 
@@ -1123,6 +1147,12 @@ impl SettingsWindow {
                         toast.fired_at,
                         NotificationAction::Opened,
                     );
+                    // Lands on the reminder itself, in the editor.
+                    self.section = Section::Reminders;
+                    self.select_when_listed = Some(toast.reminder_id);
+                    if let Some(book) = &self.book {
+                        book.refresh();
+                    }
                 }
                 ot_toast::Action::Dismiss => {
                     self.record(
@@ -1199,10 +1229,43 @@ impl SettingsWindow {
         let rows: Vec<crate::reminders::MissedRow> =
             self.missed.iter().map(|entry| entry.row.clone()).collect();
         let mut pressed = None;
+        let mut listed = None;
+        let mut edited = None;
+        let mut cleared = false;
+        let problems = self
+            .editor
+            .as_ref()
+            .map(|editor| editor.validate(jiff::Timestamp::now(), &jiff::tz::TimeZone::system()))
+            .unwrap_or_default();
         egui::ScrollArea::vertical()
             .auto_shrink([false, false])
             .show(ui, |ui| {
                 pressed = crate::reminders::missed_list(ui, &rows, tokens);
+                ui.add_space(layout::ROW_GAP);
+                ui.separator();
+                ui.add_space(layout::ROW_GAP);
+                listed = crate::reminders::reminder_list(
+                    ui,
+                    self.reminder_rows.as_deref(),
+                    self.editor.as_ref().and_then(|editor| editor.id),
+                    tokens,
+                );
+                if let Some(editor) = &mut self.editor {
+                    ui.add_space(layout::ROW_GAP);
+                    ui.separator();
+                    ui.add_space(layout::ROW_GAP);
+                    let columns = layout::columns(ui);
+                    edited = crate::reminder_editor::editor(ui, columns, editor, &problems, tokens);
+                    if editor.id.is_some() {
+                        ui.add_space(layout::ROW_GAP);
+                        cleared = crate::reminders::history(
+                            ui,
+                            &self.reminder_history,
+                            &mut self.confirming_clear,
+                            tokens,
+                        );
+                    }
+                }
                 ui.add_space(layout::ROW_GAP);
                 ui.separator();
                 ui.add_space(layout::ROW_GAP);
@@ -1222,6 +1285,50 @@ impl SettingsWindow {
                     });
                 }
             });
+        match listed {
+            Some(crate::reminders::ListAction::New) => {
+                self.editor = Some(crate::reminder_editor::Editor::new_at(
+                    jiff::Timestamp::now(),
+                    &jiff::tz::TimeZone::system(),
+                ));
+                self.reminder_history.clear();
+                self.confirming_clear = false;
+            }
+            Some(crate::reminders::ListAction::Select(id)) => self.select_reminder(id),
+            None => {}
+        }
+        if cleared
+            && let (Some(book), Some(id)) = (&self.book, self.editor.as_ref().and_then(|e| e.id))
+        {
+            book.clear_history(id);
+        }
+        match edited {
+            Some(crate::reminder_editor::EditorAction::Save) if problems.is_empty() => {
+                if let (Some(book), Some(editor)) = (&self.book, &self.editor) {
+                    let category = book
+                        .listing()
+                        .and_then(|listing| listing.category_of(editor.type_key));
+                    let lang = ot_i18n::current_language()
+                        .unwrap_or(Language::English)
+                        .tag();
+                    book.save(editor.id, editor.draft(category, lang));
+                }
+            }
+            Some(crate::reminder_editor::EditorAction::Cancel) => {
+                self.editor = None;
+                self.reminder_history.clear();
+            }
+            Some(crate::reminder_editor::EditorAction::Delete) => {
+                if let (Some(book), Some(id)) =
+                    (&self.book, self.editor.as_ref().and_then(|e| e.id))
+                {
+                    book.delete(id);
+                }
+                self.editor = None;
+                self.reminder_history.clear();
+            }
+            _ => {}
+        }
         if let Some((index, action)) = pressed
             && index < self.missed.len()
         {
@@ -1251,6 +1358,86 @@ impl SettingsWindow {
         if self.reminders_dirty && !ui.input(|i| i.pointer.any_down()) {
             self.reminders_dirty = false;
             self.save();
+        }
+    }
+
+    /// Open a reminder in the editor and ask for its history.
+    fn select_reminder(&mut self, id: i64) {
+        let Some(book) = &self.book else { return };
+        let Some(listing) = book.listing() else {
+            self.select_when_listed = Some(id);
+            return;
+        };
+        let Some(reminder) = listing.reminders.iter().find(|r| r.id == id) else {
+            return;
+        };
+        self.editor = Some(crate::reminder_editor::Editor::from_reminder(
+            reminder,
+            listing.type_of(reminder.draft.category_id),
+        ));
+        self.reminder_history.clear();
+        self.confirming_clear = false;
+        book.history(id);
+    }
+
+    /// Take what the reminders thread has finished: a fresh list becomes the
+    /// rows once, here, not every frame.
+    fn drain_book(&mut self) {
+        let Some(book) = &mut self.book else { return };
+        if self.refresh_at.is_some_and(|at| Instant::now() >= at) {
+            self.refresh_at = None;
+            book.refresh();
+        }
+        let (fresh, replies) = book.drain();
+        if fresh && let Some(listing) = book.listing() {
+            self.reminder_rows = Some(reminder_rows(listing));
+            // A fresh list follows a fire, which wrote a history row: the
+            // open reminder's history is read again, not left as it was.
+            if let Some(id) = self.editor.as_ref().and_then(|editor| editor.id) {
+                book.history(id);
+            }
+        }
+        for reply in replies {
+            match reply {
+                crate::reminder_book::Reply::Saved(id) => {
+                    self.select_when_listed = Some(id);
+                    self.refresh_at = Some(Instant::now() + Duration::from_millis(500));
+                    self.status = Status::Saved;
+                }
+                crate::reminder_book::Reply::Deleted(_) => self.status = Status::Saved,
+                crate::reminder_book::Reply::History { id, rows } => {
+                    if self.editor.as_ref().and_then(|e| e.id) == Some(id) {
+                        self.reminder_history = rows
+                            .iter()
+                            .map(|(at, action)| {
+                                ot_i18n::text_with(
+                                    "settings-reminder-history-row",
+                                    &[
+                                        ("time", formatted_datetime(*at).into()),
+                                        ("action", ot_i18n::text(history_key(*action)).into()),
+                                    ],
+                                )
+                            })
+                            .collect();
+                    }
+                }
+                crate::reminder_book::Reply::Failed(reason) => {
+                    self.status = Status::Failed {
+                        key: "settings-status-reminders-failed",
+                        reason,
+                    };
+                }
+            }
+        }
+        if let Some(id) = self.select_when_listed
+            && self
+                .book
+                .as_ref()
+                .and_then(|book| book.listing())
+                .is_some_and(|listing| listing.reminders.iter().any(|r| r.id == id))
+        {
+            self.select_when_listed = None;
+            self.select_reminder(id);
         }
     }
 
@@ -1832,6 +2019,13 @@ impl SettingsWindow {
             .collect();
         let now = jiff::Timestamp::now();
         let mut any_missed = false;
+        // A fire moves a next time or finishes a reminder: the list is read
+        // again rather than patched.
+        if !arrived.is_empty()
+            && let Some(book) = &self.book
+        {
+            book.refresh();
+        }
         for fired in arrived {
             let fired_at = fired.fire.at;
             // Missed while the PC was off or asleep: listed, not shown, so a
@@ -2052,6 +2246,7 @@ impl eframe::App for SettingsWindow {
         ctx.request_repaint_after(TRAY_POLL);
         self.window = frame.window_handle().ok().map(|handle| handle.as_raw());
         self.drain_fires();
+        self.drain_book();
         self.handle_tray(ctx);
         self.drain_images(ctx);
         self.drive_toasts(ctx);
@@ -2178,6 +2373,66 @@ fn formatted_time(moment: jiff::Timestamp) -> String {
     ot_i18n::format::format_time(&local, prefs)
 }
 
+/// The list's rows: the title as typed, or the type's name for an untitled
+/// one, and its type with when it next fires.
+fn reminder_rows(listing: &crate::reminder_book::Listing) -> Vec<crate::reminders::ListRow> {
+    use ot_store::reminders::Status as ReminderStatus;
+    listing
+        .reminders
+        .iter()
+        .map(|reminder| {
+            let type_key = listing
+                .type_of(reminder.draft.category_id)
+                .unwrap_or(crate::reminder_toast::DEFAULT_TYPE);
+            let type_name = ot_i18n::text(type_key);
+            let title = if reminder.draft.title.trim().is_empty() {
+                type_name.clone()
+            } else {
+                reminder.draft.title.clone()
+            };
+            let with_time = |key, at| {
+                ot_i18n::text_with(
+                    key,
+                    &[
+                        ("type", type_name.clone().into()),
+                        ("time", formatted_datetime(at).into()),
+                    ],
+                )
+            };
+            let detail = match (reminder.status, reminder.next_fire_at) {
+                (ReminderStatus::Done | ReminderStatus::Cancelled, _) => ot_i18n::text_with(
+                    "settings-reminder-row-done",
+                    &[("type", type_name.clone().into())],
+                ),
+                (ReminderStatus::Snoozed, Some(at)) => {
+                    with_time("settings-reminder-row-snoozed", at)
+                }
+                (_, Some(at)) => with_time("settings-reminder-row-next", at),
+                (_, None) => ot_i18n::text_with(
+                    "settings-reminder-row-plain",
+                    &[("type", type_name.clone().into())],
+                ),
+            };
+            crate::reminders::ListRow {
+                id: reminder.id,
+                title,
+                detail,
+            }
+        })
+        .collect()
+}
+
+/// The history's name for what happened to a fire.
+fn history_key(action: NotificationAction) -> &'static str {
+    match action {
+        NotificationAction::Shown => "settings-history-shown",
+        NotificationAction::Snoozed => "settings-history-snoozed",
+        NotificationAction::Dismissed => "settings-history-dismissed",
+        NotificationAction::Opened => "settings-history-opened",
+        NotificationAction::Missed => "settings-history-missed",
+    }
+}
+
 /// A date and time through the one formatter, in the PC's own zone.
 fn formatted_datetime(moment: jiff::Timestamp) -> String {
     let prefs = ot_i18n::format::TimePrefs::for_language(
@@ -2282,9 +2537,14 @@ pub fn run(
 ) -> Result<(), WindowError> {
     let ui_scale = dev.ui_scale;
     let fonts = font_definitions().map_err(WindowError::Fonts)?;
+    let book_root = root.path().to_path_buf();
     let mut window = SettingsWindow::new(root, settings);
     window.dev = dev;
     window.fires = Some(fires);
+    window.book = Some(crate::reminder_book::Book::new(
+        &book_root,
+        Some(scheduler.clone()),
+    ));
     window.scheduler = Some(scheduler);
     if dev.test_toast {
         window.show_shape_samples();

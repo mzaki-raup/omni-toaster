@@ -164,6 +164,29 @@ defaults ([04-ui-design.md](../04-ui-design.md)). Deleting a reminder and
 clearing history are both guarded. The list has an empty state; the editor
 validates and says what is wrong in the user's language.
 
+As built (FEAT-0046), top to bottom: Missed Reminders (§6); Your Reminders,
+with New Reminder, a loading and an empty state, and each row's title and "type
+· next …" (or "· snoozed until …", "· done"), formatted once when the list
+arrives and drawn only while in view; the editor — Title, Details, Type (the
+twelve), Date and Time (the shared date and time fields), Remind Me Before (any
+number of amount and unit rows), Repeat (Never, Days, Weeks, Months, Years)
+with Repeat Every and, for Weeks, the weekdays; Save, Cancel and Delete — then
+the reminder's History, the last twenty rows, with Clear History; then the
+Snooze section (§5) and the catch-up window (§6).
+
+- Validation: an empty title, and a time after which the reminder would never
+  fire, each said under its own field; Save is disabled while either stands.
+- Delete and Clear History ask first, inline, with Keep It to back out.
+  Deleting keeps the reminder's history rows, unlinked, until they age out.
+- Saving an edit sets the reminder active again: a finished one-off moved to
+  a later time fires, and a waiting snooze is replaced by the edited time.
+- The snooze length is the pane's one setting for every reminder; a
+  per-reminder snooze length would need a column and is not built.
+- The reminders live on their own thread with their own connection, like the
+  image library; after a save or delete it tells the scheduler (`Changed`,
+  `Removed`). Open on a reminder's toast selects it here.
+
+
 ## 11. Fluent keys
 
 Prefix `reminder-`: type names, offset labels, recurrence labels, snooze
@@ -278,6 +301,10 @@ FEAT-0039 to FEAT-0048 in `docs/TASKS.md` under `v0.4.0`.
   untouched writes a `missed` history row; every other type keeps the 3–60 s
   display duration. A debug build's `--alarm-cap <seconds>` shortens the cap
   for checking it.
+- **Settings ▸ Reminders (FEAT-0046).** §10 as built: `ot_ui::reminder_book`
+  (the thread), `ot_ui::reminder_editor` (the editor and its validation),
+  `ot_ui::reminders` (the list, the history, the missed list, the Snooze
+  section) and `ot_ui::fields` (the shared date and time fields).
 - **Missed reminders (FEAT-0045).** §6 as written, for every type but Azan,
   whose window comes with it in Phase 5. `Fired::missed` marks a fire more
   than a minute late; `Core::set_missed_window` / `Command::SetMissedWindow`
