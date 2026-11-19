@@ -42,7 +42,18 @@ pub struct Editor {
     pub weekdays: Vec<Weekday>,
     /// Set while the Delete confirmation is up.
     pub confirming_delete: bool,
+    /// "Repeats every 2 weeks on Monday and Thursday.", and what it was built
+    /// from, so it is formatted when the repeat changes, not every frame.
+    pub summary: Option<(SummaryKey, String)>,
 }
+
+/// What the repeat summary depends on.
+pub type SummaryKey = (
+    Option<RecurrenceUnit>,
+    u32,
+    Vec<Weekday>,
+    Option<ot_i18n::Language>,
+);
 
 /// Which field a problem is about, so it is said under that field.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -79,6 +90,7 @@ impl Editor {
             every: 1,
             weekdays: Vec::new(),
             confirming_delete: false,
+            summary: None,
         }
     }
 
@@ -108,6 +120,7 @@ impl Editor {
             every,
             weekdays,
             confirming_delete: false,
+            summary: None,
         }
     }
 
@@ -216,6 +229,35 @@ fn repeat_key(repeat: Option<RecurrenceUnit>) -> &'static str {
         Some(RecurrenceUnit::Months) => "settings-unit-months",
         Some(RecurrenceUnit::Years) => "settings-unit-years",
     }
+}
+
+/// "Repeats every 2 weeks on Monday and Thursday.", rebuilt only when the
+/// repeat or the language changed.
+fn repeat_summary(editor: &mut Editor) -> Option<String> {
+    let unit = editor.repeat?;
+    let key: SummaryKey = (
+        Some(unit),
+        editor.every,
+        sorted_weekdays(&editor.weekdays),
+        ot_i18n::current_language(),
+    );
+    if editor.summary.as_ref().map(|(k, _)| k) != Some(&key) {
+        let recurrence = Recurrence {
+            every: editor.every.clamp(1, EVERY_MAX),
+            unit,
+            weekdays: if unit == RecurrenceUnit::Weeks {
+                key.2.clone()
+            } else {
+                Vec::new()
+            },
+        };
+        let text = ot_i18n::text_with(
+            "settings-reminder-repeat-summary",
+            &[("repeat", crate::phrases::repeat(&recurrence).into())],
+        );
+        editor.summary = Some((key, text));
+    }
+    editor.summary.as_ref().map(|(_, text)| text.clone())
 }
 
 /// Draw the editor. `problems` comes from [`Editor::validate`]; each is said
@@ -409,6 +451,9 @@ pub fn editor(
                 });
         },
     );
+    if let Some(summary) = repeat_summary(editor) {
+        layout::field_hint(ui, columns, &summary, tokens.text_dim);
+    }
     if editor.repeat.is_some() {
         ui.add_space(layout::ROW_GAP);
         layout::labelled_row(

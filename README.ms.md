@@ -281,7 +281,10 @@ keluaran:
 
 ![Toast mencurah naik dari tepi bawah dan kembali turun ke dalamnya](docs/screenshots/anim-genie.gif)
 
-Tetapan ▸ Umum, skrin pertama aplikasi ini:
+Tetapan ▸ Umum, skrin pertama aplikasi ini. Jam menulis setiap masa dalam
+aplikasi dalam format 12 jam atau 24 jam; Automatik ialah 24 jam dalam Bahasa
+Melayu dan mengikut Windows dalam bahasa Inggeris, sebagaimana tarikh bahasa
+Inggeris mengikut susunan hari atau bulan Windows:
 
 ![Tetapan ▸ Umum dalam tema Gelap](docs/screenshots/settings-general.png)
 

@@ -152,7 +152,7 @@ Last updated: 2026-11-19
 | Missed-reminder handling | In-Progress | 1 h catch-up for Azan, 24 h for others. FEAT-0045: everything but Azan — listed in Settings ▸ Reminders with Snooze and Dismiss, older ones dropped and recorded, checked in the app in both languages; Azan's one-hour window comes with Azan (Phase 5) |
 | DST-safe scheduling | In-Progress | Recompute on resume and clock change. FEAT-0040: occurrences in the wall clock, gap and fold rules, tested in `America/New_York`. FEAT-0041: the queue rebuilt at midnight, on a clock jump, a zone change and a resume (Windows' events through `ot_platform::system_events`), each proved with simulated events; the real clock and zone changes are an owner's check, not made |
 | Localized reminder types | Completed | Templates in both languages. FEAT-0042: twelve type keys with a name and a default text in both files, each fired in the app in English and Malay; Open lands on the reminder since FEAT-0046 |
-| Shared date formatter | Pending | The only formatter in the workspace |
+| Shared date formatter | Completed | The only formatter in the workspace. FEAT-0047: Malay d/m/yyyy and 24-hour; English following Windows' date order and clock, with the user's Clock over both; offset and repeat phrases with plurals; a written table tested in both languages, and read in the app on the list, the editor and an offset fire's toast in both |
 | Migration 003 | Completed | FEAT-0039. `003_locale_keys.sql` — `002` went to `002_asset_label.sql` in Phase 2. Tested fresh and on a version 2 database; in the app, a fresh folder and a v0.11.0-era one both read `user_version` 3 |
 
 ## Phase 5 — Location, Prayer and Azan

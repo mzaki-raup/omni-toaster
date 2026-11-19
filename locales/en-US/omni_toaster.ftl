@@ -418,6 +418,19 @@ settings-theme-system = System
 settings-theme-dark = Dark
 settings-theme-light = Light
 
+## Settings ▸ General ▸ Clock: how times are written everywhere.
+
+# The dropdown's label.
+settings-clock = Clock
+# The dropdown's hint.
+settings-clock-hint = Automatic is 24-hour in Bahasa Melayu and follows Windows in English.
+# A Clock choice.
+settings-clock-automatic = Automatic
+# A Clock choice.
+settings-clock-12 = 12-Hour
+# A Clock choice.
+settings-clock-24 = 24-Hour
+
 ## Date, time and number patterns. Only ot_i18n::format_datetime reads
 ## these; nothing else formats a date or a number
 ## (docs/10-i18n.md).
@@ -429,6 +442,57 @@ format-period-am = am
 format-period-pm = pm
 # $date and $time are already formatted by the patterns above.
 format-date-time = { $date } at { $time }
+# The short date when Windows' regional setting puts the month first (m/d/yyyy).
+format-date-short-month-first = { $month }/{ $day }/{ $year }
+# An offset before a reminder's time. $count is a number.
+format-before-minutes = { $count ->
+    [one] 1 minute before
+   *[other] { $count } minutes before
+}
+# An offset before a reminder's time. $count is a number.
+format-before-hours = { $count ->
+    [one] 1 hour before
+   *[other] { $count } hours before
+}
+# An offset before a reminder's time. $count is a number.
+format-before-days = { $count ->
+    [one] 1 day before
+   *[other] { $count } days before
+}
+# An offset before a reminder's time. $count is a number.
+format-before-weeks = { $count ->
+    [one] 1 week before
+   *[other] { $count } weeks before
+}
+# How a reminder repeats. $count is a number. Lower case: it sits inside a sentence.
+format-every-days = { $count ->
+    [one] every day
+   *[other] every { $count } days
+}
+# How a reminder repeats.
+format-every-weeks = { $count ->
+    [one] every week
+   *[other] every { $count } weeks
+}
+# How a weekly reminder repeats. $days is a list of day names, already joined.
+format-every-weeks-on = { $count ->
+    [one] every week on { $days }
+   *[other] every { $count } weeks on { $days }
+}
+# How a reminder repeats.
+format-every-months = { $count ->
+    [one] every month
+   *[other] every { $count } months
+}
+# How a reminder repeats.
+format-every-years = { $count ->
+    [one] every year
+   *[other] every { $count } years
+}
+# Two items of a list: "Monday and Thursday".
+format-list-pair = { $first } and { $second }
+# Three or more: the first, then the rest already joined — "Monday, Tuesday and Thursday".
+format-list-more = { $first }, { $rest }
 
 ## Day names, used by format_datetime rather than by any OS locale, so a
 ## Malay day name is correct even when Windows is set to English.
@@ -531,6 +595,10 @@ settings-reminder-row-snoozed = { $type } · snoozed until { $time }
 settings-reminder-row-done = { $type } · done
 # A list row's second line while its next time is being worked out.
 settings-reminder-row-plain = { $type }
+# A repeating reminder's second line. $repeat is how it repeats ("every 2 weeks on Monday"); $time when it next fires.
+settings-reminder-row-next-repeat = { $type } · { $repeat } · next { $time }
+# The sentence under Repeat in the editor. $repeat is how it repeats.
+settings-reminder-repeat-summary = Repeats { $repeat }.
 # Editor field: the reminder's own title.
 settings-reminder-title = Title
 # Editor field: the reminder's own text, shown in its toast.

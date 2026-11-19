@@ -194,6 +194,15 @@ labels, validation messages, the missed-reminders list, the empty state. Every
 date and time in them goes through `ot_i18n::format_datetime`, never a manual
 format string.
 
+As built (FEAT-0047): the list row says how a reminder repeats ("Custom ·
+every 2 weeks on Saturday and Sunday · next …"), the editor says it under
+Repeat ("Repeats every 2 weeks on Saturday and Sunday."), and an offset fire's
+toast gives the event's own date and time in its header and "1 day before" in
+its action row. The phrases are `ot_i18n::format::before`, `every` and `list`;
+`ot_ui::phrases` maps the stored offsets and repeats onto them. Every cached
+piece of text — the list's rows, the open history, the missed list, the
+repeat summary — is said again when the language or the Clock changes.
+
 ## 12. Threading
 
 The scheduler runs on its own thread and owns the queue. It sends fire events

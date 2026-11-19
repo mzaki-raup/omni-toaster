@@ -14,6 +14,52 @@ pub fn user_locale() -> Option<String> {
     platform::user_locale()
 }
 
+/// What Windows' regional settings say about writing a date and a time
+/// (`docs/10-i18n.md`: English dates follow them). Each part is `None` when
+/// Windows cannot say, and the caller uses its documented default.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
+pub struct Regional {
+    /// The short date puts the month before the day (`m/d/yyyy`).
+    pub month_first: Option<bool>,
+    /// The time format is 24-hour.
+    pub twenty_four_hour: Option<bool>,
+}
+
+/// Read the user's regional date order and clock.
+pub fn regional() -> Regional {
+    Regional {
+        month_first: platform::short_date_pattern()
+            .as_deref()
+            .and_then(month_first),
+        twenty_four_hour: platform::time_pattern()
+            .as_deref()
+            .and_then(twenty_four_hour),
+    }
+}
+
+/// Whether a Windows short-date pattern (`M/d/yyyy`, `dd/MM/yyyy`) puts the
+/// month first. Quoted literals are skipped; a year-first pattern counts as
+/// not month-first.
+pub fn month_first(pattern: &str) -> Option<bool> {
+    first_field(pattern, &['d', 'M', 'y']).map(|field| field == 'M')
+}
+
+/// Whether a Windows time pattern (`h:mm tt`, `HH:mm`) is 24-hour.
+pub fn twenty_four_hour(pattern: &str) -> Option<bool> {
+    first_field(pattern, &['h', 'H']).map(|field| field == 'H')
+}
+
+fn first_field(pattern: &str, fields: &[char]) -> Option<char> {
+    let mut quoted = false;
+    pattern.chars().find(|c| {
+        if *c == '\'' {
+            quoted = !quoted;
+            return false;
+        }
+        !quoted && fields.contains(c)
+    })
+}
+
 #[cfg(windows)]
 mod platform {
     use windows::Win32::Globalization::GetUserDefaultLocaleName;
@@ -54,6 +100,39 @@ mod platform {
 
         if name.is_empty() { None } else { Some(name) }
     }
+
+    pub(super) fn short_date_pattern() -> Option<String> {
+        info(windows::Win32::Globalization::LOCALE_SSHORTDATE)
+    }
+
+    pub(super) fn time_pattern() -> Option<String> {
+        info(windows::Win32::Globalization::LOCALE_STIMEFORMAT)
+    }
+
+    #[allow(
+        unsafe_code,
+        reason = "GetLocaleInfoEx is a Win32 call; the safety contract is argued below"
+    )]
+    fn info(kind: u32) -> Option<String> {
+        let mut buffer = [0u16; 80];
+        // SAFETY: the null name means the user's default locale; `buffer` is
+        // a live, writable array and the slice carries its true length, which
+        // bounds the write. The return is how many units were written,
+        // including the terminator, or 0 on failure.
+        let written = unsafe {
+            windows::Win32::Globalization::GetLocaleInfoEx(
+                windows::core::PCWSTR::null(),
+                kind,
+                Some(&mut buffer),
+            )
+        };
+        if written <= 0 {
+            return None;
+        }
+        let units = (written as usize).saturating_sub(1).min(buffer.len());
+        let text = String::from_utf16_lossy(&buffer[..units]);
+        (!text.is_empty()).then_some(text)
+    }
 }
 
 #[cfg(not(windows))]
@@ -65,11 +144,50 @@ mod platform {
     pub(super) fn user_locale() -> Option<String> {
         None
     }
+
+    pub(super) fn short_date_pattern() -> Option<String> {
+        None
+    }
+
+    pub(super) fn time_pattern() -> Option<String> {
+        None
+    }
 }
 
 #[cfg(test)]
 mod tests {
-    use super::user_locale;
+    use super::{month_first, regional, twenty_four_hour, user_locale};
+
+    #[test]
+    fn the_date_order_and_the_clock_are_read_from_the_patterns() {
+        assert_eq!(month_first("M/d/yyyy"), Some(true));
+        assert_eq!(month_first("dd/MM/yyyy"), Some(false));
+        assert_eq!(month_first("d.M.yyyy"), Some(false));
+        assert_eq!(
+            month_first("yyyy-MM-dd"),
+            Some(false),
+            "year first is not month first"
+        );
+        assert_eq!(
+            month_first("'Day' d 'of' MMMM"),
+            Some(false),
+            "quoted text is skipped"
+        );
+        assert_eq!(month_first(""), None);
+        assert_eq!(twenty_four_hour("h:mm tt"), Some(false));
+        assert_eq!(twenty_four_hour("HH:mm:ss"), Some(true));
+        assert_eq!(twenty_four_hour("tt hh:mm"), Some(false));
+        assert_eq!(twenty_four_hour("mm"), None);
+    }
+
+    #[test]
+    fn this_machine_answers_both_on_windows() {
+        let regional = regional();
+        if cfg!(windows) {
+            assert!(regional.month_first.is_some(), "{regional:?}");
+            assert!(regional.twenty_four_hour.is_some(), "{regional:?}");
+        }
+    }
 
     #[test]
     fn the_locale_is_either_absent_or_a_plausible_bcp47_name() {

@@ -258,7 +258,9 @@ bottom edge in bands — both recorded from a release build:
 
 ![A toast pouring up out of the bottom edge and back down into it](docs/screenshots/anim-genie.gif)
 
-Settings ▸ General, the first screen the app has:
+Settings ▸ General, the first screen the app has. Clock writes every time in
+the app 12-hour or 24-hour; Automatic is 24-hour in Bahasa Melayu and follows
+Windows in English, as English dates follow Windows' day or month first:
 
 ![Settings ▸ General in the Dark theme](docs/screenshots/settings-general.png)
 

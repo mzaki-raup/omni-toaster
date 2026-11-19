@@ -10,12 +10,14 @@ consumers.
 
 **Sixteen captured so far.** When Phase 3 closed: `toast-dark.png`, `toast-light.png`, `toast-shapes.png` (retaken, now with the action row) and `toast-glass.png`, real toasts captured from the screen over a plain backdrop window of the capture script's own — dark, light, or red and blue stripes for glass — which covers the screen's corner so no desktop shows, each cropped to its toast's window from a debug build on a scratch `--data-dir`; `anim-slide.gif` and `anim-genie.gif`, one toast fired with Show a Test Toast in a **release** build (a debug build under a capture loop drops below 30 fps and the app rightly finishes the animation as a fade), framed every ~45 ms over the dark backdrop and played back at the captured intervals; and `settings-appearance.png`, `settings-appearance-ms.png` (retaken: the taller preview), `settings-animation.png` and `settings-animation-ms.png` on a fresh scratch folder; `settings-pictures.png` and `settings-pictures-ms.png`, the Picture Library in both languages, taken from a debug build on a scratch `--data-dir` when FEAT-0025 landed, with three plain coloured test pictures; and `settings-general.png` and `settings-general-ms.png`,
 the Settings ▸ General pane in both languages, taken from a release build on a
-scratch `--data-dir` when FEAT-0014 landed; and `settings-reminders.png` and
+scratch `--data-dir` when FEAT-0014 landed and retaken from a debug build for
+FEAT-0047 with the Clock row; and `settings-reminders.png` and
 `settings-reminders-ms.png`, Settings ▸ Reminders' Snooze section with a
 custom length, Dark, from a debug build on a scratch `--data-dir` when
 FEAT-0043 landed, retaken for FEAT-0045, and retaken again for FEAT-0046 with
 a weekly reminder (one offset, Monday and Thursday) open in the editor, in
-Dark, from a scratch folder a debug build had made through the editor. Everything else below is still a
+Dark, from a scratch folder a debug build had made through the editor, and
+retaken for FEAT-0047, its row now saying how it repeats. Everything else below is still a
 placeholder name reserved for the phase that first produces that screen; the
 README says plainly that those images do not exist yet rather than linking to
 nothing.

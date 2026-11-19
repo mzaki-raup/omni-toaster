@@ -415,6 +415,19 @@ settings-theme-system = Sistem
 settings-theme-dark = Gelap
 settings-theme-light = Cerah
 
+## Tetapan ▸ Umum ▸ Jam: cara masa ditulis di mana-mana.
+
+# Label senarai juntai.
+settings-clock = Jam
+# Petunjuk senarai juntai.
+settings-clock-hint = Automatik ialah 24 jam dalam Bahasa Melayu dan mengikut Windows dalam bahasa Inggeris.
+# Pilihan Jam.
+settings-clock-automatic = Automatik
+# Pilihan Jam.
+settings-clock-12 = 12 Jam
+# Pilihan Jam.
+settings-clock-24 = 24 Jam
+
 ## Pola tarikh, masa dan nombor. Hanya ot_i18n::format_datetime membaca
 ## pola ini; tiada tempat lain memformat tarikh atau nombor
 ## (docs/10-i18n.md).
@@ -426,6 +439,45 @@ format-period-am = pagi
 format-period-pm = petang
 # $date dan $time sudah diformat oleh pola di atas.
 format-date-time = { $date } pada { $time }
+# Tarikh pendek apabila tetapan serantau Windows meletakkan bulan dahulu. Tidak digunakan dalam bahasa Melayu, yang sentiasa d/m/yyyy; ada di sini supaya kedua-dua fail mempunyai kunci yang sama.
+format-date-short-month-first = { $day }/{ $month }/{ $year }
+# Tempoh sebelum masa peringatan. $count ialah nombor. Bahasa Melayu tiada bentuk jamak.
+format-before-minutes = { $count } minit sebelum
+# Tempoh sebelum masa peringatan.
+format-before-hours = { $count } jam sebelum
+# Tempoh sebelum masa peringatan.
+format-before-days = { $count } hari sebelum
+# Tempoh sebelum masa peringatan.
+format-before-weeks = { $count } minggu sebelum
+# Cara peringatan berulang. $count ialah nombor. Huruf kecil: ia berada di dalam ayat.
+format-every-days = { $count ->
+    [1] setiap hari
+   *[other] setiap { $count } hari
+}
+# Cara peringatan berulang.
+format-every-weeks = { $count ->
+    [1] setiap minggu
+   *[other] setiap { $count } minggu
+}
+# Cara peringatan mingguan berulang. $days ialah senarai nama hari yang sudah digabungkan.
+format-every-weeks-on = { $count ->
+    [1] setiap minggu pada { $days }
+   *[other] setiap { $count } minggu pada { $days }
+}
+# Cara peringatan berulang.
+format-every-months = { $count ->
+    [1] setiap bulan
+   *[other] setiap { $count } bulan
+}
+# Cara peringatan berulang.
+format-every-years = { $count ->
+    [1] setiap tahun
+   *[other] setiap { $count } tahun
+}
+# Dua item senarai: "Isnin dan Khamis".
+format-list-pair = { $first } dan { $second }
+# Tiga atau lebih: item pertama, kemudian selebihnya yang sudah digabungkan — "Isnin, Selasa dan Khamis".
+format-list-more = { $first }, { $rest }
 
 ## Nama hari, digunakan oleh format_datetime dan bukan oleh locale OS,
 ## supaya nama hari Melayu betul walaupun Windows ditetapkan ke bahasa
@@ -529,6 +581,10 @@ settings-reminder-row-snoozed = { $type } · ditunda hingga { $time }
 settings-reminder-row-done = { $type } · selesai
 # Baris kedua semasa masa seterusnya sedang dikira.
 settings-reminder-row-plain = { $type }
+# Baris kedua bagi peringatan berulang. $repeat ialah cara ia berulang ("setiap 2 minggu pada Isnin"); $time bila ia seterusnya muncul.
+settings-reminder-row-next-repeat = { $type } · { $repeat } · seterusnya { $time }
+# Ayat di bawah Ulang dalam penyunting. $repeat ialah cara ia berulang.
+settings-reminder-repeat-summary = Berulang { $repeat }.
 # Medan penyunting: tajuk peringatan itu sendiri.
 settings-reminder-title = Tajuk
 # Medan penyunting: teks peringatan itu sendiri, ditunjukkan dalam toastnya.

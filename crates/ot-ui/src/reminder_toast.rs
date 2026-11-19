@@ -53,7 +53,9 @@ pub fn content(
 /// A fire's whole toast: [`content`], the user's style, and Snooze — which
 /// works on a reminder's toast, until the fire has been snoozed `limit`
 /// times, when the row offers only Dismiss and says why
-/// (`docs/specs/reminders.md` §5). An urgent type's toast is persistent: it
+/// (`docs/specs/reminders.md` §5). `before` is an offset fire's phrase, "1 day
+/// before", shown in the action row unless the limit's line takes it. An
+/// urgent type's toast is persistent: it
 /// stays until acted on, up to the ten-minute cap, rather than for the
 /// display duration (`docs/specs/toast.md` §6).
 pub fn spec(
@@ -61,15 +63,18 @@ pub fn spec(
     reminder: &Reminder,
     template: Option<&Template>,
     timestamp: Option<String>,
+    before: Option<String>,
     snoozes: u32,
     limit: u32,
 ) -> ot_toast::ToastSpec {
     let mut content = content(reminder, template, timestamp);
     content.snoozable = true;
     let at_limit = snoozes >= limit;
-    if at_limit {
-        content.note = Some(ot_i18n::text("toast-snooze-limit"));
-    }
+    content.note = if at_limit {
+        Some(ot_i18n::text("toast-snooze-limit"))
+    } else {
+        before
+    };
     let mut spec = prefs.spec(content);
     if at_limit {
         spec.behaviour.actions = 1;
@@ -264,17 +269,39 @@ mod tests {
         let mut prefs = ot_toast::Prefs::default();
         prefs.behaviour.actions = 3;
         let typed = reminder("Ubat", None);
-        let below = spec(&prefs, &typed, None, None, 9, 10);
+        let below = spec(&prefs, &typed, None, None, None, 9, 10);
         assert_eq!(below.actions().len(), 3);
         assert!(below.enabled(ot_toast::Action::Snooze));
         assert_eq!(below.content.note, None);
+        let offset = spec(
+            &prefs,
+            &typed,
+            None,
+            None,
+            Some("1 day before".to_owned()),
+            0,
+            10,
+        );
+        assert_eq!(
+            offset.content.note.as_deref(),
+            Some("1 day before"),
+            "an offset fire says how far ahead it is"
+        );
 
         for (language, line) in [
             (Language::English, "No more snoozes for this reminder."),
             (Language::Malay, "Tiada lagi tundaan untuk peringatan ini."),
         ] {
             in_language(language);
-            let at = spec(&prefs, &typed, None, None, 10, 10);
+            let at = spec(
+                &prefs,
+                &typed,
+                None,
+                None,
+                Some("1 day before".to_owned()),
+                10,
+                10,
+            );
             assert_eq!(at.actions(), &[ot_toast::Action::Dismiss]);
             assert_eq!(at.content.note.as_deref(), Some(line));
         }
@@ -291,6 +318,7 @@ mod tests {
             &typed,
             Some(&template("reminder-alarm")),
             None,
+            None,
             0,
             10,
         );
@@ -302,7 +330,7 @@ mod tests {
         assert_eq!(alarm.clone().clamped(), alarm, "the cap survives clamping");
 
         for key in ["reminder-task", "reminder-timer", "reminder-appointment"] {
-            let other = spec(&prefs, &typed, Some(&template(key)), None, 0, 10);
+            let other = spec(&prefs, &typed, Some(&template(key)), None, None, 0, 10);
             assert!(!other.behaviour.persistent, "{key}");
             assert_eq!(other.behaviour.duration_secs, 12.0, "{key}");
         }

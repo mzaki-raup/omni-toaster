@@ -54,6 +54,10 @@ pub struct General {
     /// `system`, `dark` or `light`. Dark is the product's default
     /// (`docs/04-ui-design.md`), and the string is parsed by `ot-ui`.
     pub theme: String,
+    /// `automatic`, `12` or `24`, parsed by `ot_i18n::format::Clock`.
+    /// Automatic is 24-hour in Malay and Windows' own choice in English
+    /// (`docs/10-i18n.md`).
+    pub clock: String,
 }
 
 impl Default for General {
@@ -61,6 +65,7 @@ impl Default for General {
         Self {
             language: None,
             theme: "dark".to_string(),
+            clock: "automatic".to_string(),
         }
     }
 }

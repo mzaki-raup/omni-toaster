@@ -5,6 +5,8 @@
 //! Malay day name is correct even when Windows is set to English — and so a
 //! language switch needs no restart.
 
+use std::sync::{PoisonError, RwLock};
+
 use jiff::civil::{DateTime, Weekday};
 
 use crate::Language;
@@ -15,16 +17,176 @@ pub struct TimePrefs {
     /// `false` means 24-hour, which is the Malay default and so the default
     /// here.
     pub twelve_hour: bool,
+    /// The date is month first, `m/d/yyyy`. Only ever true in English, and
+    /// only when Windows' regional setting is month first.
+    pub month_first: bool,
+}
+
+/// The clock the user chose in Settings ▸ General.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
+pub enum Clock {
+    /// 24-hour in Malay; in English, whatever Windows' regional setting is.
+    #[default]
+    Automatic,
+    TwelveHour,
+    TwentyFourHour,
+}
+
+impl Clock {
+    /// From the settings file's value; anything unknown is Automatic.
+    pub fn parse(text: &str) -> Self {
+        match text {
+            "12" => Self::TwelveHour,
+            "24" => Self::TwentyFourHour,
+            _ => Self::Automatic,
+        }
+    }
+
+    /// The settings file's value.
+    pub fn as_str(self) -> &'static str {
+        match self {
+            Self::Automatic => "automatic",
+            Self::TwelveHour => "12",
+            Self::TwentyFourHour => "24",
+        }
+    }
+
+    /// The Fluent key naming it in Settings ▸ General.
+    pub fn name_key(self) -> &'static str {
+        match self {
+            Self::Automatic => "settings-clock-automatic",
+            Self::TwelveHour => "settings-clock-12",
+            Self::TwentyFourHour => "settings-clock-24",
+        }
+    }
+
+    pub fn all() -> [Self; 3] {
+        [Self::Automatic, Self::TwelveHour, Self::TwentyFourHour]
+    }
+}
+
+/// What Windows' regional settings say, as `ot-platform` read them. `None`
+/// where Windows could not say.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
+pub struct Regional {
+    pub month_first: Option<bool>,
+    pub twenty_four_hour: Option<bool>,
+}
+
+/// The user's clock and Windows' regional answer, held here like the active
+/// language, so every caller formats the same way without passing them
+/// around.
+static PREFS: RwLock<(Clock, Regional)> = RwLock::new((
+    Clock::Automatic,
+    Regional {
+        month_first: None,
+        twenty_four_hour: None,
+    },
+));
+
+/// Set the clock the user chose.
+pub fn set_clock(clock: Clock) {
+    PREFS.write().unwrap_or_else(PoisonError::into_inner).0 = clock;
+}
+
+/// Record what Windows' regional settings say.
+pub fn set_regional(regional: Regional) {
+    PREFS.write().unwrap_or_else(PoisonError::into_inner).1 = regional;
 }
 
 impl TimePrefs {
-    /// The default for a language: Malay is 24-hour
-    /// (`docs/10-i18n.md`), English follows the user's choice and starts at
-    /// 12-hour because that is what the Windows default is in `en-US`.
+    /// The defaults for a language, with Automatic and no regional answer:
+    /// Malay 24-hour and day first; English 12-hour, as the Windows default
+    /// in `en-US` is, and day first.
     pub fn for_language(language: Language) -> Self {
+        Self::resolve(language, Clock::Automatic, Regional::default())
+    }
+
+    /// The rule (`docs/10-i18n.md`): Malay is `d/m/yyyy` and 24-hour unless
+    /// the user chose 12-hour; English follows Windows' date order, and its
+    /// clock unless the user chose one.
+    pub fn resolve(language: Language, clock: Clock, regional: Regional) -> Self {
+        let english = matches!(language, Language::English);
+        let twelve_hour = match clock {
+            Clock::TwelveHour => true,
+            Clock::TwentyFourHour => false,
+            Clock::Automatic if english => !regional.twenty_four_hour.unwrap_or(false),
+            Clock::Automatic => false,
+        };
         Self {
-            twelve_hour: matches!(language, Language::English),
+            twelve_hour,
+            month_first: english && regional.month_first.unwrap_or(false),
         }
+    }
+
+    /// For the active language, with the user's clock and Windows' answer.
+    pub fn current() -> Self {
+        let (clock, regional) = *PREFS.read().unwrap_or_else(PoisonError::into_inner);
+        Self::resolve(
+            crate::current_language().unwrap_or(Language::English),
+            clock,
+            regional,
+        )
+    }
+}
+
+/// A unit of an offset or a repeat.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum Unit {
+    Minutes,
+    Hours,
+    Days,
+    Weeks,
+    Months,
+    Years,
+}
+
+impl Unit {
+    fn suffix(self) -> &'static str {
+        match self {
+            Self::Minutes => "minutes",
+            Self::Hours => "hours",
+            Self::Days => "days",
+            Self::Weeks => "weeks",
+            Self::Months => "months",
+            Self::Years => "years",
+        }
+    }
+}
+
+/// "1 day before", "15 minutes before" — an offset, with its plural.
+pub fn before(amount: u32, unit: Unit) -> String {
+    crate::text_with_count(&format!("format-before-{}", unit.suffix()), amount, &[])
+}
+
+/// "every day", "every 2 weeks on Monday and Thursday" — a repeat, with its
+/// plural and, for weeks, its weekdays.
+pub fn every(count: u32, unit: Unit, weekdays: &[Weekday]) -> String {
+    if unit == Unit::Weeks && !weekdays.is_empty() {
+        let names: Vec<String> = weekdays.iter().map(|day| weekday_name(*day)).collect();
+        return crate::text_with_count(
+            "format-every-weeks-on",
+            count,
+            &[("days", list(&names).into())],
+        );
+    }
+    crate::text_with_count(&format!("format-every-{}", unit.suffix()), count, &[])
+}
+
+/// "Monday", "Monday and Thursday", "Monday, Tuesday and Thursday" — each
+/// language's own way of listing, never commas glued in code.
+pub fn list(items: &[String]) -> String {
+    match items {
+        [] => String::new(),
+        [one] => one.clone(),
+        [first, second] => crate::text_with(
+            "format-list-pair",
+            &[("first", first.into()), ("second", second.into())],
+        ),
+        [first, rest @ ..] => crate::text_with(
+            "format-list-more",
+            &[("first", first.into()), ("rest", list(rest).into())],
+        ),
     }
 }
 
@@ -70,8 +232,13 @@ pub fn format_time(when: &DateTime, prefs: TimePrefs) -> String {
 
 /// Format a date and a time together.
 pub fn format_datetime(when: &DateTime, prefs: TimePrefs) -> String {
+    let key = if prefs.month_first {
+        "format-date-short-month-first"
+    } else {
+        "format-date-short"
+    };
     let date = crate::text_with(
-        "format-date-short",
+        key,
         &[
             ("day", when.day().to_string().into()),
             ("month", when.month().to_string().into()),
@@ -165,6 +332,63 @@ mod tests {
         assert!(!TimePrefs::default().twelve_hour);
         assert!(!TimePrefs::for_language(Language::Malay).twelve_hour);
         assert!(TimePrefs::for_language(Language::English).twelve_hour);
+    }
+
+    #[test]
+    fn the_clock_and_the_date_order_resolve_by_the_rule() {
+        let us = Regional {
+            month_first: Some(true),
+            twenty_four_hour: Some(false),
+        };
+        let uk = Regional {
+            month_first: Some(false),
+            twenty_four_hour: Some(true),
+        };
+        let resolve = TimePrefs::resolve;
+        // Malay: day first always; 24-hour unless the user chose 12.
+        for regional in [us, uk, Regional::default()] {
+            assert_eq!(
+                resolve(Language::Malay, Clock::Automatic, regional),
+                TimePrefs {
+                    twelve_hour: false,
+                    month_first: false
+                }
+            );
+            assert!(resolve(Language::Malay, Clock::TwelveHour, regional).twelve_hour);
+        }
+        // English: Windows' order, and Windows' clock unless chosen.
+        assert_eq!(
+            resolve(Language::English, Clock::Automatic, us),
+            TimePrefs {
+                twelve_hour: true,
+                month_first: true
+            }
+        );
+        assert_eq!(
+            resolve(Language::English, Clock::Automatic, uk),
+            TimePrefs {
+                twelve_hour: false,
+                month_first: false
+            }
+        );
+        assert!(!resolve(Language::English, Clock::TwentyFourHour, us).twelve_hour);
+        assert!(resolve(Language::English, Clock::TwelveHour, uk).twelve_hour);
+        // Windows silent: 12-hour, day first.
+        assert_eq!(
+            resolve(Language::English, Clock::Automatic, Regional::default()),
+            TimePrefs {
+                twelve_hour: true,
+                month_first: false
+            }
+        );
+    }
+
+    #[test]
+    fn the_clock_round_trips_through_its_settings_value() {
+        for clock in Clock::all() {
+            assert_eq!(Clock::parse(clock.as_str()), clock);
+        }
+        assert_eq!(Clock::parse("nonsense"), Clock::Automatic);
     }
 
     #[test]

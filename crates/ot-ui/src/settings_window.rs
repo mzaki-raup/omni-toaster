@@ -350,6 +350,10 @@ struct MissedEntry {
     reminder_id: i64,
     fired_at: jiff::Timestamp,
     snoozes: u32,
+    /// The reminder and its template, so the row can be said again in
+    /// another language or with another clock.
+    reminder: ot_store::reminders::Reminder,
+    template: Option<ot_store::reminders::Template>,
     row: crate::reminders::MissedRow,
 }
 
@@ -370,6 +374,14 @@ impl SettingsWindow {
     /// The autostart state is read here and after every change, never cached
     /// from the settings file.
     pub fn new(root: DataRoot, settings: Settings) -> Self {
+        // Every time the app writes follows the user's clock and Windows'
+        // regional answer, read once here (FEAT-0047).
+        let regional = ot_platform::regional();
+        ot_i18n::format::set_regional(ot_i18n::format::Regional {
+            month_first: regional.month_first,
+            twenty_four_hour: regional.twenty_four_hour,
+        });
+        ot_i18n::format::set_clock(ot_i18n::format::Clock::parse(&settings.general.clock));
         let language = LanguageChoice::parse(settings.general.language.as_deref());
         let settings_toast = settings.toast.clone();
         let root_path = root.path().to_path_buf();
@@ -515,6 +527,7 @@ impl SettingsWindow {
             "settings-window-title",
         )));
         self.rebuild_tray(jiff::Timestamp::now());
+        self.reformat();
         self.save();
         tracing::info!(
             ?language,
@@ -623,6 +636,38 @@ impl SettingsWindow {
         });
         if mode != self.theme.mode() {
             self.set_theme(mode);
+        }
+        ui.add_space(layout::ROW_GAP);
+
+        // Clock.
+        let clock = ot_i18n::format::Clock::parse(&self.settings.general.clock);
+        let mut chosen_clock = clock;
+        layout::labelled_row(ui, columns, &ot_i18n::text("settings-clock"), |ui| {
+            egui::ComboBox::from_id_salt("settings-clock")
+                .width(width)
+                .height(layout::field_height(ui))
+                .selected_text(ot_i18n::text(clock.name_key()))
+                .show_ui(ui, |ui| {
+                    for option in ot_i18n::format::Clock::all() {
+                        ui.selectable_value(
+                            &mut chosen_clock,
+                            option,
+                            ot_i18n::text(option.name_key()),
+                        );
+                    }
+                });
+        });
+        layout::field_hint(
+            ui,
+            columns,
+            &ot_i18n::text("settings-clock-hint"),
+            tokens.text_dim,
+        );
+        if chosen_clock != clock {
+            self.settings.general.clock = chosen_clock.as_str().to_owned();
+            ot_i18n::format::set_clock(chosen_clock);
+            self.reformat();
+            self.save();
         }
         ui.add_space(layout::ROW_GAP);
 
@@ -1361,6 +1406,34 @@ impl SettingsWindow {
         }
     }
 
+    /// Say every cached piece of text again, after the language or the clock
+    /// changed: the list's rows, the open history, the missed list, and the
+    /// editor's repeat summary. They are built once, not per frame, so a
+    /// change has to rebuild them (FEAT-0047).
+    fn reformat(&mut self) {
+        if let Some(book) = &self.book
+            && let Some(listing) = book.listing()
+        {
+            self.reminder_rows = Some(reminder_rows(listing));
+            if let Some(id) = self.editor.as_ref().and_then(|editor| editor.id) {
+                book.history(id);
+            }
+        }
+        let limit = self.settings.reminders.clamped().snooze_limit;
+        for entry in &mut self.missed {
+            entry.row = missed_row(
+                &entry.reminder,
+                entry.template.as_ref(),
+                entry.fired_at,
+                entry.snoozes,
+                limit,
+            );
+        }
+        if let Some(editor) = &mut self.editor {
+            editor.summary = None;
+        }
+    }
+
     /// Open a reminder in the editor and ask for its history.
     fn select_reminder(&mut self, id: i64) {
         let Some(book) = &self.book else { return };
@@ -2033,21 +2106,20 @@ impl SettingsWindow {
             // (docs/specs/reminders.md §6).
             if fired.missed {
                 let limit = self.settings.reminders.clamped().snooze_limit;
-                let title =
-                    crate::reminder_toast::content(&fired.reminder, fired.template.as_ref(), None)
-                        .title;
+                let row = missed_row(
+                    &fired.reminder,
+                    fired.template.as_ref(),
+                    fired_at,
+                    fired.snoozes,
+                    limit,
+                );
                 self.missed.push(MissedEntry {
                     reminder_id: fired.reminder_id,
                     fired_at,
                     snoozes: fired.snoozes,
-                    row: crate::reminders::MissedRow {
-                        title,
-                        due: ot_i18n::text_with(
-                            "settings-missed-due",
-                            &[("time", formatted_datetime(fired_at).into())],
-                        ),
-                        can_snooze: fired.snoozes < limit,
-                    },
+                    reminder: fired.reminder.clone(),
+                    template: fired.template.clone(),
+                    row,
                 });
                 tracing::info!(reminder = fired.reminder_id, "a missed reminder was listed");
                 self.record(fired.reminder_id, fired_at, NotificationAction::Missed);
@@ -2063,11 +2135,21 @@ impl SettingsWindow {
                 continue;
             }
             let template = fired.template.as_ref();
+            // An offset fire is about a time still ahead: its header says
+            // when that is, and its row says how far ahead (FEAT-0047).
+            let (timestamp, before) = match fired.fire.offset {
+                Some(offset) => (
+                    formatted_datetime(fired.fire.occurrence),
+                    Some(crate::phrases::offset(offset)),
+                ),
+                None => (formatted_time(now), None),
+            };
             let mut spec = crate::reminder_toast::spec(
                 &self.prefs,
                 &fired.reminder,
                 template,
-                Some(formatted_time(now)),
+                Some(timestamp),
+                before,
                 fired.snoozes,
                 self.settings.reminders.clamped().snooze_limit,
             );
@@ -2364,9 +2446,7 @@ fn tooltip_for(pause: Pause) -> String {
 /// A time of day through the one formatter, in the PC's own zone. Nothing
 /// else may format one (`docs/10-i18n.md`).
 fn formatted_time(moment: jiff::Timestamp) -> String {
-    let prefs = ot_i18n::format::TimePrefs::for_language(
-        ot_i18n::current_language().unwrap_or(Language::English),
-    );
+    let prefs = ot_i18n::format::TimePrefs::current();
     let local = moment
         .to_zoned_datetime(jiff::tz::TimeZone::system())
         .datetime();
@@ -2407,7 +2487,17 @@ fn reminder_rows(listing: &crate::reminder_book::Listing) -> Vec<crate::reminder
                 (ReminderStatus::Snoozed, Some(at)) => {
                     with_time("settings-reminder-row-snoozed", at)
                 }
-                (_, Some(at)) => with_time("settings-reminder-row-next", at),
+                (_, Some(at)) => match &reminder.draft.recurrence {
+                    Some(recurrence) => ot_i18n::text_with(
+                        "settings-reminder-row-next-repeat",
+                        &[
+                            ("type", type_name.clone().into()),
+                            ("repeat", crate::phrases::repeat(recurrence).into()),
+                            ("time", formatted_datetime(at).into()),
+                        ],
+                    ),
+                    None => with_time("settings-reminder-row-next", at),
+                },
                 (_, None) => ot_i18n::text_with(
                     "settings-reminder-row-plain",
                     &[("type", type_name.clone().into())],
@@ -2420,6 +2510,25 @@ fn reminder_rows(listing: &crate::reminder_book::Listing) -> Vec<crate::reminder
             }
         })
         .collect()
+}
+
+/// A missed reminder's row: its title (the type's name, in the active
+/// language, if it has none) and "Due …".
+fn missed_row(
+    reminder: &ot_store::reminders::Reminder,
+    template: Option<&ot_store::reminders::Template>,
+    fired_at: jiff::Timestamp,
+    snoozes: u32,
+    limit: u32,
+) -> crate::reminders::MissedRow {
+    crate::reminders::MissedRow {
+        title: crate::reminder_toast::content(reminder, template, None).title,
+        due: ot_i18n::text_with(
+            "settings-missed-due",
+            &[("time", formatted_datetime(fired_at).into())],
+        ),
+        can_snooze: snoozes < limit,
+    }
 }
 
 /// The history's name for what happened to a fire.
@@ -2435,9 +2544,7 @@ fn history_key(action: NotificationAction) -> &'static str {
 
 /// A date and time through the one formatter, in the PC's own zone.
 fn formatted_datetime(moment: jiff::Timestamp) -> String {
-    let prefs = ot_i18n::format::TimePrefs::for_language(
-        ot_i18n::current_language().unwrap_or(Language::English),
-    );
+    let prefs = ot_i18n::format::TimePrefs::current();
     let local = moment
         .to_zoned_datetime(jiff::tz::TimeZone::system())
         .datetime();

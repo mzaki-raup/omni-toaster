@@ -24,7 +24,7 @@ pub mod ui_font;
 pub mod window_park;
 
 pub use autostart::{Autostart, AutostartError};
-pub use locale::user_locale;
+pub use locale::{Regional, regional, user_locale};
 pub use monitors::{Monitor, monitors};
 pub use single_instance::{InstanceError, InstanceGuard, Role};
 pub use system_events::{SystemEvent, SystemEvents};
