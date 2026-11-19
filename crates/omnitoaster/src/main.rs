@@ -239,6 +239,15 @@ fn main() -> ExitCode {
         Err(error) => tracing::warn!(%error, "the schema version could not be read"),
     }
 
+    // History older than 90 days goes on every start
+    // (docs/05-data-model-and-storage.md). A failure costs disk space, not
+    // correctness, so it is logged and the app carries on.
+    match store.prune_notification_log(jiff::Timestamp::now()) {
+        Ok(0) => {}
+        Ok(pruned) => tracing::info!(pruned, "old notification history pruned"),
+        Err(error) => tracing::warn!(%error, "the notification history could not be pruned"),
+    }
+
     // Refresh the autostart path if it is on and the folder has moved. Never
     // enables it: that is the user's choice, not a side effect of launching
     // (docs/specs/tray-and-settings.md §7).

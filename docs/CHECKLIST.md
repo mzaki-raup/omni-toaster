@@ -143,7 +143,7 @@ Last updated: 2026-11-19
 
 | Item | State | Notes |
 |---|---|---|
-| Reminder CRUD | Pending | |
+| Reminder CRUD | In-Progress | FEAT-0039: the store side — create, read, list, update, delete, typed trigger and recurrence, unknown fields refused. The editor is FEAT-0046 |
 | Offsets | Pending | 15 minutes to a week, or custom |
 | Recurrence | Pending | Once, daily, weekly, monthly, yearly, custom |
 | Snooze | Pending | 5 minutes to a day; max per reminder |
@@ -153,7 +153,7 @@ Last updated: 2026-11-19
 | DST-safe scheduling | Pending | Recompute on resume and clock change |
 | Localized reminder types | Pending | Templates in both languages |
 | Shared date formatter | Pending | The only formatter in the workspace |
-| Migration 003 | Pending | `003_locale_keys.sql` — `002` went to `002_asset_label.sql` in Phase 2 |
+| Migration 003 | Completed | FEAT-0039. `003_locale_keys.sql` — `002` went to `002_asset_label.sql` in Phase 2. Tested fresh and on a version 2 database; in the app, a fresh folder and a v0.11.0-era one both read `user_version` 3 |
 
 ## Phase 5 — Location, Prayer and Azan
 > **Exit criteria:** the parser passes the fixtures for three zones; live JAKIM times match the official portal on the same dates for at least three zones; the fallback chain passes with the network disabled; prayer labels match the reference table in both languages.

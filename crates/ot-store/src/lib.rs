@@ -11,6 +11,7 @@
 pub mod assets;
 pub mod builtin;
 pub mod library;
+pub mod reminders;
 
 use std::path::{Path, PathBuf};
 
@@ -31,7 +32,15 @@ const MIGRATIONS: &[(i64, &str, &str)] = &[
         "002_asset_label.sql",
         include_str!("../migrations/002_asset_label.sql"),
     ),
+    (
+        3,
+        "003_locale_keys.sql",
+        include_str!("../migrations/003_locale_keys.sql"),
+    ),
 ];
+
+/// The schema version this build migrates to: the last migration's number.
+pub const SCHEMA_VERSION: i64 = 3;
 
 /// The database file, relative to the data root.
 const DB_RELATIVE_PATH: &str = "data/omnitoaster.db";
@@ -203,9 +212,14 @@ mod tests {
     use super::*;
 
     #[test]
+    fn the_schema_version_is_the_last_migrations_number() {
+        assert_eq!(MIGRATIONS.last().map(|m| m.0), Some(SCHEMA_VERSION));
+    }
+
+    #[test]
     fn a_fresh_database_migrates_to_the_latest_version() {
         let store = Store::open_in_memory().expect("opens");
-        assert_eq!(store.schema_version().expect("version"), 2);
+        assert_eq!(store.schema_version().expect("version"), 3);
     }
 
     #[test]
@@ -246,13 +260,13 @@ mod tests {
         {
             let store = Store::open(dir.path()).expect("first open");
             store.set_setting("theme", "dark").expect("write");
-            assert_eq!(store.schema_version().expect("version"), 2);
+            assert_eq!(store.schema_version().expect("version"), 3);
         }
 
         // Re-opening must not re-run 001 — which would fail on the existing
         // tables — and must leave the data alone.
         let store = Store::open(dir.path()).expect("second open");
-        assert_eq!(store.schema_version().expect("version"), 2);
+        assert_eq!(store.schema_version().expect("version"), 3);
         assert_eq!(
             store.setting("theme").expect("read").as_deref(),
             Some("dark"),
@@ -281,7 +295,7 @@ mod tests {
         }
 
         let store = Store::open(dir.path()).expect("migrates");
-        assert_eq!(store.schema_version().expect("version"), 2);
+        assert_eq!(store.schema_version().expect("version"), 3);
         let label: String = store
             .connection()
             .query_row("SELECT label FROM asset WHERE sha256 = 'abc'", [], |row| {
@@ -289,6 +303,106 @@ mod tests {
             })
             .expect("the old row is still there");
         assert_eq!(label, "", "an old row gets an empty label, not a failure");
+    }
+
+    #[test]
+    fn a_version_2_database_gains_the_keys_and_keeps_its_rows() {
+        // 003 on an existing database: a file built by 001 and 002, as
+        // v0.11.0 left it, with a template and a reminder in it.
+        let dir = tempfile::tempdir().expect("temp dir");
+        std::fs::create_dir_all(dir.path().join("data")).expect("mkdir");
+        {
+            let conn =
+                Connection::open(dir.path().join(DB_RELATIVE_PATH)).expect("a version 2 file");
+            conn.execute_batch(MIGRATIONS[0].2).expect("001");
+            conn.execute_batch(MIGRATIONS[1].2).expect("002");
+            conn.pragma_update(None, "user_version", 2i64)
+                .expect("version 2");
+            conn.execute(
+                "INSERT INTO category (id, kind, custom_title) VALUES (1, 'prayer', 'Subuh')",
+                [],
+            )
+            .expect("an old template");
+            conn.execute(
+                "INSERT INTO reminder (id, title, trigger_type, trigger_json, created_at, updated_at) \
+                 VALUES (1, 'Old', 'at', '{}', '2026-11-10', '2026-11-10')",
+                [],
+            )
+            .expect("an old reminder");
+        }
+
+        let store = Store::open(dir.path()).expect("migrates");
+        assert_eq!(store.schema_version().expect("version"), 3);
+        let conn = store.connection();
+
+        let (title, key, lang): (String, Option<String>, Option<String>) = conn
+            .query_row(
+                "SELECT custom_title, prayer_key, authored_lang FROM category WHERE id = 1",
+                [],
+                |row| Ok((row.get(0)?, row.get(1)?, row.get(2)?)),
+            )
+            .expect("the old template is still there");
+        assert_eq!((title.as_str(), key, lang), ("Subuh", None, None));
+
+        let lang: Option<String> = conn
+            .query_row(
+                "SELECT authored_lang FROM reminder WHERE id = 1",
+                [],
+                |row| row.get(0),
+            )
+            .expect("the old reminder is still there");
+        assert_eq!(lang, None);
+
+        // The built-in types arrived next to it, not over it.
+        let types: i64 = conn
+            .query_row(
+                "SELECT count(*) FROM category WHERE kind = 'reminder' AND type_key IS NOT NULL",
+                [],
+                |row| row.get(0),
+            )
+            .expect("count");
+        assert_eq!(types, 12);
+    }
+
+    #[test]
+    fn a_fresh_database_has_every_built_in_reminder_type_once() {
+        let store = Store::open_in_memory().expect("opens");
+        let mut stmt = store
+            .connection()
+            .prepare(
+                "SELECT type_key FROM category WHERE kind = 'reminder' \
+                 AND custom_title IS NULL AND custom_body IS NULL ORDER BY id",
+            )
+            .expect("prepare");
+        let keys: Vec<String> = stmt
+            .query_map([], |row| row.get(0))
+            .expect("query")
+            .collect::<Result<_, _>>()
+            .expect("rows");
+        assert_eq!(
+            keys,
+            [
+                "reminder-event",
+                "reminder-task",
+                "reminder-anniversary",
+                "reminder-fatigue-eye",
+                "reminder-fatigue-posture",
+                "reminder-fatigue-hydration",
+                "reminder-fatigue-work-hours",
+                "reminder-timer",
+                "reminder-alarm",
+                "reminder-payment",
+                "reminder-appointment",
+                "reminder-custom",
+            ]
+        );
+
+        // A key is one template: a second row with it is refused.
+        let duplicate = store.connection().execute(
+            "INSERT INTO category (kind, type_key) VALUES ('reminder', 'reminder-alarm')",
+            [],
+        );
+        assert!(duplicate.is_err(), "a second reminder-alarm template");
     }
 
     #[test]
@@ -329,7 +443,7 @@ mod tests {
                 error,
                 StoreError::FromTheFuture {
                     found: 99,
-                    known: 2
+                    known: 3
                 }
             ),
             "got {error:?}"

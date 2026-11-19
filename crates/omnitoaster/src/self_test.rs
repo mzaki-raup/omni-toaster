@@ -73,10 +73,13 @@ pub fn run(data_dir: Option<&Path>) -> usize {
         let root = DataRoot::resolve(data_dir).map_err(|e| e.to_string())?;
         let store = ot_store::Store::open(root.path()).map_err(|e| e.to_string())?;
         let version = store.schema_version().map_err(|e| e.to_string())?;
-        if version >= 1 {
+        if version == ot_store::SCHEMA_VERSION {
             Ok(())
         } else {
-            Err(format!("schema version is {version}, expected at least 1"))
+            Err(format!(
+                "schema version is {version}, expected {}",
+                ot_store::SCHEMA_VERSION
+            ))
         }
     });
 

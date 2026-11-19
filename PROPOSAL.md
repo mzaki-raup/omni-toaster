@@ -65,7 +65,7 @@ The recommended UI framework is **eframe/egui**, with Slint as a documented fall
 | Images | `image` crate | `zune-image` | Decode and resize to thumbnails. |
 | Scheduling | Dedicated scheduler thread with a priority queue | `tokio-cron-scheduler` | Full control over DST, snooze, sleep and resume, and clock changes. |
 | HTTP | `ureq` (blocking) | `reqwest` | Lightweight for periodic API calls. |
-| Serialization | `serde` | | Standard. |
+| Serialization | `serde`, `serde_json` | | Standard. `serde_json` reads the reminder's JSON columns. |
 | Errors | `thiserror` (libraries), `anyhow` (application) | | Standard. |
 | Date and time | `jiff` (ADR-017; `chrono` until 2026-11-19) | `time` | Arithmetic and timezone handling, the IANA database bundled for Windows. Malay names come from static tables. |
 | CI/CD | **Forgejo Actions** on the owner's own Windows machine (`.forgejo/workflows/`), with GitHub Actions (`.github/workflows/`, `windows-latest`) on the public mirror | A single hosted runner | Forgejo holds version authority and publishes the release; GitHub is a read-only mirror that runs the same checks for contributors. Both run fmt, clippy, tests, lints, and release builds. Because the Forgejo runner *is* the development machine, every cargo step there is bounded with `-j 4`. |

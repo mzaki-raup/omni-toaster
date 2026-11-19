@@ -165,5 +165,25 @@ cargo run -p omnitoaster -- --data-dir ./tmp-data
 
 ## What is implemented (2026-11-19)
 
-Nothing yet. Phase 4 started on `feat/phase-4-scheduler`; its items are
-CR-0007 and FEAT-0039 to FEAT-0048 in `docs/TASKS.md` under `v0.4.0`.
+Phase 4 is under way on `feat/phase-4-scheduler`; its items are CR-0007 and
+FEAT-0039 to FEAT-0048 in `docs/TASKS.md` under `v0.4.0`.
+
+- **The store (FEAT-0039).** Migration `003_locale_keys.sql` adds the
+  `category` key columns (`prayer_key`, `weather_key`, `type_key`, one
+  template per key), `authored_lang` on `category` and `reminder` (`en-US` or
+  `ms-MY` only), and seeds a template with no custom text for each built-in
+  reminder type: `reminder-event`, `-task`, `-anniversary`, `-fatigue-eye`,
+  `-fatigue-posture`, `-fatigue-hydration`, `-fatigue-work-hours`, `-timer`,
+  `-alarm`, `-payment`, `-appointment`, `-custom`. Azan and weather changes are
+  seeded with their own keys by Phases 5 and 6.
+- `ot_store::reminders` creates, reads, lists, updates and deletes reminders
+  with parameterized statements. `trigger_json` and `recurrence_json` are typed
+  (`Trigger`, `Recurrence`) and a field this build does not know is refused; a
+  row it cannot read is an error from `reminder()` and is left out of
+  `reminders()` with a log line. An edit clears `next_fire_at`, which only the
+  scheduler writes (`set_next_fire_at`).
+- Snoozes are recorded with their running count; `notification_log` rows are
+  written with their action and pruned at 90 days on every start. Instants are
+  stored as UTC text (`2026-11-19T00:00:00.000Z`) so they compare as text.
+
+Nothing fires yet: the scheduler thread is FEAT-0041.

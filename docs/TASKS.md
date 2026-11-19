@@ -154,17 +154,19 @@ date library it will keep.
 - **Notes:** App, checked 2026-11-19 at 07:14–07:16 local time (UTC+8): the Appearance preview's timestamp read "7:14 am" in English and "07:15" in Malay; For 30 Minutes chosen from OmniToaster's own tray menu (by script, through its icon on the taskbar) at 07:15:45 and 07:16:03 made the status line read "Notifications are paused until 7:45 am." and "Pemberitahuan dijeda sehingga 07:46." README: neither README names the date library, so nothing to change; `PROPOSAL.md` §4's stack row now says `jiff`. Ignored in `deny.toml` until then, with the reason: it is not a vulnerability and today `chrono` parses no input from outside the app. Before Phase 4 because the scheduler and the prayer times are where a date library becomes hard to replace.
 
 ### FEAT-0039 · Migration 003 and the reminder store
-- **State:** Pending · **Spec:** docs/05-data-model-and-storage.md · docs/specs/reminders.md §9 · **Phase:** 4
+- **State:** Completed · **Spec:** docs/05-data-model-and-storage.md · docs/specs/reminders.md §9 · **Phase:** 4
 - **Branch:** feat/phase-4-scheduler
 - **Depends on:** CR-0007
-- [ ] `003_locale_keys.sql`: the `category` key columns, `authored_lang` on `reminder`, the built-in type keys — never editing `001` or `002`
-- [ ] `ot-store` reminders: create, read, list, update, delete, parameterized only; `trigger_json` and `recurrence_json` typed in Rust, unknown fields rejected; `next_fire_at` written by the scheduler only
-- [ ] `snooze_log` and `notification_log` writes; `notification_log` pruned at 90 days on start
-- [ ] `--self-test` migrates to 3
-- [ ] Test: `003` on a fresh database and on one at version 2; CRUD round-trip; a malformed `trigger_json` refused; delete cascades to `snooze_log`; pruning keeps 89 days and drops 91
-- [ ] Gate: fmt · clippy -D warnings · test --workspace --locked -j 4 · deny check · --self-test
-- [ ] App: `--data-dir ./tmp-data` — create the database fresh and from a v0.11.0 copy; `--self-test`; the database's `user_version` reads 3
-- [ ] Docs: spec · README · CHANGELOG · CHECKLIST · GOTCHAS
+- **Verified:** the gate, the migration on a fresh and a version 2 database in tests and in the app
+- [x] `003_locale_keys.sql`: the `category` key columns, `authored_lang` on `reminder`, the built-in type keys — never editing `001` or `002` — `prayer_key`, `weather_key`, `type_key` (one template per key), `authored_lang` on `category` and `reminder` (`en-US`/`ms-MY` only), and a template row for each of the twelve built-in reminder type keys
+- [x] `ot-store` reminders: create, read, list, update, delete, parameterized only; `trigger_json` and `recurrence_json` typed in Rust, unknown fields rejected; `next_fire_at` written by the scheduler only — `ot_store::reminders`; an edit clears `next_fire_at`, and only `set_next_fire_at` writes it
+- [x] `snooze_log` and `notification_log` writes; `notification_log` pruned at 90 days on start
+- [x] `--self-test` migrates to 3 — it now checks for exactly `ot_store::SCHEMA_VERSION`
+- [x] Test: `003` on a fresh database and on one at version 2; CRUD round-trip; a malformed `trigger_json` refused; delete cascades to `snooze_log`; pruning keeps 89 days and drops 91
+- [x] Gate: fmt · clippy -D warnings · test --workspace --locked -j 4 (272 passed) · deny check · --self-test
+- [x] App: `--data-dir ./tmp-data` — create the database fresh and from a v0.11.0 copy; `--self-test`; the database's `user_version` reads 3
+- [x] Docs: spec · README · CHANGELOG · CHECKLIST · GOTCHAS
+- **Notes:** App, checked 2026-11-19 at 12:40 local time: the debug worker started on a fresh scratch folder (window "Settings") and on a copy of a version 2 database that this morning's build had made (window "Tetapan"); the log shows 001–003 applied to the fresh one and only 003 to the copy, and both read `user_version` 3 with twelve `reminder-` templates; `--self-test` on the migrated copy passed. README: nothing user-visible changed — both still say reminders are the next phase. New dependency `serde_json` 1.0.154 (with `zmij`), added to `PROPOSAL.md` §4's serialization row; `cargo deny check` passes. The image-library test's hand-picked template id moved from 7 to 107, past the seeded rows (GOTCHAS, Storage and Migrations)
 
 ### FEAT-0040 · Recurrence and offsets, in the local wall clock
 - **State:** Pending · **Spec:** docs/specs/reminders.md §4 · §7 · **Phase:** 4

@@ -93,7 +93,8 @@ category          (id, kind, prayer_key | weather_key | type_key,   -- keys, not
                    image_id, accent_color, sound_id,
                    style_json, animation_json, enabled)
 reminder          (id, category_id, title, body, trigger_type, trigger_json,
-                   recurrence_json, next_fire_at, status, created_at, updated_at)
+                   recurrence_json, next_fire_at, status, created_at, updated_at,
+                   authored_lang)                          -- 'en-US' | 'ms-MY'; instants are UTC text
 snooze_log        (id, reminder_id, snoozed_until, count)
 notification_log  (id, reminder_id, fired_at, action, source)
 asset             (id, sha256 PK, kind, relative_path, bytes, created_at,
@@ -114,7 +115,7 @@ edited once it has shipped; a correction is a new migration.
 |---|---|---|
 | `001_init.sql` | 0 | `settings`, `location`, `category`, `reminder`, `snooze_log`, `notification_log`, `asset`, `weather_cache` |
 | `002_asset_label.sql` | 2 | `asset.label`, the name a picture has in the image library |
-| `003_locale_keys.sql` | 4 | the `category` key columns, `authored_lang`, built-in key identifiers |
+| `003_locale_keys.sql` | 4 | the `category` key columns (one template per key), `authored_lang` on `category` and `reminder`, and a template row for each built-in reminder type key |
 | `004_jakim.sql` | 5 | `jakim_zones`, `jakim_prayer_cache` |
 
 Every migration is tested on both a fresh database and an existing one

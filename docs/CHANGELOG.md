@@ -7,6 +7,10 @@ Format: [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) · Versioning:
 
 ## Unreleased
 
+### Added
+
+- The reminder store: migration 003 gives templates their built-in keys and one template per reminder type, records the language a title was typed in, and `ot-store` now creates, reads, lists, updates and deletes reminders, refusing a trigger or recurrence it does not understand, records snoozes with their count, and logs every notification, pruning the log at 90 days on start. The database is now at schema version 3, and `--self-test` checks for exactly that (FEAT-0039).
+
 ### Changed
 
 - Dates and times use `jiff` instead of `chrono`, which is unmaintained (RUSTSEC-2026-0543): the toast timestamp, the pause, the log and the crash report read the same as before, and `Asia/Kuala_Lumpur` now resolves from a zone database bundled in the exe, ready for the prayer times. The advisory's ignore is gone from `deny.toml` (CR-0007, ADR-017).
