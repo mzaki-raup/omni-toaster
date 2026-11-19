@@ -15,3 +15,4 @@ workspace = true
 [dependencies]
 jiff.workspace = true
 ot-store = { path = "../ot-store" }
+tracing.workspace = true

@@ -117,6 +117,15 @@ impl Status {
             _ => return None,
         })
     }
+
+    fn as_str(self) -> &'static str {
+        match self {
+            Self::Active => "active",
+            Self::Snoozed => "snoozed",
+            Self::Done => "done",
+            Self::Cancelled => "cancelled",
+        }
+    }
 }
 
 /// What the user wrote. Title and body are stored exactly as typed.
@@ -371,6 +380,17 @@ impl Store {
         Ok(())
     }
 
+    /// Set a reminder's status. The scheduler marks a reminder `Done` when it
+    /// has fired for the last time, so a clock set back cannot fire it again.
+    pub fn set_status(&self, id: i64, status: Status) -> Result<(), StoreError> {
+        self.conn.execute(
+            "UPDATE reminder SET status = ?2, \
+             updated_at = strftime('%Y-%m-%dT%H:%M:%fZ', 'now') WHERE id = ?1",
+            params![id, status.as_str()],
+        )?;
+        Ok(())
+    }
+
     /// Record a snooze and return its running count, starting at 1.
     pub fn record_snooze(&self, reminder_id: i64, until: Timestamp) -> Result<u32, StoreError> {
         let count = self.snooze_count(reminder_id)? + 1;
@@ -524,6 +544,22 @@ mod tests {
         store.set_next_fire_at(id, None).expect("clears");
         let read = store.reminder(id).expect("reads").expect("exists");
         assert_eq!(read.next_fire_at, None);
+    }
+
+    #[test]
+    fn every_status_round_trips() {
+        let store = Store::open_in_memory().expect("opens");
+        let id = store.create_reminder(&draft()).expect("creates");
+        for status in [
+            Status::Done,
+            Status::Snoozed,
+            Status::Cancelled,
+            Status::Active,
+        ] {
+            store.set_status(id, status).expect("writes");
+            let read = store.reminder(id).expect("reads").expect("exists");
+            assert_eq!(read.status, status);
+        }
     }
 
     #[test]

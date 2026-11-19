@@ -30,6 +30,7 @@ jiff.workspace = true
 ot-core = { path = "../ot-core" }
 ot-i18n = { path = "../ot-i18n" }
 ot-platform = { path = "../ot-platform" }
+ot-sched = { path = "../ot-sched" }
 ot-store = { path = "../ot-store" }
 ot-ui = { path = "../ot-ui" }
 tracing.workspace = true

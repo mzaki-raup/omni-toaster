@@ -9,6 +9,7 @@
 //! defect, and `the_general_pane_names_only_keys_that_exist` is what catches
 //! one.
 
+use std::sync::mpsc::Receiver;
 use std::time::{Duration, Instant};
 
 use ot_core::{DataRoot, Pause, PauseFor, Settings};
@@ -298,6 +299,9 @@ pub struct SettingsWindow {
     /// Where the window was when it was parked; `None` while it is showing
     /// (BUG-0008).
     parked: Option<ot_platform::window_park::Parked>,
+    /// The scheduler's fires, drained at frame start; `None` when no
+    /// scheduler runs, as in the layout tests.
+    fires: Option<Receiver<ot_sched::scheduler::Fired>>,
 }
 
 impl SettingsWindow {
@@ -379,6 +383,7 @@ impl SettingsWindow {
             title_bar_dark: None,
             window: None,
             parked: None,
+            fires: None,
         }
     }
 
@@ -1650,6 +1655,20 @@ impl SettingsWindow {
         self.test_icon.as_deref() == Some(path) || self.test_image.as_deref() == Some(path)
     }
 
+    /// Take the scheduler's fires, at most a channel's worth a frame, so a
+    /// burst cannot stall one frame. The toast each one becomes is FEAT-0042;
+    /// until then a fire is logged on arrival, after the scheduler's own line.
+    fn drain_fires(&mut self) {
+        let Some(fires) = &self.fires else { return };
+        for fired in fires.try_iter().take(ot_sched::scheduler::FIRE_CAPACITY) {
+            tracing::info!(
+                reminder = fired.reminder_id,
+                target = %fired.fire.at,
+                "a reminder fire reached the UI"
+            );
+        }
+    }
+
     /// Take whatever the import and decode threads have finished.
     fn drain_images(&mut self, ctx: &egui::Context) {
         if let Some(outcome) = self.importer.drain() {
@@ -1757,6 +1776,7 @@ impl eframe::App for SettingsWindow {
         // answering the tray while the window is hidden.
         ctx.request_repaint_after(TRAY_POLL);
         self.window = frame.window_handle().ok().map(|handle| handle.as_raw());
+        self.drain_fires();
         self.handle_tray(ctx);
         self.drain_images(ctx);
         self.drive_toasts(ctx);
@@ -1963,11 +1983,17 @@ pub struct DevOptions {
     pub slow_frames: bool,
 }
 
-pub fn run(root: DataRoot, settings: Settings, dev: DevOptions) -> Result<(), WindowError> {
+pub fn run(
+    root: DataRoot,
+    settings: Settings,
+    dev: DevOptions,
+    fires: Receiver<ot_sched::scheduler::Fired>,
+) -> Result<(), WindowError> {
     let ui_scale = dev.ui_scale;
     let fonts = font_definitions().map_err(WindowError::Fonts)?;
     let mut window = SettingsWindow::new(root, settings);
     window.dev = dev;
+    window.fires = Some(fires);
     if dev.test_toast {
         window.show_shape_samples();
     }

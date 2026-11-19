@@ -145,6 +145,7 @@ have.
 ## Scheduler and Time
 - **jiff's `compatible()` does not put a skipped time at the gap's end.** For a wall-clock time inside a DST gap it adds the gap's length — 02:30 on a day that jumps from 02:00 to 03:00 becomes 03:30 — which is a reasonable default and not what the spec asks for. `ot_sched::recurrence::resolve` reads the time with the offset *after* the gap, which lands just before the transition, and takes `tz.following(..)`'s first transition: 03:00. A fold uses `earlier()`, so the repeated hour fires once.
 - **The short DST day is the day of the change, not the day after.** A test asserted that "1 day before 07:00 on Monday 9 March" was 23 hours in New York; it is 24 — both 07:00s are after that Sunday's 02:00 jump. The pair that straddles the change is 07:00 Saturday → 07:00 Sunday. When a DST test's expected length is off by an hour, check which side of the transition each end falls on before suspecting the code.
+- **jiff keeps the system time zone for five minutes.** `TimeZone::system()` is cached with a 5-minute TTL, so a zone changed in Windows' settings would leave the scheduler computing in the old one for up to five minutes. The scheduler calls `jiff::tz::reset_system_time_zone_cache()` on a clock-change or resume event before reading the zone again, and compares the zone on every wake as the backstop.
 - **Malaysia has no DST, so a DST test needs a zone that has one.** Tests of the wall-clock rules use `America/New_York` from jiff's bundled database (2026: forward on 8 March, back on 1 November); the machine's own zone proves nothing here, and changing it is a system setting no session changes.
 
 ## Prayer Times and JAKIM
@@ -158,6 +159,8 @@ Nothing recorded yet.
 
 ## Tray, Startup and Supervisor
 Nothing recorded yet.
+- **Broadcast messages never reach a message-only window.** `WM_TIMECHANGE` and `WM_POWERBROADCAST` are sent to top-level windows, and an `HWND_MESSAGE` window is not one, so a watcher built that way waits for ever without an error. `ot_platform::system_events` creates a hidden, zero-sized `WS_POPUP` top-level window on its own thread instead. Its test posts the messages to that window, which proves the dispatch but not the broadcast; the broadcast itself is the owner's check.
+- **The daily log is `logs/app.<date>`, with no extension.** A script that filtered for `*.log` found nothing and looked like a scheduler that never fired. Match `app.*`.
 - **A tray GUID is tied to the exe's path, which a portable app does not keep.** `Shell_NotifyIcon` with `NIF_GUID` lets a new run replace a dead run's icon, but Windows binds the GUID to the executable that first registered it, and a moved folder's exe is refused. OmniToaster records the icon's window instead and deletes that window's icons on the next start — checking `IsWindow` first, so a reused handle can never cost another program its icon (CR-0003).
 
 ## Testing

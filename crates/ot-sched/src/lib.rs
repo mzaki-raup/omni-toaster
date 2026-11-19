@@ -8,3 +8,4 @@
 //! may depend on.
 
 pub mod recurrence;
+pub mod scheduler;

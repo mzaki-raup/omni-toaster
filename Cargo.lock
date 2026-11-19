@@ -2297,6 +2297,7 @@ dependencies = [
  "ot-core",
  "ot-i18n",
  "ot-platform",
+ "ot-sched",
  "ot-store",
  "ot-ui",
  "tempfile",
@@ -2392,6 +2393,7 @@ version = "0.11.0"
 dependencies = [
  "jiff",
  "ot-store",
+ "tracing",
 ]
 
 [[package]]
@@ -2432,6 +2434,7 @@ dependencies = [
  "ot-core",
  "ot-i18n",
  "ot-platform",
+ "ot-sched",
  "ot-store",
  "ot-toast",
  "raw-window-handle",

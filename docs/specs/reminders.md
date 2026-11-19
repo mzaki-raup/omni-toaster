@@ -91,6 +91,11 @@ wrong.
   boundary. A wall-clock time a DST gap skips fires when the gap ends (02:30 on
   a day that jumps from 02:00 to 03:00 fires at 03:00); one a DST fold repeats
   fires once, on its first pass.
+- A clock jumped forward, or a resume, fires each reminder it skipped **once**,
+  not once per skipped occurrence; listing them instead is §6. A clock set back
+  does not fire a one-off reminder again: one that has fired its last is
+  marked `done`. A recurring one follows the wall clock and fires when its time
+  comes round again.
 - JAKIM prayer times are read in `Asia/Kuala_Lumpur` and converted to absolute
   timestamps when the queue is built, regardless of the PC's own zone
   ([11-prayer-and-azan.md](../11-prayer-and-azan.md) §4).
@@ -203,4 +208,15 @@ FEAT-0039 to FEAT-0048 in `docs/TASKS.md` under `v0.4.0`.
   back again; gaps and folds as §7 says; offsets as §4 says. A pure function,
   tested in `America/New_York` for DST, since Malaysia has none.
 
-Nothing fires yet: the scheduler thread is FEAT-0041.
+- **The scheduler thread (FEAT-0041).** `ot_sched::scheduler` runs the thread
+  `scheduler`, which owns the store's connection it was given and a queue of
+  each active reminder's next fire, written to `next_fire_at`. It waits on its
+  command channel for at most 30 seconds and never past local midnight,
+  re-reading the wall clock on every wake. `Command::Changed`, `Removed` and
+  `Recompute` come in on that channel; the queue is rebuilt from the database
+  at midnight, on a clock jump it measures itself (the wall clock against the
+  monotonic one, beyond 2 seconds), on a zone that differs from the last wake's,
+  and on `ot_platform::system_events`' clock change and resume. Fires go out on
+  a channel of 64; a full one holds them and retries every 100 ms. The UI
+  drains it at frame start and, until FEAT-0042 makes them toasts, logs each.
+  The log line `reminder fired` gives the target and `late_ms`.

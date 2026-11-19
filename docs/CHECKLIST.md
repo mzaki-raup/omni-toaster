@@ -144,13 +144,13 @@ Last updated: 2026-11-19
 | Item | State | Notes |
 |---|---|---|
 | Reminder CRUD | In-Progress | FEAT-0039: the store side — create, read, list, update, delete, typed trigger and recurrence, unknown fields refused. The editor is FEAT-0046 |
-| Offsets | In-Progress | 15 minutes to a week, or custom. FEAT-0040: the rule, tested — several per reminder, each its own fire, day offsets in calendar days. Firing them is FEAT-0041 |
-| Recurrence | In-Progress | Once, daily, weekly, monthly, yearly, custom. FEAT-0040: every *N* of each, chosen weekdays, month ends and leap years, tested. Firing them is FEAT-0041 |
+| Offsets | In-Progress | 15 minutes to a week, or custom. FEAT-0040: the rule, tested — several per reminder, each its own fire, day offsets in calendar days. FEAT-0041's scheduler fires them, tested in its core; no offset reminder has fired in the app yet |
+| Recurrence | In-Progress | Once, daily, weekly, monthly, yearly, custom. FEAT-0040: every *N* of each, chosen weekdays, month ends and leap years, tested. FEAT-0041: a daily reminder fired in the app and moved to the next day |
 | Snooze | Pending | 5 minutes to a day; max per reminder |
 | Duration | Pending | 3–60 s, hover pauses |
 | Persistent alarms | Pending | 10-minute cap on urgent types |
 | Missed-reminder handling | Pending | 1 h catch-up for Azan, 24 h for others |
-| DST-safe scheduling | In-Progress | Recompute on resume and clock change. FEAT-0040: occurrences in the wall clock, gap and fold rules, tested in `America/New_York`. The recompute is FEAT-0041 |
+| DST-safe scheduling | In-Progress | Recompute on resume and clock change. FEAT-0040: occurrences in the wall clock, gap and fold rules, tested in `America/New_York`. FEAT-0041: the queue rebuilt at midnight, on a clock jump, a zone change and a resume (Windows' events through `ot_platform::system_events`), each proved with simulated events; the real clock and zone changes are an owner's check, not made |
 | Localized reminder types | Pending | Templates in both languages |
 | Shared date formatter | Pending | The only formatter in the workspace |
 | Migration 003 | Completed | FEAT-0039. `003_locale_keys.sql` — `002` went to `002_asset_label.sql` in Phase 2. Tested fresh and on a version 2 database; in the app, a fresh folder and a v0.11.0-era one both read `user_version` 3 |
