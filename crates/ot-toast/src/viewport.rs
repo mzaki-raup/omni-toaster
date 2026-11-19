@@ -491,6 +491,17 @@ impl Toasts {
 
     /// Show a toast, or queue it when the screen is full.
     pub fn push(&mut self, spec: ToastSpec, now: Instant) -> ToastId {
+        self.push_at(spec, now, false)
+    }
+
+    /// Show an urgent toast — an alarm — or, when the screen is full, queue
+    /// it ahead of everything already waiting (`docs/specs/reminders.md` §8).
+    /// It does not push a toast already on screen off it.
+    pub fn push_first(&mut self, spec: ToastSpec, now: Instant) -> ToastId {
+        self.push_at(spec, now, true)
+    }
+
+    fn push_at(&mut self, spec: ToastSpec, now: Instant, first: bool) -> ToastId {
         let id = ToastId(self.next_id);
         self.next_id += 1;
         let mut toast = LiveToast::new(id, spec, now);
@@ -501,6 +512,8 @@ impl Toasts {
 
         if self.staying() < self.max_visible() {
             self.visible.push(toast);
+        } else if first {
+            self.queued.push_front(toast);
         } else {
             self.queued.push_back(toast);
         }
@@ -882,6 +895,34 @@ mod tests {
             toast.next_change(holding + ms(5_000)),
             Some(holding + ms(5_000) + ms(58_500))
         );
+    }
+
+    #[test]
+    fn an_urgent_toast_waits_ahead_of_the_queue() {
+        let start = t0();
+        let mut toasts = Toasts::new();
+        let max = MAX_VISIBLE.default as usize;
+        let first = shown(&mut toasts, spec_lasting(60.0), start);
+        for _ in 1..max {
+            shown(&mut toasts, spec_lasting(60.0), start);
+        }
+        let ordinary = toasts.push(spec_lasting(60.0), start);
+        let alarm = toasts.push_first(spec_lasting(60.0), start);
+        assert_eq!(
+            toasts.visible().len(),
+            max,
+            "nothing on screen is displaced"
+        );
+
+        let later = start + ms(1_000);
+        toasts.dismiss(first, later);
+        toasts.tick(later);
+        assert!(
+            toasts.visible().iter().any(|t| t.id == alarm),
+            "the alarm first"
+        );
+        assert!(toasts.visible().iter().all(|t| t.id != ordinary));
+        assert_eq!(toasts.queued_count(), 1);
     }
 
     #[test]

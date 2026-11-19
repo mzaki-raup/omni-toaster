@@ -300,11 +300,11 @@ impl Action {
         }
     }
 
-    /// Whether pressing it does anything yet. Snooze and Open act on a
-    /// reminder, and reminders arrive in Phase 4; until then they are drawn
-    /// greyed (the owner's choice, 2026-11-18).
+    /// Whether pressing it does anything yet. Dismiss closes the toast and
+    /// Open brings Settings forward (FEAT-0042); Snooze is drawn greyed until
+    /// FEAT-0043 makes it work (the owner's choice, 2026-11-18).
     pub fn works(self) -> bool {
-        self == Self::Dismiss
+        matches!(self, Self::Dismiss | Self::Open)
     }
 }
 

@@ -197,9 +197,9 @@ mod tests {
     }
 
     #[test]
-    fn only_dismiss_works_until_reminders_exist() {
+    fn dismiss_and_open_work_and_snooze_waits_for_its_item() {
         assert!(Action::Dismiss.works());
+        assert!(Action::Open.works());
         assert!(!Action::Snooze.works());
-        assert!(!Action::Open.works());
     }
 }

@@ -411,3 +411,58 @@ month-september = September
 month-october = Oktober
 month-november = November
 month-december = Disember
+
+## Reminder types. Each key is also the stable identifier stored in the
+## database (category.type_key), so a key is never renamed. The name is a list
+## item, so Title Case. The -body line is the toast's text when neither the
+## reminder nor its template has a body of its own: sentence case. A user's
+## own title and body are never keys and are never translated.
+
+# The type of a reminder for a dated event: a talk, a course, a gathering.
+reminder-event = Acara
+# Toast body for an Event reminder that has no text of its own.
+reminder-event-body = Satu acara akan bermula.
+# The type of a reminder for something the user has to do.
+reminder-task = Tugasan
+# Toast body for a Task reminder that has no text of its own.
+reminder-task-body = Satu tugasan perlu disiapkan.
+# The type of a reminder for a yearly date: a birthday, a wedding anniversary.
+reminder-anniversary = Ulang Tahun
+# Toast body for an Anniversary reminder that has no text of its own.
+reminder-anniversary-body = Ingat ulang tahun ini.
+# Fatigue reminder: rest the eyes from the screen.
+reminder-fatigue-eye = Rehat Mata
+# Toast body for an Eye Break reminder that has no text of its own.
+reminder-fatigue-eye-body = Rehatkan mata: pandang sesuatu yang jauh.
+# Fatigue reminder: check how you are sitting.
+reminder-fatigue-posture = Postur
+# Toast body for a Posture reminder that has no text of its own.
+reminder-fatigue-posture-body = Duduk tegak dan longgarkan bahu anda.
+# Fatigue reminder: drink water.
+reminder-fatigue-hydration = Minum Air
+# Toast body for a Drink Water reminder that has no text of its own.
+reminder-fatigue-hydration-body = Masa untuk segelas air.
+# Fatigue reminder: the working day has gone on long enough.
+reminder-fatigue-work-hours = Had Waktu Bekerja
+# Toast body for a Work-Hour Limit reminder that has no text of its own.
+reminder-fatigue-work-hours-body = Anda telah mencapai had waktu bekerja.
+# The type of a reminder for a countdown.
+reminder-timer = Pemasa
+# Toast body for a Timer reminder that has no text of its own.
+reminder-timer-body = Pemasa anda telah tamat.
+# The type of a reminder that wakes or alerts: the most urgent kind.
+reminder-alarm = Penggera
+# Toast body for an Alarm reminder that has no text of its own.
+reminder-alarm-body = Penggera anda sedang berbunyi.
+# The type of a reminder for a bill or other payment.
+reminder-payment = Pembayaran
+# Toast body for a Payment reminder that has no text of its own.
+reminder-payment-body = Satu pembayaran perlu dibuat.
+# The type of a reminder for a meeting with someone: a doctor, a client.
+reminder-appointment = Temu Janji
+# Toast body for an Appointment reminder that has no text of its own.
+reminder-appointment-body = Anda ada temu janji.
+# The type of a reminder that fits none of the others.
+reminder-custom = Tersuai
+# Toast body for a Custom reminder that has no text of its own.
+reminder-custom-body = Ini peringatan anda.

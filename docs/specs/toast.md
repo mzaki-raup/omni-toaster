@@ -162,9 +162,11 @@ along the bottom of its content, **right-aligned**, below the body:
 Dismiss is always there and always last, nearest the screen's edge on the
 right-hand presets. It plays the toast's out-animation (§5).
 
-**Snooze and Open are drawn greyed and do nothing until Phase 4**, when
-reminders give them something to act on; the owner chose to show the final
-layout now rather than a row that grows later. A greyed button takes no hover
+**Open brings Settings forward** (FEAT-0042), and for a reminder's toast
+writes an `opened` row to the history; landing on the reminder itself comes
+with Settings ▸ Reminders (FEAT-0046). **Snooze is drawn greyed and does
+nothing until FEAT-0043**; the owner chose to show the final layout from Phase
+2 rather than a row that grows later. A greyed button takes no hover
 highlight.
 
 **An auto-height toast grows by the row** — 32 points, the row and the gap

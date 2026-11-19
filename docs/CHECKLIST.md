@@ -151,7 +151,7 @@ Last updated: 2026-11-19
 | Persistent alarms | Pending | 10-minute cap on urgent types |
 | Missed-reminder handling | Pending | 1 h catch-up for Azan, 24 h for others |
 | DST-safe scheduling | In-Progress | Recompute on resume and clock change. FEAT-0040: occurrences in the wall clock, gap and fold rules, tested in `America/New_York`. FEAT-0041: the queue rebuilt at midnight, on a clock jump, a zone change and a resume (Windows' events through `ot_platform::system_events`), each proved with simulated events; the real clock and zone changes are an owner's check, not made |
-| Localized reminder types | Pending | Templates in both languages |
+| Localized reminder types | In-Progress | Templates in both languages. FEAT-0042: twelve type keys with a name and a default text in both files, each fired in the app in English and Malay; Open landing on the reminder waits for FEAT-0046 |
 | Shared date formatter | Pending | The only formatter in the workspace |
 | Migration 003 | Completed | FEAT-0039. `003_locale_keys.sql` — `002` went to `002_asset_label.sql` in Phase 2. Tested fresh and on a version 2 database; in the app, a fresh folder and a v0.11.0-era one both read `user_version` 3 |
 

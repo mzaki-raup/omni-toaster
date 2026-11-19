@@ -9,12 +9,14 @@
 //! defect, and `the_general_pane_names_only_keys_that_exist` is what catches
 //! one.
 
-use std::sync::mpsc::Receiver;
+use std::collections::HashMap;
+use std::sync::mpsc::{Receiver, Sender};
 use std::time::{Duration, Instant};
 
 use ot_core::{DataRoot, Pause, PauseFor, Settings};
 use ot_i18n::Language;
 use ot_platform::{Autostart, PauseWindow, Tray, TrayCommand};
+use ot_store::reminders::NotificationAction;
 use raw_window_handle::HasWindowHandle as _;
 
 use crate::layout;
@@ -302,6 +304,12 @@ pub struct SettingsWindow {
     /// The scheduler's fires, drained at frame start; `None` when no
     /// scheduler runs, as in the layout tests.
     fires: Option<Receiver<ot_sched::scheduler::Fired>>,
+    /// Where the history rows go: the scheduler holds the store, and the UI
+    /// thread never touches SQLite.
+    scheduler: Option<Sender<ot_sched::scheduler::Command>>,
+    /// Which toasts are reminders, and which fire each one is, so a button
+    /// press can be written to the history.
+    reminder_toasts: HashMap<ot_toast::ToastId, (i64, jiff::Timestamp)>,
 }
 
 impl SettingsWindow {
@@ -384,6 +392,8 @@ impl SettingsWindow {
             window: None,
             parked: None,
             fires: None,
+            scheduler: None,
+            reminder_toasts: HashMap::new(),
         }
     }
 
@@ -691,11 +701,7 @@ impl SettingsWindow {
             title: ot_i18n::text("toast-test-title"),
             body: ot_i18n::text("toast-test-body"),
             app_name: ot_i18n::text("toast-app-name"),
-            action_labels: ot_toast::ActionLabels {
-                open: ot_i18n::text("toast-action-open"),
-                snooze: ot_i18n::text("toast-action-snooze"),
-                dismiss: ot_i18n::text("toast-action-dismiss"),
-            },
+            action_labels: crate::reminder_toast::action_labels(),
             // Formatted here: ot-i18n owns the one formatter that may turn a
             // time into text, and a spec holds text rather than keys.
             timestamp: Some(formatted_time(jiff::Timestamp::now())),
@@ -776,6 +782,9 @@ impl SettingsWindow {
             // left until egui notices a frame without it.
             ctx.send_viewport_cmd_to(id.viewport_id(), egui::ViewportCommand::Close);
             ot_platform::toast_window::forget(&id.window_title());
+            // A reminder toast that left on its own was shown and nothing
+            // more; its row was written when it appeared.
+            self.reminder_toasts.remove(&id);
         }
         if self.toasts.is_empty() {
             return;
@@ -849,8 +858,8 @@ impl SettingsWindow {
         let mut hovered = Vec::new();
         let hovered_now = &mut hovered;
         // The toasts whose Dismiss was clicked this frame (FEAT-0038).
-        let mut dismissed = Vec::new();
-        let dismissed_now = &mut dismissed;
+        let mut pressed = Vec::new();
+        let pressed_now = &mut pressed;
 
         ot_toast::viewport::show_all(
             ctx,
@@ -1007,16 +1016,15 @@ impl SettingsWindow {
                     None => draw_toast(ui.painter()),
                 };
                 // A click on a working button acts on exactly what was drawn:
-                // the rects come back from the renderer. Snooze and Open are
-                // greyed until Phase 4 and take no click (§4.3).
+                // the rects come back from the renderer. Snooze is greyed
+                // until FEAT-0043 and takes no click (§4.3).
                 if ui.ctx().input(|i| i.pointer.primary_clicked())
                     && let Some(at) = pointer
                     && let Some((action, _)) = buttons
                         .iter()
                         .find(|(action, rect)| action.works() && rect.contains(at))
-                    && *action == ot_toast::Action::Dismiss
                 {
-                    dismissed_now.push(id);
+                    pressed_now.push((id, *action));
                 }
             },
         );
@@ -1026,9 +1034,21 @@ impl SettingsWindow {
         for (id, over) in hovered {
             self.toasts.set_hovered(id, over, now);
         }
-        for id in dismissed {
-            tracing::info!(?id, "a toast was dismissed");
+        for (id, action) in pressed {
+            tracing::info!(?id, ?action, "a toast button was pressed");
             self.toasts.dismiss(id, now);
+            let recorded = match action {
+                ot_toast::Action::Open => {
+                    // Settings comes forward; landing on the reminder itself
+                    // needs Settings ▸ Reminders (FEAT-0046).
+                    self.show_window(ctx);
+                    NotificationAction::Opened
+                }
+                _ => NotificationAction::Dismissed,
+            };
+            if let Some((reminder_id, fired_at)) = self.reminder_toasts.remove(&id) {
+                self.record(reminder_id, fired_at, recorded);
+            }
         }
     }
 
@@ -1656,15 +1676,60 @@ impl SettingsWindow {
     }
 
     /// Take the scheduler's fires, at most a channel's worth a frame, so a
-    /// burst cannot stall one frame. The toast each one becomes is FEAT-0042;
-    /// until then a fire is logged on arrival, after the scheduler's own line.
+    /// burst cannot stall one frame, and turn each into a toast — or, while
+    /// notifications are paused, into a `missed` row and no toast
+    /// (docs/specs/tray-and-settings.md §4). Every fire is written to the
+    /// history either way.
     fn drain_fires(&mut self) {
         let Some(fires) = &self.fires else { return };
-        for fired in fires.try_iter().take(ot_sched::scheduler::FIRE_CAPACITY) {
-            tracing::info!(
-                reminder = fired.reminder_id,
-                target = %fired.fire.at,
-                "a reminder fire reached the UI"
+        let arrived: Vec<_> = fires
+            .try_iter()
+            .take(ot_sched::scheduler::FIRE_CAPACITY)
+            .collect();
+        let now = jiff::Timestamp::now();
+        for fired in arrived {
+            let fired_at = fired.fire.at;
+            if self.pause.is_active(now) {
+                tracing::info!(
+                    reminder = fired.reminder_id,
+                    "a reminder fired during a pause"
+                );
+                self.record(fired.reminder_id, fired_at, NotificationAction::Missed);
+                continue;
+            }
+            let template = fired.template.as_ref();
+            let spec = self.prefs.spec(crate::reminder_toast::content(
+                &fired.reminder,
+                template,
+                Some(formatted_time(now)),
+            ));
+            let id = if crate::reminder_toast::is_urgent(template) {
+                self.toasts.push_first(spec, Instant::now())
+            } else {
+                self.toasts.push(spec, Instant::now())
+            };
+            tracing::info!(reminder = fired.reminder_id, toast = ?id, "a reminder fire became a toast");
+            self.reminder_toasts
+                .insert(id, (fired.reminder_id, fired_at));
+            self.record(fired.reminder_id, fired_at, NotificationAction::Shown);
+        }
+    }
+
+    /// Write a history row, through the scheduler's thread.
+    fn record(&self, reminder_id: i64, fired_at: jiff::Timestamp, action: NotificationAction) {
+        if let Some(scheduler) = &self.scheduler
+            && scheduler
+                .send(ot_sched::scheduler::Command::Record {
+                    reminder_id,
+                    fired_at,
+                    action,
+                })
+                .is_err()
+        {
+            tracing::warn!(
+                reminder_id,
+                ?action,
+                "the scheduler has stopped; a history row was lost"
             );
         }
     }
@@ -1988,12 +2053,14 @@ pub fn run(
     settings: Settings,
     dev: DevOptions,
     fires: Receiver<ot_sched::scheduler::Fired>,
+    scheduler: Sender<ot_sched::scheduler::Command>,
 ) -> Result<(), WindowError> {
     let ui_scale = dev.ui_scale;
     let fonts = font_definitions().map_err(WindowError::Fonts)?;
     let mut window = SettingsWindow::new(root, settings);
     window.dev = dev;
     window.fires = Some(fires);
+    window.scheduler = Some(scheduler);
     if dev.test_toast {
         window.show_shape_samples();
     }

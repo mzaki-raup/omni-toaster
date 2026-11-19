@@ -29,7 +29,7 @@ use std::time::{Duration, Instant};
 use jiff::tz::TimeZone;
 use jiff::{SignedDuration, Timestamp};
 use ot_store::Store;
-use ot_store::reminders::{Reminder, Status};
+use ot_store::reminders::{NotificationAction, Reminder, Status, Template};
 
 use crate::recurrence::{Fire, next_fire};
 
@@ -66,13 +66,25 @@ pub enum Command {
     Removed(i64),
     /// Throw the queue away and rebuild it from the database.
     Recompute(Recompute),
+    /// Write a `notification_log` row: what became of a fire. The UI sends
+    /// these, since only this thread holds the store.
+    Record {
+        reminder_id: i64,
+        fired_at: Timestamp,
+        action: NotificationAction,
+    },
 }
 
-/// One fire, sent to the UI.
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+/// One fire, sent to the UI with what it needs to build the toast, so the UI
+/// never reads the database on its own thread.
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub struct Fired {
     pub reminder_id: i64,
     pub fire: Fire,
+    /// The reminder as it stood when it fired.
+    pub reminder: Reminder,
+    /// Its template, if it names one.
+    pub template: Option<Template>,
 }
 
 /// The UI's receiving end has gone, so there is no one left to fire to.
@@ -146,6 +158,18 @@ impl Core {
                 tracing::info!(?why, "rebuilding the reminder queue");
                 self.rebuild(now);
             }
+            Command::Record {
+                reminder_id,
+                fired_at,
+                action,
+            } => {
+                if let Err(error) =
+                    self.store
+                        .log_notification(Some(reminder_id), fired_at, action, None)
+                {
+                    tracing::warn!(%error, reminder = reminder_id, "the notification history could not be written");
+                }
+            }
         }
     }
 
@@ -172,15 +196,36 @@ impl Core {
             let Some(fire) = self.pending.remove(&id) else {
                 continue;
             };
-            self.held.push_back(Fired {
-                reminder_id: id,
-                fire,
+            // Read again at the moment of firing, so the toast says what the
+            // reminder says now. A row gone or no longer active does not fire.
+            let reminder = match self.store.reminder(id) {
+                Ok(Some(reminder)) if reminder.status == Status::Active => reminder,
+                Ok(_) => continue,
+                Err(error) => {
+                    tracing::warn!(%error, reminder = id, "a due reminder could not be read");
+                    continue;
+                }
+            };
+            let template = reminder.draft.category_id.and_then(|category| {
+                self.store
+                    .template(category)
+                    .inspect_err(|error| {
+                        tracing::warn!(%error, reminder = id, "a reminder's template could not be read");
+                    })
+                    .ok()
+                    .flatten()
             });
             // The next fire counts from now, not from the one just taken, so
             // a clock jumped over three days fires a daily reminder once, not
             // three times (catching up properly is docs/specs/reminders.md
             // §6, FEAT-0045).
-            self.requeue_after_fire(id, fire.at.max(now));
+            self.requeue_after_fire(&reminder, fire.at.max(now));
+            self.held.push_back(Fired {
+                reminder_id: id,
+                fire,
+                reminder,
+                template,
+            });
         }
 
         self.horizon = self.horizon.max(now);
@@ -204,14 +249,15 @@ impl Core {
     /// Offer held fires to the UI, oldest first, until its channel is full.
     fn flush(&mut self, now: Timestamp, out: &SyncSender<Fired>) -> Result<(), Disconnected> {
         while let Some(fired) = self.held.pop_front() {
+            let (id, target) = (fired.reminder_id, fired.fire.at);
             match out.try_send(fired) {
                 Ok(()) => {
                     // The line the timing check reads: the target and how far
                     // past it the fire left (docs/specs/reminders.md §7).
-                    let late_ms = now.duration_since(fired.fire.at).as_millis();
+                    let late_ms = now.duration_since(target).as_millis();
                     tracing::info!(
-                        reminder = fired.reminder_id,
-                        target = %fired.fire.at,
+                        reminder = id,
+                        target = %target,
                         late_ms,
                         "reminder fired"
                     );
@@ -263,15 +309,8 @@ impl Core {
 
     /// After a fire: queue the next one, or mark the reminder done if that
     /// was its last, so a clock set back cannot fire it a second time.
-    fn requeue_after_fire(&mut self, id: i64, after: Timestamp) {
-        let reminder = match self.store.reminder(id) {
-            Ok(Some(reminder)) if reminder.status == Status::Active => reminder,
-            Ok(_) => return,
-            Err(error) => {
-                tracing::warn!(%error, reminder = id, "a fired reminder could not be read again");
-                return;
-            }
-        };
+    fn requeue_after_fire(&mut self, reminder: &Reminder, after: Timestamp) {
+        let id = reminder.id;
         let next = next_fire(
             &reminder.draft.trigger,
             reminder.draft.recurrence.as_ref(),
@@ -529,6 +568,54 @@ mod tests {
         core.tick(instant("2026-11-19T10:30:00Z"), &out)
             .expect("connected");
         assert_eq!(drain(&fires), vec![(id, instant("2026-11-19T10:30Z"))]);
+    }
+
+    #[test]
+    fn a_fire_carries_the_reminder_and_its_template() {
+        let store = Store::open_in_memory().expect("opens");
+        let alarm = store
+            .template_for_type("reminder-alarm")
+            .expect("reads")
+            .expect("seeded");
+        let mut with_template = draft(at("2026-11-19T10:00"), None);
+        with_template.category_id = Some(alarm.id);
+        let id = store.create_reminder(&with_template).expect("creates");
+        let (out, fires) = fire_channel();
+        let mut core = Core::new(store, instant("2026-11-19T09:00Z"), TimeZone::UTC);
+
+        core.tick(instant("2026-11-19T10:00Z"), &out)
+            .expect("connected");
+        let fired = fires.try_recv().expect("fired");
+        assert_eq!(fired.reminder_id, id);
+        assert_eq!(fired.reminder.draft.title, "Minum air", "as typed");
+        assert_eq!(fired.template, Some(alarm));
+    }
+
+    #[test]
+    fn a_record_command_writes_the_history_row() {
+        let store = Store::open_in_memory().expect("opens");
+        let id = store
+            .create_reminder(&draft(at("2026-11-19T10:00"), None))
+            .expect("creates");
+        let now = instant("2026-11-19T10:00Z");
+        let mut core = Core::new(store, now, TimeZone::UTC);
+        for action in [NotificationAction::Shown, NotificationAction::Opened] {
+            core.apply(
+                Command::Record {
+                    reminder_id: id,
+                    fired_at: now,
+                    action,
+                },
+                now,
+            );
+        }
+        assert_eq!(
+            core.store.history(id).expect("reads"),
+            vec![
+                (now, NotificationAction::Shown),
+                (now, NotificationAction::Opened)
+            ]
+        );
     }
 
     #[test]

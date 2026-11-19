@@ -220,3 +220,17 @@ FEAT-0039 to FEAT-0048 in `docs/TASKS.md` under `v0.4.0`.
   a channel of 64; a full one holds them and retries every 100 ms. The UI
   drains it at frame start and, until FEAT-0042 makes them toasts, logs each.
   The log line `reminder fired` gives the target and `late_ms`.
+- **Types and their toasts (FEAT-0042).** Each fire carries the reminder and
+  its template, read at the moment it fires, so the UI never touches the
+  database. `ot_ui::reminder_toast::content` is the one function that builds
+  a reminder's toast: the user's title and body as typed; failing those, the
+  template's custom text; failing that, the type's Fluent name
+  (`reminder-<type>`) and text (`reminder-<type>-body`) in the active
+  language. A template's picture and accent apply; until a template chooses a
+  picture, Alarm and Timer show the built-in alarm clock, Appointment the
+  meeting and Event the training picture. An Alarm goes to the front of the
+  toast queue — it never pushes a toast already on screen off it. A fire
+  during a pause shows nothing and is recorded `missed`; every other fire is
+  recorded `shown`, and Dismiss and Open record `dismissed` and `opened`,
+  sent to the scheduler's thread, which holds the store. Open brings Settings
+  forward; landing on the reminder is FEAT-0046's pane.

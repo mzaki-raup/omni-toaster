@@ -99,8 +99,8 @@ everything about them is a setting:
 - **Header:** icon, title, app name and timestamp, each toggleable
 - **Body:** text with bold and italic, plus an image (PNG, JPG or WebP, up to 5 MB)
 - **Actions:** one to three buttons along the bottom — Snooze, Dismiss, Open.
-  Dismiss closes the toast with its out-animation; Snooze and Open are shown
-  greyed until reminders arrive in a later phase
+  Dismiss closes the toast with its out-animation, Open brings Settings
+  forward, and Snooze is shown greyed until snoozing arrives
 - **Picture Library:** upload a picture once — a mosque, a meeting, an alarm
   clock — name it, and use it in any notification as its icon or its image.
   Removing a picture still in use asks first. Nineteen pictures ship with the

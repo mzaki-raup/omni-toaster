@@ -171,6 +171,17 @@ impl NotificationAction {
             Self::Missed => "missed",
         }
     }
+
+    fn parse(text: &str) -> Option<Self> {
+        Some(match text {
+            "shown" => Self::Shown,
+            "snoozed" => Self::Snoozed,
+            "dismissed" => Self::Dismissed,
+            "opened" => Self::Opened,
+            "missed" => Self::Missed,
+            _ => return None,
+        })
+    }
 }
 
 /// Why a reminder could not be stored or read.
@@ -198,6 +209,41 @@ impl From<rusqlite::Error> for ReminderError {
     fn from(error: rusqlite::Error) -> Self {
         Self::Store(StoreError::Query(error))
     }
+}
+
+/// The built-in reminder types' keys, in the order migration 003 seeds them
+/// (`docs/specs/reminders.md` §3). Each is a template's `type_key` and the
+/// Fluent key of the type's name; `<key>-body` is its default toast text.
+pub const REMINDER_TYPES: &[&str] = &[
+    "reminder-event",
+    "reminder-task",
+    "reminder-anniversary",
+    "reminder-fatigue-eye",
+    "reminder-fatigue-posture",
+    "reminder-fatigue-hydration",
+    "reminder-fatigue-work-hours",
+    "reminder-timer",
+    "reminder-alarm",
+    "reminder-payment",
+    "reminder-appointment",
+    "reminder-custom",
+];
+
+/// A template — a `category` row — as a toast needs it. The custom text is
+/// the user's, stored as typed; `None` means the built-in text in the active
+/// language (`docs/specs/toast.md` §8).
+#[derive(Debug, Clone, PartialEq, Eq, Default)]
+pub struct Template {
+    pub id: i64,
+    /// The built-in reminder type, `reminder-event` and so on; `None` for a
+    /// template that is not a reminder type's.
+    pub type_key: Option<String>,
+    pub custom_title: Option<String>,
+    pub custom_body: Option<String>,
+    /// `#rrggbb`, as the editor stores it.
+    pub accent_color: Option<String>,
+    /// The template's picture, as a relative path under the data folder.
+    pub image: Option<String>,
 }
 
 /// An instant as the database stores it.
@@ -411,6 +457,41 @@ impl Store {
         Ok(u32::try_from(count).unwrap_or(u32::MAX))
     }
 
+    /// A template by its `category` id, with its picture's relative path, or
+    /// `None` if there is no such row.
+    pub fn template(&self, id: i64) -> Result<Option<Template>, StoreError> {
+        Ok(self
+            .conn
+            .query_row(
+                "SELECT c.id, c.type_key, c.custom_title, c.custom_body, c.accent_color,                  a.relative_path FROM category c LEFT JOIN asset a ON a.sha256 = c.image_id                  WHERE c.id = ?1",
+                params![id],
+                |row| {
+                    Ok(Template {
+                        id: row.get(0)?,
+                        type_key: row.get(1)?,
+                        custom_title: row.get(2)?,
+                        custom_body: row.get(3)?,
+                        accent_color: row.get(4)?,
+                        image: row.get(5)?,
+                    })
+                },
+            )
+            .optional()?)
+    }
+
+    /// The template of a built-in reminder type, by its key.
+    pub fn template_for_type(&self, type_key: &str) -> Result<Option<Template>, StoreError> {
+        let id: Option<i64> = self
+            .conn
+            .query_row(
+                "SELECT id FROM category WHERE type_key = ?1",
+                params![type_key],
+                |row| row.get(0),
+            )
+            .optional()?;
+        id.map_or(Ok(None), |id| self.template(id))
+    }
+
     /// Record a fire and what became of it. `source` names which prayer source
     /// answered, for Azan; `None` otherwise.
     pub fn log_notification(
@@ -426,6 +507,29 @@ impl Store {
             params![reminder_id, stamp(fired_at), action.as_str(), source],
         )?;
         Ok(())
+    }
+
+    /// A reminder's history, oldest first: each fire's time and what became of
+    /// it. A row this build cannot read is left out with a log line.
+    pub fn history(
+        &self,
+        reminder_id: i64,
+    ) -> Result<Vec<(Timestamp, NotificationAction)>, StoreError> {
+        let mut stmt = self.conn.prepare(
+            "SELECT fired_at, action FROM notification_log WHERE reminder_id = ?1 ORDER BY id",
+        )?;
+        let rows = stmt.query_map(params![reminder_id], |row| {
+            Ok((row.get::<_, String>(0)?, row.get::<_, String>(1)?))
+        })?;
+        let mut history = Vec::new();
+        for row in rows {
+            let (fired_at, action) = row?;
+            match (fired_at.parse(), NotificationAction::parse(&action)) {
+                (Ok(fired_at), Some(action)) => history.push((fired_at, action)),
+                _ => tracing::warn!(reminder_id, %fired_at, %action, "a history row was left out"),
+            }
+        }
+        Ok(history)
     }
 
     /// Drop `notification_log` rows older than 90 days before `now`, at start.
@@ -544,6 +648,54 @@ mod tests {
         store.set_next_fire_at(id, None).expect("clears");
         let read = store.reminder(id).expect("reads").expect("exists");
         assert_eq!(read.next_fire_at, None);
+    }
+
+    #[test]
+    fn a_seeded_template_reads_back_with_its_key_and_no_custom_text() {
+        let store = Store::open_in_memory().expect("opens");
+        let alarm = store
+            .template_for_type("reminder-alarm")
+            .expect("reads")
+            .expect("seeded");
+        assert_eq!(alarm.type_key.as_deref(), Some("reminder-alarm"));
+        assert_eq!(alarm.custom_title, None);
+        assert_eq!(alarm.custom_body, None);
+        assert_eq!(alarm.image, None);
+        assert_eq!(store.template(alarm.id).expect("reads"), Some(alarm));
+        assert_eq!(store.template(9999).expect("reads"), None);
+        assert_eq!(
+            store.template_for_type("reminder-nope").expect("reads"),
+            None
+        );
+    }
+
+    #[test]
+    fn every_type_in_the_list_has_its_seeded_template() {
+        let store = Store::open_in_memory().expect("opens");
+        for key in REMINDER_TYPES {
+            let template = store.template_for_type(key).expect("reads");
+            assert!(template.is_some(), "{key} has no template");
+        }
+    }
+
+    #[test]
+    fn history_reads_back_in_order() {
+        let store = Store::open_in_memory().expect("opens");
+        let id = store.create_reminder(&draft()).expect("creates");
+        let fired = instant("2026-11-19T02:00:00Z");
+        store
+            .log_notification(Some(id), fired, NotificationAction::Shown, None)
+            .expect("logs");
+        store
+            .log_notification(Some(id), fired, NotificationAction::Dismissed, None)
+            .expect("logs");
+        assert_eq!(
+            store.history(id).expect("reads"),
+            vec![
+                (fired, NotificationAction::Shown),
+                (fired, NotificationAction::Dismissed)
+            ]
+        );
     }
 
     #[test]

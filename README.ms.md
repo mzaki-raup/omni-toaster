@@ -110,8 +110,8 @@ Windows, jadi hampir setiap aspeknya boleh ditetapkan:
 - **Isi:** teks dengan huruf tebal dan condong, serta imej (PNG, JPG atau WebP,
   hingga 5 MB)
 - **Tindakan:** satu hingga tiga butang di bahagian bawah — Tunda, Tutup, Buka.
-  Tutup menutup toast dengan animasi keluarnya; Tunda dan Buka dikelabukan
-  sehingga peringatan tiba dalam fasa kemudian
+  Tutup menutup toast dengan animasi keluarnya, Buka membawa Tetapan ke
+  hadapan, dan Tunda dikelabukan sehingga ciri tunda tiba
 - **Pustaka Gambar:** muat naik gambar sekali — masjid, mesyuarat, jam loceng —
   namakannya, dan gunakannya dalam mana-mana pemberitahuan sebagai ikon atau
   imejnya. Membuang gambar yang masih digunakan akan meminta pengesahan dahulu.

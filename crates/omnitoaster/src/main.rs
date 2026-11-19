@@ -374,7 +374,9 @@ fn main() -> ExitCode {
         reduce_motion,
         slow_frames,
     };
-    if let Err(error) = ot_ui::settings_window::run(root, settings, dev, fires) {
+    if let Err(error) =
+        ot_ui::settings_window::run(root, settings, dev, fires, scheduler.commands())
+    {
         tracing::error!(%error, "the settings window could not be opened");
         eprintln!("OmniToaster cannot show its window: {error}");
         drop(guard);
