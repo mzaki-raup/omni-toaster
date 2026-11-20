@@ -125,15 +125,197 @@ Refs: BUG-0003
 ### Latest Vacant/Free Task
 
 ```
-Version : v0.4.1
-Features : FEAT-0049
+Version : v0.5.1
+Features : FEAT-0064
 Bugs : BUG-0013
 Change Request : CR-0008
 ```
 
 ---
 
+## v0.5.0 — In-Progress
+
+Phase 5, Location, Prayer and Azan, on `feat/phase-5-prayer`
+(`docs/07-roadmap.md`). The spike ran first (FEAT-0049, ADR-018); everything
+after it is built on the shape it found. The exit criteria: the parser passes
+the fixtures for three zones; live JAKIM times match the official portal on the
+same dates for at least three zones; the fallback chain passes with the network
+disabled; prayer labels match the reference table in both languages.
+
+### FEAT-0049 · The e-Solat verification spike
+- **State:** Completed · **Spec:** docs/11-prayer-and-azan.md §2 · §12 · **Phase:** 5
+- **Branch:** feat/phase-5-prayer
+- **Verified:** live requests to e-Solat on 2026-11-20, the responses kept as fixtures, ADR-018
+- [x] The endpoint and its response for three zones — SGR01, WLY01, JHR01, `period=month`, all 200 `OK!`
+- [x] Every period, the next-month request and the failure cases — `today`, `week`, `month`, `year`; `duration` as a POST, only within a published year; `NO_RECORD!` as 200 with an object; HTML errors for malformed requests, one labelled `application/json`
+- [x] Asar's madhab re-confirmed — Shafi'i in all three zones, a minute or two after the calculation, ~55 minutes before Hanafi
+- [x] The raw responses kept, unedited, in `crates/ot-prayer/tests/fixtures/esolat-2026-11-20/` with a note of how each was captured
+- [x] Recorded as ADR-018; `docs/11-prayer-and-azan.md` §2, §4, §8 and §12 updated to the verified shape
+- [x] Docs: spec · CHANGELOG · CHECKLIST (README: nothing user-visible)
+- **Notes:** A spike writes no code, so there is no Test, Gate or App box; its record is the ADR and the fixtures. Surprises the spec had not guessed: `HH:MM:SS` times, Malay month abbreviations (`Ogos` is four letters), a status field that says "no data" inside an HTTP 200, and no data at all for a year JAKIM has not published — a gap every December.
+
+### FEAT-0050 · The JAKIM zone table
+- **State:** Pending · **Spec:** docs/11-prayer-and-azan.md §3 · docs/05-data-model-and-storage.md · **Phase:** 5
+- **Branch:** feat/phase-5-prayer
+- **Depends on:** FEAT-0049
+- [ ] `data/jakim_zones.csv`: every zone code, its state, its areas in both languages, a representative latitude and longitude — with its source noted in `docs/CHANGELOG.md`
+- [ ] Nearest-zone lookup from coordinates, and the Malaysia check (a bounding box and the geolocation result's country code); outside Malaysia is refused for JAKIM
+- [ ] Embedded in the exe; changed only through a reviewed commit
+- [ ] Test: every row parses and every code is unique; each state capital maps to its expected zone family; coordinates outside Malaysia are refused; every code the spike used is present
+- [ ] Gate: fmt · clippy -D warnings · test --workspace --locked -j 4 · deny check · --self-test
+- [ ] App: `--data-dir ./tmp-data` — not applicable on its own — exercised through the zone picker (FEAT-0057)
+- [ ] Docs: spec · README · CHANGELOG · CHECKLIST · GOTCHAS
+### FEAT-0051 · The JAKIM parser, against the fixtures
+- **State:** Pending · **Spec:** docs/11-prayer-and-azan.md §2 · ADR-018 · **Phase:** 5
+- **Branch:** feat/phase-5-prayer
+- **Depends on:** FEAT-0049
+- [ ] `ot-prayer` parses the verified shape: `status` `OK!` with a `prayerTime` array; `NO_RECORD!` as "no data"; anything else an error
+- [ ] Dates with Malay and English month abbreviations; times `HH:MM:SS` and `HH:MM`, read as `Asia/Kuala_Lumpur`; a missing or malformed field invalidates its whole day; unknown fields ignored
+- [ ] A 256 KB cap before parsing; JSON whatever the content type says; no `unwrap`
+- [ ] `tests/fixtures/jakim_sample.json` built from the spike's captures, plus the malformed cases
+- [ ] Test: the three zones' fixtures parse to the expected times; `Ogos` and `Dis` dates; a missing field, a malformed time and an unknown extra field; `NO_RECORD!`; the HTML body with a JSON content type; the size cap; times read as UTC+8 with the PC in another zone
+- [ ] Gate: fmt · clippy -D warnings · test --workspace --locked -j 4 · deny check · --self-test
+- [ ] App: `--data-dir ./tmp-data` — not applicable on its own — exercised through the fetch (FEAT-0052) in the app
+- [ ] Docs: spec · README · CHANGELOG · CHECKLIST · GOTCHAS
+- **Notes:** This item carries the exit criterion "the parser passes the fixtures for three zones".
+### FEAT-0052 · The JAKIM client
+- **State:** Pending · **Spec:** docs/11-prayer-and-azan.md §4 · ADR-002 · ADR-018 · **Phase:** 5
+- **Branch:** feat/phase-5-prayer
+- **Depends on:** FEAT-0051
+- [ ] Blocking `ureq` on a worker thread, HTTPS only, 10-second timeout, `User-Agent: OmniToaster/<version>` — the dependency recorded in an ADR and admitted by `cargo deny`
+- [ ] One POST `period=duration` from today to the end of next month, stopping at 31 December when next year is unpublished
+- [ ] Weekly, on a zone change and when the cache lacks today; retry 1, 5 and 15 minutes, then the next scheduled check; daily while the year's end leaves a gap; no polling loop
+- [ ] Cancellable: closing Settings mid-fetch stops the work, not only its result
+- [ ] Test: the request built from a zone and a date range; the backoff sequence; cancel stopping a fetch; the year-end range; a live fetch for three zones, not run when e-Solat is unreachable
+- [ ] Gate: fmt · clippy -D warnings · test --workspace --locked -j 4 · deny check · --self-test
+- [ ] App: `--data-dir ./tmp-data` — choose a zone and see times arrive, and the log's fetch line; with the network off, see the retry schedule in the log
+- [ ] Docs: spec · README · CHANGELOG · CHECKLIST · GOTCHAS
+- **Notes:** Tests that need e-Solat are not run when it is unreachable, and the report says so (testing.md).
+### FEAT-0053 · The prayer cache and migration 004
+- **State:** Pending · **Spec:** docs/11-prayer-and-azan.md §4 · docs/05-data-model-and-storage.md · **Phase:** 5
+- **Branch:** feat/phase-5-prayer
+- **Depends on:** FEAT-0051
+- [ ] `004_jakim.sql`: `jakim_zones` and `jakim_prayer_cache` (zone, date, the eight times, source `api` or `bundled`, fetched at)
+- [ ] Write a fetched range, read a zone's day, and tell whether the cache is fresh (under 30 days, and has today)
+- [ ] Test: the migration on a fresh and on a version 3 database; a range round trip; freshness at its edges; a re-fetch replacing a corrected day
+- [ ] Gate: fmt · clippy -D warnings · test --workspace --locked -j 4 · deny check · --self-test
+- [ ] App: `--data-dir ./tmp-data` — the fetched times survive a restart with the network off
+- [ ] Docs: spec · README · CHANGELOG · CHECKLIST · GOTCHAS
+### FEAT-0054 · Calculated mode and its presets
+- **State:** Pending · **Spec:** docs/11-prayer-and-azan.md §8 · ADR-008 · **Phase:** 5
+- **Branch:** feat/phase-5-prayer
+- **Depends on:** FEAT-0049
+- [ ] Local calculation with presets: Muslim World League (the default outside Malaysia), ISNA, Umm al-Qura, and "Malaysia (JAKIM angles, approximate)" with Fajr 20.0° and Isha 18.0° — the library chosen in an ADR
+- [ ] Asar: Shafi'i (default) or Hanafi, a visible setting
+- [ ] Labelled "approximate" when the zone is in Malaysia and the source is not JAKIM
+- [ ] Test: each preset against published reference times within a minute or two; the Malaysia preset against the spike's three zones; Shafi'i against Hanafi
+- [ ] Gate: fmt · clippy -D warnings · test --workspace --locked -j 4 · deny check · --self-test
+- [ ] App: `--data-dir ./tmp-data` — switch the source to Calculated and see the times and the label change, in both languages
+- [ ] Docs: spec · README · CHANGELOG · CHECKLIST · GOTCHAS
+### FEAT-0055 · The fallback chain and the source label
+- **State:** Pending · **Spec:** docs/11-prayer-and-azan.md §7 · **Phase:** 5
+- **Branch:** feat/phase-5-prayer
+- **Depends on:** FEAT-0052, FEAT-0053, FEAT-0054
+- [ ] Fresh cache → live fetch → bundled (only if FEAT-0063's terms check allows, else skipped) → Calculated, labelled "Calculated (fallback)" → nothing: one error toast a day and the last known times
+- [ ] Each step logged; the source label always visible, in both languages, with "Source: JAKIM e-Solat" and the last fetch time
+- [ ] Test: the chain with the network disabled, HTTP 500, bad JSON, an empty cache, `NO_RECORD!` at the year's end, bundled present and absent — each with its expected label
+- [ ] Gate: fmt · clippy -D warnings · test --workspace --locked -j 4 · deny check · --self-test
+- [ ] App: `--data-dir ./tmp-data` — with the network off, see the label fall back and say so; back on, see JAKIM return
+- [ ] Docs: spec · README · CHANGELOG · CHECKLIST · GOTCHAS
+- **Notes:** This item carries the exit criterion "the fallback chain passes with the network disabled".
+### FEAT-0056 · Location: detection with consent, and manual entry
+- **State:** Pending · **Spec:** docs/11-prayer-and-azan.md §6 · docs/06-security-and-privacy.md · **Phase:** 5
+- **Branch:** feat/phase-5-prayer
+- **Depends on:** FEAT-0050
+- [ ] A consent prompt on first use before any IP lookup; the lookup once a day, cached; the service recorded in an ADR, HTTPS, rounded coordinates only
+- [ ] Manual entry by city or coordinates; the detected place always shown for confirmation
+- [ ] Stored locally; sent only to the prayer, weather and geolocation services
+- [ ] Test: no lookup without consent; the daily cache; the rounding; a manual location overriding the detected one
+- [ ] Gate: fmt · clippy -D warnings · test --workspace --locked -j 4 · deny check · --self-test
+- [ ] App: `--data-dir ./tmp-data` — first run: the consent prompt in both languages; decline and enter a city; accept and see the detected place to confirm
+- [ ] Docs: spec · README · CHANGELOG · CHECKLIST · GOTCHAS
+### FEAT-0057 · Settings ▸ Prayer: source and zone
+- **State:** Pending · **Spec:** docs/11-prayer-and-azan.md §1 · §3 · docs/04-ui-design.md · **Phase:** 5
+- **Branch:** feat/phase-5-prayer
+- **Depends on:** FEAT-0050, FEAT-0055, FEAT-0056
+- [ ] Source: Auto · JAKIM · Calculated; JAKIM abroad allowed with a chosen zone and a warning
+- [ ] "Detected zone: SGR01 · Gombak, Hulu Langat, Sepang, Petaling · Selangor. Change zone?" and a searchable zone list showing the code and both languages' names
+- [ ] The day's times with the source label and the last fetch time; empty, loading and error states that each say something
+- [ ] Test: the layout test in English, Malay and the pseudo-locale at 100–200%, with the longest zone names; the zone search
+- [ ] Gate: fmt · clippy -D warnings · test --workspace --locked -j 4 · deny check · --self-test
+- [ ] App: `--data-dir ./tmp-data` — pick a zone, change it, see the times follow — both languages, all three themes, the narrow window
+- [ ] Docs: spec · README · CHANGELOG · CHECKLIST · GOTCHAS
+### FEAT-0058 · Prayer times in the scheduler
+- **State:** Pending · **Spec:** docs/11-prayer-and-azan.md §9 · docs/specs/reminders.md §6 · §8 · **Phase:** 5
+- **Branch:** feat/phase-5-prayer
+- **Depends on:** FEAT-0055
+- [ ] Each day's times become fires, converted from `Asia/Kuala_Lumpur` whatever the PC's zone; rebuilt at midnight, after a fetch, a zone or a location change
+- [ ] Azan before Alarm before everything else; never suppressed by a pause (tray-and-settings §4) or quiet hours; persistent up to the 10-minute cap
+- [ ] The 1-hour catch-up window for a missed Azan, configurable — the part of FEAT-0045 that waited for Azan
+- [ ] Five prayers, plus Syuruk and Jumu'ah optional; Imsak and Dhuha hidden until enabled
+- [ ] Test: fires at the fetched times with the PC in another zone; the rebuild triggers; Azan first in the queue; a pause not suppressing it; a missed Azan inside and outside the hour
+- [ ] Gate: fmt · clippy -D warnings · test --workspace --locked -j 4 · deny check · --self-test
+- [ ] App: `--data-dir ./tmp-data` — with a zone chosen, see the next prayer fire on time (or a near time from a planted day), during a pause too
+- [ ] Docs: spec · README · CHANGELOG · CHECKLIST · GOTCHAS
+- **Notes:** Closing this also closes FEAT-0045's open box.
+### FEAT-0059 · Per-prayer templates and their toasts
+- **State:** Pending · **Spec:** docs/11-prayer-and-azan.md §9 · docs/specs/toast.md §8 · **Phase:** 5
+- **Branch:** feat/phase-5-prayer
+- **Depends on:** FEAT-0058
+- [ ] A template per prayer, seeded with its `prayer_key`: title, body, image, accent and style, with defaults in both languages
+- [ ] The toast built by the shared function; the source label on it
+- [ ] Test: every prayer key in both catalogues; a template's own text winning over the default; the toast built the same for preview and fire
+- [ ] Gate: fmt · clippy -D warnings · test --workspace --locked -j 4 · deny check · --self-test
+- [ ] App: `--data-dir ./tmp-data` — edit a prayer's template, fire it, see the toast follow, in both languages
+- [ ] Docs: spec · README · CHANGELOG · CHECKLIST · GOTCHAS
+### FEAT-0060 · Audio playback: the Azan and the chime
+- **State:** Pending · **Spec:** docs/11-prayer-and-azan.md §9 · docs/06-security-and-privacy.md · **Phase:** 5
+- **Branch:** feat/phase-5-prayer
+- **Depends on:** FEAT-0059
+- [ ] `ot-media` plays audio through `rodio` (an ADR); full Azan or a short chime per prayer; stop with the toast
+- [ ] Importing an audio file goes through the import rules: size, magic bytes, a hashed copy, a bounded decode
+- [ ] The default Azan only where its licence allows (`assets/README.md`)
+- [ ] Test: the format check by magic bytes; the size limit; a corrupt file refused with a message; playback started and stopped
+- [ ] Gate: fmt · clippy -D warnings · test --workspace --locked -j 4 · deny check · --self-test
+- [ ] App: `--data-dir ./tmp-data` — an Azan toast plays its audio and stops when dismissed; import a clip; both languages
+- [ ] Docs: spec · README · CHANGELOG · CHECKLIST · GOTCHAS
+- **Notes:** Audio output cannot be confirmed by a test; the App box is the check.
+### FEAT-0061 · Pre-prayer reminders
+- **State:** Pending · **Spec:** docs/11-prayer-and-azan.md §9 · **Phase:** 5
+- **Branch:** feat/phase-5-prayer
+- **Depends on:** FEAT-0058
+- [ ] Optional per prayer: a reminder so many minutes before (10 by default), its own template text in both languages
+- [ ] Test: the reminder's time from the prayer's; it moves when the prayer's time does
+- [ ] Gate: fmt · clippy -D warnings · test --workspace --locked -j 4 · deny check · --self-test
+- [ ] App: `--data-dir ./tmp-data` — turn on a pre-prayer reminder and see it fire ahead of the prayer
+- [ ] Docs: spec · README · CHANGELOG · CHECKLIST · GOTCHAS
+### FEAT-0062 · Dual prayer names
+- **State:** Pending · **Spec:** docs/11-prayer-and-azan.md §10 · docs/10-i18n.md · **Phase:** 5
+- **Branch:** feat/phase-5-prayer
+- **Depends on:** FEAT-0059
+- [ ] Settings shows both names — "Subuh (Fajr)", "Zohor (Dhuhr)", "Asar (Asr)", "Isyak (Isha)", "Syuruk (Sunrise)", "Jumaat (Jumu'ah)" — in both languages; the identifiers never change
+- [ ] The reference table in `docs/10-i18n.md` is the one the test reads
+- [ ] Test: every prayer's label against the reference table in both languages
+- [ ] Gate: fmt · clippy -D warnings · test --workspace --locked -j 4 · deny check · --self-test
+- [ ] App: `--data-dir ./tmp-data` — the prayer rows in English and Malay
+- [ ] Docs: spec · README · CHANGELOG · CHECKLIST · GOTCHAS
+- **Notes:** This item carries the exit criterion "prayer labels match the reference table in both languages".
+### FEAT-0063 · The live reference check against the portal
+- **State:** Pending · **Spec:** docs/11-prayer-and-azan.md §11 · **Phase:** 5
+- **Branch:** feat/phase-5-prayer
+- **Depends on:** FEAT-0051, FEAT-0052
+- [ ] `tests/fixtures/jakim_reference.csv`: SGR01, WLY01 and JHR01 × five dates, captured by hand from the official portal's page with the capture date recorded
+- [ ] A test comparing a live fetch against it, not run when e-Solat is unreachable
+- [ ] The bundled-dataset question (spec §5) answered or left to the Phase 9 terms check, and said so
+- [ ] Test: the parsed fixtures and a live fetch against the captured table, three zones × five dates
+- [ ] Gate: fmt · clippy -D warnings · test --workspace --locked -j 4 · deny check · --self-test
+- [ ] App: `--data-dir ./tmp-data` — not applicable — the reference test is the check
+- [ ] Docs: spec · README · CHANGELOG · CHECKLIST · GOTCHAS
+- **Notes:** This item carries the exit criterion "live JAKIM times match the official portal on the same dates for at least three zones". The portal page must be read by hand or in a browser the owner approves.
+
 ## v0.4.0 — In-Progress
+
+> **Shipped in:** app v0.12.0, 2026-11-20 — all but FEAT-0045's Azan window, which FEAT-0058 closes
 
 Phase 4, Scheduler and Reminders, on `feat/phase-4-scheduler`
 (`docs/07-roadmap.md`). CR-0007 runs first, so the scheduler is built on the

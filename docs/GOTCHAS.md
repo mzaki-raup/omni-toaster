@@ -156,7 +156,8 @@ have.
 - **Malaysia has no DST, so a DST test needs a zone that has one.** Tests of the wall-clock rules use `America/New_York` from jiff's bundled database (2026: forward on 8 March, back on 1 November); the machine's own zone proves nothing here, and changing it is a system setting no session changes.
 
 ## Prayer Times and JAKIM
-Nothing recorded yet.
+- **e-Solat's dates are in Malay and its "no data" is an HTTP 200.** The spec's guessed shape had `HH:MM` times and English dates; the endpoint sends `HH:MM:SS`, `DD-Mon-YYYY` with Malay months (`Mac`, `Mei`, `Ogos`, `Okt`, `Dis` — August is four letters), and, for an unknown zone or an unpublished year, `200 OK` with `status: "NO_RECORD!"` and `prayerTime` turned into an object. A parser that trusts the HTTP status or a three-letter month fails in December or August, not in November when it was written (FEAT-0049, ADR-018).
+- **e-Solat has no data for a year JAKIM has not published.** "Fetch next month" in December returns `NO_RECORD!` for January until the new year appears, so the gap is yearly and expected; the fallback chain covers it and the fetch retries daily. A `duration` range sent as query parameters instead of a POST body is a 500 whose `Content-Type` says JSON and whose body is HTML (FEAT-0049).
 
 ## Weather and HTTP
 Nothing recorded yet.

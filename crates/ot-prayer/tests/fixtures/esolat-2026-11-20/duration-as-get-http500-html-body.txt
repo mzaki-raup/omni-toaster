@@ -1,0 +1,16 @@
+<pre><div id="content">
+	<article class="content" data-speed="5" data-type="background" style="padding-top:120px;">
+    <div class="pattern">
+        <div class="container">
+            <h2>Error 500</h2>
+            <div class="error">
+                                    <p>An internal server error occurred. Please try again later.</p>
+                            </div>
+        </div>
+    </div>
+</article>
+
+
+
+</div><!-- content -->
+</pre>

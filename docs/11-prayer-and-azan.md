@@ -1,7 +1,7 @@
 # 11 — Prayer times and Azan
 
-**Status:** approved, pending the Phase 5 spike · **Last updated:** 2026-11-08
-**Source:** [PROPOSAL.md](../PROPOSAL.md) §7, §7.8 · **ADR:** [ADR-008](08-decisions.md)
+**Status:** approved; the endpoint verified by the Phase 5 spike · **Last updated:** 2026-11-20
+**Source:** [PROPOSAL.md](../PROPOSAL.md) §7, §7.8 · **ADR:** [ADR-008](08-decisions.md), [ADR-018](08-decisions.md)
 **Owner crate:** `ot-prayer` · **Phase:** 5
 
 This is the full spec for prayer times and Azan. There is no
@@ -43,41 +43,64 @@ has about 60 zones.
 | **C. Calculated** (last resort) | `adhan` with Fajr 20.0° and Isha 18.0° | When A and B both fail |
 
 > **The endpoint is not a documented public API.** Its path and response shape
-> may change without notice. **Phase 5 begins with a verification spike**
-> against three zones, and its result is recorded as a new ADR. Until then,
-> everything below about the response shape is illustrative.
+> may change without notice. The Phase 5 spike verified it against SGR01, WLY01
+> and JHR01 on 2026-11-20 and recorded the result as
+> [ADR-018](08-decisions.md); the raw responses are
+> `crates/ot-prayer/tests/fixtures/esolat-2026-11-20/`.
 
-Expected shape, to be verified:
+The endpoint is
+`https://www.e-solat.gov.my/index.php?r=esolatApi/takwimsolat&zone=<ZONE>&period=<P>`.
+`period` is `today`, `week`, `month` (the calendar month), `year`, or
+`duration` with `datestart` and `dateend` (`yyyy-mm-dd`) **in a POST body**.
+Data exists only for a year JAKIM has published, so a range stops at
+31 December until the next year appears.
+
+The verified shape:
 
 ```json
 {
-  "zone": "SGR01",
   "prayerTime": [
     {
-      "hijri": "1447-07-01",
-      "date": "01-Jan-2026",
-      "day": "Thursday",
-      "imsak": "05:47",
-      "fajr": "06:00",
-      "syuruk": "07:12",
-      "dhuha": "07:36",
-      "dhuhr": "13:19",
-      "asr": "16:35",
-      "maghrib": "19:24",
-      "isha": "20:36"
+      "hijri": "1448-06-10",
+      "date": "20-Nov-2026",
+      "day": "Friday",
+      "imsak": "05:39:00",
+      "fajr": "05:49:00",
+      "syuruk": "06:58:00",
+      "dhuha": "07:23:00",
+      "dhuhr": "13:02:00",
+      "asr": "16:24:00",
+      "maghrib": "18:59:00",
+      "isha": "20:12:00"
     }
-  ]
+  ],
+  "status": "OK!",
+  "serverTime": "2026-11-20 09:58:09",
+  "periodType": "month",
+  "lang": "ms_my",
+  "zone": "SGR01",
+  "bearing": "291&#176; 7&#8242; 23&#8243;"
 }
 ```
 
+No data — an unknown zone, or a year not yet published — is HTTP 200 with
+`status: "NO_RECORD!"` and `prayerTime` an object, not an array. A malformed
+request is an HTML page, sometimes labelled `application/json`.
+
 ### Parsing rules
 
-- Times are `HH:MM` in `Asia/Kuala_Lumpur`, **regardless of the PC's time
-  zone**.
+- Times are `HH:MM:SS` (`HH:MM` is accepted too) in `Asia/Kuala_Lumpur`,
+  **regardless of the PC's time zone**.
+- Dates are `DD-Mon-YYYY` with **Malay** month abbreviations — `Jan Feb Mac Apr
+  Mei Jun Jul Ogos Sep Okt Nov Dis` — and the English ones are accepted too.
+- `status` must be `OK!` and `prayerTime` an array; `NO_RECORD!` is "no data
+  for that range", not a failure to retry. The body must parse as JSON
+  whatever its content type says.
 - A missing or malformed field marks the **whole day** invalid. Partial data is
   never shown.
 - Unknown extra fields are ignored, so an added field does not break the app.
-- No `unwrap` anywhere in the parser, and a response size cap before parsing.
+- No `unwrap` anywhere in the parser, and a response size cap before parsing:
+  256 KB (a whole year is 77 KB).
 - The parser is tested against `tests/fixtures/jakim_sample.json`. If the live
   format changes, the fixture and the parser change together and the change is
   recorded in [GOTCHAS.md](GOTCHAS.md) under "Prayer Times and JAKIM".
@@ -109,8 +132,11 @@ Schema: see `jakim_zones` in
 
 ## 4. Caching and fetch schedule
 
-- Fetch the **current month** and the **next month** for the selected zone once
-  a week, and again whenever the zone changes.
+- Fetch **today to the end of next month** for the selected zone once a week,
+  and again whenever the zone changes — one POST `period=duration` request. When
+  next month is in a year JAKIM has not published, the range stops at
+  31 December; from then the fallback chain covers the gap, and the fetch is
+  retried daily until the new year appears (ADR-018).
 - Re-fetch if the cache is older than 30 days or has no entry for today.
 - HTTPS only, 10-second timeout, `User-Agent: OmniToaster/<version>`.
 - Retry with backoff: 1, then 5, then 15 minutes. Then wait for the next
@@ -169,7 +195,9 @@ the bundled data present and absent — each must produce the expected label
   and Isha 18.0°.
 - Asar madhab (Shafi'i or Hanafi) is a user setting, visible and documented
   because a mismatch silently changes Asar. **The default is Shafi'i**, which
-  the owner confirmed is JAKIM's convention; the spike re-confirms it.
+  the owner confirmed is JAKIM's convention and the spike re-confirmed: JAKIM's
+  Asar is within a minute or two after the Shafi'i calculation in SGR01, WLY01
+  and JHR01, and about 55 minutes before Hanafi (ADR-018).
 - When the zone is in Malaysia and the source is not JAKIM, times are labelled
   **"approximate"**.
 
@@ -210,9 +238,13 @@ table is in [10-i18n.md](10-i18n.md).
 
 ## 12. Open questions
 
-1. The exact e-Solat endpoint path, parameters and response shape — **the
-   Phase 5 spike**, recorded as a new ADR.
-2. Whether JAKIM's published times use Shafi'i for Asar in every zone.
+1. ~~The exact e-Solat endpoint path, parameters and response shape.~~
+   **Answered 2026-11-20 by the Phase 5 spike:** §2, and
+   [ADR-018](08-decisions.md).
+2. ~~Whether JAKIM's published times use Shafi'i for Asar in every zone.~~
+   **Answered for SGR01, WLY01 and JHR01** (ADR-018): Shafi'i. The other zones
+   are not checked one by one; the parser fixtures and the reference test keep
+   watching the three.
 3. Whether the terms permit bundling the dataset (option B) — the Phase 9 terms
    check.
 4. Whether a published correction can be detected cheaply enough to notify the

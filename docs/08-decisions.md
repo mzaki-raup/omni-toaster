@@ -531,3 +531,82 @@ holds a `jiff::Timestamp` and is shown in the system zone. Crash-report and
 log-file timestamps use `jiff`'s `strftime`, which they are allowed to:
 they are diagnostics, not user-visible text, so `ot-i18n`'s formatter rule does
 not cover them. The executable grows by the bundled zone database.
+
+---
+
+## ADR-018 · The e-Solat endpoint, as the Phase 5 spike found it
+
+**Status:** Accepted 2026-11-20 · **Phase:** 5 · **Settles:** ADR-008's
+unverified endpoint; `docs/11-prayer-and-azan.md` §12 questions 1 and 2
+
+**Context.** ADR-008 made JAKIM e-Solat the default prayer source in Malaysia
+before anyone had looked at the endpoint, which is not a documented public
+API. Phase 5 starts by verifying it against three zones — SGR01, WLY01 and
+JHR01 — before anything is built on it. The raw responses are kept in
+`crates/ot-prayer/tests/fixtures/esolat-2026-11-20/`, captured 2026-11-20.
+
+**What the endpoint is.**
+
+- `https://www.e-solat.gov.my/index.php?r=esolatApi/takwimsolat&zone=<ZONE>&period=<P>`,
+  HTTPS, no key, no account, answered from CloudFront in Singapore in under
+  half a second. A lowercase zone is accepted.
+- `period=today` (one day), `week` (today and seven more), `month` (the
+  calendar month), `year` (the calendar year, 365 days, 77 KB).
+- `period=duration` takes `datestart` and `dateend` (`yyyy-mm-dd`) **in a POST
+  body**; the same values as query parameters give HTTP 500. A range may span
+  months, but **only within a published year**: today, January 2027 has no
+  data, and a December-to-January range stops at 31 December.
+
+**What it answers.**
+
+```json
+{
+  "prayerTime": [
+    { "hijri": "1448-06-10", "date": "20-Nov-2026", "day": "Friday",
+      "imsak": "05:39:00", "fajr": "05:49:00", "syuruk": "06:58:00",
+      "dhuha": "07:23:00", "dhuhr": "13:02:00", "asr": "16:24:00",
+      "maghrib": "18:59:00", "isha": "20:12:00" }
+  ],
+  "status": "OK!", "serverTime": "2026-11-20 09:58:09", "periodType": "month",
+  "lang": "ms_my", "zone": "SGR01", "bearing": "291&#176; 7&#8242; 23&#8243;"
+}
+```
+
+- Times are `HH:MM:SS` (seconds always `00`), not the `HH:MM` the spec
+  guessed. All 365 days of the year's response had eight well-formed times.
+- `date` is `DD-Mon-YYYY` with **Malay month abbreviations**: `Jan Feb Mac Apr
+  Mei Jun Jul Ogos Sep Okt Nov Dis` — August is four letters. `day` is in
+  English. `serverTime` is Malaysian local time.
+- No data — an unknown zone, or a year not yet published — is **HTTP 200**
+  with `status: "NO_RECORD!"` and `prayerTime` an **object**
+  (`{"data": ["No data available …"]}`), not an array.
+- A malformed request is HTML: a missing zone is HTTP 400 `text/html`; the
+  duration-as-GET mistake is HTTP 500 with `Content-Type: application/json`
+  and an HTML body. The content type cannot be trusted.
+
+**Asar is Shafi'i.** On 20 November, standard solar formulas give Shafi'i Asar
+(shadow 1) at 16:23 for Shah Alam, 16:22 for Kuala Lumpur and 16:11 for Pulau
+Aur, and Hanafi (shadow 2) at 17:19, 17:18 and 17:08. JAKIM publishes 16:24,
+16:24 and 16:12: Shafi'i, a minute or two later — the same precaution its
+Dhuhr shows against solar noon (13:02 against 12:59.9 for SGR01).
+
+**Decision.**
+
+- The parser reads the shape above: `status` must be `OK!` and `prayerTime` an
+  array, or the response is "no data" (not an error to retry); dates parse with
+  both the Malay and the English month abbreviations; times accept `HH:MM:SS`
+  and `HH:MM`; a missing or malformed field invalidates its whole day, and
+  unknown fields are ignored. The body is capped before parsing (a year is 77
+  KB; 256 KB is the cap) and must parse as JSON whatever its content type.
+- The weekly fetch asks for **today to the end of next month** with one POST
+  `period=duration` request — or to 31 December, when next month is in a year
+  JAKIM has not published. From mid-December the chain's later links (bundled
+  data, then Calculated) cover the gap, and a fetch is retried daily until the
+  new year appears.
+- Calculated mode keeps Shafi'i as its default Asar, now confirmed.
+
+**Consequences.** The fixtures are real responses, never edited; a format
+change means a new dated capture beside them and a `GOTCHAS.md` entry. The
+year boundary is a known, yearly gap the fallback chain must handle and the UI
+must label, not an outage. The endpoint stays undocumented — nothing here
+promises it will keep this shape.

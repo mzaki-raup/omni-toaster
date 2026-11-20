@@ -161,7 +161,7 @@ Last updated: 2026-11-19
 
 | Item | State | Notes |
 |---|---|---|
-| e-Solat verification spike | Pending | **First.** Three zones; result recorded in `docs/08-decisions.md` |
+| e-Solat verification spike | Completed | **First.** Three zones; result recorded in `docs/08-decisions.md`. FEAT-0049: SGR01, WLY01 and JHR01 on 2026-11-20 — the shape, every period, next month as a POST within a published year, the failure cases, Asar confirmed Shafi'i; ADR-018, raw responses kept as fixtures |
 | Zone table | Pending | `data/jakim_zones.csv`, reviewed commits only |
 | JAKIM client | Pending | HTTPS, 10 s timeout, backoff 1/5/15 min, no polling |
 | Parser with fixtures | Pending | `tests/fixtures/jakim_sample.json` |
