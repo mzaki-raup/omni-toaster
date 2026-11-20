@@ -148,6 +148,7 @@ for the capability, and `ot-ui` calls it rather than reaching for `windows` or
 
 Every Windows API call lives in `ot-platform`, behind a Rust interface that
 names the capability rather than the API: `tray`, `autostart`, `system_theme`,
+`system_events` (clock change and resume, for the scheduler),
 `single_instance`, `window_effects`, `supervisor`, `speech`. Another crate
 reaching for the `windows` or `winreg` crate directly is a defect — it is what
 would block the eventual macOS and Linux work

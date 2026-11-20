@@ -62,6 +62,16 @@ const KNOWN_FLAGS: &[&str] = &[
     // checking it on a machine fast enough never to need it. Debug only.
     #[cfg(debug_assertions)]
     "--slow-frames",
+    // Creates a reminder that many seconds out, and with a second number
+    // edits it ten seconds later to that many seconds after the start, for
+    // checking the scheduler before Settings ▸ Reminders exists. Debug only.
+    #[cfg(debug_assertions)]
+    "--test-reminder",
+    // Shortens the ten-minute cap on an alarm's toast to this many seconds,
+    // for watching it close at the cap without waiting ten minutes. Debug
+    // only.
+    #[cfg(debug_assertions)]
+    "--alarm-cap",
 ];
 
 fn main() -> ExitCode {
@@ -239,6 +249,15 @@ fn main() -> ExitCode {
         Err(error) => tracing::warn!(%error, "the schema version could not be read"),
     }
 
+    // History older than 90 days goes on every start
+    // (docs/05-data-model-and-storage.md). A failure costs disk space, not
+    // correctness, so it is logged and the app carries on.
+    match store.prune_notification_log(jiff::Timestamp::now()) {
+        Ok(0) => {}
+        Ok(pruned) => tracing::info!(pruned, "old notification history pruned"),
+        Err(error) => tracing::warn!(%error, "the notification history could not be pruned"),
+    }
+
     // Refresh the autostart path if it is on and the folder has moved. Never
     // enables it: that is the user's choice, not a side effect of launching
     // (docs/specs/tray-and-settings.md §7).
@@ -271,10 +290,14 @@ fn main() -> ExitCode {
         return ExitCode::SUCCESS;
     }
 
-    // The settings window. It blocks until the user closes it, which for now
-    // ends the process: Quit belongs to the tray menu (FEAT-0015), and until
-    // that exists there would be no way to stop a process that outlived its
-    // only window (docs/specs/tray-and-settings.md §6).
+    #[cfg(debug_assertions)]
+    let test_reminder = match value_of(&args, "--test-reminder") {
+        Ok(Some(spec)) => test_reminder(&store, &spec),
+        _ => None,
+    };
+
+    // Read before the scheduler starts: it needs the catch-up window for the
+    // reminders missed while the app was not running.
     let settings = match ot_core::Settings::load(&root) {
         Ok(settings) => settings,
         Err(error) => {
@@ -285,6 +308,56 @@ fn main() -> ExitCode {
             ot_core::Settings::default()
         }
     };
+
+    // The scheduler takes the store: from here on only its thread writes fire
+    // times (docs/specs/reminders.md §12).
+    let (fire_out, fires) = ot_sched::scheduler::fire_channel();
+    let scheduler = match ot_sched::scheduler::Scheduler::spawn(
+        store,
+        fire_out,
+        settings.reminders.clamped().missed_window_hours,
+    ) {
+        Ok(scheduler) => scheduler,
+        Err(error) => {
+            tracing::error!(%error, "the scheduler could not be started");
+            eprintln!("OmniToaster cannot start: {error}");
+            return ExitCode::FAILURE;
+        }
+    };
+    let commands = scheduler.commands();
+    let _system_events = match ot_platform::system_events::watch(move |event| {
+        use ot_sched::scheduler::{Command, Recompute};
+        let why = match event {
+            ot_platform::SystemEvent::TimeChanged => Recompute::ClockChanged,
+            ot_platform::SystemEvent::Resumed => Recompute::Resumed,
+        };
+        let _ = commands.send(Command::Recompute(why));
+    }) {
+        Ok(watcher) => Some(watcher),
+        Err(error) => {
+            // Not fatal: the scheduler notices a clock jump itself and
+            // re-reads the zone on every wake; this only makes it immediate.
+            tracing::warn!(%error, "clock-change and resume events could not be watched");
+            None
+        }
+    };
+
+    #[cfg(debug_assertions)]
+    if let Some((id, Some(moved_to))) = test_reminder {
+        let path = root.path().to_path_buf();
+        let commands = scheduler.commands();
+        let _ = std::thread::Builder::new()
+            .name("test-reminder".into())
+            .spawn(move || {
+                std::thread::sleep(std::time::Duration::from_secs(10));
+                move_test_reminder(&path, id, moved_to, &commands);
+            });
+    }
+
+    // The settings window. It blocks until the user closes it, which for now
+    // ends the process: Quit belongs to the tray menu (FEAT-0015), and until
+    // that exists there would be no way to stop a process that outlived its
+    // only window (docs/specs/tray-and-settings.md §6).
 
     #[cfg(debug_assertions)]
     let test_toast = args.iter().any(|a| a == "--test-toast");
@@ -307,13 +380,24 @@ fn main() -> ExitCode {
     #[cfg(not(debug_assertions))]
     let (reduce_motion, slow_frames) = (false, false);
 
+    #[cfg(debug_assertions)]
+    let alarm_cap_secs = value_of(&args, "--alarm-cap")
+        .ok()
+        .flatten()
+        .and_then(|text| text.parse::<f32>().ok());
+    #[cfg(not(debug_assertions))]
+    let alarm_cap_secs = None;
+
     let dev = ot_ui::settings_window::DevOptions {
         test_toast,
         ui_scale,
         reduce_motion,
         slow_frames,
+        alarm_cap_secs,
     };
-    if let Err(error) = ot_ui::settings_window::run(root, settings, dev) {
+    if let Err(error) =
+        ot_ui::settings_window::run(root, settings, dev, fires, scheduler.commands())
+    {
         tracing::error!(%error, "the settings window could not be opened");
         eprintln!("OmniToaster cannot show its window: {error}");
         drop(guard);
@@ -322,6 +406,79 @@ fn main() -> ExitCode {
 
     drop(guard);
     ExitCode::SUCCESS
+}
+
+/// `--test-reminder <seconds>[,<seconds>]`: a one-off reminder that many
+/// seconds from now, and, with the second number, the instant it is to be
+/// moved to. Returns its id and that instant.
+#[cfg(debug_assertions)]
+fn test_reminder(store: &ot_store::Store, spec: &str) -> Option<(i64, Option<jiff::Timestamp>)> {
+    use ot_store::reminders::{ReminderDraft, Trigger};
+
+    let now = jiff::Timestamp::now();
+    let mut seconds = spec.split(',').map(|part| part.trim().parse::<i64>().ok());
+    let at = |secs: i64| now.checked_add(jiff::SignedDuration::from_secs(secs)).ok();
+    let first = at(seconds.next().flatten()?)?;
+    let moved_to = seconds.next().flatten().and_then(at);
+
+    let draft = ReminderDraft {
+        category_id: None,
+        // User text, stored as typed: not a Fluent key (docs/10-i18n.md).
+        title: "Test reminder".to_owned(),
+        body: None,
+        authored_lang: "en-US".to_owned(),
+        trigger: Trigger::At {
+            at: first
+                .to_zoned_datetime(jiff::tz::TimeZone::system())
+                .datetime(),
+        },
+        recurrence: None,
+    };
+    match store.create_reminder(&draft) {
+        Ok(id) => {
+            tracing::info!(reminder = id, target = %first, "test reminder created");
+            println!("Test reminder: {id} at {first}");
+            Some((id, moved_to))
+        }
+        Err(error) => {
+            tracing::warn!(%error, "the test reminder could not be created");
+            None
+        }
+    }
+}
+
+/// Move the test reminder to `to`, as the editor will: write the row through a
+/// connection of its own, then tell the scheduler.
+#[cfg(debug_assertions)]
+fn move_test_reminder(
+    root: &std::path::Path,
+    id: i64,
+    to: jiff::Timestamp,
+    commands: &std::sync::mpsc::Sender<ot_sched::scheduler::Command>,
+) {
+    let result = ot_store::Store::open(root)
+        .map_err(|e| e.to_string())
+        .and_then(|store| {
+            let mut reminder = store
+                .reminder(id)
+                .map_err(|e| e.to_string())?
+                .ok_or_else(|| "it is gone".to_owned())?;
+            reminder.draft.trigger = ot_store::reminders::Trigger::At {
+                at: to
+                    .to_zoned_datetime(jiff::tz::TimeZone::system())
+                    .datetime(),
+            };
+            store
+                .update_reminder(id, &reminder.draft)
+                .map_err(|e| e.to_string())
+        });
+    match result {
+        Ok(_) => {
+            tracing::info!(reminder = id, target = %to, "test reminder moved");
+            let _ = commands.send(ot_sched::scheduler::Command::Changed(id));
+        }
+        Err(error) => tracing::warn!(%error, "the test reminder could not be moved"),
+    }
 }
 
 /// Print `--help` in the active language.

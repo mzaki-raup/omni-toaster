@@ -220,7 +220,7 @@ mod tests {
         store
             .connection()
             .execute(
-                "INSERT INTO category (id, kind, image_id) VALUES (7, 'prayer', ?1)",
+                "INSERT INTO category (id, kind, image_id) VALUES (107, 'prayer', ?1)",
                 params![asset.sha256],
             )
             .expect("a template using it");
@@ -230,7 +230,7 @@ mod tests {
             store
                 .remove_from_library(dir.path(), &asset.sha256, false)
                 .expect("asked"),
-            Removal::InUse(vec![7])
+            Removal::InUse(vec![107])
         );
         assert_eq!(store.library().expect("list").len(), 1, "nothing removed");
         assert!(file.exists(), "nor its file");
@@ -245,7 +245,7 @@ mod tests {
         assert!(!file.exists(), "the file went with it");
         let image_id: Option<String> = store
             .connection()
-            .query_row("SELECT image_id FROM category WHERE id = 7", [], |row| {
+            .query_row("SELECT image_id FROM category WHERE id = 107", [], |row| {
                 row.get(0)
             })
             .expect("the template is still there");

@@ -57,12 +57,18 @@ language-ms-my = Bahasa Melayu
 toast-app-name = OmniToaster
 toast-test-title = Toast Ujian
 toast-test-body = Beginilah rupa toast dengan tetapan anda sekarang.
-# Butang dalam baris tindakan toast. Ditunjukkan dikelabukan sehingga peringatan wujud (Fasa 4).
+# Butang dalam baris tindakan toast: menangguhkan peringatan selama tempoh yang ditetapkan dalam Tetapan ▸ Peringatan. Dikelabukan pada toast yang tiada apa-apa untuk ditunda.
 toast-action-snooze = Tunda
 # Butang dalam baris tindakan toast yang menutup toast itu. "Tutup", bukan "Tolak": pemberitahuan ditutup, bukan ditolak.
 toast-action-dismiss = Tutup
-# Butang dalam baris tindakan toast. Ditunjukkan dikelabukan sehingga peringatan wujud (Fasa 4).
+# Butang dalam baris tindakan toast yang membawa Tetapan ke hadapan.
 toast-action-open = Buka
+# Ditunjukkan dalam baris tindakan di sebelah Tutup, apabila peringatan telah ditunda sebanyak yang dibenarkan oleh Tetapan ▸ Peringatan.
+toast-snooze-limit = Tiada lagi tundaan untuk peringatan ini.
+# Tajuk satu-satunya toast yang memberitahu peringatan terlepas semasa PC dimatikan atau tidur.
+toast-missed-title = Peringatan Terlepas
+# Isi toast itu. "Buka" ialah butang Buka pada toast, yang menunjukkan senarainya.
+toast-missed-body = Beberapa peringatan tiba masanya semasa PC dimatikan atau tidur. Buka untuk melihatnya.
 
 ## Tempat toast muncul: sembilan kedudukan pratetap — empat bucu, empat tepi
 ## dan tengah — serta kedudukan tersuai. Ditunjukkan dalam
@@ -181,6 +187,42 @@ settings-section-appearance = Penampilan
 settings-section-pictures = Pustaka Gambar
 # Bahagian yang menetapkan cara toast muncul dan hilang.
 settings-section-animation = Animasi
+# Bahagian yang memegang peringatan dan cara Tunda berfungsi.
+settings-section-reminders = Peringatan
+
+## Tetapan ▸ Peringatan: bahagian Tunda. Huruf Besar Setiap Perkataan untuk
+## label dan item senarai, huruf biasa untuk petunjuk.
+
+# Senarai juntai: berapa lama satu tekanan Tunda menangguhkan peringatan.
+settings-snooze-length = Tempoh Tunda
+# Petunjuk di bawah Tempoh Tunda.
+settings-snooze-length-hint = Apa yang dilakukan oleh satu tekanan Tunda pada toast peringatan.
+# Pilihan Tempoh Tunda.
+settings-snooze-5-minutes = 5 Minit
+# Pilihan Tempoh Tunda.
+settings-snooze-15-minutes = 15 Minit
+# Pilihan Tempoh Tunda.
+settings-snooze-1-hour = 1 Jam
+# Pilihan Tempoh Tunda.
+settings-snooze-1-day = 1 Hari
+# Pilihan Tempoh Tunda: tempoh yang ditaip oleh pengguna.
+settings-snooze-custom = Tersuai
+# Medan untuk tempoh tunda tersuai, ditunjukkan apabila Tersuai dipilih. Unitnya dalam label, bukan selepas nombor.
+settings-snooze-custom-length = Tempoh Tersuai (Minit)
+# Gelangsar: berapa kali toast satu peringatan boleh ditunda.
+settings-snooze-limit = Had Tundaan
+# Petunjuk di bawah Had Tundaan.
+settings-snooze-limit-hint = Selepas sebanyak ini tundaan, toast hanya menawarkan Tutup.
+# Gelangsar: berapa jam ke belakang peringatan yang terlepas semasa PC dimatikan atau tidur masih disenaraikan. Unitnya dalam label.
+settings-missed-window = Tempoh Susulan (Jam)
+# Petunjuk di bawah Tempoh Susulan.
+settings-missed-window-hint = Peringatan yang terlepas semasa PC dimatikan atau tidur disenaraikan jika ia sebaru ini; yang lebih lama digugurkan.
+# Tajuk senarai peringatan yang terlepas, di bahagian atas Tetapan ▸ Peringatan.
+settings-missed-heading = Peringatan Terlepas
+# Keadaan kosong senarai peringatan terlepas.
+settings-missed-empty = Tiada peringatan yang terlepas.
+# Di bawah tajuk peringatan yang terlepas. $time ialah tarikh dan masanya, sudah diformat.
+settings-missed-due = Sepatutnya { $time }
 
 ## Tetapan ▸ Animasi. Huruf Besar Setiap Perkataan untuk label, huruf biasa
 ## untuk petunjuk.
@@ -373,6 +415,19 @@ settings-theme-system = Sistem
 settings-theme-dark = Gelap
 settings-theme-light = Cerah
 
+## Tetapan ▸ Umum ▸ Jam: cara masa ditulis di mana-mana.
+
+# Label senarai juntai.
+settings-clock = Jam
+# Petunjuk senarai juntai.
+settings-clock-hint = Automatik ialah 24 jam dalam Bahasa Melayu dan mengikut Windows dalam bahasa Inggeris.
+# Pilihan Jam.
+settings-clock-automatic = Automatik
+# Pilihan Jam.
+settings-clock-12 = 12 Jam
+# Pilihan Jam.
+settings-clock-24 = 24 Jam
+
 ## Pola tarikh, masa dan nombor. Hanya ot_i18n::format_datetime membaca
 ## pola ini; tiada tempat lain memformat tarikh atau nombor
 ## (docs/10-i18n.md).
@@ -384,6 +439,45 @@ format-period-am = pagi
 format-period-pm = petang
 # $date dan $time sudah diformat oleh pola di atas.
 format-date-time = { $date } pada { $time }
+# Tarikh pendek apabila tetapan serantau Windows meletakkan bulan dahulu. Tidak digunakan dalam bahasa Melayu, yang sentiasa d/m/yyyy; ada di sini supaya kedua-dua fail mempunyai kunci yang sama.
+format-date-short-month-first = { $day }/{ $month }/{ $year }
+# Tempoh sebelum masa peringatan. $count ialah nombor. Bahasa Melayu tiada bentuk jamak.
+format-before-minutes = { $count } minit sebelum
+# Tempoh sebelum masa peringatan.
+format-before-hours = { $count } jam sebelum
+# Tempoh sebelum masa peringatan.
+format-before-days = { $count } hari sebelum
+# Tempoh sebelum masa peringatan.
+format-before-weeks = { $count } minggu sebelum
+# Cara peringatan berulang. $count ialah nombor. Huruf kecil: ia berada di dalam ayat.
+format-every-days = { $count ->
+    [1] setiap hari
+   *[other] setiap { $count } hari
+}
+# Cara peringatan berulang.
+format-every-weeks = { $count ->
+    [1] setiap minggu
+   *[other] setiap { $count } minggu
+}
+# Cara peringatan mingguan berulang. $days ialah senarai nama hari yang sudah digabungkan.
+format-every-weeks-on = { $count ->
+    [1] setiap minggu pada { $days }
+   *[other] setiap { $count } minggu pada { $days }
+}
+# Cara peringatan berulang.
+format-every-months = { $count ->
+    [1] setiap bulan
+   *[other] setiap { $count } bulan
+}
+# Cara peringatan berulang.
+format-every-years = { $count ->
+    [1] setiap tahun
+   *[other] setiap { $count } tahun
+}
+# Dua item senarai: "Isnin dan Khamis".
+format-list-pair = { $first } dan { $second }
+# Tiga atau lebih: item pertama, kemudian selebihnya yang sudah digabungkan — "Isnin, Selasa dan Khamis".
+format-list-more = { $first }, { $rest }
 
 ## Nama hari, digunakan oleh format_datetime dan bukan oleh locale OS,
 ## supaya nama hari Melayu betul walaupun Windows ditetapkan ke bahasa
@@ -411,3 +505,167 @@ month-september = September
 month-october = Oktober
 month-november = November
 month-december = Disember
+
+## Reminder types. Each key is also the stable identifier stored in the
+## database (category.type_key), so a key is never renamed. The name is a list
+## item, so Title Case. The -body line is the toast's text when neither the
+## reminder nor its template has a body of its own: sentence case. A user's
+## own title and body are never keys and are never translated.
+
+# The type of a reminder for a dated event: a talk, a course, a gathering.
+reminder-event = Acara
+# Toast body for an Event reminder that has no text of its own.
+reminder-event-body = Satu acara akan bermula.
+# The type of a reminder for something the user has to do.
+reminder-task = Tugasan
+# Toast body for a Task reminder that has no text of its own.
+reminder-task-body = Satu tugasan perlu disiapkan.
+# The type of a reminder for a yearly date: a birthday, a wedding anniversary.
+reminder-anniversary = Ulang Tahun
+# Toast body for an Anniversary reminder that has no text of its own.
+reminder-anniversary-body = Ingat ulang tahun ini.
+# Fatigue reminder: rest the eyes from the screen.
+reminder-fatigue-eye = Rehat Mata
+# Toast body for an Eye Break reminder that has no text of its own.
+reminder-fatigue-eye-body = Rehatkan mata: pandang sesuatu yang jauh.
+# Fatigue reminder: check how you are sitting.
+reminder-fatigue-posture = Postur
+# Toast body for a Posture reminder that has no text of its own.
+reminder-fatigue-posture-body = Duduk tegak dan longgarkan bahu anda.
+# Fatigue reminder: drink water.
+reminder-fatigue-hydration = Minum Air
+# Toast body for a Drink Water reminder that has no text of its own.
+reminder-fatigue-hydration-body = Masa untuk segelas air.
+# Fatigue reminder: the working day has gone on long enough.
+reminder-fatigue-work-hours = Had Waktu Bekerja
+# Toast body for a Work-Hour Limit reminder that has no text of its own.
+reminder-fatigue-work-hours-body = Anda telah mencapai had waktu bekerja.
+# The type of a reminder for a countdown.
+reminder-timer = Pemasa
+# Toast body for a Timer reminder that has no text of its own.
+reminder-timer-body = Pemasa anda telah tamat.
+# The type of a reminder that wakes or alerts: the most urgent kind.
+reminder-alarm = Penggera
+# Toast body for an Alarm reminder that has no text of its own.
+reminder-alarm-body = Penggera anda sedang berbunyi.
+# The type of a reminder for a bill or other payment.
+reminder-payment = Pembayaran
+# Toast body for a Payment reminder that has no text of its own.
+reminder-payment-body = Satu pembayaran perlu dibuat.
+# The type of a reminder for a meeting with someone: a doctor, a client.
+reminder-appointment = Temu Janji
+# Toast body for an Appointment reminder that has no text of its own.
+reminder-appointment-body = Anda ada temu janji.
+# The type of a reminder that fits none of the others.
+reminder-custom = Tersuai
+# Toast body for a Custom reminder that has no text of its own.
+reminder-custom-body = Ini peringatan anda.
+
+## Tetapan ▸ Peringatan: senarai dan penyunting. Huruf Besar Setiap Perkataan
+## untuk label, butang dan item senarai; huruf biasa untuk petunjuk, keadaan
+## kosong, soalan dan mesej pengesahan.
+
+# Tajuk di atas senarai peringatan.
+settings-reminders-heading = Peringatan Anda
+# Butang yang memulakan peringatan baharu dalam penyunting.
+settings-reminders-new = Peringatan Baharu
+# Ditunjukkan semasa senarai sedang dibaca.
+settings-reminders-loading = Memuatkan peringatan anda…
+# Keadaan kosong senarai.
+settings-reminders-empty = Anda belum ada peringatan. Peringatan Baharu akan membuatnya.
+# Baris kedua dalam senarai. $type ialah jenis peringatan; $time bila ia seterusnya muncul, sudah diformat.
+settings-reminder-row-next = { $type } · seterusnya { $time }
+# Baris kedua bagi peringatan yang ditunda. $time ialah bila tundaan tamat, sudah diformat.
+settings-reminder-row-snoozed = { $type } · ditunda hingga { $time }
+# Baris kedua bagi peringatan yang tidak akan muncul lagi.
+settings-reminder-row-done = { $type } · selesai
+# Baris kedua semasa masa seterusnya sedang dikira.
+settings-reminder-row-plain = { $type }
+# Baris kedua bagi peringatan berulang. $repeat ialah cara ia berulang ("setiap 2 minggu pada Isnin"); $time bila ia seterusnya muncul.
+settings-reminder-row-next-repeat = { $type } · { $repeat } · seterusnya { $time }
+# Ayat di bawah Ulang dalam penyunting. $repeat ialah cara ia berulang.
+settings-reminder-repeat-summary = Berulang { $repeat }.
+# Tajuk bahagian keletihan dalam Tetapan ▸ Peringatan: rehat mata, postur, minum air, had waktu bekerja.
+settings-fatigue-heading = Peringatan Keletihan
+# Selepas nombor rehat mata, postur atau minum. $count ialah nombor itu.
+settings-fatigue-minutes-apart = minit sekali
+# Selepas nombor had waktu bekerja. $count ialah nombor itu.
+settings-fatigue-hours-of-work = jam bekerja
+# Petunjuk di bawah bahagian keletihan.
+settings-fatigue-hint = Setiap satu dikira dari saat anda mula menggunakan PC. Sejam atau lebih jauh daripadanya memulakan hari semula.
+# Medan penyunting: tajuk peringatan itu sendiri.
+settings-reminder-title = Tajuk
+# Medan penyunting: teks peringatan itu sendiri, ditunjukkan dalam toastnya.
+settings-reminder-body = Butiran
+# Medan penyunting: jenis peringatan.
+settings-reminder-type = Jenis
+# Medan penyunting: hari yang dimaksudkan.
+settings-reminder-date = Tarikh
+# Medan penyunting: masa dalam hari.
+settings-reminder-time = Masa
+# Medan penyunting: toast sebelum masa itu sendiri.
+settings-reminder-offsets = Ingatkan Saya Sebelum
+# Menambah baris pada Ingatkan Saya Sebelum.
+settings-reminder-offset-add = Tambah Masa Sebelum
+# Membuang satu baris Ingatkan Saya Sebelum.
+settings-reminder-offset-remove = Buang
+# Petunjuk di bawah Ingatkan Saya Sebelum.
+settings-reminder-offsets-hint = Setiap satu ialah toast tersendiri, selain toast pada masa itu sendiri.
+# Unit, dalam senarai juntai Ingatkan Saya Sebelum dan Ulang.
+settings-unit-minutes = Minit
+# Unit.
+settings-unit-hours = Jam
+# Unit.
+settings-unit-days = Hari
+# Unit.
+settings-unit-weeks = Minggu
+# Unit.
+settings-unit-months = Bulan
+# Unit.
+settings-unit-years = Tahun
+# Medan penyunting: cara peringatan berulang.
+settings-reminder-repeat = Ulang
+# Pilihan Ulang: ia muncul sekali sahaja.
+settings-repeat-never = Tidak Berulang
+# Medan penyunting: setiap berapa unit Ulang — "Ulang Setiap 2" dengan Minggu bermaksud setiap dua minggu.
+settings-reminder-every = Ulang Setiap
+# Medan penyunting: hari dalam minggu bagi ulangan mingguan.
+settings-reminder-weekdays = Pada
+# Petunjuk di bawah hari dalam minggu.
+settings-reminder-weekdays-hint = Jika tiada yang ditanda, ia berulang pada hari dalam minggu tarikh itu sendiri.
+# Butang penyunting.
+settings-reminder-save = Simpan
+# Butang penyunting: keluar tanpa menyimpan.
+settings-reminder-cancel = Batal
+# Butang penyunting, dan butang yang mengesahkan soalan Padam.
+settings-reminder-delete = Padam
+# Butang yang membatalkan soalan Padam atau Kosongkan Sejarah.
+settings-reminder-keep = Kekalkan
+# Soalan yang ditanya oleh Padam dahulu.
+settings-reminder-delete-confirm = Padam peringatan ini? Sejarahnya kekal sehingga luput.
+# Tajuk sejarah peringatan yang sedang disunting.
+settings-reminder-history = Sejarah
+# Keadaan kosong sejarah.
+settings-reminder-history-empty = Belum ada apa-apa berlaku pada peringatan ini.
+# Butang yang mengosongkan sejarah peringatan yang disunting, dan butang yang mengesahkan soalannya.
+settings-reminder-history-clear = Kosongkan Sejarah
+# Soalan yang ditanya oleh Kosongkan Sejarah dahulu.
+settings-reminder-history-clear-confirm = Kosongkan sejarah peringatan ini? Ini tidak boleh dibuat asal.
+# Satu baris sejarah. $time ialah bila, sudah diformat; $action apa yang berlaku.
+settings-reminder-history-row = { $time } — { $action }
+# Apa yang berlaku pada satu paparan, dalam sejarah.
+settings-history-shown = Dipaparkan
+# Apa yang berlaku pada satu paparan.
+settings-history-snoozed = Ditunda
+# Apa yang berlaku pada satu paparan.
+settings-history-dismissed = Ditutup
+# Apa yang berlaku pada satu paparan.
+settings-history-opened = Dibuka
+# Apa yang berlaku pada satu paparan.
+settings-history-missed = Terlepas
+# Dikatakan di bawah Tajuk apabila ia kosong.
+error-reminder-title-empty = Beri peringatan ini tajuk.
+# Dikatakan di bawah Masa apabila setiap paparan sudah berlalu.
+error-reminder-time-passed = Masa ini telah berlalu dan peringatan ini tidak berulang, jadi ia tidak akan muncul.
+# Baris status apabila peringatan tidak dapat dibaca atau disimpan. $reason ialah puncanya.
+settings-status-reminders-failed = Peringatan anda tidak dapat dibaca atau disimpan: { $reason }

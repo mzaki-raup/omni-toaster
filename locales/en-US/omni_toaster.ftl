@@ -61,12 +61,18 @@ language-ms-my = Bahasa Melayu
 toast-app-name = OmniToaster
 toast-test-title = Test Toast
 toast-test-body = This is what a toast looks like with your current settings.
-# A button in the toast's action row. Shown greyed until reminders exist (Phase 4).
+# A button in the toast's action row: puts a reminder off for the length set in Settings ▸ Reminders. Greyed on a toast with nothing to snooze.
 toast-action-snooze = Snooze
 # A button in the toast's action row that closes the toast with its out-animation.
 toast-action-dismiss = Dismiss
-# A button in the toast's action row. Shown greyed until reminders exist (Phase 4).
+# A button in the toast's action row that brings Settings forward.
 toast-action-open = Open
+# Shown in the action row beside Dismiss, once a reminder has been snoozed as many times as Settings ▸ Reminders allows.
+toast-snooze-limit = No more snoozes for this reminder.
+# The title of the one toast that says reminders were missed while the PC was off or asleep.
+toast-missed-title = Missed Reminders
+# The body of that toast. "Open" is the toast's Open button, which shows the list.
+toast-missed-body = Some reminders came due while the PC was off or asleep. Open shows them.
 
 ## Where a toast appears: nine presets — four corners, four edges and the
 ## centre — plus the custom point. Shown in Settings ▸ Appearance. Title Case,
@@ -186,6 +192,42 @@ settings-section-appearance = Appearance
 settings-section-pictures = Picture Library
 # The section holding how toasts arrive and leave.
 settings-section-animation = Animation
+# The section holding the reminders and what Snooze does.
+settings-section-reminders = Reminders
+
+## Settings ▸ Reminders: the Snooze section. Title Case for the labels and
+## list items, sentence case for the hints.
+
+# A dropdown: how long one press of Snooze puts a reminder off.
+settings-snooze-length = Snooze Length
+# Hint under Snooze Length.
+settings-snooze-length-hint = What one press of Snooze on a reminder's toast does.
+# Snooze Length choice.
+settings-snooze-5-minutes = 5 Minutes
+# Snooze Length choice.
+settings-snooze-15-minutes = 15 Minutes
+# Snooze Length choice.
+settings-snooze-1-hour = 1 Hour
+# Snooze Length choice.
+settings-snooze-1-day = 1 Day
+# Snooze Length choice: a length the user types in.
+settings-snooze-custom = Custom
+# The field for a custom snooze length, shown when Custom is chosen. The unit is in the label, not after the number.
+settings-snooze-custom-length = Custom Length (Minutes)
+# A slider: how many times one reminder's toast may be snoozed.
+settings-snooze-limit = Snooze Limit
+# Hint under Snooze Limit.
+settings-snooze-limit-hint = After this many snoozes, the toast offers only Dismiss.
+# A slider: how many hours back a reminder missed while the PC was off or asleep is still listed. The unit is in the label.
+settings-missed-window = Catch-Up Window (Hours)
+# Hint under Catch-Up Window.
+settings-missed-window-hint = Reminders missed while the PC was off or asleep are listed if they are this recent; older ones are dropped.
+# The heading of the list of missed reminders, at the top of Settings ▸ Reminders.
+settings-missed-heading = Missed Reminders
+# The missed list's empty state.
+settings-missed-empty = No reminders were missed.
+# Under a missed reminder's title. $time is its date and time, already formatted.
+settings-missed-due = Due { $time }
 
 ## Settings ▸ Animation. Title Case for the labels, sentence case for the hints.
 
@@ -376,6 +418,19 @@ settings-theme-system = System
 settings-theme-dark = Dark
 settings-theme-light = Light
 
+## Settings ▸ General ▸ Clock: how times are written everywhere.
+
+# The dropdown's label.
+settings-clock = Clock
+# The dropdown's hint.
+settings-clock-hint = Automatic is 24-hour in Bahasa Melayu and follows Windows in English.
+# A Clock choice.
+settings-clock-automatic = Automatic
+# A Clock choice.
+settings-clock-12 = 12-Hour
+# A Clock choice.
+settings-clock-24 = 24-Hour
+
 ## Date, time and number patterns. Only ot_i18n::format_datetime reads
 ## these; nothing else formats a date or a number
 ## (docs/10-i18n.md).
@@ -387,6 +442,57 @@ format-period-am = am
 format-period-pm = pm
 # $date and $time are already formatted by the patterns above.
 format-date-time = { $date } at { $time }
+# The short date when Windows' regional setting puts the month first (m/d/yyyy).
+format-date-short-month-first = { $month }/{ $day }/{ $year }
+# An offset before a reminder's time. $count is a number.
+format-before-minutes = { $count ->
+    [one] 1 minute before
+   *[other] { $count } minutes before
+}
+# An offset before a reminder's time. $count is a number.
+format-before-hours = { $count ->
+    [one] 1 hour before
+   *[other] { $count } hours before
+}
+# An offset before a reminder's time. $count is a number.
+format-before-days = { $count ->
+    [one] 1 day before
+   *[other] { $count } days before
+}
+# An offset before a reminder's time. $count is a number.
+format-before-weeks = { $count ->
+    [one] 1 week before
+   *[other] { $count } weeks before
+}
+# How a reminder repeats. $count is a number. Lower case: it sits inside a sentence.
+format-every-days = { $count ->
+    [one] every day
+   *[other] every { $count } days
+}
+# How a reminder repeats.
+format-every-weeks = { $count ->
+    [one] every week
+   *[other] every { $count } weeks
+}
+# How a weekly reminder repeats. $days is a list of day names, already joined.
+format-every-weeks-on = { $count ->
+    [one] every week on { $days }
+   *[other] every { $count } weeks on { $days }
+}
+# How a reminder repeats.
+format-every-months = { $count ->
+    [one] every month
+   *[other] every { $count } months
+}
+# How a reminder repeats.
+format-every-years = { $count ->
+    [one] every year
+   *[other] every { $count } years
+}
+# Two items of a list: "Monday and Thursday".
+format-list-pair = { $first } and { $second }
+# Three or more: the first, then the rest already joined — "Monday, Tuesday and Thursday".
+format-list-more = { $first }, { $rest }
 
 ## Day names, used by format_datetime rather than by any OS locale, so a
 ## Malay day name is correct even when Windows is set to English.
@@ -413,3 +519,173 @@ month-september = September
 month-october = October
 month-november = November
 month-december = December
+
+## Reminder types. Each key is also the stable identifier stored in the
+## database (category.type_key), so a key is never renamed. The name is a list
+## item, so Title Case. The -body line is the toast's text when neither the
+## reminder nor its template has a body of its own: sentence case. A user's
+## own title and body are never keys and are never translated.
+
+# The type of a reminder for a dated event: a talk, a course, a gathering.
+reminder-event = Event
+# Toast body for an Event reminder that has no text of its own.
+reminder-event-body = An event is about to start.
+# The type of a reminder for something the user has to do.
+reminder-task = Task
+# Toast body for a Task reminder that has no text of its own.
+reminder-task-body = A task is due.
+# The type of a reminder for a yearly date: a birthday, a wedding anniversary.
+reminder-anniversary = Anniversary
+# Toast body for an Anniversary reminder that has no text of its own.
+reminder-anniversary-body = Remember this anniversary.
+# Fatigue reminder: rest the eyes from the screen.
+reminder-fatigue-eye = Eye Break
+# Toast body for an Eye Break reminder that has no text of its own.
+reminder-fatigue-eye-body = Rest your eyes: look at something far away.
+# Fatigue reminder: check how you are sitting.
+reminder-fatigue-posture = Posture
+# Toast body for a Posture reminder that has no text of its own.
+reminder-fatigue-posture-body = Sit up straight and relax your shoulders.
+# Fatigue reminder: drink water.
+reminder-fatigue-hydration = Drink Water
+# Toast body for a Drink Water reminder that has no text of its own.
+reminder-fatigue-hydration-body = Time for a glass of water.
+# Fatigue reminder: the working day has gone on long enough.
+reminder-fatigue-work-hours = Work-Hour Limit
+# Toast body for a Work-Hour Limit reminder that has no text of its own.
+reminder-fatigue-work-hours-body = You have reached your work-hour limit.
+# The type of a reminder for a countdown.
+reminder-timer = Timer
+# Toast body for a Timer reminder that has no text of its own.
+reminder-timer-body = Your timer has finished.
+# The type of a reminder that wakes or alerts: the most urgent kind.
+reminder-alarm = Alarm
+# Toast body for an Alarm reminder that has no text of its own.
+reminder-alarm-body = Your alarm is going off.
+# The type of a reminder for a bill or other payment.
+reminder-payment = Payment
+# Toast body for a Payment reminder that has no text of its own.
+reminder-payment-body = A payment is due.
+# The type of a reminder for a meeting with someone: a doctor, a client.
+reminder-appointment = Appointment
+# Toast body for an Appointment reminder that has no text of its own.
+reminder-appointment-body = You have an appointment.
+# The type of a reminder that fits none of the others.
+reminder-custom = Custom
+# Toast body for a Custom reminder that has no text of its own.
+reminder-custom-body = This is your reminder.
+
+## Settings ▸ Reminders: the list and the editor. Title Case for labels,
+## buttons and list items; sentence case for hints, empty states, questions
+## and validation messages.
+
+# The heading above the list of reminders.
+settings-reminders-heading = Your Reminders
+# The button that starts a new reminder in the editor.
+settings-reminders-new = New Reminder
+# Shown while the list is being read.
+settings-reminders-loading = Loading your reminders…
+# The list's empty state.
+settings-reminders-empty = You have no reminders yet. New Reminder makes one.
+# A list row's second line. $type is the reminder's type; $time when it next fires, already formatted.
+settings-reminder-row-next = { $type } · next { $time }
+# A list row's second line for a snoozed reminder. $time is when the snooze ends, already formatted.
+settings-reminder-row-snoozed = { $type } · snoozed until { $time }
+# A list row's second line for a reminder that will not fire again.
+settings-reminder-row-done = { $type } · done
+# A list row's second line while its next time is being worked out.
+settings-reminder-row-plain = { $type }
+# A repeating reminder's second line. $repeat is how it repeats ("every 2 weeks on Monday"); $time when it next fires.
+settings-reminder-row-next-repeat = { $type } · { $repeat } · next { $time }
+# The sentence under Repeat in the editor. $repeat is how it repeats.
+settings-reminder-repeat-summary = Repeats { $repeat }.
+# The heading of the fatigue section in Settings ▸ Reminders: eye break, posture, drink water, work-hour limit.
+settings-fatigue-heading = Fatigue Reminders
+# After an eye break's, posture's or drink's number. $count is that number.
+settings-fatigue-minutes-apart = { $count ->
+    [one] minute apart
+   *[other] minutes apart
+}
+# After the work-hour limit's number. $count is that number.
+settings-fatigue-hours-of-work = { $count ->
+    [one] hour of work
+   *[other] hours of work
+}
+# The hint under the fatigue section.
+settings-fatigue-hint = Each one counts from when you start using the PC. An hour or more away from it starts the day again.
+# Editor field: the reminder's own title.
+settings-reminder-title = Title
+# Editor field: the reminder's own text, shown in its toast.
+settings-reminder-body = Details
+# Editor field: the reminder's type.
+settings-reminder-type = Type
+# Editor field: the day it is for.
+settings-reminder-date = Date
+# Editor field: the time of day.
+settings-reminder-time = Time
+# Editor field: toasts ahead of the time itself.
+settings-reminder-offsets = Remind Me Before
+# Adds a row to Remind Me Before.
+settings-reminder-offset-add = Add a Time Before
+# Removes one row of Remind Me Before.
+settings-reminder-offset-remove = Remove
+# Hint under Remind Me Before.
+settings-reminder-offsets-hint = Each one is a toast of its own, as well as the one at the time itself.
+# A unit, in the Remind Me Before and Repeat dropdowns.
+settings-unit-minutes = Minutes
+# A unit.
+settings-unit-hours = Hours
+# A unit.
+settings-unit-days = Days
+# A unit.
+settings-unit-weeks = Weeks
+# A unit.
+settings-unit-months = Months
+# A unit.
+settings-unit-years = Years
+# Editor field: how the reminder repeats.
+settings-reminder-repeat = Repeat
+# Repeat choice: it fires once.
+settings-repeat-never = Never
+# Editor field: every how many of the Repeat unit — "Repeat Every 2" with Weeks is every two weeks.
+settings-reminder-every = Repeat Every
+# Editor field: the weekdays of a weekly repeat.
+settings-reminder-weekdays = On
+# Hint under the weekdays.
+settings-reminder-weekdays-hint = With none ticked, it repeats on the date's own weekday.
+# Editor button.
+settings-reminder-save = Save
+# Editor button: leave without saving.
+settings-reminder-cancel = Cancel
+# Editor button, and the confirming button of the Delete question.
+settings-reminder-delete = Delete
+# The button that backs out of the Delete or Clear History question.
+settings-reminder-keep = Keep It
+# The question Delete asks first.
+settings-reminder-delete-confirm = Delete this reminder? Its history stays until it ages out.
+# The heading of the edited reminder's history.
+settings-reminder-history = History
+# The history's empty state.
+settings-reminder-history-empty = Nothing has happened to this reminder yet.
+# The button that clears the edited reminder's history, and the confirming button of its question.
+settings-reminder-history-clear = Clear History
+# The question Clear History asks first.
+settings-reminder-history-clear-confirm = Clear this reminder's history? This cannot be undone.
+# One history line. $time is when, already formatted; $action what happened.
+settings-reminder-history-row = { $time } — { $action }
+# What happened to a fire, in the history.
+settings-history-shown = Shown
+# What happened to a fire.
+settings-history-snoozed = Snoozed
+# What happened to a fire.
+settings-history-dismissed = Dismissed
+# What happened to a fire.
+settings-history-opened = Opened
+# What happened to a fire.
+settings-history-missed = Missed
+# Said under Title when it is empty.
+error-reminder-title-empty = Give the reminder a title.
+# Said under Time when every fire would be in the past.
+error-reminder-time-passed = This time has passed and the reminder does not repeat, so it would never fire.
+# The status line when the reminders could not be read or saved. $reason is the cause.
+settings-status-reminders-failed = Your reminders could not be read or saved: { $reason }

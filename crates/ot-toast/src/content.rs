@@ -78,6 +78,8 @@ pub fn draw(
             row,
             spec.actions(),
             |action| spec.content.action_labels.get(action).to_owned(),
+            |action| spec.enabled(action),
+            spec.content.note.as_deref(),
             text_colour,
             dim,
             pointer,
@@ -668,6 +670,61 @@ mod tests {
                         );
                     });
                     }
+                }
+            }
+        }
+    }
+
+    #[test]
+    fn the_snooze_limit_note_fits_beside_dismiss_in_both_languages() {
+        // FEAT-0043: at the limit the row is Dismiss and a note. The app's
+        // own text must fit whole at the default width, on every shape, in
+        // English and Malay, at 100%, 150% and 200% — the strings are the
+        // `toast-snooze-limit` messages of both locale files.
+        for scale in [1.0_f32, 1.5, 2.0] {
+            let ctx = ctx();
+            ctx.set_pixels_per_point(scale);
+            for (note, dismiss) in [
+                ("No more snoozes for this reminder.", "Dismiss"),
+                ("Tiada lagi tundaan untuk peringatan ini.", "Tutup"),
+            ] {
+                for shape in crate::spec::Shape::all() {
+                    let mut spec = spec_with("Bayar bil", "Sebelum 25hb");
+                    spec.style.shape = shape;
+                    spec.behaviour.actions = 1;
+                    let spec = spec.clamped();
+                    let _ = ctx.run(Default::default(), |ctx| {
+                        let frame = egui::Rect::from_min_size(
+                            egui::Pos2::ZERO,
+                            egui::vec2(spec.style.width, spec.style.toast_height()),
+                        );
+                        let content = render::content_rect(frame, &spec);
+                        let (_, row) = crate::actions::split(content);
+                        let row = row.expect("a row");
+                        let width = |text: &str, size: f32| {
+                            ctx.fonts_mut(|fonts| {
+                                fonts
+                                    .layout_no_wrap(
+                                        text.to_owned(),
+                                        egui::FontId::proportional(size),
+                                        egui::Color32::WHITE,
+                                    )
+                                    .size()
+                                    .x
+                            })
+                        };
+                        let buttons = crate::actions::layout(
+                            row,
+                            &[width(dismiss, crate::actions::LABEL_SIZE)],
+                        );
+                        let room = crate::actions::note_rect(row, &buttons);
+                        let needed = width(note, crate::actions::NOTE_SIZE);
+                        assert!(
+                            needed <= room.width(),
+                            "{note:?} needs {needed} and has {} on a {shape:?} toast at {scale}x",
+                            room.width()
+                        );
+                    });
                 }
             }
         }

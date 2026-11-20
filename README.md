@@ -22,8 +22,9 @@ library, and a live preview in Settings ▸ Appearance. The language and theme
 switch **while it runs**. Double-click the tray icon to open Settings; closing
 the window leaves the app running behind the icon, and Quit is in the tray
 menu, which also pauses all notifications for half an hour, an hour or until
-you resume them. Reminders, the Azan and weather are the next phases, so
-nothing fires a toast on its own yet.
+you resume them. **Reminders** are made in Settings ▸ Reminders and fire as
+toasts on time, with snooze, missed-reminder catch-up and a history; the Azan
+and weather are the next phases.
 `--data-dir`, `--self-test`, `--version`, `--help`, `--lang` and `--worker`
 all work.
 
@@ -48,16 +49,28 @@ image, accent colour, sound and style overrides — in both languages:
 | **Event** | A one-off or recurring calendar-style reminder |
 | **Task** | A to-do with an offset-before trigger |
 | **Anniversary** | Yearly recurrence |
-| **Fatigue** | Eye breaks, posture and hydration, each on its own schedule |
+| **Fatigue** | Eye breaks, posture, drinking water and a work-hour limit, each switched on in Settings ▸ Reminders with its own interval, counted from when you start using the PC |
 | **Timer** | A countdown from now |
-| **Alarm** | A persistent toast that stays until dismissed |
+| **Alarm** | A persistent toast that stays until you act on it, for up to ten minutes |
 | **Payment** and **Appointment** | Offset-before reminders for dated obligations |
 | **Hourly time announcement** | The time spoken aloud in the active language — hourly, every 30 or 15 minutes, start or end of day, or at custom times |
 
+Reminders are made and edited in Settings ▸ Reminders: a title and details
+in your own words, one of the types above, a date and a time, any number of
+"remind me before" times, and a repeat. The editor says what is wrong under
+the field it is about, and deleting a reminder or clearing its history asks
+first. Each reminder shows its recent history: shown, snoozed, dismissed,
+opened, missed. Open on a reminder's toast lands on it there.
+
 Scheduling supports exact times, offsets before (15 minutes to a week, or
-custom), and recurrence (once, daily, weekly, monthly, yearly). Snooze is 5
-minutes to a day, with a configurable maximum per reminder. Reminders missed
-while the PC was off or asleep are listed at next start.
+custom), and recurrence (once, daily, weekly, monthly, yearly). Snooze puts a
+reminder off for 5 minutes, 15 minutes, an hour, a day or a length of your own,
+chosen in Settings ▸ Reminders, up to a limit per fire (10 by default); after
+that the toast offers only Dismiss and says so. Reminders missed
+while the PC was off or asleep are not fired all at once at next start: one
+toast says some were missed, and Settings ▸ Reminders lists them with Snooze
+and Dismiss. Ones older than the catch-up window (24 hours by default) are
+dropped and recorded.
 
 ## Bilingual
 
@@ -99,8 +112,9 @@ everything about them is a setting:
 - **Header:** icon, title, app name and timestamp, each toggleable
 - **Body:** text with bold and italic, plus an image (PNG, JPG or WebP, up to 5 MB)
 - **Actions:** one to three buttons along the bottom — Snooze, Dismiss, Open.
-  Dismiss closes the toast with its out-animation; Snooze and Open are shown
-  greyed until reminders arrive in a later phase
+  Dismiss closes the toast with its out-animation, Open brings Settings
+  forward, and Snooze puts a reminder off; on a toast with nothing to snooze,
+  such as the test toast, Snooze is greyed
 - **Picture Library:** upload a picture once — a mosque, a meeting, an alarm
   clock — name it, and use it in any notification as its icon or its image.
   Removing a picture still in use asks first. Nineteen pictures ship with the
@@ -244,7 +258,9 @@ bottom edge in bands — both recorded from a release build:
 
 ![A toast pouring up out of the bottom edge and back down into it](docs/screenshots/anim-genie.gif)
 
-Settings ▸ General, the first screen the app has:
+Settings ▸ General, the first screen the app has. Clock writes every time in
+the app 12-hour or 24-hour; Automatic is 24-hour in Bahasa Melayu and follows
+Windows in English, as English dates follow Windows' day or month first:
 
 ![Settings ▸ General in the Dark theme](docs/screenshots/settings-general.png)
 
@@ -271,7 +287,15 @@ the ones that ship with the app listed below them:
 ![Settings ▸ Picture Library with two uploaded pictures and the built-in ones](docs/screenshots/settings-pictures.png)
 
 The same screen in Bahasa Melayu:
-[settings-pictures-ms.png](docs/screenshots/settings-pictures-ms.png). The rest
+[settings-pictures-ms.png](docs/screenshots/settings-pictures-ms.png).
+
+Settings ▸ Reminders: the missed reminders, your reminders with the one being
+edited, its history, and Snooze's length and limit and the catch-up window
+below:
+
+![Settings ▸ Reminders with a weekly reminder open in the editor](docs/screenshots/settings-reminders.png)
+
+In Bahasa Melayu: [settings-reminders-ms.png](docs/screenshots/settings-reminders-ms.png). The rest
 are **not captured yet** — the screens do not exist. The places are reserved
 and the capture procedure is written down in
 [docs/screenshots/README.md](docs/screenshots/README.md); each image below is

@@ -37,7 +37,7 @@ const DOMAIN: &str = "omni_toaster";
 
 pub mod format;
 
-pub use format::{TimePrefs, format_datetime, format_time};
+pub use format::{Clock, TimePrefs, format_datetime, format_time};
 
 /// The bundled locale files, compiled into the exe by `rust-embed` so the
 /// portable folder needs nothing beside it.
@@ -325,6 +325,26 @@ pub fn text_with(key: &str, args: &[(&str, Cow<'_, str>)]) -> String {
         .iter()
         .map(|(name, value)| (*name, fluent_bundle::FluentValue::from(value.as_ref())))
         .collect();
+    padded(strip_isolates(&loader.get_args_concrete(key, map)))
+}
+
+/// Look up `key` with `$count` as a **number**, so the message can select a
+/// plural form (`{ $count -> [one] … *[other] … }`); [`text_with`] passes
+/// every value as text, which never matches a plural category. Other
+/// arguments are text, as there.
+pub fn text_with_count(key: &str, count: u32, args: &[(&str, Cow<'_, str>)]) -> String {
+    let Some(loader) = active() else {
+        tracing::warn!(
+            key,
+            "a string was requested before localization was initialised"
+        );
+        return key.to_string();
+    };
+    let mut map: std::collections::HashMap<_, _> = args
+        .iter()
+        .map(|(name, value)| (*name, fluent_bundle::FluentValue::from(value.as_ref())))
+        .collect();
+    map.insert("count", fluent_bundle::FluentValue::from(count));
     padded(strip_isolates(&loader.get_args_concrete(key, map)))
 }
 

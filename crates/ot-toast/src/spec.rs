@@ -299,13 +299,6 @@ impl Action {
             _ => &[Self::Open, Self::Snooze, Self::Dismiss],
         }
     }
-
-    /// Whether pressing it does anything yet. Snooze and Open act on a
-    /// reminder, and reminders arrive in Phase 4; until then they are drawn
-    /// greyed (the owner's choice, 2026-11-18).
-    pub fn works(self) -> bool {
-        self == Self::Dismiss
-    }
 }
 
 /// The buttons' labels, already in the user's language: a spec holds text,
@@ -371,6 +364,13 @@ pub struct Content {
     /// The action row's labels; which buttons show is the actions setting
     /// (`Behaviour::actions`).
     pub action_labels: ActionLabels,
+    /// Whether Snooze does anything: only a reminder's toast has something to
+    /// put off. Elsewhere — the test toast, the preview — it is drawn greyed
+    /// and takes no click.
+    pub snoozable: bool,
+    /// A line in the action row, left of the buttons, saying why one is
+    /// missing — "No more snoozes for this reminder." Text, like the rest.
+    pub note: Option<String>,
 }
 
 /// What it looks like.
@@ -706,6 +706,12 @@ impl ToastSpec {
     /// The buttons in this toast's action row, left to right.
     pub fn actions(&self) -> &'static [Action] {
         Action::for_count(self.behaviour.actions)
+    }
+
+    /// Whether a button does anything on this toast. Dismiss and Open always
+    /// do; Snooze only on a toast with something to snooze.
+    pub fn enabled(&self, action: Action) -> bool {
+        action != Action::Snooze || self.content.snoozable
     }
 
     /// The radius this spec's shape actually draws with, at `height`.

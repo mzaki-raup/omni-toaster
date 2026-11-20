@@ -65,13 +65,13 @@ The recommended UI framework is **eframe/egui**, with Slint as a documented fall
 | Images | `image` crate | `zune-image` | Decode and resize to thumbnails. |
 | Scheduling | Dedicated scheduler thread with a priority queue | `tokio-cron-scheduler` | Full control over DST, snooze, sleep and resume, and clock changes. |
 | HTTP | `ureq` (blocking) | `reqwest` | Lightweight for periodic API calls. |
-| Serialization | `serde` | | Standard. |
+| Serialization | `serde`, `serde_json` | | Standard. `serde_json` reads the reminder's JSON columns. |
 | Errors | `thiserror` (libraries), `anyhow` (application) | | Standard. |
-| Date and time | `chrono` + `chrono-tz` | `time` | Arithmetic and timezone handling. Malay names come from static tables. |
+| Date and time | `jiff` (ADR-017; `chrono` until 2026-11-19) | `time` | Arithmetic and timezone handling, the IANA database bundled for Windows. Malay names come from static tables. |
 | CI/CD | **Forgejo Actions** on the owner's own Windows machine (`.forgejo/workflows/`), with GitHub Actions (`.github/workflows/`, `windows-latest`) on the public mirror | A single hosted runner | Forgejo holds version authority and publishes the release; GitHub is a read-only mirror that runs the same checks for contributors. Both run fmt, clippy, tests, lints, and release builds. Because the Forgejo runner *is* the development machine, every cargo step there is bounded with `-j 4`. |
 | In-app updater | Signed release manifest (`manifest.json`) + rsign signature, checked over HTTPS; self-replace on restart | `cargo-dist` self-update, winget | Keeps the portable single-exe model: no installer, no admin rights, `OmniToasterData/` untouched. A Phase 9 deliverable. |
 
-**Key Cargo additions for v1.0:** `i18n-embed` (with `fluent-system-ui`), `i18n-embed-fl`, `rust-embed`, `unic-langid`, `chrono-tz`, `adhan`, `ureq`, `rusqlite`, `rodio`, `tray-icon`, `muda`, `window-vibrancy`, `winreg`, `image`, `windows`.
+**Key Cargo additions for v1.0:** `i18n-embed` (with `fluent-system-ui`), `i18n-embed-fl`, `rust-embed`, `unic-langid`, `jiff`, `adhan`, `ureq`, `rusqlite`, `rodio`, `tray-icon`, `muda`, `window-vibrancy`, `winreg`, `image`, `windows`.
 
 ---
 
@@ -531,8 +531,9 @@ jakim_prayer_cache (zone_code, date, hijri, imsak, fajr, syuruk, dhuha,
 
 **Migrations (numbered, tracked with `PRAGMA user_version`):**
 - `001_init.sql`: Phase 0 schema (settings, location, category, reminder, snooze_log, notification_log, asset, weather_cache).
-- `002_locale_keys.sql`: category key columns, `authored_lang`, and built-in key identifiers.
-- `003_jakim.sql`: zone table and prayer cache.
+- `002_asset_label.sql`: the image library's labels (Phase 2).
+- `003_locale_keys.sql`: category key columns, `authored_lang`, and built-in key identifiers.
+- `004_jakim.sql`: zone table and prayer cache.
 
 **Rules:**
 - Built-in keys (for example, `prayer-fajr`, `weather-rain`) are stable identifiers. Renaming a key requires a migration.

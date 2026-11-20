@@ -143,17 +143,18 @@ Last updated: 2026-11-19
 
 | Item | State | Notes |
 |---|---|---|
-| Reminder CRUD | Pending | |
-| Offsets | Pending | 15 minutes to a week, or custom |
-| Recurrence | Pending | Once, daily, weekly, monthly, yearly, custom |
-| Snooze | Pending | 5 minutes to a day; max per reminder |
-| Duration | Pending | 3–60 s, hover pauses |
-| Persistent alarms | Pending | 10-minute cap on urgent types |
-| Missed-reminder handling | Pending | 1 h catch-up for Azan, 24 h for others |
-| DST-safe scheduling | Pending | Recompute on resume and clock change |
-| Localized reminder types | Pending | Templates in both languages |
-| Shared date formatter | Pending | The only formatter in the workspace |
-| Migration 002 | Pending | `002_locale_keys.sql` |
+| Reminder CRUD | Completed | FEAT-0039: the store side — create, read, list, update, delete, typed trigger and recurrence, unknown fields refused. FEAT-0046: the list and the editor, in the app in both languages, all three themes and the narrow window |
+| Offsets | Completed | 15 minutes to a week, or custom. FEAT-0040: the rule, tested — several per reminder, each its own fire, day offsets in calendar days. FEAT-0041's scheduler fires them; FEAT-0047: a 1-day offset fired in the app, its toast saying "1 day before" and the event's own time, in both languages |
+| Recurrence | Completed | Once, daily, weekly, monthly, yearly, custom. FEAT-0040: every *N* of each, chosen weekdays, month ends and leap years, tested. FEAT-0041: a daily reminder fired in the app and moved to the next day. FEAT-0046: a weekly one (Monday and Thursday) made in the editor and fired |
+| Snooze | Completed | 5 minutes to a day, or custom; max per fire. FEAT-0043: Snooze on the toast, Settings ▸ Reminders' Snooze section, the limit and its line — snoozed and returned in the app in English and Malay, the limit reached with a low limit set |
+| Duration | Completed | 3–60 s, hover pauses. FEAT-0026 and BUG-0009 built it; FEAT-0044 checked that a reminder other than an Alarm keeps it — a Task left after its 8 s in the app |
+| Persistent alarms | Completed | 10-minute cap on urgent types. FEAT-0044: an Alarm stays until acted on and is recorded missed at the cap; in the app, with the cap shortened to 30 s, it outlived a Task's 8 s and closed at 30 s. Azan joins in Phase 5 |
+| Missed-reminder handling | In-Progress | 1 h catch-up for Azan, 24 h for others. FEAT-0045: everything but Azan — listed in Settings ▸ Reminders with Snooze and Dismiss, older ones dropped and recorded, checked in the app in both languages; Azan's one-hour window comes with Azan (Phase 5) |
+| DST-safe scheduling | In-Progress | Recompute on resume and clock change. FEAT-0040: occurrences in the wall clock, gap and fold rules, tested in `America/New_York`. FEAT-0041: the queue rebuilt at midnight, on a clock jump, a zone change and a resume (Windows' events through `ot_platform::system_events`), each proved with simulated events; the real clock and zone changes are an owner's check, not made |
+| Localized reminder types | Completed | Templates in both languages. FEAT-0042: twelve type keys with a name and a default text in both files, each fired in the app in English and Malay; Open lands on the reminder since FEAT-0046 |
+| Shared date formatter | Completed | The only formatter in the workspace. FEAT-0047: Malay d/m/yyyy and 24-hour; English following Windows' date order and clock, with the user's Clock over both; offset and repeat phrases with plurals; a written table tested in both languages, and read in the app on the list, the editor and an offset fire's toast in both |
+| Fatigue reminders | Completed | Eye break, posture, hydration, work-hour limit, each off until switched on. FEAT-0048: the defaults and the working day (midnight carries on, an hour away starts again, a restart within the hour keeps it), tested; each kind fired in the app with a short interval in English and Malay |
+| Migration 003 | Completed | FEAT-0039. `003_locale_keys.sql` — `002` went to `002_asset_label.sql` in Phase 2. Tested fresh and on a version 2 database; in the app, a fresh folder and a v0.11.0-era one both read `user_version` 3 |
 
 ## Phase 5 — Location, Prayer and Azan
 > **Exit criteria:** the parser passes the fixtures for three zones; live JAKIM times match the official portal on the same dates for at least three zones; the fallback chain passes with the network disabled; prayer labels match the reference table in both languages.
@@ -164,7 +165,7 @@ Last updated: 2026-11-19
 | Zone table | Pending | `data/jakim_zones.csv`, reviewed commits only |
 | JAKIM client | Pending | HTTPS, 10 s timeout, backoff 1/5/15 min, no polling |
 | Parser with fixtures | Pending | `tests/fixtures/jakim_sample.json` |
-| Cache and migration 003 | Pending | `003_jakim.sql` |
+| Cache and migration 004 | Pending | `004_jakim.sql` |
 | Fallback chain | Pending | Cache → live → bundled → calculated → last known |
 | Zone selection UI | Pending | Detected zone shown for confirmation, always overridable |
 | Calculated mode with Malaysia preset | Pending | Fajr 20.0°, Isha 18.0°, Asar Shafi'i |

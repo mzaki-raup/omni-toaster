@@ -73,15 +73,18 @@ pub fn run(data_dir: Option<&Path>) -> usize {
         let root = DataRoot::resolve(data_dir).map_err(|e| e.to_string())?;
         let store = ot_store::Store::open(root.path()).map_err(|e| e.to_string())?;
         let version = store.schema_version().map_err(|e| e.to_string())?;
-        if version >= 1 {
+        if version == ot_store::SCHEMA_VERSION {
             Ok(())
         } else {
-            Err(format!("schema version is {version}, expected at least 1"))
+            Err(format!(
+                "schema version is {version}, expected {}",
+                ot_store::SCHEMA_VERSION
+            ))
         }
     });
 
     failures += check("the date formatter answers in both languages", || {
-        let when = chrono_now();
+        let when = jiff::ZonedDateTime::now().datetime();
         for language in [Language::English, Language::Malay] {
             // The global loader holds one language at a time, so this checks
             // the formatter produces something non-empty with the prefs each
@@ -126,12 +129,6 @@ fn check(name: &str, body: impl FnOnce() -> Result<(), String>) -> usize {
             1
         }
     }
-}
-
-/// Now, as a naive local time. Kept here so the formatter check does not need
-/// chrono as a direct dependency of this crate's public surface.
-fn chrono_now() -> chrono::NaiveDateTime {
-    chrono::Local::now().naive_local()
 }
 
 /// How long the log check keeps looking for its line. Generous, because it

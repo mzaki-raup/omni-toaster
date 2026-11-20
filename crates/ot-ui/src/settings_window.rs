@@ -9,11 +9,14 @@
 //! defect, and `the_general_pane_names_only_keys_that_exist` is what catches
 //! one.
 
+use std::collections::HashMap;
+use std::sync::mpsc::{Receiver, Sender};
 use std::time::{Duration, Instant};
 
 use ot_core::{DataRoot, Pause, PauseFor, Settings};
 use ot_i18n::Language;
 use ot_platform::{Autostart, PauseWindow, Tray, TrayCommand};
+use ot_store::reminders::NotificationAction;
 use raw_window_handle::HasWindowHandle as _;
 
 use crate::layout;
@@ -51,6 +54,9 @@ pub enum Section {
     Pictures,
     /// How toasts arrive and leave (Phase 3, `docs/specs/toast.md` §5).
     Animation,
+    /// What Snooze does now; the reminder list and editor with FEAT-0046
+    /// (Phase 4, `docs/specs/reminders.md` §10).
+    Reminders,
 }
 
 impl Section {
@@ -61,15 +67,17 @@ impl Section {
             Self::Appearance => "settings-section-appearance",
             Self::Pictures => "settings-section-pictures",
             Self::Animation => "settings-section-animation",
+            Self::Reminders => "settings-section-reminders",
         }
     }
 
-    pub fn all() -> [Self; 4] {
+    pub fn all() -> [Self; 5] {
         [
             Self::General,
             Self::Appearance,
             Self::Animation,
             Self::Pictures,
+            Self::Reminders,
         ]
     }
 }
@@ -298,6 +306,70 @@ pub struct SettingsWindow {
     /// Where the window was when it was parked; `None` while it is showing
     /// (BUG-0008).
     parked: Option<ot_platform::window_park::Parked>,
+    /// The scheduler's fires, drained at frame start; `None` when no
+    /// scheduler runs, as in the layout tests.
+    fires: Option<Receiver<ot_sched::scheduler::Fired>>,
+    /// Where the history rows go: the scheduler holds the store, and the UI
+    /// thread never touches SQLite.
+    scheduler: Option<Sender<ot_sched::scheduler::Command>>,
+    /// Which toasts are reminders, and which fire each one is, so a button
+    /// press can be written to the history.
+    reminder_toasts: HashMap<ot_toast::ToastId, ReminderToast>,
+    /// Set when Settings ▸ Reminders changed and has not been written yet;
+    /// written when the pointer is released, as in Appearance.
+    reminders_dirty: bool,
+    /// Reminders missed while the PC was off or asleep, listed in Settings ▸
+    /// Reminders with Snooze and Dismiss (docs/specs/reminders.md §6).
+    missed: Vec<MissedEntry>,
+    /// The one toast saying reminders were missed, while it is up; its Open
+    /// lands on the list.
+    missed_toast: Option<ot_toast::ToastId>,
+    /// The reminders' own thread; `None` until `run` starts it with the
+    /// scheduler's sender, and in the layout tests.
+    book: Option<crate::reminder_book::Book>,
+    /// The list's rows, built when a list arrives, never per frame.
+    reminder_rows: Option<Vec<crate::reminders::ListRow>>,
+    /// The reminder being edited, if any.
+    editor: Option<crate::reminder_editor::Editor>,
+    /// The edited reminder's history, formatted when it arrives.
+    reminder_history: Vec<String>,
+    /// Set while Clear History's question is up.
+    confirming_clear: bool,
+    /// A reminder to open in the editor once the list holds it: after a save,
+    /// or from Open on its toast.
+    select_when_listed: Option<i64>,
+    /// When to read the list again: just after a save, so the row shows the
+    /// next time the scheduler has worked out by then.
+    refresh_at: Option<Instant>,
+    /// The fatigue kinds as the section shows them, and whether they were
+    /// changed and not sent yet (sent when the pointer is released).
+    fatigue_rows: Vec<crate::reminders::FatigueRow>,
+    fatigue_dirty: bool,
+}
+
+/// A missed fire in the list: what its buttons act on, and its row's text,
+/// formatted once when it arrived rather than every frame.
+#[derive(Debug, Clone)]
+struct MissedEntry {
+    reminder_id: i64,
+    fired_at: jiff::Timestamp,
+    snoozes: u32,
+    /// The reminder and its template, so the row can be said again in
+    /// another language or with another clock.
+    reminder: ot_store::reminders::Reminder,
+    template: Option<ot_store::reminders::Template>,
+    row: crate::reminders::MissedRow,
+}
+
+/// Which fire a reminder toast is, for its buttons.
+#[derive(Debug, Clone, Copy)]
+struct ReminderToast {
+    reminder_id: i64,
+    fired_at: jiff::Timestamp,
+    /// How many times this fire has been snoozed already.
+    snoozes: u32,
+    /// Whether it waits to be acted on, up to its cap.
+    persistent: bool,
 }
 
 impl SettingsWindow {
@@ -306,6 +378,14 @@ impl SettingsWindow {
     /// The autostart state is read here and after every change, never cached
     /// from the settings file.
     pub fn new(root: DataRoot, settings: Settings) -> Self {
+        // Every time the app writes follows the user's clock and Windows'
+        // regional answer, read once here (FEAT-0047).
+        let regional = ot_platform::regional();
+        ot_i18n::format::set_regional(ot_i18n::format::Regional {
+            month_first: regional.month_first,
+            twenty_four_hour: regional.twenty_four_hour,
+        });
+        ot_i18n::format::set_clock(ot_i18n::format::Clock::parse(&settings.general.clock));
         let language = LanguageChoice::parse(settings.general.language.as_deref());
         let settings_toast = settings.toast.clone();
         let root_path = root.path().to_path_buf();
@@ -324,7 +404,7 @@ impl SettingsWindow {
         let pause = Pause::default();
         let (tray, status) = match Tray::new(
             &tray_labels(pause),
-            pause.is_active(chrono::Local::now()),
+            pause.is_active(jiff::Timestamp::now()),
             // Which window owns the icon, so a killed run's ghost can be
             // removed on the next start (CR-0003). In the cache: it is
             // derived data, and losing it costs only a ghost.
@@ -379,6 +459,21 @@ impl SettingsWindow {
             title_bar_dark: None,
             window: None,
             parked: None,
+            fires: None,
+            scheduler: None,
+            reminder_toasts: HashMap::new(),
+            reminders_dirty: false,
+            missed: Vec::new(),
+            missed_toast: None,
+            book: None,
+            reminder_rows: None,
+            editor: None,
+            reminder_history: Vec::new(),
+            confirming_clear: false,
+            select_when_listed: None,
+            refresh_at: None,
+            fatigue_rows: fatigue_rows(None),
+            fatigue_dirty: false,
         }
     }
 
@@ -437,7 +532,8 @@ impl SettingsWindow {
         ctx.send_viewport_cmd(egui::ViewportCommand::Title(ot_i18n::text(
             "settings-window-title",
         )));
-        self.rebuild_tray(chrono::Local::now());
+        self.rebuild_tray(jiff::Timestamp::now());
+        self.reformat();
         self.save();
         tracing::info!(
             ?language,
@@ -549,6 +645,38 @@ impl SettingsWindow {
         }
         ui.add_space(layout::ROW_GAP);
 
+        // Clock.
+        let clock = ot_i18n::format::Clock::parse(&self.settings.general.clock);
+        let mut chosen_clock = clock;
+        layout::labelled_row(ui, columns, &ot_i18n::text("settings-clock"), |ui| {
+            egui::ComboBox::from_id_salt("settings-clock")
+                .width(width)
+                .height(layout::field_height(ui))
+                .selected_text(ot_i18n::text(clock.name_key()))
+                .show_ui(ui, |ui| {
+                    for option in ot_i18n::format::Clock::all() {
+                        ui.selectable_value(
+                            &mut chosen_clock,
+                            option,
+                            ot_i18n::text(option.name_key()),
+                        );
+                    }
+                });
+        });
+        layout::field_hint(
+            ui,
+            columns,
+            &ot_i18n::text("settings-clock-hint"),
+            tokens.text_dim,
+        );
+        if chosen_clock != clock {
+            self.settings.general.clock = chosen_clock.as_str().to_owned();
+            ot_i18n::format::set_clock(chosen_clock);
+            self.reformat();
+            self.save();
+        }
+        ui.add_space(layout::ROW_GAP);
+
         // Start with Windows.
         let mut on = self.autostart.is_on();
         let before = on;
@@ -568,7 +696,7 @@ impl SettingsWindow {
 
     /// Act on everything the tray has to say, and keep the menu in step.
     fn handle_tray(&mut self, ctx: &egui::Context) {
-        let now = chrono::Local::now();
+        let now = jiff::Timestamp::now();
         // A lapsed pause clears itself, and the menu goes back to offering a
         // pause rather than a resume.
         let mut menu_is_stale = self.pause.lapse(now);
@@ -618,7 +746,7 @@ impl SettingsWindow {
     }
 
     /// Rebuild the menu and the tooltip for the current language and pause.
-    fn rebuild_tray(&mut self, now: chrono::DateTime<chrono::Local>) {
+    fn rebuild_tray(&mut self, now: jiff::Timestamp) {
         let paused = self.pause.is_active(now);
         let labels = tray_labels(self.pause);
         if let Some(tray) = self.tray.as_mut()
@@ -686,14 +814,10 @@ impl SettingsWindow {
             title: ot_i18n::text("toast-test-title"),
             body: ot_i18n::text("toast-test-body"),
             app_name: ot_i18n::text("toast-app-name"),
-            action_labels: ot_toast::ActionLabels {
-                open: ot_i18n::text("toast-action-open"),
-                snooze: ot_i18n::text("toast-action-snooze"),
-                dismiss: ot_i18n::text("toast-action-dismiss"),
-            },
+            action_labels: crate::reminder_toast::action_labels(),
             // Formatted here: ot-i18n owns the one formatter that may turn a
             // time into text, and a spec holds text rather than keys.
-            timestamp: Some(formatted_time(chrono::Local::now())),
+            timestamp: Some(formatted_time(jiff::Timestamp::now())),
             // The test toast's own pictures, like any notification's: chosen
             // under Test Toast Content and never part of the global style.
             icon: self.test_icon.clone(),
@@ -771,6 +895,23 @@ impl SettingsWindow {
             // left until egui notices a frame without it.
             ctx.send_viewport_cmd_to(id.viewport_id(), egui::ViewportCommand::Close);
             ot_platform::toast_window::forget(&id.window_title());
+            if self.missed_toast == Some(id) {
+                self.missed_toast = None;
+            }
+            // A reminder toast that left on its own was shown and nothing
+            // more; its row was written when it appeared. A persistent one
+            // waited to be acted on and was not: it closed at its cap, and
+            // that is a missed reminder (docs/specs/reminders.md §8).
+            if let Some(toast) = self.reminder_toasts.remove(&id)
+                && toast.persistent
+            {
+                tracing::info!(reminder = toast.reminder_id, "an alarm closed at its cap");
+                self.record(
+                    toast.reminder_id,
+                    toast.fired_at,
+                    NotificationAction::Missed,
+                );
+            }
         }
         if self.toasts.is_empty() {
             return;
@@ -844,8 +985,8 @@ impl SettingsWindow {
         let mut hovered = Vec::new();
         let hovered_now = &mut hovered;
         // The toasts whose Dismiss was clicked this frame (FEAT-0038).
-        let mut dismissed = Vec::new();
-        let dismissed_now = &mut dismissed;
+        let mut pressed = Vec::new();
+        let pressed_now = &mut pressed;
 
         ot_toast::viewport::show_all(
             ctx,
@@ -1002,16 +1143,15 @@ impl SettingsWindow {
                     None => draw_toast(ui.painter()),
                 };
                 // A click on a working button acts on exactly what was drawn:
-                // the rects come back from the renderer. Snooze and Open are
-                // greyed until Phase 4 and take no click (§4.3).
+                // the rects come back from the renderer. Snooze is greyed
+                // until FEAT-0043 and takes no click (§4.3).
                 if ui.ctx().input(|i| i.pointer.primary_clicked())
                     && let Some(at) = pointer
                     && let Some((action, _)) = buttons
                         .iter()
-                        .find(|(action, rect)| action.works() && rect.contains(at))
-                    && *action == ot_toast::Action::Dismiss
+                        .find(|(action, rect)| spec.enabled(*action) && rect.contains(at))
                 {
-                    dismissed_now.push(id);
+                    pressed_now.push((id, *action));
                 }
             },
         );
@@ -1021,9 +1161,58 @@ impl SettingsWindow {
         for (id, over) in hovered {
             self.toasts.set_hovered(id, over, now);
         }
-        for id in dismissed {
-            tracing::info!(?id, "a toast was dismissed");
+        for (id, action) in pressed {
+            tracing::info!(?id, ?action, "a toast button was pressed");
             self.toasts.dismiss(id, now);
+            if action == ot_toast::Action::Open {
+                // Settings comes forward; landing on the reminder itself
+                // needs the reminder list (FEAT-0046). The missed toast's
+                // Open lands on the missed list.
+                self.show_window(ctx);
+                if self.missed_toast == Some(id) {
+                    self.section = Section::Reminders;
+                }
+            }
+            if self.missed_toast == Some(id) {
+                self.missed_toast = None;
+            }
+            let Some(toast) = self.reminder_toasts.remove(&id) else {
+                continue;
+            };
+            match action {
+                // The scheduler records the snooze and its history row, and
+                // refuses one past the limit (docs/specs/reminders.md §5).
+                ot_toast::Action::Snooze => {
+                    let settings = self.settings.reminders.clamped();
+                    self.send(ot_sched::scheduler::Command::Snooze {
+                        reminder_id: toast.reminder_id,
+                        fired_at: toast.fired_at,
+                        minutes: settings.snooze_minutes,
+                        snoozes: toast.snoozes,
+                        limit: settings.snooze_limit,
+                    });
+                }
+                ot_toast::Action::Open => {
+                    self.record(
+                        toast.reminder_id,
+                        toast.fired_at,
+                        NotificationAction::Opened,
+                    );
+                    // Lands on the reminder itself, in the editor.
+                    self.section = Section::Reminders;
+                    self.select_when_listed = Some(toast.reminder_id);
+                    if let Some(book) = &self.book {
+                        book.refresh();
+                    }
+                }
+                ot_toast::Action::Dismiss => {
+                    self.record(
+                        toast.reminder_id,
+                        toast.fired_at,
+                        NotificationAction::Dismissed,
+                    );
+                }
+            }
         }
     }
 
@@ -1082,6 +1271,274 @@ impl SettingsWindow {
             self.prefs_dirty = false;
             self.settings.toast = self.prefs.to_table();
             self.save();
+        }
+    }
+
+    /// Settings ▸ Reminders: for now, the Snooze section.
+    fn reminders_pane(&mut self, ui: &mut egui::Ui) {
+        let tokens = self.theme.tokens();
+        let rows: Vec<crate::reminders::MissedRow> =
+            self.missed.iter().map(|entry| entry.row.clone()).collect();
+        let mut pressed = None;
+        let mut listed = None;
+        let mut edited = None;
+        let mut cleared = false;
+        let problems = self
+            .editor
+            .as_ref()
+            .map(|editor| editor.validate(jiff::Timestamp::now(), &jiff::tz::TimeZone::system()))
+            .unwrap_or_default();
+        egui::ScrollArea::vertical()
+            .auto_shrink([false, false])
+            .show(ui, |ui| {
+                pressed = crate::reminders::missed_list(ui, &rows, tokens);
+                ui.add_space(layout::ROW_GAP);
+                ui.separator();
+                ui.add_space(layout::ROW_GAP);
+                listed = crate::reminders::reminder_list(
+                    ui,
+                    self.reminder_rows.as_deref(),
+                    self.editor.as_ref().and_then(|editor| editor.id),
+                    tokens,
+                );
+                if let Some(editor) = &mut self.editor {
+                    ui.add_space(layout::ROW_GAP);
+                    ui.separator();
+                    ui.add_space(layout::ROW_GAP);
+                    let columns = layout::columns(ui);
+                    edited = crate::reminder_editor::editor(ui, columns, editor, &problems, tokens);
+                    if editor.id.is_some() {
+                        ui.add_space(layout::ROW_GAP);
+                        cleared = crate::reminders::history(
+                            ui,
+                            &self.reminder_history,
+                            &mut self.confirming_clear,
+                            tokens,
+                        );
+                    }
+                }
+                ui.add_space(layout::ROW_GAP);
+                ui.separator();
+                ui.add_space(layout::ROW_GAP);
+                let columns = layout::columns(ui);
+                if crate::reminders::fatigue_controls(ui, columns, &mut self.fatigue_rows, tokens) {
+                    self.fatigue_dirty = true;
+                }
+                ui.add_space(layout::ROW_GAP);
+                ui.separator();
+                ui.add_space(layout::ROW_GAP);
+                let window = self.settings.reminders.missed_window_hours;
+                if crate::reminders::snooze_controls(
+                    ui,
+                    columns,
+                    &mut self.settings.reminders,
+                    tokens,
+                ) {
+                    self.reminders_dirty = true;
+                }
+                if self.settings.reminders.missed_window_hours != window {
+                    self.send(ot_sched::scheduler::Command::SetMissedWindow {
+                        hours: self.settings.reminders.clamped().missed_window_hours,
+                    });
+                }
+            });
+        match listed {
+            Some(crate::reminders::ListAction::New) => {
+                self.editor = Some(crate::reminder_editor::Editor::new_at(
+                    jiff::Timestamp::now(),
+                    &jiff::tz::TimeZone::system(),
+                ));
+                self.reminder_history.clear();
+                self.confirming_clear = false;
+            }
+            Some(crate::reminders::ListAction::Select(id)) => self.select_reminder(id),
+            None => {}
+        }
+        if cleared
+            && let (Some(book), Some(id)) = (&self.book, self.editor.as_ref().and_then(|e| e.id))
+        {
+            book.clear_history(id);
+        }
+        match edited {
+            Some(crate::reminder_editor::EditorAction::Save) if problems.is_empty() => {
+                if let (Some(book), Some(editor)) = (&self.book, &self.editor) {
+                    let category = book
+                        .listing()
+                        .and_then(|listing| listing.category_of(editor.type_key));
+                    let lang = ot_i18n::current_language()
+                        .unwrap_or(Language::English)
+                        .tag();
+                    book.save(editor.id, editor.draft(category, lang));
+                }
+            }
+            Some(crate::reminder_editor::EditorAction::Cancel) => {
+                self.editor = None;
+                self.reminder_history.clear();
+            }
+            Some(crate::reminder_editor::EditorAction::Delete) => {
+                if let (Some(book), Some(id)) =
+                    (&self.book, self.editor.as_ref().and_then(|e| e.id))
+                {
+                    book.delete(id);
+                }
+                self.editor = None;
+                self.reminder_history.clear();
+            }
+            _ => {}
+        }
+        if let Some((index, action)) = pressed
+            && index < self.missed.len()
+        {
+            let entry = self.missed.remove(index);
+            match action {
+                crate::reminders::MissedAction::Snooze => {
+                    let settings = self.settings.reminders.clamped();
+                    self.send(ot_sched::scheduler::Command::Snooze {
+                        reminder_id: entry.reminder_id,
+                        fired_at: entry.fired_at,
+                        minutes: settings.snooze_minutes,
+                        snoozes: entry.snoozes,
+                        limit: settings.snooze_limit,
+                    });
+                }
+                crate::reminders::MissedAction::Dismiss => {
+                    self.record(
+                        entry.reminder_id,
+                        entry.fired_at,
+                        NotificationAction::Dismissed,
+                    );
+                }
+            }
+        }
+        // Fatigue changes go to the reminders thread when the pointer is
+        // released, like the settings below: a drag is one change.
+        if self.fatigue_dirty && !ui.input(|i| i.pointer.any_down()) {
+            self.fatigue_dirty = false;
+            if let Some(book) = &self.book {
+                let lang = ot_i18n::current_language()
+                    .unwrap_or(Language::English)
+                    .tag();
+                for row in &self.fatigue_rows {
+                    book.set_fatigue(row.type_key, row.on, row.minutes, lang);
+                }
+            }
+        }
+        // Written when the pointer is released: a slider dragged across its
+        // range would otherwise rewrite the file at every step.
+        if self.reminders_dirty && !ui.input(|i| i.pointer.any_down()) {
+            self.reminders_dirty = false;
+            self.save();
+        }
+    }
+
+    /// Say every cached piece of text again, after the language or the clock
+    /// changed: the list's rows, the open history, the missed list, and the
+    /// editor's repeat summary. They are built once, not per frame, so a
+    /// change has to rebuild them (FEAT-0047).
+    fn reformat(&mut self) {
+        if let Some(book) = &self.book
+            && let Some(listing) = book.listing()
+        {
+            self.reminder_rows = Some(reminder_rows(listing));
+            if let Some(id) = self.editor.as_ref().and_then(|editor| editor.id) {
+                book.history(id);
+            }
+        }
+        let limit = self.settings.reminders.clamped().snooze_limit;
+        for entry in &mut self.missed {
+            entry.row = missed_row(
+                &entry.reminder,
+                entry.template.as_ref(),
+                entry.fired_at,
+                entry.snoozes,
+                limit,
+            );
+        }
+        if let Some(editor) = &mut self.editor {
+            editor.summary = None;
+        }
+    }
+
+    /// Open a reminder in the editor and ask for its history.
+    fn select_reminder(&mut self, id: i64) {
+        let Some(book) = &self.book else { return };
+        let Some(listing) = book.listing() else {
+            self.select_when_listed = Some(id);
+            return;
+        };
+        let Some(reminder) = listing.reminders.iter().find(|r| r.id == id) else {
+            return;
+        };
+        self.editor = Some(crate::reminder_editor::Editor::from_reminder(
+            reminder,
+            listing.type_of(reminder.draft.category_id),
+        ));
+        self.reminder_history.clear();
+        self.confirming_clear = false;
+        book.history(id);
+    }
+
+    /// Take what the reminders thread has finished: a fresh list becomes the
+    /// rows once, here, not every frame.
+    fn drain_book(&mut self) {
+        let Some(book) = &mut self.book else { return };
+        if self.refresh_at.is_some_and(|at| Instant::now() >= at) {
+            self.refresh_at = None;
+            book.refresh();
+        }
+        let (fresh, replies) = book.drain();
+        if fresh && let Some(listing) = book.listing() {
+            self.reminder_rows = Some(reminder_rows(listing));
+            if !self.fatigue_dirty {
+                self.fatigue_rows = fatigue_rows(Some(listing));
+            }
+            // A fresh list follows a fire, which wrote a history row: the
+            // open reminder's history is read again, not left as it was.
+            if let Some(id) = self.editor.as_ref().and_then(|editor| editor.id) {
+                book.history(id);
+            }
+        }
+        for reply in replies {
+            match reply {
+                crate::reminder_book::Reply::Saved(id) => {
+                    self.select_when_listed = Some(id);
+                    self.refresh_at = Some(Instant::now() + Duration::from_millis(500));
+                    self.status = Status::Saved;
+                }
+                crate::reminder_book::Reply::Deleted(_) => self.status = Status::Saved,
+                crate::reminder_book::Reply::History { id, rows } => {
+                    if self.editor.as_ref().and_then(|e| e.id) == Some(id) {
+                        self.reminder_history = rows
+                            .iter()
+                            .map(|(at, action)| {
+                                ot_i18n::text_with(
+                                    "settings-reminder-history-row",
+                                    &[
+                                        ("time", formatted_datetime(*at).into()),
+                                        ("action", ot_i18n::text(history_key(*action)).into()),
+                                    ],
+                                )
+                            })
+                            .collect();
+                    }
+                }
+                crate::reminder_book::Reply::Failed(reason) => {
+                    self.status = Status::Failed {
+                        key: "settings-status-reminders-failed",
+                        reason,
+                    };
+                }
+            }
+        }
+        if let Some(id) = self.select_when_listed
+            && self
+                .book
+                .as_ref()
+                .and_then(|book| book.listing())
+                .is_some_and(|listing| listing.reminders.iter().any(|r| r.id == id))
+        {
+            self.select_when_listed = None;
+            self.select_reminder(id);
         }
     }
 
@@ -1650,6 +2107,147 @@ impl SettingsWindow {
         self.test_icon.as_deref() == Some(path) || self.test_image.as_deref() == Some(path)
     }
 
+    /// Take the scheduler's fires, at most a channel's worth a frame, so a
+    /// burst cannot stall one frame, and turn each into a toast — or, while
+    /// notifications are paused, into a `missed` row and no toast
+    /// (docs/specs/tray-and-settings.md §4). Every fire is written to the
+    /// history either way.
+    fn drain_fires(&mut self) {
+        let Some(fires) = &self.fires else { return };
+        let arrived: Vec<_> = fires
+            .try_iter()
+            .take(ot_sched::scheduler::FIRE_CAPACITY)
+            .collect();
+        let now = jiff::Timestamp::now();
+        let mut any_missed = false;
+        // A fire moves a next time or finishes a reminder: the list is read
+        // again rather than patched.
+        if !arrived.is_empty()
+            && let Some(book) = &self.book
+        {
+            book.refresh();
+        }
+        for fired in arrived {
+            let fired_at = fired.fire.at;
+            // Missed while the PC was off or asleep: listed, not shown, so a
+            // morning does not open with a dozen toasts at once
+            // (docs/specs/reminders.md §6).
+            if fired.missed {
+                let limit = self.settings.reminders.clamped().snooze_limit;
+                let row = missed_row(
+                    &fired.reminder,
+                    fired.template.as_ref(),
+                    fired_at,
+                    fired.snoozes,
+                    limit,
+                );
+                self.missed.push(MissedEntry {
+                    reminder_id: fired.reminder_id,
+                    fired_at,
+                    snoozes: fired.snoozes,
+                    reminder: fired.reminder.clone(),
+                    template: fired.template.clone(),
+                    row,
+                });
+                tracing::info!(reminder = fired.reminder_id, "a missed reminder was listed");
+                self.record(fired.reminder_id, fired_at, NotificationAction::Missed);
+                any_missed = true;
+                continue;
+            }
+            if self.pause.is_active(now) {
+                tracing::info!(
+                    reminder = fired.reminder_id,
+                    "a reminder fired during a pause"
+                );
+                self.record(fired.reminder_id, fired_at, NotificationAction::Missed);
+                continue;
+            }
+            let template = fired.template.as_ref();
+            // An offset fire is about a time still ahead: its header says
+            // when that is, and its row says how far ahead (FEAT-0047).
+            let (timestamp, before) = match fired.fire.offset {
+                Some(offset) => (
+                    formatted_datetime(fired.fire.occurrence),
+                    Some(crate::phrases::offset(offset)),
+                ),
+                None => (formatted_time(now), None),
+            };
+            let mut spec = crate::reminder_toast::spec(
+                &self.prefs,
+                &fired.reminder,
+                template,
+                Some(timestamp),
+                before,
+                fired.snoozes,
+                self.settings.reminders.clamped().snooze_limit,
+            );
+            if spec.behaviour.persistent
+                && let Some(cap) = self.dev.alarm_cap_secs
+            {
+                spec.behaviour.duration_secs = cap;
+            }
+            let persistent = spec.behaviour.persistent;
+            let id = if crate::reminder_toast::is_urgent(template) {
+                self.toasts.push_first(spec, Instant::now())
+            } else {
+                self.toasts.push(spec, Instant::now())
+            };
+            tracing::info!(reminder = fired.reminder_id, toast = ?id, "a reminder fire became a toast");
+            self.reminder_toasts.insert(
+                id,
+                ReminderToast {
+                    reminder_id: fired.reminder_id,
+                    fired_at,
+                    snoozes: fired.snoozes,
+                    persistent,
+                },
+            );
+            self.record(fired.reminder_id, fired_at, NotificationAction::Shown);
+        }
+        if any_missed {
+            self.announce_missed();
+        }
+    }
+
+    /// The one toast that says reminders were missed, unless it is already
+    /// up or notifications are paused. Built by the same function as every
+    /// toast; it has nothing to snooze.
+    fn announce_missed(&mut self) {
+        if self.missed_toast.is_some() || self.pause.is_active(jiff::Timestamp::now()) {
+            return;
+        }
+        let mut spec = self.prefs.spec(ot_toast::Content {
+            title: ot_i18n::text("toast-missed-title"),
+            body: ot_i18n::text("toast-missed-body"),
+            app_name: ot_i18n::text("toast-app-name"),
+            timestamp: Some(formatted_time(jiff::Timestamp::now())),
+            action_labels: crate::reminder_toast::action_labels(),
+            ..ot_toast::Content::default()
+        });
+        // Open is what the toast is for, and only the three-button row has
+        // it, so this toast has all three whatever the action setting says.
+        spec.behaviour.actions = 3;
+        self.missed_toast = Some(self.toasts.push(spec, Instant::now()));
+    }
+
+    /// Write a history row, through the scheduler's thread.
+    fn record(&self, reminder_id: i64, fired_at: jiff::Timestamp, action: NotificationAction) {
+        self.send(ot_sched::scheduler::Command::Record {
+            reminder_id,
+            fired_at,
+            action,
+        });
+    }
+
+    /// Tell the scheduler something; it holds the store.
+    fn send(&self, command: ot_sched::scheduler::Command) {
+        if let Some(scheduler) = &self.scheduler
+            && scheduler.send(command).is_err()
+        {
+            tracing::warn!(?command, "the scheduler has stopped; a command was lost");
+        }
+    }
+
     /// Take whatever the import and decode threads have finished.
     fn drain_images(&mut self, ctx: &egui::Context) {
         if let Some(outcome) = self.importer.drain() {
@@ -1757,6 +2355,8 @@ impl eframe::App for SettingsWindow {
         // answering the tray while the window is hidden.
         ctx.request_repaint_after(TRAY_POLL);
         self.window = frame.window_handle().ok().map(|handle| handle.as_raw());
+        self.drain_fires();
+        self.drain_book();
         self.handle_tray(ctx);
         self.drain_images(ctx);
         self.drive_toasts(ctx);
@@ -1815,6 +2415,7 @@ impl eframe::App for SettingsWindow {
                 Section::Appearance => self.appearance_pane(ui),
                 Section::Pictures => self.pictures_pane(ui),
                 Section::Animation => self.animation_pane(ui),
+                Section::Reminders => self.reminders_pane(ui),
             });
 
         if self.confirming_quit {
@@ -1870,13 +2471,145 @@ fn tooltip_for(pause: Pause) -> String {
     }
 }
 
-/// A time of day through the one formatter. Nothing else may format one
-/// (`docs/10-i18n.md`).
-fn formatted_time(moment: chrono::DateTime<chrono::Local>) -> String {
-    let prefs = ot_i18n::format::TimePrefs::for_language(
-        ot_i18n::current_language().unwrap_or(Language::English),
-    );
-    ot_i18n::format::format_time(&moment.naive_local(), prefs)
+/// A time of day through the one formatter, in the PC's own zone. Nothing
+/// else may format one (`docs/10-i18n.md`).
+fn formatted_time(moment: jiff::Timestamp) -> String {
+    let prefs = ot_i18n::format::TimePrefs::current();
+    let local = moment
+        .to_zoned_datetime(jiff::tz::TimeZone::system())
+        .datetime();
+    ot_i18n::format::format_time(&local, prefs)
+}
+
+/// The list's rows: the title as typed, or the type's name for an untitled
+/// one, and its type with when it next fires.
+fn reminder_rows(listing: &crate::reminder_book::Listing) -> Vec<crate::reminders::ListRow> {
+    use ot_store::reminders::Status as ReminderStatus;
+    listing
+        .reminders
+        .iter()
+        // Fatigue schedules have their own section.
+        .filter(|reminder| !reminder.draft.trigger.is_fatigue())
+        .map(|reminder| {
+            let type_key = listing
+                .type_of(reminder.draft.category_id)
+                .unwrap_or(crate::reminder_toast::DEFAULT_TYPE);
+            let type_name = ot_i18n::text(type_key);
+            let title = if reminder.draft.title.trim().is_empty() {
+                type_name.clone()
+            } else {
+                reminder.draft.title.clone()
+            };
+            let with_time = |key, at| {
+                ot_i18n::text_with(
+                    key,
+                    &[
+                        ("type", type_name.clone().into()),
+                        ("time", formatted_datetime(at).into()),
+                    ],
+                )
+            };
+            let detail = match (reminder.status, reminder.next_fire_at) {
+                (ReminderStatus::Done | ReminderStatus::Cancelled, _) => ot_i18n::text_with(
+                    "settings-reminder-row-done",
+                    &[("type", type_name.clone().into())],
+                ),
+                (ReminderStatus::Snoozed, Some(at)) => {
+                    with_time("settings-reminder-row-snoozed", at)
+                }
+                (_, Some(at)) => match &reminder.draft.recurrence {
+                    Some(recurrence) => ot_i18n::text_with(
+                        "settings-reminder-row-next-repeat",
+                        &[
+                            ("type", type_name.clone().into()),
+                            ("repeat", crate::phrases::repeat(recurrence).into()),
+                            ("time", formatted_datetime(at).into()),
+                        ],
+                    ),
+                    None => with_time("settings-reminder-row-next", at),
+                },
+                (_, None) => ot_i18n::text_with(
+                    "settings-reminder-row-plain",
+                    &[("type", type_name.clone().into())],
+                ),
+            };
+            crate::reminders::ListRow {
+                id: reminder.id,
+                title,
+                detail,
+            }
+        })
+        .collect()
+}
+
+/// A missed reminder's row: its title (the type's name, in the active
+/// language, if it has none) and "Due …".
+fn missed_row(
+    reminder: &ot_store::reminders::Reminder,
+    template: Option<&ot_store::reminders::Template>,
+    fired_at: jiff::Timestamp,
+    snoozes: u32,
+    limit: u32,
+) -> crate::reminders::MissedRow {
+    crate::reminders::MissedRow {
+        title: crate::reminder_toast::content(reminder, template, None).title,
+        due: ot_i18n::text_with(
+            "settings-missed-due",
+            &[("time", formatted_datetime(fired_at).into())],
+        ),
+        can_snooze: snoozes < limit,
+    }
+}
+
+/// The fatigue section's rows: each kind from its managed reminder if it has
+/// one (on, with its interval), else off at its default.
+fn fatigue_rows(
+    listing: Option<&crate::reminder_book::Listing>,
+) -> Vec<crate::reminders::FatigueRow> {
+    use ot_store::reminders::Trigger;
+    ot_store::reminders::FATIGUE
+        .iter()
+        .map(|(type_key, repeats, default)| {
+            let stored = listing.and_then(|listing| {
+                let category = listing.category_of(type_key)?;
+                listing
+                    .reminders
+                    .iter()
+                    .find(|r| r.draft.trigger.is_fatigue() && r.draft.category_id == Some(category))
+            });
+            let minutes = match stored.map(|r| &r.draft.trigger) {
+                Some(Trigger::Every { minutes } | Trigger::WorkHours { minutes }) => *minutes,
+                _ => *default,
+            };
+            crate::reminders::FatigueRow {
+                type_key,
+                repeats: *repeats,
+                on: stored.is_some(),
+                minutes,
+                unit: None,
+            }
+        })
+        .collect()
+}
+
+/// The history's name for what happened to a fire.
+fn history_key(action: NotificationAction) -> &'static str {
+    match action {
+        NotificationAction::Shown => "settings-history-shown",
+        NotificationAction::Snoozed => "settings-history-snoozed",
+        NotificationAction::Dismissed => "settings-history-dismissed",
+        NotificationAction::Opened => "settings-history-opened",
+        NotificationAction::Missed => "settings-history-missed",
+    }
+}
+
+/// A date and time through the one formatter, in the PC's own zone.
+fn formatted_datetime(moment: jiff::Timestamp) -> String {
+    let prefs = ot_i18n::format::TimePrefs::current();
+    let local = moment
+        .to_zoned_datetime(jiff::tz::TimeZone::system())
+        .datetime();
+    ot_i18n::format::format_datetime(&local, prefs)
 }
 
 /// The fonts, installed into a fresh `FontDefinitions`.
@@ -1958,13 +2691,29 @@ pub struct DevOptions {
     pub reduce_motion: bool,
     /// Every frame counts as 50 ms, so the frame-time fallback is forced.
     pub slow_frames: bool,
+    /// An alarm's toast closes after this many seconds instead of the
+    /// ten-minute cap, so the cap can be watched.
+    pub alarm_cap_secs: Option<f32>,
 }
 
-pub fn run(root: DataRoot, settings: Settings, dev: DevOptions) -> Result<(), WindowError> {
+pub fn run(
+    root: DataRoot,
+    settings: Settings,
+    dev: DevOptions,
+    fires: Receiver<ot_sched::scheduler::Fired>,
+    scheduler: Sender<ot_sched::scheduler::Command>,
+) -> Result<(), WindowError> {
     let ui_scale = dev.ui_scale;
     let fonts = font_definitions().map_err(WindowError::Fonts)?;
+    let book_root = root.path().to_path_buf();
     let mut window = SettingsWindow::new(root, settings);
     window.dev = dev;
+    window.fires = Some(fires);
+    window.book = Some(crate::reminder_book::Book::new(
+        &book_root,
+        Some(scheduler.clone()),
+    ));
+    window.scheduler = Some(scheduler);
     if dev.test_toast {
         window.show_shape_samples();
     }

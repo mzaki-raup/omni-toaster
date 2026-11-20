@@ -125,13 +125,163 @@ Refs: BUG-0003
 ### Latest Vacant/Free Task
 
 ```
-Version : v0.3.2
-Features : FEAT-0039
+Version : v0.4.1
+Features : FEAT-0049
 Bugs : BUG-0013
 Change Request : CR-0008
 ```
 
 ---
+
+## v0.4.0 — In-Progress
+
+Phase 4, Scheduler and Reminders, on `feat/phase-4-scheduler`
+(`docs/07-roadmap.md`). CR-0007 runs first, so the scheduler is built on the
+date library it will keep.
+
+### CR-0007 · Move off `chrono`, which is unmaintained, before the scheduler is built on it
+- **State:** Completed · **Spec:** docs/08-decisions.md (ADR-017) · **Phase:** 4
+- **Branch:** feat/phase-4-scheduler
+- **Verified:** the gate, the bundled-zone test, the toast timestamp and the pause in the running app in both languages
+- **Source:** `cargo deny check`, 2026-11-17: RUSTSEC-2026-0543, "chrono is unmaintained", no safe upgrade; the advisory names `jiff` and `time`
+- [x] Choose the replacement in an ADR (ADR-017, accepted 2026-11-19: `jiff` 1.0.1, IANA zones bundled for Windows, DST-safe civil arithmetic, MIT or Unlicense) — time zones (Asia/Kuala_Lumpur for JAKIM, `docs/11-prayer-and-azan.md`), DST arithmetic for the scheduler, and what `ot-i18n`'s formatter needs
+- [x] Replace it in `ot-core` (logging, pause), `ot-i18n` (the formatter), `ot-ui` and the self-test, with the formatter's tests unchanged and passing — the formatter takes a `jiff::civil::DateTime`, a pause holds a `jiff::Timestamp` shown in the system zone; `chrono` has left `Cargo.lock`
+- [x] Remove RUSTSEC-2026-0543 from `deny.toml`'s ignore list
+- [x] Test: the formatter's tests in both languages, 12- and 24-hour, UTC+8; the pause timer — the existing tests, moved to `jiff` with their assertions unchanged (the pause's now at a fixed UTC+8 rather than the machine's zone), plus `malaysian_time_resolves_from_the_bundled_zone_database`
+- [x] Gate: fmt · clippy -D warnings · test --workspace --locked -j 4 (260 passed) · deny check · --self-test
+- [x] App: `--data-dir ./tmp-data` — the toast timestamp and the pause-until time in both languages
+- [x] Docs: ADR · README (requirements) · CHANGELOG
+- **Notes:** App, checked 2026-11-19 at 07:14–07:16 local time (UTC+8): the Appearance preview's timestamp read "7:14 am" in English and "07:15" in Malay; For 30 Minutes chosen from OmniToaster's own tray menu (by script, through its icon on the taskbar) at 07:15:45 and 07:16:03 made the status line read "Notifications are paused until 7:45 am." and "Pemberitahuan dijeda sehingga 07:46." README: neither README names the date library, so nothing to change; `PROPOSAL.md` §4's stack row now says `jiff`. Ignored in `deny.toml` until then, with the reason: it is not a vulnerability and today `chrono` parses no input from outside the app. Before Phase 4 because the scheduler and the prayer times are where a date library becomes hard to replace.
+
+### FEAT-0039 · Migration 003 and the reminder store
+- **State:** Completed · **Spec:** docs/05-data-model-and-storage.md · docs/specs/reminders.md §9 · **Phase:** 4
+- **Branch:** feat/phase-4-scheduler
+- **Depends on:** CR-0007
+- **Verified:** the gate, the migration on a fresh and a version 2 database in tests and in the app
+- [x] `003_locale_keys.sql`: the `category` key columns, `authored_lang` on `reminder`, the built-in type keys — never editing `001` or `002` — `prayer_key`, `weather_key`, `type_key` (one template per key), `authored_lang` on `category` and `reminder` (`en-US`/`ms-MY` only), and a template row for each of the twelve built-in reminder type keys
+- [x] `ot-store` reminders: create, read, list, update, delete, parameterized only; `trigger_json` and `recurrence_json` typed in Rust, unknown fields rejected; `next_fire_at` written by the scheduler only — `ot_store::reminders`; an edit clears `next_fire_at`, and only `set_next_fire_at` writes it
+- [x] `snooze_log` and `notification_log` writes; `notification_log` pruned at 90 days on start
+- [x] `--self-test` migrates to 3 — it now checks for exactly `ot_store::SCHEMA_VERSION`
+- [x] Test: `003` on a fresh database and on one at version 2; CRUD round-trip; a malformed `trigger_json` refused; delete cascades to `snooze_log`; pruning keeps 89 days and drops 91
+- [x] Gate: fmt · clippy -D warnings · test --workspace --locked -j 4 (272 passed) · deny check · --self-test
+- [x] App: `--data-dir ./tmp-data` — create the database fresh and from a v0.11.0 copy; `--self-test`; the database's `user_version` reads 3
+- [x] Docs: spec · README · CHANGELOG · CHECKLIST · GOTCHAS
+- **Notes:** App, checked 2026-11-19 at 12:40 local time: the debug worker started on a fresh scratch folder (window "Settings") and on a copy of a version 2 database that this morning's build had made (window "Tetapan"); the log shows 001–003 applied to the fresh one and only 003 to the copy, and both read `user_version` 3 with twelve `reminder-` templates; `--self-test` on the migrated copy passed. README: nothing user-visible changed — both still say reminders are the next phase. New dependency `serde_json` 1.0.154 (with `zmij`), added to `PROPOSAL.md` §4's serialization row; `cargo deny check` passes. The image-library test's hand-picked template id moved from 7 to 107, past the seeded rows (GOTCHAS, Storage and Migrations)
+
+### FEAT-0040 · Recurrence and offsets, in the local wall clock
+- **State:** Completed · **Spec:** docs/specs/reminders.md §4 · §7 · **Phase:** 4
+- **Branch:** feat/phase-4-scheduler
+- **Depends on:** CR-0007
+- [x] Pure functions in `ot-sched`: the next occurrence after an instant for once, daily, weekly (chosen weekdays), monthly, yearly and every *N* of each, computed in the local wall clock — `ot_sched::recurrence::next_fire`, which also folds in the offsets and returns the first fire strictly after the instant
+- [x] Offsets before: 1 week, 2 days, 1 day, 1 hour, 15 minutes, custom minutes/hours/days — several per reminder, each its own fire — plus the time itself; minutes and hours as elapsed time, days and weeks as calendar days; two fires at one instant are one
+- [x] The 31st and 29 February fall on the month's last day; a wall-clock time a DST gap skips fires at the gap's end, and one a DST fold repeats fires once
+- [x] Test: every kind across month ends and leap years; "every day at 07:00" stays 07:00 across both DST transitions in a zone that has them (Malaysia has none); several offsets each fire once; every *N* from a start date — 14 tests in `recurrence.rs`, DST in `America/New_York`
+- [x] Gate: fmt · clippy -D warnings · test --workspace --locked -j 4 (286 passed) · deny check · --self-test
+- [x] App: `--data-dir ./tmp-data` — not applicable on its own — exercised through FEAT-0041's queue in the app: a daily reminder fired 7 ms after its target and its next fire time moved to the same time tomorrow
+- [x] Docs: spec · README · CHANGELOG · CHECKLIST · GOTCHAS
+- **Notes:** Malaysia has no DST, so the DST cases are proved in tests with a zone that has them, never on this machine's clock. The App box was ticked on 2026-11-19 at 14:12 local time, with FEAT-0041's app check: a daily reminder written into a scratch database fired at 06:12:30Z, 7 ms late, and the row's `next_fire_at` became `2026-11-20T06:12:30.000Z`. Spec §4 now says an offset reminder also fires at its own time and that same-instant fires are one; §7 states the gap and fold rules. README: nothing user-visible yet.
+
+### FEAT-0041 · The scheduler thread
+- **State:** Completed · **Spec:** docs/specs/reminders.md §7 · §12 · docs/03-architecture.md · **Phase:** 4
+- **Branch:** feat/phase-4-scheduler
+- **Depends on:** FEAT-0039, FEAT-0040
+- [x] One named thread owning a queue keyed on each reminder's next fire time, stored and not recomputed per frame — `ot_sched::scheduler`, the thread `scheduler`; each fire time is written to `next_fire_at`
+- [x] A condition variable with a bounded timeout, re-reading the wall clock on every wake — never a long sleep — the wait is `recv_timeout` on the command channel (std's `mpsc`, crossbeam's implementation), at most 30 s and never past midnight
+- [x] Recompute after an edit, midnight, a clock change, a time-zone change and a system resume; the three Windows events come through an `ot-platform` interface — `ot_platform::system_events`: a hidden top-level window for `WM_TIMECHANGE` and `WM_POWERBROADCAST` resume; the thread also catches a clock jump itself (wall against monotonic clock) and re-reads the zone on every wake
+- [x] Fire events to the UI over a bounded channel drained at frame start — a fired reminder is never dropped; edits come back the same way — 64 fires; a full channel holds them and retries every 100 ms; `Command::Changed` / `Removed` / `Recompute` come back on the command channel
+- [x] Fires within one second of target
+- [x] Test: the queue orders and fires; a simulated resume and a simulated clock jump recompute rather than trust the queue; a full channel holds the fire rather than dropping it; fire latency under one second in a timed test — 14 tests in `scheduler.rs`, one in `system_events.rs`, one in the store
+- [x] Gate: fmt · clippy -D warnings · test --workspace --locked -j 4 (302 passed) · deny check · --self-test
+- [x] App: `--data-dir ./tmp-data` — a reminder two minutes out fires on time, measured from the log's fire line against its target; a reminder edited while queued fires at its new time
+- [x] Docs: spec · README · CHANGELOG · CHECKLIST · GOTCHAS
+- **Notes:** Changing the system clock or time zone is a system setting this session does not change; those paths are proved with simulated events — a test posts `WM_TIMECHANGE` and a resume to the watcher's own window, and the core tests drive a clock jump and a zone change — and the owner's check of the real events is **not made**. App, 2026-11-19, debug worker with the debug-only `--test-reminder` (no editor until FEAT-0046): created at 06:07:18Z for 06:09:18.890Z, the log's "reminder fired" line read 06:09:18.900Z, `late_ms=9`, and the UI drained it 84 ms later; `--test-reminder 60,90` queued one for 06:10:46Z and moved it ten seconds in, and nothing fired at 06:10:46 — it fired at 06:11:16.345Z, `late_ms=13`. Both one-offs ended `done` with no next time. A fire reaches the UI and is logged; the toast it becomes is FEAT-0042, so README has nothing new to show. A once reminder that has fired its last is marked `done` (new `Store::set_status`), so a clock set back cannot fire it again; a clock jumped forward fires each skipped reminder once — listing them is FEAT-0045.
+
+### FEAT-0042 · Reminder types and their toasts
+- **State:** Completed · **Spec:** docs/specs/reminders.md §3 · docs/specs/toast.md §8 · docs/10-i18n.md · **Phase:** 4
+- **Branch:** feat/phase-4-scheduler
+- **Depends on:** FEAT-0041
+- [x] The eleven types, each a stable key with its default template in both languages (`reminder-` keys, with translator comments); user titles stored as typed, with `authored_lang` — twelve keys (Fatigue is four), `ot_store::reminders::REMINDER_TYPES`, each `reminder-<type>` (the name) and `reminder-<type>-body` (the default text) in both files
+- [x] One function builds a `ToastSpec` from a reminder and its template, used by the preview and the scheduler alike (ui.md) — `ot_ui::reminder_toast::content`, then `Prefs::spec`; the editor's preview (FEAT-0046) calls the same
+- [x] Open works (shows the reminder in Settings); every fire is written to `notification_log` — `shown`, `dismissed`, `opened`, and `missed` during a pause; Open lands on the reminder in Settings ▸ Reminders since FEAT-0046
+- [x] Priority when two want the screen: Alarm before everything else (Azan and announcements come with Phases 5 and 7) — `Toasts::push_first`: an Alarm waits ahead of the queue and displaces nothing already on screen
+- [x] Test: every type key in both catalogues; a reminder's toast built the same way for preview and fire; the user's title untouched in both languages; the log row per fire — `reminder_toast.rs` (6), the scheduler's fire payload and `Record` command, `Store::template` and `history`, the queue jump in `viewport.rs`
+- [x] Gate: fmt · clippy -D warnings · test --workspace --locked -j 4 (314 passed) · deny check · --self-test
+- [x] App: `--data-dir ./tmp-data` — a reminder of each type fires, in English and Malay, Dark and Light; Open lands on it — the last part with FEAT-0046's check: Buka on a Malay reminder's toast opened Peringatan with that reminder in the editor
+- [x] Docs: spec · README · CHANGELOG · CHECKLIST · GOTCHAS
+- **Notes:** App, 2026-11-19 from 17:09 local time, debug worker on scratch folders, twelve reminders (one per type) written into the database due at one instant, four toasts on screen at a time, captured by their own window rects: in English Dark and Malay Light every type showed its name and default text in that language, the Malay-typed "Bayar bil TNB / Sebelum 25hb" and the English-typed "Dentist" stayed as typed in both, Alarm, Timer, Appointment and Event showed their pictures, and the Alarm (ninth in) led the second wave ahead of the four fired before it. All fired 15 ms late; the history had twelve `shown` rows. A toast keeps its own style and does not follow the window's theme (the renderer's rule since Phase 2), so Light shows the same toast as Dark. With Settings closed (parked at -32000), Open on one toast brought it back to 338,338 and Dismiss closed the other; the history read `shown`, `shown`, `opened`, `dismissed`. **Not made:** Open landing on the reminder, which needs Settings ▸ Reminders (FEAT-0046) — the App box and the Open box stay open until then; and a fire during a pause, which needs the tray menu clicked — the `missed` path is in code, not exercised. README: Open's new behaviour in both; nothing else a user can reach yet, since creating a reminder needs FEAT-0046.
+
+### FEAT-0043 · Snooze, with its limit
+- **State:** Completed · **Spec:** docs/specs/reminders.md §5 · **Phase:** 4
+- **Branch:** feat/phase-4-scheduler
+- **Depends on:** FEAT-0042
+- [x] Snooze on the toast: 5 minutes, 15 minutes, 1 hour, 1 day, custom; the default chosen in Settings — the owner chose (2026-11-19) one press of Snooze for the length chosen in the new Settings ▸ Reminders (Snooze Length: the four presets or Custom, 1 minute to a week; 15 minutes by default) rather than a menu on the toast
+- [x] At most 10 snoozes per reminder by default, then the toast offers only Dismiss and says so; each recorded in `snooze_log` with its count — Snooze Limit 1 to 50, counted per fire (spec §5); at the limit the row is Dismiss and `toast-snooze-limit`; the scheduler also refuses a snooze at the limit
+- [x] Test: the limit enforced and recorded; the eleventh snooze refused; a snoozed reminder's next fire time; the count survives a restart — four scheduler tests (return and count, refusal past the limit, restart, a recurring reminder starting again at zero), the toast at the limit in both languages, the note fitting beside Dismiss on every shape at 100–200%, Snooze enabled only on a reminder's toast, the settings round trip and clamp, the store's `latest_snooze`, and the Reminders controls in the layout test
+- [x] Gate: fmt · clippy -D warnings · test --workspace --locked -j 4 (322 passed) · deny check · --self-test
+- [x] App: `--data-dir ./tmp-data` — snooze a toast, see it return; reach the limit (with a low limit set) and read the toast's line, in both languages
+- [x] Docs: spec · README · CHANGELOG · CHECKLIST · GOTCHAS
+- **Notes:** App, 2026-11-19 from 17:46 local time, debug worker on scratch folders with a 1-minute custom snooze. English Dark, limit 2: the reminder fired 10 ms late; Snooze brought it back a minute later (15 ms late, count 1) and again (5 ms late, count 2), and the second return showed only Dismiss beside "No more snoozes for this reminder."; Dismiss closed it. `snooze_log` held counts 1 and 2, the history read shown, snoozed, shown, snoozed, shown, dismissed, and the reminder ended `done`. Malay Light, limit 1: one return, with Tutup beside "Tiada lagi tundaan untuk peringatan ini." whole on one line. Settings ▸ Reminders looked at in English Dark and Malay Light at full width and Malay Dark at the 560 px minimum, where the labels stack above their fields; System mode was not looked at separately (it draws the Dark or Light palette, both seen), and 150% and 200% are held by the layout test, not looked at on screen. README: the Actions line, the scheduling paragraph and the new `settings-reminders.png` / `-ms.png` in both. The spec's "per reminder" is now explicitly per fire: taken literally, a daily reminder could never be snoozed again after its tenth snooze.
+
+### FEAT-0044 · Persistent alarms and the display duration
+- **State:** Completed · **Spec:** docs/specs/reminders.md · docs/specs/toast.md §6 · **Phase:** 4
+- **Branch:** feat/phase-4-scheduler
+- **Depends on:** FEAT-0042
+- [x] Alarm and the other urgent types stay until acted on, capped at 10 minutes, then logged as missed — Alarm is the one urgent reminder type (Azan is Phase 5); `reminder_toast::spec` makes its toast persistent at `PERSISTENT_CAP_SECS`, and a persistent reminder toast that leaves untouched writes `missed`
+- [x] Every other type keeps the 3–60 s display duration and hover pause Phase 2 and 3 built
+- [x] Test: an alarm outlives its display duration and closes at the cap; a normal reminder does not — `viewport.rs` (a persistent toast against a 60 s one, at 61 s, 599.999 s and 600 s) and `reminder_toast.rs` (Alarm persistent at the cap and surviving clamping; Task, Timer and Appointment not)
+- [x] Gate: fmt · clippy -D warnings · test --workspace --locked -j 4 (324 passed) · deny check · --self-test
+- [x] App: `--data-dir ./tmp-data` — an alarm left alone stays up, then goes at the cap (cap shortened for the check)
+- [x] Docs: spec · README · CHANGELOG · CHECKLIST · GOTCHAS
+- **Notes:** App, 2026-11-19 at 18:35 local time, debug worker with the new debug-only `--alarm-cap 30` and an 8 s display duration: an Alarm ("Wake up") and a Task fired together, 12 ms late; at 28 s only the Alarm was on screen, at 42 s still, and it closed 30.7 s after appearing (the cap plus its animations), logging "an alarm closed at its cap"; the history read Wake up shown, Water the plants shown, Wake up missed. Hover pausing an alarm's countdown is the same code as every toast's (Phase 2) and was not looked at again. GOTCHAS: nothing new went wrong. The Duration row of the CHECKLIST is mostly Phase 2's (FEAT-0026) and BUG-0009's; this item adds the alarm exception.
+
+### FEAT-0045 · Missed reminders
+- **State:** In-Progress · **Spec:** docs/specs/reminders.md §6 · **Phase:** 4
+- **Branch:** feat/phase-4-scheduler
+- **Depends on:** FEAT-0041
+- [x] At start, reminders whose time passed while the PC was off or asleep are listed — not fired all at once — with Dismiss and Snooze — a fire more than a minute late is missed; one toast says so and its Open lands on Settings ▸ Reminders' Missed Reminders, each row with Snooze and Dismiss; a recurring reminder is listed once, at its latest occurrence
+- [ ] Catch-up windows: 1 hour for Azan, 24 hours for everything else, both configurable; older ones dropped with a log line and a `missed` row — the 24-hour window is done and configurable (Catch-Up Window (Hours), 1 to 168); Azan's one-hour window waits for Azan (Phase 5), since nothing fires an Azan before then
+- [x] Test: inside the window listed, outside dropped and logged, at both window edges; the list after a simulated resume — seven scheduler tests: a reminder due while the app was off listed at the next start, the one-minute edge both sides, the window edge both sides (24 h listed, 24 h + 1 ms dropped with its row), a shorter window, a resume listing two, and a clock jumped three days listing the latest and dropping the rest as one row; the missed list in the layout test with a long Malay title
+- [x] Gate: fmt · clippy -D warnings · test --workspace --locked -j 4 (329 passed) · deny check · --self-test
+- [x] App: `--data-dir ./tmp-data` — quit the app, let a reminder's time pass, start it again: the list shows it; dismiss and snooze from the list, in both languages
+- [x] Docs: spec · README · CHANGELOG · CHECKLIST · GOTCHAS
+- **Notes:** App, 2026-11-19 from 22:06 local time, debug worker on scratch folders, with a 1-minute snooze. Each language: a first run stored next fire times for two reminders and quit before either; a third reminder was planted with a stored time 30 hours old; the second run started over a minute after both times. English Dark: the 30-hour one was dropped ("missed fires older than the catch-up window were dropped", a `missed` row); one "Missed Reminders" toast came up with Snooze greyed; its Open showed Settings ▸ Reminders with both listed and "Due 19/11/2026 at 10:07 pm"; Dismiss on one wrote `dismissed`, Snooze on the other wrote `snoozed` and it came back as a toast a minute later, 14 ms late. Malay Light: the same, with "Peringatan Terlepas", "Tunda" and "Tutup", ending on "Tiada peringatan yang terlepas."; the Malay due line read "Sepatutnya pada … pada 22:15" and became "Sepatutnya { $time }". The first row layout centred the due text in a layout that took the whole scroll height — caught on screen, not by the layout test (GOTCHAS); the due text now has its own row. The pane was looked at again in English Dark, Malay Dark and Malay at 560 px; the README screenshots were retaken. In-Progress only for Azan's window.
+
+### FEAT-0046 · Settings ▸ Reminders
+- **State:** Completed · **Spec:** docs/04-ui-design.md · docs/specs/reminders.md §10 · **Phase:** 4
+- **Branch:** feat/phase-4-scheduler
+- **Depends on:** FEAT-0042, FEAT-0043
+- [x] The list, with an empty state in a sentence, and the editor: title, body, type, date and time (the shared date and time fields), offsets, recurrence, snooze default — the list with loading and empty states; `ot_ui::fields::date_field` / `time_field`; the snooze default is the pane's Snooze section, one length for every reminder (a per-reminder length would need a column and is not built)
+- [x] Validation in the user's language, said where the field is; deleting a reminder and clearing history guarded by a confirmation — an empty title and a time that would never fire, under Title and Time; Delete and Clear History ask inline with Keep It
+- [x] Every label a Fluent key in both files, laid out for the longest Malay string; Title Case labels, sentence-case hints
+- [x] Test: the layout test lays the pane out in English, Malay and the pseudo-locale at 100%, 150% and 200%; validation messages; the guards — the layout test now includes the list (fifty long Malay titles), the editor with every row and both messages, and the history with its question; `reminder_editor.rs` (validation, the draft round trip, weekdays), `reminders_pane.rs` (both guards through `egui_kittest` clicks, loading and empty states, 1000 reminders laying out at most twelve rows), `reminder_book.rs` (save, edit reactivates, delete, the scheduler told), `fields.rs`, and `Store::clear_history`
+- [x] Gate: fmt · clippy -D warnings · test --workspace --locked -j 4 (341 passed) · deny check · --self-test
+- [x] App: `--data-dir ./tmp-data` — create, edit, delete (guarded) a reminder; let it fire; check the history row — in both languages, all three themes, the narrow window
+- [x] Docs: spec · README · CHANGELOG · CHECKLIST · GOTCHAS
+- **Notes:** A long reminder list is tested for per-frame cost, not three rows (ui.md) — 1000 rows lay out at most twelve, and the rows' text is formatted once per list. App, 2026-11-19 from 22:46 local time, debug worker on scratch folders. English Dark: New Reminder showed "Give the reminder a title." and Save disabled; a title and 22:50 saved the row "Custom · next 19/11/2026 at 10:50 pm"; renamed and moved to 22:51 while queued, it fired at 22:51, 4 ms late, and not at 22:50. Malay Light: "Siram pokok bunga" for 22:55 saved and fired; Buka on its toast opened Peringatan with it in the editor, its history "Dipaparkan" and "Dibuka"; Kosongkan Sejarah asked and Kekalkan left both rows; Padam asked, and answered, deleted it, its rows kept unlinked. English System (Windows dark): a weekly reminder with a 15-minute offset on Monday and Thursday, stored as entered, fired at 23:00; its open history updated itself to Shown and Dismissed, and Clear History, answered, emptied it. Malay Dark at the 560 px minimum: labels stacked, nothing clipped. Found on screen and fixed: the text fields ran 8 points past the dropdowns, the "Your Reminders" heading sat above its button's middle line, and an open history did not update after a fire (GOTCHAS). 150% and 200% are held by the layout test, not looked at on screen.
+
+### FEAT-0047 · The shared date formatter, for reminders
+- **State:** Completed · **Spec:** docs/10-i18n.md · docs/specs/reminders.md §11 · **Phase:** 4
+- **Branch:** feat/phase-4-scheduler
+- **Depends on:** CR-0007
+- [x] `ot-i18n` formats every date and time a reminder shows: the next fire, offsets ("1 day before"), recurrence ("every 2 weeks on Monday and Thursday"), the missed list — through Fluent variables, never concatenated — `ot_i18n::format::{before, every, list}` with `$count` as a number (`text_with_count`); `ot_ui::phrases` maps the stored types
+- [x] Malay `d/m/yyyy`, 24-hour by default, Malay day and month names; English following the Windows regional setting with the 12- or 24-hour choice the user's — `ot_platform::regional()` reads the short-date order and the clock; Settings ▸ General ▸ Clock (Automatic, 12-Hour, 24-Hour); `TimePrefs::resolve` is the rule
+- [x] Test: each phrase in both languages, 12- and 24-hour; a date in each language against a written table — `ot-i18n/tests/phrases.rs` (offsets and repeats with their plurals, lists of one, two and three, dates US- and UK-ordered in English and always d/m/yyyy in Malay, the user's clock over Windows'), `TimePrefs::resolve` against every case, `Clock` round trip, the Windows pattern parsing, the offset note on the toast
+- [x] Gate: fmt · clippy -D warnings · test --workspace --locked -j 4 (346 passed) · deny check · --self-test
+- [x] App: `--data-dir ./tmp-data` — a reminder's next fire, its offsets and its recurrence read correctly in Settings and on the toast, in both languages
+- [x] Docs: spec · README · CHANGELOG · CHECKLIST · GOTCHAS
+- **Notes:** App, 2026-11-20 from 03:01 local time, debug worker, a reminder for tomorrow every 2 weeks on Saturday and Sunday with a 1-day offset. This machine's Windows is day first and 12-hour. English: the row read "Custom · every 2 weeks on Saturday and Sunday · next 20/11/2026 at 3:03 am", Repeat's summary "Repeats every 2 weeks on Saturday and Sunday."; the offset fired at 03:03, 16 ms late, its toast headed "21/11/2026 at 3:03 am" with "1 day before" in the action row, and the row then moved to the occurrence. Clock → 24-Hour re-said the open history at once ("20/11/2026 at 03:06") and saved `clock = "24"`. Malay: "Tersuai · setiap 2 minggu pada Sabtu dan Ahad · seterusnya 20/11/2026 pada 03:09", "Berulang setiap 2 minggu pada Sabtu dan Ahad.", and a toast headed "21/11/2026 pada 03:09" with "1 hari sebelum". A month-first Windows was not available to look at; the table test holds it. During the English run an Open press on the toast was logged that no command of the check made — most likely a click at the machine; Dismiss, pressed by the script on a second fire, registered as Dismiss. README: the Clock in both, and `settings-general` and `settings-reminders` retaken in both languages. This item carries the exit criterion "the date format is correct in each language".
+
+### FEAT-0048 · Fatigue reminders
+- **State:** Completed · **Spec:** docs/specs/reminders.md §3 · **Phase:** 4
+- **Branch:** feat/phase-4-scheduler
+- **Depends on:** FEAT-0042
+- [x] Eye break, posture, hydration and the work-hour limit, each with its default schedule, each switched on by the user — every 20, 30 and 60 minutes and after 8 hours (`ot_store::reminders::FATIGUE`), all off until switched on in Settings ▸ Reminders' Fatigue Reminders; each kind a managed reminder row with the new `every` or `work_hours` trigger, left out of Your Reminders
+- [x] The work-hour limit counts elapsed wall time from the day's first fatigue reminder — from the start of the working day, where the first fatigue reminder's interval begins; midnight carries on, an hour or more away (off, asleep, not running) starts a new day; kept in `settings` across a restart (spec §3)
+- [x] Test: each kind's default schedule; the work-hour count across midnight and a resume — `fatigue.rs` (each default, strictly-after, never at the start), the core (a limit from 20:00 at 04:00, once, never done; a resume three hours on starting the day again with the limit counted from it and the breaks of the sleep not missed; a half-hour sleep skipping its break and keeping the day; a restart within the hour keeping the day, two hours later not), the store round trip, `set_fatigue` on, change, off, and the section in the layout test
+- [x] Gate: fmt · clippy -D warnings · test --workspace --locked -j 4 (354 passed) · deny check · --self-test
+- [x] App: `--data-dir ./tmp-data` — turn on each kind with a short interval and see it fire, in both languages
+- [x] Docs: spec · README · CHANGELOG · CHECKLIST · GOTCHAS
+- **Notes:** App, 2026-11-20 from 03:19 local time, debug worker. The UI's shortest work-hour limit is an hour, so posture (2 minutes), drink water (3) and the work-hour limit (4 minutes) were planted in the scratch database; Eye Break was switched on through the section at 1 minute, which created its row. English: the working day began at 03:19:33; eye breaks fired every minute from 03:20:33, posture at 03:21:33 and 03:23:33, the drink at 03:22:33 and the work-hour limit once at 03:23:33, each about 10 ms late, the toasts saying each type's own name and text. Malay: the same eight fires from 03:24, "Rehat Mata", "Postur", "Had Waktu Bekerja", and the section reading "minit sekali" and "jam bekerja". The section shows a planted 4-minute limit as "1 hour of work" — the UI's unit is whole hours. A real midnight and a real sleep were not waited for; the tests drive both. The README screenshot of Settings ▸ Reminders shows the list and the editor, above the new section, and was not retaken.
 
 ## v0.3.1 — Done 2026-11-18
 
@@ -1003,18 +1153,6 @@ of it, then 0004, 0005 and 0006 in any order.
 ---
 
 ## Backlog
-
-### CR-0007 · Move off `chrono`, which is unmaintained, before the scheduler is built on it
-- **State:** Pending · **Spec:** docs/08-decisions.md (a new ADR) · **Phase:** 4
-- **Source:** `cargo deny check`, 2026-11-17: RUSTSEC-2026-0543, "chrono is unmaintained", no safe upgrade; the advisory names `jiff` and `time`
-- [ ] Choose the replacement in an ADR — time zones (Asia/Kuala_Lumpur for JAKIM, `docs/11-prayer-and-azan.md`), DST arithmetic for the scheduler, and what `ot-i18n`'s formatter needs
-- [ ] Replace it in `ot-core` (logging, pause), `ot-i18n` (the formatter), `ot-ui` and the self-test, with the formatter's tests unchanged and passing
-- [ ] Remove RUSTSEC-2026-0543 from `deny.toml`'s ignore list
-- [ ] Test: the formatter's tests in both languages, 12- and 24-hour, UTC+8; the pause timer
-- [ ] Gate: fmt · clippy -D warnings · test --workspace --locked -j 4 · deny check · --self-test
-- [ ] App: `--data-dir ./tmp-data` — the toast timestamp and the pause-until time in both languages
-- [ ] Docs: ADR · README (requirements) · CHANGELOG
-- **Notes:** Ignored in `deny.toml` until then, with the reason: it is not a vulnerability and today `chrono` parses no input from outside the app. Before Phase 4 because the scheduler and the prayer times are where a date library becomes hard to replace.
 
 ### CR-0001 · The product is "OmniToaster", one word, everywhere a user sees it
 - **State:** Completed · **Spec:** docs/01-vision-and-scope.md · **Phase:** 0
