@@ -7,24 +7,22 @@ Format: [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) · Versioning:
 
 ## Unreleased
 
+- (nothing yet)
+
+## 0.12.0 — 2026-11-20
+
 ### Added
 
-- Fatigue reminders: eye breaks (every 20 minutes by default), posture (30), a drink of water (60) and a work-hour limit (after 8 hours), each switched on with its own interval in Settings ▸ Reminders' new Fatigue Reminders section. They count from when you start using the PC; midnight does not reset the count, an hour or more away does, and a restart within the hour keeps it. A break that came due while the PC was asleep is skipped rather than listed as missed (FEAT-0048).
-- Dates and times follow the user and Windows: Settings ▸ General has a Clock (Automatic, 12-Hour, 24-Hour); Automatic is 24-hour in Bahasa Melayu and follows Windows in English, and English dates follow Windows' day or month first. Reminders say how they repeat and how far ahead an offset is, with proper plurals in English — "every 2 weeks on Saturday and Sunday", "1 day before" — in the list, under Repeat in the editor and on an offset fire's toast, which also gives the event's own date and time. Changing the language or the Clock now re-says the list, the history and the missed list straight away; before, they kept the old language until the list was read again (FEAT-0047).
-- Settings ▸ Reminders makes and edits reminders: a list of them with when each next fires, and an editor for the title and details, the type, the date and time (new shared date and time fields), any number of "remind me before" times and a repeat, which says under each field what is wrong; Delete and Clear History ask first; each reminder shows its recent history. Open on a reminder's toast lands on it there. The list draws only the rows in view, so a long list costs what a short one does (FEAT-0046, and the last box of FEAT-0042).
-- Missed reminders: a reminder whose time passed while the PC was off or asleep, or across a clock jump, is no longer skipped or fired late as a toast — one toast says reminders were missed, and Settings ▸ Reminders lists them with Snooze and Dismiss; a recurring one is listed once, at its latest occurrence. Ones older than the new Catch-Up Window (Hours) — 24 by default, 1 to 168 — are dropped with a log line and a missed row. The custom snooze length's unit moved into its label, "Custom Length (Minutes)", so it no longer reads "1 minutes" (FEAT-0045).
-- An Alarm's toast stays until you press a button, for up to ten minutes, and one left alone that long is recorded as missed; every other reminder keeps the display duration (FEAT-0044).
-- Snooze works: on a reminder's toast it puts the reminder off for the length set in the new Settings ▸ Reminders — 5 minutes, 15 minutes, 1 hour, 1 day or a custom length — and the reminder comes back with its count; after the limit (10 by default, 1 to 50) the toast offers only Dismiss and says "No more snoozes for this reminder." in English and Malay. The count is per fire, so a recurring reminder's next occurrence starts again at zero; a waiting snooze survives a restart; each snooze is recorded with its count and in the history. Snooze stays greyed on the test toast (FEAT-0043).
-- A fired reminder is a toast: its own title and body as typed, or its template's, or the built-in text of its type in the active language — the twelve type keys (Event, Task, Anniversary, the four fatigue reminders, Timer, Alarm, Payment, Appointment, Custom) each have a name and a default text in English and Malay. Alarm, Timer, Appointment and Event show their built-in pictures; an Alarm waits ahead of every other queued toast; Open now brings Settings forward; every fire, dismissal and Open is written to the notification history, and a fire during a pause is recorded as missed instead of shown (FEAT-0042).
-- The scheduler thread: it keeps every active reminder's next fire time in a queue, fires it within a second of its target (9 and 13 ms late in the app check) and hands it to the UI over a bounded channel that holds a fire rather than dropping it; it rebuilds the queue from the database after an edit, at midnight, after a clock or time-zone change and after a resume, which Windows reports through a new `ot-platform` watcher, and catches a clock jump itself. A one-off reminder that has fired is marked done, so a clock set back does not fire it again. The toast each fire becomes is FEAT-0042 (FEAT-0041).
-- When a reminder fires next: once, or every *N* days, weeks (on chosen weekdays), months or years, in the local wall clock so 07:00 stays 07:00 across a DST change; the 31st and 29 February fall on the month's last day; a time a DST gap skips fires when the gap ends, one a fold repeats fires once; and offsets before the time each fire on their own, days counted as calendar days (FEAT-0040).
-- The reminder store: migration 003 gives templates their built-in keys and one template per reminder type, records the language a title was typed in, and `ot-store` now creates, reads, lists, updates and deletes reminders, refusing a trigger or recurrence it does not understand, records snoozes with their count, and logs every notification, pruning the log at 90 days on start. The database is now at schema version 3, and `--self-test` checks for exactly that (FEAT-0039).
-
-### Changed
-
-- Dates and times use `jiff` instead of `chrono`, which is unmaintained (RUSTSEC-2026-0543): the toast timestamp, the pause, the log and the crash report read the same as before, and `Asia/Kuala_Lumpur` now resolves from a zone database bundled in the exe, ready for the prayer times. The advisory's ignore is gone from `deny.toml` (CR-0007, ADR-017).
-
-- Phase 4 planned: the reminders spec answers its two open questions (custom recurrence is an interval over the fixed set; the work-hour limit counts wall time), and the locale-keys migration is `003_locale_keys.sql`, JAKIM's `004_jakim.sql`, in the roadmap, the proposal and the CHECKLIST, since Phase 2 took `002` (CR-0007, FEAT-0039 to FEAT-0048).
+- Fatigue reminders (a61529e1)
+- The shared date formatter, for reminders (43462338)
+- Settings > Reminders, the list and the editor (b7a69c81)
+- Missed reminders (da69487b)
+- Persistent alarms (53bd1f0e)
+- Snooze, with its limit (34c6b20f)
+- Reminder types and their toasts (b803cdc8)
+- The scheduler thread (ce3d3e8f)
+- Recurrence and offsets in the local wall clock (9dc9fd89)
+- Migration 003 and the reminder store (9b78869d)
 
 ## 0.11.0 — 2026-11-18
 
