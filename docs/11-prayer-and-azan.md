@@ -97,13 +97,22 @@ request is an HTML page, sometimes labelled `application/json`.
   for that range", not a failure to retry. The body must parse as JSON
   whatever its content type says.
 - A missing or malformed field marks the **whole day** invalid. Partial data is
-  never shown.
+  never shown. So does an impossible date (31 November) and a day whose eight
+  times are not in the order of the day (imsak, fajr, syuruk, dhuha, dhuhr,
+  asr, maghrib, isha) — a time that parses but is wrong is caught there. A day
+  set aside is logged with its reason; the rest of the response still reads.
 - Unknown extra fields are ignored, so an added field does not break the app.
 - No `unwrap` anywhere in the parser, and a response size cap before parsing:
   256 KB (a whole year is 77 KB).
 - The parser is tested against `tests/fixtures/jakim_sample.json`. If the live
   format changes, the fixture and the parser change together and the change is
   recorded in [GOTCHAS.md](GOTCHAS.md) under "Prayer Times and JAKIM".
+
+As built (FEAT-0051): `ot_prayer::jakim::parse(body)` gives
+`Response::Days { zone, days, rejected }` or `Response::NoRecord`, else a
+`ParseError` (`TooLarge`, `NotJson`, `Status`, `Shape`). A `PrayerDay` holds the
+date, the Hijri date as sent and the eight times; `PrayerDay::at(prayer)` gives
+the instant, read in `Asia/Kuala_Lumpur`.
 
 ## 3. Zone mapping
 

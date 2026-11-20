@@ -168,18 +168,19 @@ disabled; prayer labels match the reference table in both languages.
 - **Notes:** The owner chose (2026-11-20) GeoNames for the coordinates (CC BY 4.0, credited in both READMEs; the app's own credit comes with Settings ▸ Prayer, FEAT-0057) and English names that translate only the joining words. Design change, in the spec, `05-data-model`, `PROPOSAL.md` and `03-architecture` in this commit: the zone table is embedded data, not a `jakim_zones` database table, and has a point per area rather than one per zone — one centre per zone would put Petaling Jaya in Kuala Lumpur. Not placed, for want of a GeoNames entry: Lojing, Belum, Temanggong, Terusan, Balong, Meludam and SWK09's Kampung Patarikan — SWK09 is chosen, never detected. Boundary errors remain (Cyberjaya, in Sepang, is nearer Putrajaya); the confirmation step is the guard. The Malay names are JAKIM's own; the English forms want the native speaker's review with the rest of the translations before Phase 9. In-Progress until FEAT-0057's app check.
 
 ### FEAT-0051 · The JAKIM parser, against the fixtures
-- **State:** Pending · **Spec:** docs/11-prayer-and-azan.md §2 · ADR-018 · **Phase:** 5
+- **State:** In-Progress · **Spec:** docs/11-prayer-and-azan.md §2 · ADR-018 · **Phase:** 5
 - **Branch:** feat/phase-5-prayer
 - **Depends on:** FEAT-0049
-- [ ] `ot-prayer` parses the verified shape: `status` `OK!` with a `prayerTime` array; `NO_RECORD!` as "no data"; anything else an error
-- [ ] Dates with Malay and English month abbreviations; times `HH:MM:SS` and `HH:MM`, read as `Asia/Kuala_Lumpur`; a missing or malformed field invalidates its whole day; unknown fields ignored
-- [ ] A 256 KB cap before parsing; JSON whatever the content type says; no `unwrap`
-- [ ] `tests/fixtures/jakim_sample.json` built from the spike's captures, plus the malformed cases
-- [ ] Test: the three zones' fixtures parse to the expected times; `Ogos` and `Dis` dates; a missing field, a malformed time and an unknown extra field; `NO_RECORD!`; the HTML body with a JSON content type; the size cap; times read as UTC+8 with the PC in another zone
-- [ ] Gate: fmt · clippy -D warnings · test --workspace --locked -j 4 · deny check · --self-test
+- [x] `ot-prayer` parses the verified shape: `status` `OK!` with a `prayerTime` array; `NO_RECORD!` as "no data"; anything else an error — `ot_prayer::jakim::parse` → `Response::{Days, NoRecord}` or `ParseError::{TooLarge, NotJson, Status, Shape}`
+- [x] Dates with Malay and English month abbreviations; times `HH:MM:SS` and `HH:MM`, read as `Asia/Kuala_Lumpur`; a missing or malformed field invalidates its whole day; unknown fields ignored — plus an impossible date and times out of order, added to the spec
+- [x] A 256 KB cap before parsing; JSON whatever the content type says; no `unwrap`
+- [x] `tests/fixtures/jakim_sample.json` built from the spike's captures, plus the malformed cases — four good days and eight broken ones, one per rule
+- [x] Test: the three zones' fixtures parse to the expected times; `Ogos` and `Dis` dates; a missing field, a malformed time and an unknown extra field; `NO_RECORD!`; the HTML body with a JSON content type; the size cap; times read as UTC+8 with the PC in another zone — 9 tests in `jakim.rs`; the UTC+8 test checks the instant against UTC, so the PC's zone cannot enter it, but the PC's zone was not actually changed (a system setting)
+- [x] Gate: fmt · clippy -D warnings · test --workspace --locked -j 4 · deny check · --self-test — 371 passed
 - [ ] App: `--data-dir ./tmp-data` — not applicable on its own — exercised through the fetch (FEAT-0052) in the app
-- [ ] Docs: spec · README · CHANGELOG · CHECKLIST · GOTCHAS
-- **Notes:** This item carries the exit criterion "the parser passes the fixtures for three zones".
+- [x] Docs: spec · README · CHANGELOG · CHECKLIST · GOTCHAS — README unchanged (nothing visible yet); no new gotcha
+- **Notes:** This item carries the exit criterion "the parser passes the fixtures for three zones" — met. Spec addition in this commit: a day whose times are out of order is set aside, as is an impossible date. In-Progress until FEAT-0052's app check.
+
 ### FEAT-0052 · The JAKIM client
 - **State:** Pending · **Spec:** docs/11-prayer-and-azan.md §4 · ADR-002 · ADR-018 · **Phase:** 5
 - **Branch:** feat/phase-5-prayer

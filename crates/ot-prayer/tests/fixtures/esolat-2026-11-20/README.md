@@ -14,6 +14,12 @@ thing. Captured at 09:58–10:00 Malaysian time from
 | `unknown-zone-no-record.json` | GET `&period=month&zone=XXX99` | 200, `NO_RECORD!` |
 | `duration-as-get-http500-html-body.txt` | GET `&period=duration` with the dates as query parameters | **500**, `Content-Type: application/json`, an HTML body |
 
+`../jakim_sample.json` is not a capture: it is built by hand on the same shape,
+from real days, with one broken case per rule the parser enforces — a missing
+field, a malformed time, an hour of 25, a null, times out of order, 31
+November, an unknown month, an element that is not an object — beside an
+`HH:MM` day, unknown fields, and August spelled `Ogos` and `Aug`.
+
 Do not edit these files. When the live format changes, capture a new dated
 folder beside this one and record the change in `docs/GOTCHAS.md` under
 "Prayer Times and JAKIM".

@@ -164,7 +164,7 @@ Last updated: 2026-11-19
 | e-Solat verification spike | Completed | **First.** Three zones; result recorded in `docs/08-decisions.md`. FEAT-0049: SGR01, WLY01 and JHR01 on 2026-11-20 — the shape, every period, next month as a POST within a published year, the failure cases, Asar confirmed Shafi'i; ADR-018, raw responses kept as fixtures |
 | Zone table | In-Progress | `data/jakim_zones.csv`, reviewed commits only. FEAT-0050: 60 zones from JAKIM's portal and 208 area points from GeoNames, the nearest area deciding; every state capital lands in its zone, outside Malaysia is refused, tested. Seen in the app with the zone picker (FEAT-0057) |
 | JAKIM client | Pending | HTTPS, 10 s timeout, backoff 1/5/15 min, no polling |
-| Parser with fixtures | Pending | `tests/fixtures/jakim_sample.json` |
+| Parser with fixtures | Completed | `tests/fixtures/jakim_sample.json`. FEAT-0051: `ot_prayer::jakim::parse` reads all 30 November days of SGR01, WLY01 and JHR01 as captured, with 20 November's times matching e-Solat's; every broken day in the sample set aside with its reason, tested |
 | Cache and migration 004 | Pending | `004_jakim.sql` |
 | Fallback chain | Pending | Cache → live → bundled → calculated → last known |
 | Zone selection UI | Pending | Detected zone shown for confirmation, always overridable |

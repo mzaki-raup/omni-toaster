@@ -11,6 +11,8 @@ Format: [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) · Versioning:
 
 - The JAKIM zone table: all 60 zones, with their states and areas exactly as JAKIM's e-Solat portal lists them (read 2026-11-20) and in English, and 208 places from GeoNames (MY extract of 2026-11-20, CC BY 4.0) that locate each zone's areas; the nearest area gives a location's zone, and a location outside Malaysia is offered none. Sources and the few places that could not be located are in `data/README.md` (FEAT-0050).
 
+- The JAKIM e-Solat parser: it reads the shape the spike verified — Malay and English month names, `HH:MM:SS` and `HH:MM` times taken as Malaysian time whatever the PC's zone — treats "no record" as no data rather than a failure, refuses an oversized body or an HTML error page, and sets aside whole any day with a missing, malformed or out-of-order time, tested against the three zones' captures and a hand-built sample of broken days (FEAT-0051).
+
 ### Changed
 
 - Phase 5 begun with its spike: the JAKIM e-Solat endpoint verified for SGR01, WLY01 and JHR01 and recorded as ADR-018 — times are `HH:MM:SS`, dates use Malay month abbreviations, "no data" comes inside an HTTP 200, next month is a POST range, and there is no data for a year JAKIM has not published. The prayer spec now describes the verified shape, and Asar is confirmed Shafi'i. The phase is filed as FEAT-0049 to FEAT-0063 (FEAT-0049).
