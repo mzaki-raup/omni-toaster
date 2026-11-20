@@ -323,6 +323,11 @@ calculated. Whether the JAKIM dataset may be bundled with a release is settled
 by the terms check in Phase 9 — until then the data is fetched or downloaded by
 the user.
 
+The zone table's place coordinates come from
+[GeoNames](https://www.geonames.org/), licensed under
+[CC BY 4.0](https://creativecommons.org/licenses/by/4.0/); the zone codes and
+names are JAKIM's ([data/README.md](data/README.md)).
+
 Weather data comes from [Open-Meteo](https://open-meteo.com/) under its own
 terms. Prayer calculation uses the [`adhan`](https://crates.io/crates/adhan)
 crate.

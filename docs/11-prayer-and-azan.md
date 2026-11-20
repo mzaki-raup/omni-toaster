@@ -110,8 +110,11 @@ request is an HTML page, sometimes labelled `application/json`.
 1. Detect the location — IP lookup or manual entry (§6).
 2. Check the coordinates are inside Malaysia: a bounding box **plus** the
    country code from the geolocation result.
-3. Find the nearest zone from `data/jakim_zones.csv` (zone code, state and area
-   names in both languages, representative coordinates).
+3. Find the nearest zone from the zone table: `data/jakim_zones.csv` (the 60
+   zone codes, with the state and areas as JAKIM publishes them and in English)
+   and `data/jakim_zone_points.csv` (a point for each area, 208 in all, from
+   GeoNames). The nearest **area** decides, not one centre per zone, so the
+   zones that meet across the Klang Valley are told apart by their towns.
 4. Show the result: "Detected zone: SGR01 · Gombak, Hulu Langat, Sepang,
    Petaling · Selangor. Change zone?"
 5. The user confirms, or picks another zone from a searchable list.
@@ -124,11 +127,21 @@ Rules:
   coordinates.
 - The zone list shows the code and both language names together, because users
   confuse codes with names.
-- `data/jakim_zones.csv` changes only through a reviewed commit, with its source
-  noted in [CHANGELOG.md](CHANGELOG.md).
+- Inside Malaysia means inside a bounding box (0.8–7.5° N, 99.5–119.5° E) and,
+  when the geolocation lookup gave one, the country code `MY`; a location more
+  than 120 km from every point has no zone. Typed coordinates carry no country
+  code, so a point in Singapore or Brunei can pass — the confirmation step is
+  what catches it.
+- **SWK09** (Zon Khas, Kampung Patarikan) has no point — GeoNames has no such
+  place — so it is chosen from the list, never detected.
+- The zone table is **embedded data**, not a database table; it changes only
+  through a reviewed commit, with its source noted in
+  [CHANGELOG.md](CHANGELOG.md). [`data/README.md`](../data/README.md) has the
+  sources, how each area was placed, and the few that could not be.
 
-Schema: see `jakim_zones` in
-[05-data-model-and-storage.md](05-data-model-and-storage.md).
+As built (FEAT-0050): `ot_prayer::zones` — `zones()`, `zone(code)`,
+`nearest(lat, lon)`, `in_malaysia(lat, lon, country)` and `detect(lat, lon,
+country)`.
 
 ## 4. Caching and fetch schedule
 

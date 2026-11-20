@@ -1,0 +1,61 @@
+code,state_ms,state_en,areas_ms,areas_en
+JHR01,Johor,Johor,Pulau Aur dan Pulau Pemanggil,Pulau Aur and Pulau Pemanggil
+JHR02,Johor,Johor,"Johor Bahru, Kota Tinggi, Mersing, Kulai","Johor Bahru, Kota Tinggi, Mersing, Kulai"
+JHR03,Johor,Johor,"Kluang, Pontian","Kluang, Pontian"
+JHR04,Johor,Johor,"Batu Pahat, Muar, Segamat, Gemas Johor, Tangkak","Batu Pahat, Muar, Segamat, Gemas Johor, Tangkak"
+KDH01,Kedah,Kedah,"Kota Setar, Kubang Pasu, Pokok Sena (Daerah Kecil)","Kota Setar, Kubang Pasu, Pokok Sena (Sub-district)"
+KDH02,Kedah,Kedah,"Kuala Muda, Yan, Pendang","Kuala Muda, Yan, Pendang"
+KDH03,Kedah,Kedah,"Padang Terap, Sik","Padang Terap, Sik"
+KDH04,Kedah,Kedah,Baling,Baling
+KDH05,Kedah,Kedah,"Bandar Baharu, Kulim","Bandar Baharu, Kulim"
+KDH06,Kedah,Kedah,Langkawi,Langkawi
+KDH07,Kedah,Kedah,Puncak Gunung Jerai,Gunung Jerai Summit
+KTN01,Kelantan,Kelantan,"Bachok, Kota Bharu, Machang, Pasir Mas, Pasir Puteh, Tanah Merah, Tumpat, Kuala Krai, Mukim Chiku","Bachok, Kota Bharu, Machang, Pasir Mas, Pasir Puteh, Tanah Merah, Tumpat, Kuala Krai, Mukim Chiku"
+KTN02,Kelantan,Kelantan,"Gua Musang (Daerah Galas Dan Bertam), Jeli, Jajahan Kecil Lojing","Gua Musang (Galas and Bertam Districts), Jeli, Lojing Sub-district"
+MLK01,Melaka,Melaka,SELURUH NEGERI MELAKA,All of Melaka
+NGS01,Negeri Sembilan,Negeri Sembilan,"Tampin, Jempol","Tampin, Jempol"
+NGS02,Negeri Sembilan,Negeri Sembilan,"Jelebu, Kuala Pilah, Rembau","Jelebu, Kuala Pilah, Rembau"
+NGS03,Negeri Sembilan,Negeri Sembilan,"Port Dickson, Seremban","Port Dickson, Seremban"
+PHG01,Pahang,Pahang,Pulau Tioman,Pulau Tioman
+PHG02,Pahang,Pahang,"Kuantan, Pekan, Muadzam Shah","Kuantan, Pekan, Muadzam Shah"
+PHG03,Pahang,Pahang,"Jerantut, Temerloh, Maran, Bera, Chenor, Jengka","Jerantut, Temerloh, Maran, Bera, Chenor, Jengka"
+PHG04,Pahang,Pahang,"Bentong, Lipis, Raub","Bentong, Lipis, Raub"
+PHG05,Pahang,Pahang,"Genting Sempah, Janda Baik, Bukit Tinggi","Genting Sempah, Janda Baik, Bukit Tinggi"
+PHG06,Pahang,Pahang,"Cameron Highlands, Genting Higlands, Bukit Fraser","Cameron Highlands, Genting Highlands, Bukit Fraser"
+PHG07,Pahang,Pahang,"Daerah Rompin, (Mukim Rompin, Mukim Endau, Mukim Pontian)","Rompin District (Mukim Rompin, Mukim Endau, Mukim Pontian)"
+PLS01,Perlis,Perlis,"Kangar, Padang Besar, Arau","Kangar, Padang Besar, Arau"
+PNG01,Pulau Pinang,Penang,Seluruh Negeri Pulau Pinang,All of Penang
+PRK01,Perak,Perak,"Tapah, Slim River, Tanjung Malim","Tapah, Slim River, Tanjung Malim"
+PRK02,Perak,Perak,"Kuala Kangsar, Sg. Siput , Ipoh, Batu Gajah, Kampar","Kuala Kangsar, Sungai Siput, Ipoh, Batu Gajah, Kampar"
+PRK03,Perak,Perak,"Lenggong, Pengkalan Hulu, Grik","Lenggong, Pengkalan Hulu, Grik"
+PRK04,Perak,Perak,"Temengor, Belum","Temengor, Belum"
+PRK05,Perak,Perak,"Kg Gajah, Teluk Intan, Bagan Datuk, Seri Iskandar, Beruas, Parit, Lumut, Sitiawan, Pulau Pangkor","Kampung Gajah, Teluk Intan, Bagan Datuk, Seri Iskandar, Beruas, Parit, Lumut, Sitiawan, Pulau Pangkor"
+PRK06,Perak,Perak,"Selama, Taiping, Bagan Serai, Parit Buntar","Selama, Taiping, Bagan Serai, Parit Buntar"
+PRK07,Perak,Perak,Bukit Larut,Bukit Larut
+SBH01,Sabah,Sabah,"Bahagian Sandakan (Timur), Bukit Garam, Semawang, Temanggong, Tambisan, Bandar Sandakan, Sukau","Sandakan Division (East), Bukit Garam, Semawang, Temanggong, Tambisan, Sandakan Town, Sukau"
+SBH02,Sabah,Sabah,"Beluran, Telupid, Pinangah, Terusan, Kuamut, Bahagian Sandakan (Barat)","Beluran, Telupid, Pinangah, Terusan, Kuamut, Sandakan Division (West)"
+SBH03,Sabah,Sabah,"Lahad Datu, Silabukan, Kunak, Sahabat, Semporna, Tungku, Bahagian Tawau (Timur)","Lahad Datu, Silabukan, Kunak, Sahabat, Semporna, Tungku, Tawau Division (East)"
+SBH04,Sabah,Sabah,"Bandar Tawau, Balong, Merotai, Kalabakan, Bahagian Tawau (Barat)","Tawau Town, Balong, Merotai, Kalabakan, Tawau Division (West)"
+SBH05,Sabah,Sabah,"Kudat, Kota Marudu, Pitas, Pulau Banggi, Bahagian Kudat","Kudat, Kota Marudu, Pitas, Pulau Banggi, Kudat Division"
+SBH06,Sabah,Sabah,Gunung Kinabalu,Gunung Kinabalu
+SBH07,Sabah,Sabah,"Kota Kinabalu, Ranau, Kota Belud, Tuaran, Penampang, Papar, Putatan, Bahagian Pantai Barat","Kota Kinabalu, Ranau, Kota Belud, Tuaran, Penampang, Papar, Putatan, West Coast Division"
+SBH08,Sabah,Sabah,"Pensiangan, Keningau, Tambunan, Nabawan, Bahagian Pendalaman (Atas)","Pensiangan, Keningau, Tambunan, Nabawan, Interior Division (Upper)"
+SBH09,Sabah,Sabah,"Beaufort, Kuala Penyu, Sipitang, Tenom, Long Pasia, Membakut, Weston, Bahagian Pendalaman (Bawah)","Beaufort, Kuala Penyu, Sipitang, Tenom, Long Pasia, Membakut, Weston, Interior Division (Lower)"
+SGR01,Selangor,Selangor,"Gombak, Petaling, Sepang, Hulu Langat, Hulu Selangor, S.Alam","Gombak, Petaling, Sepang, Hulu Langat, Hulu Selangor, Shah Alam"
+SGR02,Selangor,Selangor,"Kuala Selangor, Sabak Bernam","Kuala Selangor, Sabak Bernam"
+SGR03,Selangor,Selangor,"Klang, Kuala Langat","Klang, Kuala Langat"
+SWK01,Sarawak,Sarawak,"Limbang, Lawas, Sundar, Trusan","Limbang, Lawas, Sundar, Trusan"
+SWK02,Sarawak,Sarawak,"Miri, Niah, Bekenu, Sibuti, Marudi","Miri, Niah, Bekenu, Sibuti, Marudi"
+SWK03,Sarawak,Sarawak,"Pandan, Belaga, Suai, Tatau, Sebauh, Bintulu","Pandan, Belaga, Suai, Tatau, Sebauh, Bintulu"
+SWK04,Sarawak,Sarawak,"Sibu, Mukah, Dalat, Song, Igan, Oya, Balingian, Kanowit, Kapit","Sibu, Mukah, Dalat, Song, Igan, Oya, Balingian, Kanowit, Kapit"
+SWK05,Sarawak,Sarawak,"Sarikei, Matu, Julau, Rajang, Daro, Bintangor, Belawai","Sarikei, Matu, Julau, Rajang, Daro, Bintangor, Belawai"
+SWK06,Sarawak,Sarawak,"Lubok Antu, Sri Aman, Roban, Debak, Kabong, Lingga, Engkelili, Betong, Spaoh, Pusa, Saratok","Lubok Antu, Sri Aman, Roban, Debak, Kabong, Lingga, Engkelili, Betong, Spaoh, Pusa, Saratok"
+SWK07,Sarawak,Sarawak,"Serian, Simunjan, Samarahan, Sebuyau, Meludam","Serian, Simunjan, Samarahan, Sebuyau, Meludam"
+SWK08,Sarawak,Sarawak,"Kuching, Bau, Lundu, Sematan","Kuching, Bau, Lundu, Sematan"
+SWK09,Sarawak,Sarawak,Zon Khas (Kampung Patarikan),Special Zone (Kampung Patarikan)
+TRG01,Terengganu,Terengganu,"Kuala Terengganu, Marang, Kuala Nerus","Kuala Terengganu, Marang, Kuala Nerus"
+TRG02,Terengganu,Terengganu,"Besut, Setiu","Besut, Setiu"
+TRG03,Terengganu,Terengganu,Hulu Terengganu,Hulu Terengganu
+TRG04,Terengganu,Terengganu,"Dungun, Kemaman","Dungun, Kemaman"
+WLY01,Wilayah Persekutuan,Federal Territories,"Kuala Lumpur, Putrajaya","Kuala Lumpur, Putrajaya"
+WLY02,Wilayah Persekutuan,Federal Territories,Labuan,Labuan

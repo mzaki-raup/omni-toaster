@@ -349,6 +349,11 @@ dilabel sebagai dikira. Sama ada set data JAKIM boleh disertakan bersama
 keluaran akan diputuskan oleh semakan terma dalam Fasa 9 — sehingga itu, data
 diambil atau dimuat turun oleh pengguna.
 
+Koordinat tempat dalam jadual zon datang daripada
+[GeoNames](https://www.geonames.org/), dilesenkan di bawah
+[CC BY 4.0](https://creativecommons.org/licenses/by/4.0/); kod dan nama zon
+ialah milik JAKIM ([data/README.md](data/README.md)).
+
 Data cuaca datang daripada [Open-Meteo](https://open-meteo.com/) di bawah
 termanya sendiri. Pengiraan waktu solat menggunakan crate
 [`adhan`](https://crates.io/crates/adhan).

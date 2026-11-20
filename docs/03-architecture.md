@@ -26,7 +26,7 @@ omni-toaster/
 │   └── ot-media/               # audio playback (rodio), speech (SpeechSynthesizer)
 ├── locales/{en-US,ms-MY}/omni_toaster.ftl
 ├── assets/
-├── data/jakim_zones.csv
+├── data/jakim_zones.csv, jakim_zone_points.csv
 ├── tests/fixtures/
 ├── docs/
 └── scripts/

@@ -100,7 +100,6 @@ notification_log  (id, reminder_id, fired_at, action, source)
 asset             (id, sha256 PK, kind, relative_path, bytes, created_at,
                    label)                                   -- the name the user gave it in the image library
 weather_cache     (location_id, fetched_at, payload_json)
-jakim_zones       (zone_code PK, state_en, state_ms, area_en, area_ms, lat, lon)
 jakim_prayer_cache (zone_code, date, hijri, imsak, fajr, syuruk, dhuha,
                     dhuhr, asr, maghrib, isha, fetched_at, source,
                     PRIMARY KEY (zone_code, date))
@@ -116,7 +115,7 @@ edited once it has shipped; a correction is a new migration.
 | `001_init.sql` | 0 | `settings`, `location`, `category`, `reminder`, `snooze_log`, `notification_log`, `asset`, `weather_cache` |
 | `002_asset_label.sql` | 2 | `asset.label`, the name a picture has in the image library |
 | `003_locale_keys.sql` | 4 | the `category` key columns (one template per key), `authored_lang` on `category` and `reminder`, and a template row for each built-in reminder type key |
-| `004_jakim.sql` | 5 | `jakim_zones`, `jakim_prayer_cache` |
+| `004_jakim.sql` | 5 | `jakim_prayer_cache`. The zone table is embedded data — `data/jakim_zones.csv` and `data/jakim_zone_points.csv` — not a database table (FEAT-0050) |
 
 Every migration is tested on both a fresh database and an existing one
 ([.claude/rules/testing.md](../.claude/rules/testing.md)).

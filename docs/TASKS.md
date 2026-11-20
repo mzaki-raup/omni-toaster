@@ -155,16 +155,18 @@ disabled; prayer labels match the reference table in both languages.
 - **Notes:** A spike writes no code, so there is no Test, Gate or App box; its record is the ADR and the fixtures. Surprises the spec had not guessed: `HH:MM:SS` times, Malay month abbreviations (`Ogos` is four letters), a status field that says "no data" inside an HTTP 200, and no data at all for a year JAKIM has not published — a gap every December.
 
 ### FEAT-0050 · The JAKIM zone table
-- **State:** Pending · **Spec:** docs/11-prayer-and-azan.md §3 · docs/05-data-model-and-storage.md · **Phase:** 5
+- **State:** In-Progress · **Spec:** docs/11-prayer-and-azan.md §3 · docs/05-data-model-and-storage.md · **Phase:** 5
 - **Branch:** feat/phase-5-prayer
 - **Depends on:** FEAT-0049
-- [ ] `data/jakim_zones.csv`: every zone code, its state, its areas in both languages, a representative latitude and longitude — with its source noted in `docs/CHANGELOG.md`
-- [ ] Nearest-zone lookup from coordinates, and the Malaysia check (a bounding box and the geolocation result's country code); outside Malaysia is refused for JAKIM
-- [ ] Embedded in the exe; changed only through a reviewed commit
-- [ ] Test: every row parses and every code is unique; each state capital maps to its expected zone family; coordinates outside Malaysia are refused; every code the spike used is present
-- [ ] Gate: fmt · clippy -D warnings · test --workspace --locked -j 4 · deny check · --self-test
+- [x] `data/jakim_zones.csv`: every zone code, its state, its areas in both languages, a representative latitude and longitude — with its source noted in `docs/CHANGELOG.md` — 60 zones as JAKIM's portal lists them, with English forms; the coordinates are a point per area in `data/jakim_zone_points.csv` (208, from GeoNames), not one per zone
+- [x] Nearest-zone lookup from coordinates, and the Malaysia check (a bounding box and the geolocation result's country code); outside Malaysia is refused for JAKIM — `ot_prayer::zones::{nearest, in_malaysia, detect}`
+- [x] Embedded in the exe; changed only through a reviewed commit — `include_str!`, parsed once
+- [x] Test: every row parses and every code is unique; each state capital maps to its expected zone family; coordinates outside Malaysia are refused; every code the spike used is present — 8 tests in `zones.rs`, the 16 state and territory capitals and three neighbouring Selangor towns among them
+- [x] Gate: fmt · clippy -D warnings · test --workspace --locked -j 4 (362 passed) · deny check · --self-test
 - [ ] App: `--data-dir ./tmp-data` — not applicable on its own — exercised through the zone picker (FEAT-0057)
-- [ ] Docs: spec · README · CHANGELOG · CHECKLIST · GOTCHAS
+- [x] Docs: spec · README · CHANGELOG · CHECKLIST · GOTCHAS
+- **Notes:** The owner chose (2026-11-20) GeoNames for the coordinates (CC BY 4.0, credited in both READMEs; the app's own credit comes with Settings ▸ Prayer, FEAT-0057) and English names that translate only the joining words. Design change, in the spec, `05-data-model`, `PROPOSAL.md` and `03-architecture` in this commit: the zone table is embedded data, not a `jakim_zones` database table, and has a point per area rather than one per zone — one centre per zone would put Petaling Jaya in Kuala Lumpur. Not placed, for want of a GeoNames entry: Lojing, Belum, Temanggong, Terusan, Balong, Meludam and SWK09's Kampung Patarikan — SWK09 is chosen, never detected. Boundary errors remain (Cyberjaya, in Sepang, is nearer Putrajaya); the confirmation step is the guard. The Malay names are JAKIM's own; the English forms want the native speaker's review with the rest of the translations before Phase 9. In-Progress until FEAT-0057's app check.
+
 ### FEAT-0051 · The JAKIM parser, against the fixtures
 - **State:** Pending · **Spec:** docs/11-prayer-and-azan.md §2 · ADR-018 · **Phase:** 5
 - **Branch:** feat/phase-5-prayer

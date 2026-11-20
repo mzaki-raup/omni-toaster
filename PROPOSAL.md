@@ -126,6 +126,7 @@ omni-toaster/
 │   └── ms-MY/omni_toaster.ftl
 ├── assets/prayer/jakim/            # Bundled JAKIM dataset (if licensing allows; Phase 9 terms check, §13)
 ├── data/jakim_zones.csv            # Zone table (reviewed commits only)
+├── data/jakim_zone_points.csv      # A point per zone area, from GeoNames (CC BY 4.0)
 ├── tests/
 │   ├── fixtures/jakim_sample.json
 │   └── fixtures/jakim_reference.csv
@@ -355,7 +356,7 @@ The e-Solat portal (`e-solat.gov.my`) publishes times by zone code. Malaysia has
 
 1. Detect location (IP lookup or manual entry, §8.7).
 2. Check that the coordinates are inside Malaysia (bounding box plus the country code from the geolocation result).
-3. Find the nearest zone from `data/jakim_zones.csv` (zone code, state and area names in both languages, representative coordinates).
+3. Find the nearest zone from `data/jakim_zones.csv` (zone code, state and area names in both languages) and `data/jakim_zone_points.csv` (a point per area, from GeoNames): the nearest area decides.
 4. Show the result on the setup screen: "Detected zone: SGR01 · Gombak, Hulu Langat, Sepang, Petaling · Selangor. Change zone?"
 5. The user confirms or picks another zone from a searchable list.
 
@@ -364,11 +365,11 @@ The e-Solat portal (`e-solat.gov.my`) publishes times by zone code. Malaysia has
 - The app stores the zone code as the source key for JAKIM times, not coordinates.
 - The zone table changes only through a reviewed commit with its source noted in `CHANGELOG.md`.
 
-**Zone table schema:**
+**Zone table:** embedded data, not a database table (FEAT-0050):
 
 ```
-jakim_zones (zone_code TEXT PK, state_en TEXT, state_ms TEXT,
-             area_en TEXT, area_ms TEXT, lat REAL, lon REAL)
+data/jakim_zones.csv        code, state_ms, state_en, areas_ms, areas_en
+data/jakim_zone_points.csv  code, place, latitude, longitude, geonameid
 ```
 
 ### 7.4 Caching and Fetch Schedule
@@ -523,7 +524,6 @@ snooze_log        (id, reminder_id, snoozed_until, count)
 notification_log  (id, reminder_id, fired_at, action, source)
 asset             (id, sha256 PK, kind, relative_path, bytes, created_at)
 weather_cache     (location_id, fetched_at, payload_json)
-jakim_zones       (zone_code PK, state_en, state_ms, area_en, area_ms, lat, lon)
 jakim_prayer_cache (zone_code, date, hijri, imsak, fajr, syuruk, dhuha,
                     dhuhr, asr, maghrib, isha, fetched_at, source,
                     PRIMARY KEY (zone_code, date))
