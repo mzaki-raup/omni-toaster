@@ -2114,6 +2114,31 @@ mod tests {
         );
     }
 
+    #[test]
+    fn jumuah_is_a_prayer_like_the_others_with_its_own_times() {
+        let mut core = with_prayers(&["dhuhr", "jumuah"], "2026-11-19T00:00Z", TimeZone::UTC);
+        core.apply(
+            Command::PrayerTimes(vec![
+                ("dhuhr".into(), instant("2026-11-19T05:02:00Z")),
+                ("jumuah".into(), instant("2026-11-20T05:02:00Z")),
+            ]),
+            instant("2026-11-19T00:00Z"),
+        );
+        let (out, fires) = fire_channel();
+        core.tick(instant("2026-11-19T05:02:00Z"), &out)
+            .expect("connected");
+        core.tick(instant("2026-11-20T05:02:00Z"), &out)
+            .expect("connected");
+        let fired: Vec<String> = fires
+            .try_iter()
+            .filter_map(|f| match f.reminder.draft.trigger {
+                Trigger::Prayer { prayer } => Some(prayer),
+                _ => None,
+            })
+            .collect();
+        assert_eq!(fired, ["dhuhr", "jumuah"]);
+    }
+
     // ---- pre-prayer reminders (FEAT-0061) ----
 
     fn pre_core(keys: &[&str], minutes: u32, times: &[(&str, &str)], now: &str) -> Core {

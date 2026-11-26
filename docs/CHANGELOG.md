@@ -13,6 +13,8 @@ Format: [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) · Versioning:
 
 ### Added
 
+- Jumu'ah: the Friday prayer can now have a notification of its own, switched on in Settings > Prayer > Notifications. On Fridays it takes the place of Dhuhr's, at the same time, with a template, a sound and a reminder ahead of it like the other prayers (FEAT-0064).
+
 - An optional reminder so many minutes before each prayer (398b5d52)
 - A sound for each prayer, played when it is time (218def3e)
 - Audio checking and playback with rodio (90e42879)
