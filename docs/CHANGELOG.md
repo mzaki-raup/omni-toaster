@@ -9,6 +9,12 @@ Format: [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) · Versioning:
 
 - (nothing yet)
 
+## 0.16.0 — 2026-11-26
+
+### Added
+
+- The full Azan is every prayer's default sound (d5e6be5a)
+
 ## 0.15.0 — 2026-11-26
 
 ### Added
