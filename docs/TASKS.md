@@ -125,13 +125,43 @@ Refs: BUG-0003
 ### Latest Vacant/Free Task
 
 ```
-Version : v0.4.1
+Version : v0.4.2
 Features : FEAT-0049
-Bugs : BUG-0013
+Bugs : BUG-0015
 Change Request : CR-0008
 ```
 
 ---
+
+## v0.4.1 — In-Progress
+
+A patch off `main` while Phase 5 is open, on `fix/bug-0013-console`.
+
+### BUG-0013 · The release exe opens a console window behind the tray icon
+- **State:** Completed · **Spec:** docs/specs/supervisor.md §7
+- **Branch:** fix/bug-0013-console
+- **Source:** the owner, running the release exe: "there is a console running background"
+- **Verified:** the release exe's PE `Subsystem` is 2, it left no `conhost` child and kept its Settings window, `--version` still reaches a redirect, `--version` printed in a terminal, and a data folder that cannot be created showed a message box
+- [x] Establish the cause: no `windows_subsystem` anywhere, so the exe was linked as a console program — `Subsystem` 3 in both the debug and the release file
+- [x] Test: `tests/subsystem.rs` reads the field from the built exe — it failed on a release build first (3, expected 2), then passed
+- [x] `#![cfg_attr(not(debug_assertions), windows_subsystem = "windows")]`; `ot_platform::console::attach` joins the parent's console only when standard output is missing, and never replaces a handle that is there; `console::report` shows a message box when there is no console, used for the startup failures and "already running"
+- [x] CI: both `ci.yml` files fail when the release exe's `Subsystem` is not 2 — written, not yet seen run
+- [x] Gate: fmt · clippy -D warnings · test --workspace --locked -j 4 (356 passed) · deny check · --self-test
+- [x] App: the release exe on a scratch folder — started with no `conhost` child and its Settings window; `--version` through `Start-Process -RedirectStandardOutput` (as the packaging script reads it) printed `OmniToaster 0.12.0`; `--self-test` passed; `--version` in the Terminal panel printed; `--data-dir` under a file, started with no handles, showed a message box titled OmniToaster with the whole error
+- [x] Docs: spec · CHANGELOG · GOTCHAS — no README change, nothing the user reads there changed
+- **Notes:** The message box is English or Malay as the startup error is, since `report` shows the text it is given. Not checked: a double click from Explorer itself, and the Malay text in the box. The `url` bump below rode on this branch because the gate was red without it.
+
+### BUG-0014 · `cargo deny` fails on RUSTSEC-2026-0592 in `url` 2.5.8
+- **State:** Completed · **Spec:** docs/06-security-and-privacy.md
+- **Branch:** fix/bug-0013-console
+- **Source:** `cargo deny check` went red on a branch with no change to dependencies — the case the testing rules describe
+- **Verified:** `cargo deny check` — advisories, bans, licenses and sources ok — and `cargo build --workspace --locked`
+- [x] Establish whether the code reaches the vulnerable path. **It does not:** `url` arrives only through `webbrowser`, from `egui-winit`'s link opening, and nothing in the repository calls `Url::origin()` or opens a URL a user can supply. The bump was taken anyway
+- [x] `cargo update -p url`: `url` 2.5.8 → 2.5.9 and `form_urlencoded` 1.2.2 → 1.2.3, nothing else
+- [x] Gate: fmt · clippy -D warnings · test --workspace --locked -j 4 · deny check · --self-test
+- [x] App: not applicable — no behaviour changed
+- [x] Docs: CHANGELOG · TASKS
+- **Notes:** No release shipped exposed to this in a way that mattered.
 
 ## v0.4.0 — In-Progress
 

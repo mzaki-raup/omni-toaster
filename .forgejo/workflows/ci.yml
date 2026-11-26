@@ -143,6 +143,12 @@ jobs:
         run: |
           $ErrorActionPreference = "Stop"
           $exe = "$env:CARGO_TARGET_DIR/release/OmniToaster.exe"
+          # BUG-0013: a release exe is a GUI-subsystem program, or Windows opens a
+          # console window behind the tray icon. The PE Subsystem field is 2 for
+          # GUI and 3 for console.
+          $bytes = [System.IO.File]::ReadAllBytes((Resolve-Path $exe).Path)
+          $subsystem = [BitConverter]::ToUInt16($bytes, [BitConverter]::ToInt32($bytes, 0x3C) + 0x5C)
+          if ($subsystem -ne 2) { throw "OmniToaster.exe is subsystem $subsystem; a release build must be 2 (GUI) so no console window opens" }
           # RUNNER_TEMP is not set by every runner; fall back to the system temp dir.
           $base = if ($env:RUNNER_TEMP) { $env:RUNNER_TEMP } else { [System.IO.Path]::GetTempPath() }
           $tmp = Join-Path $base "ot-smoke-$([guid]::NewGuid().ToString('N').Substring(0, 8))"
