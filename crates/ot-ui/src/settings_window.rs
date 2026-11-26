@@ -337,6 +337,8 @@ pub struct SettingsWindow {
     /// The service that keeps the day's times current while Settings is closed;
     /// `None` until `run` starts it, and in the layout tests (FEAT-0058).
     prayer_service: Option<crate::prayer_service::Service>,
+    /// Where today's prayer times came from, for the label on a prayer's toast.
+    prayer_source: Option<ot_prayer::chain::Source>,
     /// The list's rows, built when a list arrives, never per frame.
     reminder_rows: Option<Vec<crate::reminders::ListRow>>,
     /// The reminder being edited, if any.
@@ -478,6 +480,7 @@ impl SettingsWindow {
             book: None,
             prayer: crate::prayer_pane::State::new(&root_path),
             prayer_service: None,
+            prayer_source: None,
             reminder_rows: None,
             editor: None,
             reminder_history: Vec::new(),
@@ -2219,10 +2222,13 @@ impl SettingsWindow {
             // A prayer is its own toast, ahead of everything, and a pause does
             // not hold it back (`docs/specs/tray-and-settings.md` §4).
             if let Some(prayer) = prayer {
+                let note = self.prayer_source.map(crate::prayer_pane::source_label);
                 let spec = crate::reminder_toast::prayer_spec(
                     &self.prefs,
                     &prayer,
+                    fired.template.as_ref(),
                     Some(formatted_time(now)),
+                    note,
                 );
                 let persistent = spec.behaviour.persistent;
                 let id = self.toasts.push_first(spec, Instant::now());
@@ -2294,6 +2300,7 @@ impl SettingsWindow {
         };
         for note in service.drain() {
             match note {
+                crate::prayer_service::Note::Source(source) => self.prayer_source = Some(source),
                 crate::prayer_service::Note::Unavailable => {
                     if self.pause.is_active(jiff::Timestamp::now()) {
                         continue;

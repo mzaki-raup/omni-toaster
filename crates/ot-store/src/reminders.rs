@@ -44,6 +44,19 @@ pub enum Trigger {
     Prayer { prayer: String },
 }
 
+/// What the user wrote for a prayer's template; `None` is the built-in.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct PrayerTemplateEdit {
+    pub title: Option<String>,
+    pub body: Option<String>,
+    /// `#rrggbb`.
+    pub accent: Option<String>,
+    /// A library picture's `sha256`.
+    pub image: Option<String>,
+    /// `en-US` or `ms-MY`: the language the text was typed in.
+    pub authored_lang: &'static str,
+}
+
 /// The prayers a managed reminder can be for, by the key the scheduler is
 /// given their times under, in the order of the day.
 pub const PRAYERS: [&str; 6] = ["fajr", "syuruk", "dhuhr", "asr", "maghrib", "isha"];
@@ -280,6 +293,9 @@ pub struct Template {
     /// The built-in reminder type, `reminder-event` and so on; `None` for a
     /// template that is not a reminder type's.
     pub type_key: Option<String>,
+    /// The prayer this template is for, one of [`PRAYERS`]; `None` for any
+    /// other template.
+    pub prayer_key: Option<String>,
     pub custom_title: Option<String>,
     pub custom_body: Option<String>,
     /// `#rrggbb`, as the editor stores it.
@@ -485,6 +501,7 @@ impl Store {
             })?;
             changed = true;
         }
+        self.link_prayer_templates()?;
         Ok(changed)
     }
 
@@ -560,7 +577,7 @@ impl Store {
         Ok(self
             .conn
             .query_row(
-                "SELECT c.id, c.type_key, c.custom_title, c.custom_body, c.accent_color,                  a.relative_path FROM category c LEFT JOIN asset a ON a.sha256 = c.image_id                  WHERE c.id = ?1",
+                "SELECT c.id, c.type_key, c.custom_title, c.custom_body, c.accent_color,                  a.relative_path, c.prayer_key FROM category c LEFT JOIN asset a ON a.sha256 = c.image_id                  WHERE c.id = ?1",
                 params![id],
                 |row| {
                     Ok(Template {
@@ -570,6 +587,7 @@ impl Store {
                         custom_body: row.get(3)?,
                         accent_color: row.get(4)?,
                         image: row.get(5)?,
+                        prayer_key: row.get(6)?,
                     })
                 },
             )
@@ -577,6 +595,59 @@ impl Store {
     }
 
     /// The template of a built-in reminder type, by its key.
+    /// A prayer's template, seeded by migration 005.
+    pub fn template_for_prayer(&self, prayer: &str) -> Result<Option<Template>, StoreError> {
+        let id: Option<i64> = self
+            .conn
+            .query_row(
+                "SELECT id FROM category WHERE prayer_key = ?1",
+                params![prayer],
+                |row| row.get(0),
+            )
+            .optional()?;
+        id.map_or(Ok(None), |id| self.template(id))
+    }
+
+    /// Save what the user wrote for a prayer's template. `None` and empty text
+    /// mean "the built-in text in the active language", so "Use Default Text"
+    /// is saving `None`. `accent` is `#rrggbb` or `None`; `image` is the
+    /// library picture's `sha256` or `None` for the built-in one.
+    /// `authored_lang` is the language the text was typed in.
+    pub fn set_prayer_template(
+        &self,
+        prayer: &str,
+        edit: &PrayerTemplateEdit,
+    ) -> Result<bool, StoreError> {
+        let text = |value: &Option<String>| {
+            value
+                .as_deref()
+                .map(str::trim)
+                .filter(|t| !t.is_empty())
+                .map(str::to_owned)
+        };
+        let (title, body) = (text(&edit.title), text(&edit.body));
+        let lang = (title.is_some() || body.is_some()).then_some(edit.authored_lang);
+        let changed = self.conn.execute(
+            "UPDATE category SET custom_title = ?2, custom_body = ?3, accent_color = ?4, \
+             image_id = ?5, authored_lang = ?6 WHERE prayer_key = ?1",
+            params![prayer, title, body, edit.accent, edit.image, lang],
+        )?;
+        Ok(changed == 1)
+    }
+
+    /// Point each prayer's managed reminder at its template, so a fire carries
+    /// it. Only the link changes: the stored next time is left alone.
+    pub fn link_prayer_templates(&self) -> Result<(), StoreError> {
+        self.conn.execute(
+            "UPDATE reminder SET category_id = (SELECT c.id FROM category c WHERE c.prayer_key = \
+             json_extract(reminder.trigger_json, '$.prayer')) \
+             WHERE trigger_type = 'prayer' AND category_id IS NOT \
+             (SELECT c.id FROM category c WHERE c.prayer_key = json_extract(reminder.trigger_json, '$.prayer'))",
+            [],
+        )?;
+        Ok(())
+    }
+
     pub fn template_for_type(&self, type_key: &str) -> Result<Option<Template>, StoreError> {
         let id: Option<i64> = self
             .conn
@@ -1080,6 +1151,115 @@ mod tests {
                 prayer: "fajr".into()
             }
             .is_fatigue()
+        );
+    }
+
+    #[test]
+    fn every_prayer_has_a_seeded_template_with_nothing_of_the_users_in_it() {
+        let store = Store::open_in_memory().expect("opens");
+        for prayer in PRAYERS {
+            let template = store
+                .template_for_prayer(prayer)
+                .expect("reads")
+                .unwrap_or_else(|| panic!("{prayer} has no template"));
+            assert_eq!(template.prayer_key.as_deref(), Some(prayer));
+            assert_eq!(
+                (
+                    template.custom_title,
+                    template.custom_body,
+                    template.accent_color,
+                    template.image
+                ),
+                (None, None, None, None),
+                "the built-in text and picture until the user writes some"
+            );
+        }
+        assert!(store.template_for_prayer("imsak").expect("reads").is_none());
+    }
+
+    #[test]
+    fn a_prayers_template_keeps_what_was_written_and_default_text_clears_it() {
+        let store = Store::open_in_memory().expect("opens");
+        let written = PrayerTemplateEdit {
+            title: Some("  Masuk Subuh  ".to_owned()),
+            body: Some("Bangun dan solat.".to_owned()),
+            accent: Some("#3b9eff".to_owned()),
+            image: None,
+            authored_lang: "ms-MY",
+        };
+        assert!(store.set_prayer_template("fajr", &written).expect("saved"));
+        let fajr = store
+            .template_for_prayer("fajr")
+            .expect("reads")
+            .expect("there");
+        assert_eq!(fajr.custom_title.as_deref(), Some("Masuk Subuh"), "trimmed");
+        assert_eq!(fajr.custom_body.as_deref(), Some("Bangun dan solat."));
+        assert_eq!(fajr.accent_color.as_deref(), Some("#3b9eff"));
+        // Another prayer is untouched.
+        let dhuhr = store
+            .template_for_prayer("dhuhr")
+            .expect("reads")
+            .expect("there");
+        assert_eq!(dhuhr.custom_title, None);
+
+        // "Use Default Text": saving nothing restores the built-in.
+        let cleared = PrayerTemplateEdit {
+            title: Some("   ".to_owned()),
+            body: None,
+            accent: None,
+            image: None,
+            authored_lang: "en-US",
+        };
+        store.set_prayer_template("fajr", &cleared).expect("saved");
+        let fajr = store
+            .template_for_prayer("fajr")
+            .expect("reads")
+            .expect("there");
+        assert_eq!(
+            (fajr.custom_title, fajr.custom_body, fajr.accent_color),
+            (None, None, None)
+        );
+        assert!(
+            !store
+                .set_prayer_template("imsak", &written)
+                .expect("no such prayer")
+        );
+    }
+
+    #[test]
+    fn each_prayer_reminder_carries_its_template_after_a_sync() {
+        let store = Store::open_in_memory().expect("opens");
+        store
+            .sync_prayer_reminders(&["fajr", "isha"])
+            .expect("synced");
+        for reminder in store.reminders().expect("reads") {
+            let Trigger::Prayer { prayer } = &reminder.draft.trigger else {
+                continue;
+            };
+            let template = store
+                .template_for_prayer(prayer)
+                .expect("reads")
+                .expect("seeded");
+            assert_eq!(reminder.draft.category_id, Some(template.id), "{prayer}");
+        }
+        // The link is repaired, not only made: a row with none gets it back,
+        // and its stored next time is left alone.
+        let id = store.reminders().expect("reads")[0].id;
+        store
+            .set_next_fire_at(id, Some("2026-11-19T05:00:00Z".parse().expect("instant")))
+            .expect("stored");
+        store
+            .connection()
+            .execute("UPDATE reminder SET category_id = NULL", [])
+            .expect("unlinked");
+        store
+            .sync_prayer_reminders(&["fajr", "isha"])
+            .expect("synced");
+        let again = store.reminder(id).expect("reads").expect("there");
+        assert!(again.draft.category_id.is_some(), "the link is back");
+        assert_eq!(
+            again.next_fire_at,
+            Some("2026-11-19T05:00:00Z".parse().expect("instant"))
         );
     }
 }

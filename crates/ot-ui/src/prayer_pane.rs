@@ -34,6 +34,22 @@ const LISTED: [(Prayer, &str); 6] = [
     (Prayer::Isha, "prayer-name-isha"),
 ];
 
+/// The source label in the active language, with when the times were fetched in
+/// Malaysian time, which is the zone JAKIM's times are in.
+pub fn source_label(source: Source) -> String {
+    let tz = TimeZone::get(MALAYSIA_TZ).unwrap_or(TimeZone::UTC);
+    let fetched = source
+        .fetched_at()
+        .map(|at| {
+            ot_i18n::format::format_datetime(
+                &at.to_zoned_datetime(tz.clone()).datetime(),
+                ot_i18n::format::TimePrefs::current(),
+            )
+        })
+        .unwrap_or_default();
+    ot_i18n::text_with(source.label_key(), &[("time", fetched.into())])
+}
+
 /// A prayer's name in both languages, from the scheduler's key.
 pub fn prayer_name(key: &str) -> String {
     LISTED
@@ -315,17 +331,7 @@ impl State {
                 ));
             }
         }
-        let fetched = resolved
-            .source
-            .fetched_at()
-            .map(|at| {
-                ot_i18n::format::format_datetime(
-                    &at.to_zoned_datetime(tz.clone()).datetime(),
-                    prefs,
-                )
-            })
-            .unwrap_or_default();
-        self.label = ot_i18n::text_with(resolved.source.label_key(), &[("time", fetched.into())]);
+        self.label = source_label(resolved.source);
     }
 
     /// The zone list as formatted rows (code, line), rebuilt only when the search

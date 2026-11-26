@@ -24,7 +24,7 @@ use std::time::Duration;
 use jiff::tz::TimeZone;
 use jiff::{SignedDuration, Timestamp};
 use ot_core::{DataRoot, Settings};
-use ot_prayer::chain::{Cache, Fetch, Resolution, SourceChoice, should_toast};
+use ot_prayer::chain::{Cache, Fetch, Resolution, Source, SourceChoice, should_toast};
 use ot_prayer::fetch::{self, Cancel, FetchError, Fetched, Range};
 use ot_prayer::jakim::Prayer;
 use ot_prayer::location::{
@@ -54,6 +54,8 @@ const DETECT_RETRY: SignedDuration = SignedDuration::from_hours(1);
 pub enum Note {
     /// No source could give today's times — shown once a day.
     Unavailable,
+    /// Where today's times came from, for the label on a prayer's toast.
+    Source(Source),
 }
 
 /// What the window tells the service.
@@ -71,6 +73,8 @@ pub struct Report {
     pub next_run: Timestamp,
     /// Whether the user should be told that no times are available.
     pub unavailable: bool,
+    /// Where today's times came from, when there are any.
+    pub source: Option<Source>,
 }
 
 /// A fetch that is never made: the chain run for the day's times must not fetch,
@@ -178,6 +182,7 @@ impl Engine {
                 return Report {
                     next_run: now + SignedDuration::from_mins(1),
                     unavailable: false,
+                    source: None,
                 };
             }
         };
@@ -238,12 +243,14 @@ impl Engine {
         // Today's and tomorrow's times, through the chain with no fetch of its own.
         let mut times: Vec<(String, Timestamp)> = Vec::new();
         let mut any = false;
+        let mut source = None;
         for days_ahead in 0..2 {
             let at = now + SignedDuration::from_hours(24 * days_ahead);
             if let Resolution::Times(resolved) =
                 prayer::resolve_day(&store, &NoFetch, &plan, at, &self.cancel)
             {
                 any = true;
+                source.get_or_insert(resolved.source);
                 times.extend(resolved.times.into_iter().filter_map(|(prayer, at)| {
                     let key = key_of(prayer)?;
                     enabled
@@ -263,6 +270,7 @@ impl Engine {
         Report {
             next_run: self.next_run(&store, &plan, wants_jakim, saved.as_ref(), consent, now),
             unavailable,
+            source,
         }
     }
 
@@ -464,6 +472,9 @@ fn serve(mut engine: Engine, incoming: &Receiver<Msg>, notes: &SyncSender<Note>)
             due = false;
             if report.unavailable {
                 let _ = notes.try_send(Note::Unavailable);
+            }
+            if let Some(source) = report.source {
+                let _ = notes.try_send(Note::Source(source));
             }
         }
         let wait = Duration::try_from(next.duration_since(Timestamp::now()))
