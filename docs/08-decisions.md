@@ -662,5 +662,9 @@ current as the Windows it runs on.
   dropped before it is delivered, and the ten-second timeout bounds the time in
   between. The worker has no path to the cache, so a late answer cannot be
   written (docs/11-prayer-and-azan.md §4).
+- **Accepted by the owner (2026-11-26):** the bounded cancel, as the working of
+  `threads-and-scheduling.md`'s "cancel must actually stop the work" with blocking
+  `ureq`, and a Windows-only workspace, as the working of `rust.md`'s "clippy must
+  pass on Linux".
 - Later HTTP callers (weather, geolocation, updates) build their agent the same
   way and cite this ADR.
