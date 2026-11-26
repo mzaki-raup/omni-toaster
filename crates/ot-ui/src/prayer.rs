@@ -257,6 +257,11 @@ pub enum Reply {
     DetectFailed(LookupError),
     Search(Result<Vec<Located>, LookupError>),
     Day(Resolution),
+    /// A prayer's template, read or just saved.
+    Template {
+        prayer: String,
+        template: Option<ot_store::reminders::Template>,
+    },
     /// A store or thread failure the pane should say out loud.
     Failed(String),
 }
@@ -383,6 +388,34 @@ impl Controller {
             if !cancel.is_cancelled() {
                 send(out, None, Some(generation), reply);
             }
+        });
+    }
+
+    /// Read a prayer's template.
+    pub fn load_template(&self, prayer: String) {
+        self.spawn("prayer-template", move |root, out| {
+            let reply = match Store::open(root).and_then(|store| store.template_for_prayer(&prayer))
+            {
+                Ok(template) => Reply::Template { prayer, template },
+                Err(error) => Reply::Failed(error.to_string()),
+            };
+            send(out, None, None, reply);
+        });
+    }
+
+    /// Save what the user wrote for a prayer's template, and answer with it as
+    /// it now stands.
+    pub fn save_template(&self, prayer: String, edit: ot_store::reminders::PrayerTemplateEdit) {
+        self.spawn("prayer-template-save", move |root, out| {
+            let saved = Store::open(root).and_then(|store| {
+                store.set_prayer_template(&prayer, &edit)?;
+                store.template_for_prayer(&prayer)
+            });
+            let reply = match saved {
+                Ok(template) => Reply::Template { prayer, template },
+                Err(error) => Reply::Failed(error.to_string()),
+            };
+            send(out, None, None, reply);
         });
     }
 

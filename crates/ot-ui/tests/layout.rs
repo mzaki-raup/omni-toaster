@@ -167,9 +167,14 @@ fn overflowing(width: f32, scale: f32) -> Vec<String> {
         None,
         Vec::new(),
     );
+    let pictures = vec![ot_ui::prayer_pane::PictureChoice {
+        sha256: "abc".to_owned(),
+        relative_path: "assets/long-label.png".to_owned(),
+        label: "Gambar masjid besar dengan menara tinggi di tepi tasik pada waktu subuh".to_owned(),
+    }];
     let now: jiff::Timestamp = "2026-11-26T04:00:00Z".parse().expect("instant");
     let mut harness = Harness::builder()
-        .with_size([width, 4000.0])
+        .with_size([width, 12000.0])
         .with_pixels_per_point(scale)
         .build_ui(|ui| {
             let columns = ot_ui::layout::columns(ui);
@@ -224,6 +229,7 @@ fn overflowing(width: f32, scale: f32) -> Vec<String> {
                 &mut prayer_state,
                 &mut prayer_settings,
                 &mut location_settings,
+                &pictures,
                 ot_ui::Tokens::DARK,
                 now,
             );
@@ -232,6 +238,7 @@ fn overflowing(width: f32, scale: f32) -> Vec<String> {
                 &mut first_run_state,
                 &mut first_run_settings,
                 &mut first_run,
+                &pictures,
                 ot_ui::Tokens::DARK,
                 now,
             );
@@ -243,7 +250,7 @@ fn overflowing(width: f32, scale: f32) -> Vec<String> {
         .set_fonts(ot_ui::settings_window::font_definitions().expect("the Windows UI font"));
     harness.run();
 
-    let pane = egui::Rect::from_min_size(egui::Pos2::ZERO, egui::vec2(width, 4000.0));
+    let pane = egui::Rect::from_min_size(egui::Pos2::ZERO, egui::vec2(width, 12000.0));
     let mut found = Vec::new();
     for node in harness.root().children_recursive() {
         // Not `node.rect()`, which panics on a node with no bounds — a text

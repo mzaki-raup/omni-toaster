@@ -48,7 +48,7 @@ bahasa:
 
 | Jenis | Fungsinya |
 |---|---|
-| **Azan** | Lima waktu solat harian, serta Syuruk dan Jumaat secara pilihan, dengan audio bagi setiap waktu dan peringatan sebelum waktu secara pilihan |
+| **Azan** | Lima waktu solat harian, serta Syuruk dan Jumaat secara pilihan, dengan tajuk, mesej, warna aksen dan gambar tersendiri bagi setiap waktu, audio bagi setiap waktu dan peringatan sebelum waktu secara pilihan |
 | **Perubahan cuaca** | Dipaparkan apabila keadaan berubah (cerah, berawan, hujan, ribut, salji, kabus) atau suhu melepasi had |
 | **Acara** | Peringatan sekali atau berulang, seperti dalam kalendar |
 | **Tugasan** | Tugasan dengan pencetus sebelum masanya |

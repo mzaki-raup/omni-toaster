@@ -1300,6 +1300,18 @@ impl SettingsWindow {
         if self.prayer.busy() {
             ui.ctx().request_repaint_after(Duration::from_millis(100));
         }
+        // The library's pictures, as the template editor's picker lists them.
+        let pictures: Vec<crate::prayer_pane::PictureChoice> = self
+            .library
+            .pictures()
+            .unwrap_or_default()
+            .iter()
+            .map(|entry| crate::prayer_pane::PictureChoice {
+                sha256: entry.picture.sha256.clone(),
+                relative_path: entry.picture.relative_path.clone(),
+                label: entry.picture.label.clone(),
+            })
+            .collect();
         let mut outcome = crate::prayer_pane::Outcome::default();
         egui::ScrollArea::vertical()
             .auto_shrink([false, false])
@@ -1309,12 +1321,26 @@ impl SettingsWindow {
                     &mut self.prayer,
                     &mut self.settings.prayer,
                     &mut self.settings.location,
+                    &pictures,
                     tokens,
                     now,
                 );
             });
         if outcome.settings_changed {
             self.save();
+        }
+        // The editor's Preview: the toast a fire would show, from the same
+        // function, to the front.
+        if let Some(preview) = outcome.preview.take() {
+            let note = self.prayer_source.map(crate::prayer_pane::source_label);
+            let spec = crate::reminder_toast::prayer_spec(
+                &self.prefs,
+                &preview.prayer,
+                Some(&preview.template),
+                Some(formatted_time(now)),
+                note,
+            );
+            self.toasts.push_first(spec, Instant::now());
         }
         // A changed setting or place is a new day to work out, now.
         if (outcome.settings_changed | self.prayer.take_changed())

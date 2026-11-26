@@ -44,7 +44,7 @@ image, accent colour, sound and style overrides — in both languages:
 
 | Type | What it does |
 |---|---|
-| **Azan prayer** | The five daily prayers, plus optional Syuruk and Jumu'ah, with per-prayer audio and an optional pre-prayer reminder |
+| **Azan prayer** | The five daily prayers, plus optional Syuruk and Jumu'ah, with a title, message, accent and picture of their own for each prayer, per-prayer audio and an optional pre-prayer reminder |
 | **Weather change** | Fires on a condition change (clear, cloudy, rain, storm, snow, fog) or a temperature threshold |
 | **Event** | A one-off or recurring calendar-style reminder |
 | **Task** | A to-do with an offset-before trigger |

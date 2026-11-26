@@ -829,3 +829,27 @@ prayer-toast-body = Masuk waktu { $prayer }.
 prayer-toast-unavailable-title = Tiada waktu solat tersedia
 # Kandungan pemberitahuan itu.
 prayer-toast-unavailable-body = OmniToaster tidak dapat mengira waktu solat hari ini. Buka Tetapan dan pilih lokasi.
+# Tajuk kumpulan tempat pemberitahuan setiap solat boleh diubah.
+prayer-template-heading = Templat Solat
+# Label senarai juntai yang memilih templat solat mana yang disunting.
+prayer-template-prayer = Solat
+# Label medan tajuk pemberitahuan solat.
+prayer-template-title = Tajuk
+# Label medan mesej pemberitahuan solat.
+prayer-template-message = Mesej
+# Kotak semak yang memberi pemberitahuan solat warna aksen tersendiri.
+prayer-template-accent-use = Guna warna aksen tersuai
+# Label senarai juntai gambar pemberitahuan solat.
+prayer-template-picture = Gambar
+# Pilihan pertama dalam senarai itu: gambar yang disertakan dengan aplikasi untuk solat ini.
+prayer-template-picture-builtin = Gambar terbina dalam
+# Petunjuk di bawah medan templat.
+prayer-template-hint = Biarkan medan kosong untuk menggunakan teks terbina dalam dalam bahasa semasa. Teks yang anda tulis disimpan seperti yang ditaip dan tidak pernah diterjemah.
+# Butang yang menyimpan templat.
+prayer-template-save = Simpan Templat
+# Butang yang mengosongkan tajuk dan mesej supaya teks terbina dalam digunakan semula.
+prayer-template-default = Guna Teks Lalai
+# Butang yang menunjukkan pemberitahuan seperti rupanya nanti.
+prayer-template-preview = Pratonton Pemberitahuan
+# Dipaparkan selepas templat disimpan.
+prayer-template-saved = Templat disimpan.

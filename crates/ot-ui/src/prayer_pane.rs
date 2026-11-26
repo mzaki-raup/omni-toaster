@@ -59,6 +59,9 @@ pub fn prayer_name(key: &str) -> String {
         .map_or_else(|| key.to_owned(), |((_, fluent), _)| ot_i18n::text(fluent))
 }
 
+/// The scheduler's key of each listed prayer, in the same order as `LISTED`.
+const LISTED_KEYS: [&str; 6] = ot_store::reminders::PRAYERS;
+
 /// Where a city search stands.
 #[derive(Debug)]
 enum Search {
@@ -110,6 +113,38 @@ pub struct State {
     system_tz: String,
     /// The saved place changed: the prayer service is told once.
     changed: bool,
+    /// Which prayer's template is being edited (an index into `LISTED`), what
+    /// is typed, and whether that prayer's saved template has been asked for.
+    template_prayer: usize,
+    edit: TemplateEdit,
+    template_loaded: Option<usize>,
+    template_saved: bool,
+}
+
+/// A template as typed: empty text is the built-in text.
+#[derive(Debug, Clone, Default)]
+struct TemplateEdit {
+    title: String,
+    message: String,
+    accent_on: bool,
+    accent: egui::Color32,
+    /// The picture's path under the data folder, or `None` for the built-in.
+    picture: Option<String>,
+}
+
+/// A picture in the library, as the template's picker lists it.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct PictureChoice {
+    pub sha256: String,
+    pub relative_path: String,
+    pub label: String,
+}
+
+/// A request to show the toast as it would look, from the editor's Preview.
+#[derive(Debug, Clone)]
+pub struct Preview {
+    pub prayer: String,
+    pub template: ot_store::reminders::Template,
 }
 
 impl State {
@@ -150,6 +185,10 @@ impl State {
                 .unwrap_or_default()
                 .to_string(),
             changed: false,
+            template_prayer: 0,
+            edit: TemplateEdit::default(),
+            template_loaded: None,
+            template_saved: false,
         }
     }
 
@@ -179,6 +218,18 @@ impl State {
         ));
         state.detect_error = Some("prayer-error-service");
         state.zone_open = true;
+        // The template editor at its fullest: text as long as the field holds, a
+        // custom accent and a picture whose label is far longer than the field.
+        // Text longer than the field is clipped by egui, which the accessibility
+        // bounds this test reads do not show: that is looked at in the app.
+        state.edit = TemplateEdit {
+            title: "Masuk waktu Subuh, bangunlah".to_string(),
+            message: "Jangan lewat, selepas azan".to_string(),
+            accent_on: true,
+            accent: egui::Color32::from_rgb(0x3b, 0x9e, 0xff),
+            picture: Some("assets/long-label.png".to_string()),
+        };
+        state.template_saved = true;
         state.day = Day::Times;
         state.rows = LISTED
             .iter()
@@ -242,6 +293,11 @@ impl State {
         for reply in self.controller.drain() {
             self.apply(reply);
         }
+        if self.template_loaded != Some(self.template_prayer) {
+            self.template_loaded = Some(self.template_prayer);
+            self.controller
+                .load_template(LISTED_KEYS[self.template_prayer].to_owned());
+        }
         if !self.loaded {
             return;
         }
@@ -295,6 +351,22 @@ impl State {
                 self.day = Day::Unavailable;
                 self.resolved = None;
                 self.rows.clear();
+            }
+            Reply::Template { prayer, template } => {
+                if prayer == LISTED_KEYS[self.template_prayer] {
+                    let template = template.unwrap_or_default();
+                    self.edit = TemplateEdit {
+                        title: template.custom_title.unwrap_or_default(),
+                        message: template.custom_body.unwrap_or_default(),
+                        accent_on: template.accent_color.is_some(),
+                        accent: template
+                            .accent_color
+                            .as_deref()
+                            .and_then(parse_hex)
+                            .unwrap_or(egui::Color32::from_rgb(0x3b, 0x9e, 0xff)),
+                        picture: template.image,
+                    };
+                }
             }
             Reply::Failed(reason) => {
                 tracing::warn!(%reason, "a prayer pane request failed");
@@ -430,10 +502,12 @@ fn note(ui: &mut egui::Ui, text: &str, colour: egui::Color32) {
 }
 
 /// What a frame of the pane changed.
-#[derive(Debug, Default, Clone, Copy)]
+#[derive(Debug, Default, Clone)]
 pub struct Outcome {
     /// `settings.toml` should be saved.
     pub settings_changed: bool,
+    /// Show this toast: the editor's Preview.
+    pub preview: Option<Preview>,
 }
 
 /// Draw the pane. The window owns the settings and saves them when
@@ -443,6 +517,7 @@ pub fn show(
     state: &mut State,
     prayer_settings: &mut PrayerSettings,
     location_settings: &mut LocationSettings,
+    pictures: &[PictureChoice],
     tokens: Tokens,
     now: Timestamp,
 ) -> Outcome {
@@ -464,6 +539,8 @@ pub fn show(
     source_block(ui, columns, state, prayer_settings, tokens, &mut outcome);
     rule(ui);
     notification_block(ui, columns, prayer_settings, tokens, &mut outcome);
+    rule(ui);
+    template_block(ui, columns, state, pictures, tokens, &mut outcome);
     rule(ui);
     today_block(ui, state, tokens);
     outcome
@@ -939,6 +1016,220 @@ fn notification_block(
         &ot_i18n::text("prayer-azan-window-hint"),
         tokens.text_dim,
     );
+}
+
+/// `text` cut to `max` characters with an ellipsis: for a name the user gave,
+/// which can be any length, and never for the app's own labels.
+fn ellipsize(text: &str, max: usize) -> String {
+    if text.chars().count() <= max {
+        return text.to_owned();
+    }
+    let kept: String = text.chars().take(max.saturating_sub(1)).collect();
+    format!("{kept}…")
+}
+
+fn parse_hex(text: &str) -> Option<egui::Color32> {
+    let hex = text.strip_prefix('#')?;
+    if hex.len() != 6 || !hex.is_ascii() {
+        return None;
+    }
+    let channel = |at: usize| u8::from_str_radix(&hex[at..at + 2], 16).ok();
+    Some(egui::Color32::from_rgb(
+        channel(0)?,
+        channel(2)?,
+        channel(4)?,
+    ))
+}
+
+fn hex(colour: egui::Color32) -> String {
+    format!("#{:02x}{:02x}{:02x}", colour.r(), colour.g(), colour.b())
+}
+
+/// What a prayer's notification says and shows (spec toast.md §8): its title,
+/// message, accent and picture, each empty meaning the built-in.
+fn template_block(
+    ui: &mut egui::Ui,
+    columns: Columns,
+    state: &mut State,
+    pictures: &[PictureChoice],
+    tokens: Tokens,
+    outcome: &mut Outcome,
+) {
+    subheading(ui, "prayer-template-heading");
+
+    // Which prayer.
+    let mut chosen = state.template_prayer;
+    layout::labelled_row(
+        ui,
+        columns,
+        &ot_i18n::text("prayer-template-prayer"),
+        |ui| {
+            egui::ComboBox::from_id_salt("prayer-template-prayer")
+                .width(columns.field)
+                .height(layout::field_height(ui) * 6.0)
+                .selected_text(ot_i18n::text(LISTED[chosen].1))
+                .show_ui(ui, |ui| {
+                    for (index, (_, key)) in LISTED.iter().enumerate() {
+                        ui.selectable_value(&mut chosen, index, ot_i18n::text(key));
+                    }
+                });
+        },
+    );
+    if chosen != state.template_prayer {
+        state.template_prayer = chosen;
+        state.template_saved = false;
+    }
+    ui.add_space(layout::ROW_GAP);
+
+    let prayer = LISTED_KEYS[state.template_prayer];
+    let name = prayer_name(prayer);
+    let field = columns.field;
+
+    // Title and message: empty is the built-in text.
+    layout::labelled_row(ui, columns, &ot_i18n::text("prayer-template-title"), |ui| {
+        ui.add_sized(
+            [field, layout::field_height(ui)],
+            egui::TextEdit::singleline(&mut state.edit.title)
+                .desired_width(field)
+                .clip_text(true)
+                .hint_text(name.clone()),
+        );
+    });
+    ui.add_space(layout::ROW_GAP);
+    layout::labelled_row(
+        ui,
+        columns,
+        &ot_i18n::text("prayer-template-message"),
+        |ui| {
+            ui.add_sized(
+                [field, layout::field_height(ui)],
+                egui::TextEdit::singleline(&mut state.edit.message)
+                    .desired_width(field)
+                    .clip_text(true)
+                    .hint_text(ot_i18n::text_with(
+                        "prayer-toast-body",
+                        &[("prayer", name.clone().into())],
+                    )),
+            );
+        },
+    );
+    ui.add_space(layout::ROW_GAP);
+
+    // The accent.
+    wrapped_checkbox(
+        ui,
+        columns.label,
+        &mut state.edit.accent_on,
+        &ot_i18n::text("prayer-template-accent-use"),
+    );
+    if state.edit.accent_on {
+        ui.horizontal(|ui| {
+            ui.add_space(columns.label);
+            egui::color_picker::color_edit_button_srgba(
+                ui,
+                &mut state.edit.accent,
+                egui::color_picker::Alpha::Opaque,
+            );
+        });
+    }
+    ui.add_space(layout::ROW_GAP);
+
+    // The picture: the built-in one for this prayer, or one from the library.
+    let shown = state
+        .edit
+        .picture
+        .as_deref()
+        .and_then(|path| pictures.iter().find(|p| p.relative_path == path))
+        .map_or_else(
+            || ot_i18n::text("prayer-template-picture-builtin"),
+            |picture| ellipsize(&picture.label, (columns.field / 9.0) as usize),
+        );
+    layout::labelled_row(
+        ui,
+        columns,
+        &ot_i18n::text("prayer-template-picture"),
+        |ui| {
+            egui::ComboBox::from_id_salt("prayer-template-picture")
+                .truncate()
+                .width(columns.field)
+                .height(layout::field_height(ui) * 6.0)
+                .selected_text(shown)
+                .show_ui(ui, |ui| {
+                    ui.selectable_value(
+                        &mut state.edit.picture,
+                        None,
+                        ot_i18n::text("prayer-template-picture-builtin"),
+                    );
+                    for picture in pictures {
+                        ui.selectable_value(
+                            &mut state.edit.picture,
+                            Some(picture.relative_path.clone()),
+                            picture.label.clone(),
+                        );
+                    }
+                });
+        },
+    );
+    layout::field_hint(
+        ui,
+        columns,
+        &ot_i18n::text("prayer-template-hint"),
+        tokens.text_dim,
+    );
+    ui.add_space(layout::ROW_GAP);
+
+    // Save, restore, preview.
+    let template = |state: &State| ot_store::reminders::Template {
+        prayer_key: Some(prayer.to_owned()),
+        custom_title: Some(state.edit.title.trim().to_owned()).filter(|t| !t.is_empty()),
+        custom_body: Some(state.edit.message.trim().to_owned()).filter(|t| !t.is_empty()),
+        accent_color: state.edit.accent_on.then(|| hex(state.edit.accent)),
+        image: state.edit.picture.clone(),
+        ..Default::default()
+    };
+    let save = |state: &mut State| {
+        let sha = state.edit.picture.as_deref().and_then(|path| {
+            pictures
+                .iter()
+                .find(|p| p.relative_path == path)
+                .map(|p| p.sha256.clone())
+        });
+        let language = if english() { "en-US" } else { "ms-MY" };
+        let saved = template(state);
+        state.controller.save_template(
+            prayer.to_owned(),
+            ot_store::reminders::PrayerTemplateEdit {
+                title: saved.custom_title,
+                body: saved.custom_body,
+                accent: saved.accent_color,
+                image: sha,
+                authored_lang: language,
+            },
+        );
+        state.template_saved = true;
+    };
+    ui.horizontal_wrapped(|ui| {
+        if button(ui, ot_i18n::text("prayer-template-save")).clicked() {
+            save(state);
+        }
+        ui.add_space(layout::OPTION_GAP - ui.spacing().item_spacing.x);
+        if button(ui, ot_i18n::text("prayer-template-default")).clicked() {
+            state.edit.title.clear();
+            state.edit.message.clear();
+            save(state);
+        }
+        ui.add_space(layout::OPTION_GAP - ui.spacing().item_spacing.x);
+        if button(ui, ot_i18n::text("prayer-template-preview")).clicked() {
+            outcome.preview = Some(Preview {
+                prayer: prayer.to_owned(),
+                template: template(state),
+            });
+        }
+    });
+    if state.template_saved {
+        ui.add_space(layout::ROW_GAP / 2.0);
+        note(ui, &ot_i18n::text("prayer-template-saved"), tokens.text_dim);
+    }
 }
 
 fn today_block(ui: &mut egui::Ui, state: &State, tokens: Tokens) {

@@ -849,3 +849,27 @@ prayer-toast-body = It is time for { $prayer }.
 prayer-toast-unavailable-title = No prayer times available
 # The body of that notification.
 prayer-toast-unavailable-body = OmniToaster could not work out today's prayer times. Open Settings and choose a location.
+# The heading of the group where each prayer's notification can be changed.
+prayer-template-heading = Prayer Templates
+# The label of the dropdown that chooses which prayer's template is edited.
+prayer-template-prayer = Prayer
+# The label of the title field of a prayer's notification.
+prayer-template-title = Title
+# The label of the message field of a prayer's notification.
+prayer-template-message = Message
+# The checkbox that gives a prayer's notification an accent colour of its own.
+prayer-template-accent-use = Use a custom accent colour
+# The label of the picture dropdown of a prayer's notification.
+prayer-template-picture = Picture
+# The first choice in that dropdown: the picture that ships with the app for this prayer.
+prayer-template-picture-builtin = Built-in picture
+# The hint under the template fields.
+prayer-template-hint = Leave a field empty to use the built-in text in the current language. Text you write is kept exactly as typed and is never translated.
+# The button that saves the template.
+prayer-template-save = Save Template
+# The button that clears the title and message so the built-in text is used again.
+prayer-template-default = Use Default Text
+# The button that shows the notification as it would look.
+prayer-template-preview = Preview Toast
+# Shown after the template was saved.
+prayer-template-saved = Template saved.
