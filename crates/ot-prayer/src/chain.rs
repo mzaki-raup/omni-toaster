@@ -300,7 +300,11 @@ impl Chain<'_> {
 
         match self.fetch.fetch(zone, fetch::range(request.today), cancel) {
             Ok(fetched) => {
-                self.cache.store(zone, &fetched.days, request.now);
+                // Checked here, not left to the `Fetch`: a cancelled resolve
+                // writes nothing, whatever answered it.
+                if !cancel.is_cancelled() {
+                    self.cache.store(zone, &fetched.days, request.now);
+                }
                 let today = fetched.days.iter().find(|day| day.date == request.today);
                 if let Some(found) = today.and_then(|day| {
                     jakim(
@@ -493,6 +497,41 @@ mod tests {
         fallback: true,
         approximate: true,
     };
+
+    /// A fetch that is cancelled while it runs and still answers: an
+    /// implementation of `Fetch` is not obliged to check the flag after the
+    /// read, so the chain must not rely on it.
+    struct CancelledMidway(Vec<PrayerDay>);
+
+    impl Fetch for CancelledMidway {
+        fn fetch(&self, zone: &str, range: Range, cancel: &Cancel) -> Result<Fetched, FetchError> {
+            cancel.cancel();
+            Ok(Fetched {
+                zone: zone.to_string(),
+                days: self.0.clone(),
+                rejected: Vec::new(),
+                requested: range,
+            })
+        }
+    }
+
+    #[test]
+    fn a_cancelled_resolve_writes_nothing_to_the_cache() {
+        let cache = MemoryCache::default();
+        let fetch = CancelledMidway(november());
+        let chain = Chain {
+            cache: &cache,
+            fetch: &fetch,
+            bundled: None,
+        };
+        let _ = chain.resolve(&request(SourceChoice::Auto, true, true), &Cancel::new());
+        assert_eq!(
+            *cache.stores.borrow(),
+            0,
+            "a late answer must not be cached"
+        );
+        assert!(cache.day("SGR01", date(2026, 11, 20)).is_none());
+    }
 
     #[test]
     fn a_fresh_cache_is_used_without_a_fetch() {

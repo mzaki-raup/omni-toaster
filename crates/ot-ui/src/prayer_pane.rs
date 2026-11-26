@@ -79,8 +79,9 @@ pub struct State {
     zone_open: bool,
     zone_query: String,
     /// The zone list for `zone_query`, rebuilt only when the text changes.
-    zone_matches: Vec<&'static Zone>,
-    zone_matches_for: Option<String>,
+    zone_rows: Vec<(String, String)>,
+    /// The query and language `zone_rows` was built for.
+    zone_rows_for: Option<(String, bool)>,
     system_tz: String,
 }
 
@@ -115,8 +116,8 @@ impl State {
             coords_note: None,
             zone_open: false,
             zone_query: String::new(),
-            zone_matches: Vec::new(),
-            zone_matches_for: None,
+            zone_rows: Vec::new(),
+            zone_rows_for: None,
             system_tz: TimeZone::system()
                 .iana_name()
                 .unwrap_or_default()
@@ -308,13 +309,21 @@ impl State {
         self.label = ot_i18n::text_with(resolved.source.label_key(), &[("time", fetched.into())]);
     }
 
-    /// Zones matching the search text, rebuilt only when the text changed.
-    fn matches(&mut self) -> &[&'static Zone] {
-        if self.zone_matches_for.as_deref() != Some(self.zone_query.as_str()) {
-            self.zone_matches = zones::search(&self.zone_query);
-            self.zone_matches_for = Some(self.zone_query.clone());
+    /// The zone list as formatted rows (code, line), rebuilt only when the search
+    /// text or the language changed — never formatted again each frame.
+    fn refresh_zone_rows(&mut self) {
+        let english = english();
+        let current = self
+            .zone_rows_for
+            .as_ref()
+            .is_some_and(|(query, language)| *query == self.zone_query && *language == english);
+        if !current {
+            self.zone_rows = zones::search(&self.zone_query)
+                .into_iter()
+                .map(|zone| (zone.code.clone(), zone_line("prayer-zone-row", zone)))
+                .collect();
+            self.zone_rows_for = Some((self.zone_query.clone(), english));
         }
-        &self.zone_matches
     }
 }
 
@@ -487,6 +496,12 @@ fn location_block(
             );
         } else {
             note(ui, &ot_i18n::text("prayer-location-none"), tokens.text_dim);
+        }
+        // Typed coordinates outside Malaysia took this PC's time zone, which may
+        // not be the place's: said where the place is shown, until it changes.
+        if let Some(text) = &state.coords_note {
+            ui.add_space(layout::ROW_GAP / 2.0);
+            note(ui, text, tokens.danger);
         }
         if let Some(key) = state.detect_error {
             ui.add_space(layout::ROW_GAP / 2.0);
@@ -742,8 +757,11 @@ fn zone_block(
                 .hint_text(ot_i18n::text("prayer-zone-search-placeholder")),
         );
         ui.add_space(layout::ROW_GAP);
-        let matches: Vec<&'static Zone> = state.matches().to_vec();
-        if matches.is_empty() {
+        state.refresh_zone_rows();
+        // Taken out for the drawing and put back, so the rows are neither cloned
+        // nor formatted again.
+        let rows = std::mem::take(&mut state.zone_rows);
+        if rows.is_empty() {
             note(ui, &ot_i18n::text("prayer-zone-no-match"), tokens.text_dim);
         } else {
             let mut picked = None;
@@ -753,19 +771,13 @@ fn zone_block(
                 .max_height(220.0)
                 .auto_shrink([false, true])
                 .show(ui, |ui| {
-                    for zone in &matches {
-                        let selected = settings.zone.as_deref() == Some(zone.code.as_str());
+                    for (code, line) in &rows {
+                        let selected = settings.zone.as_deref() == Some(code.as_str());
                         if ui
-                            .add(
-                                egui::Button::selectable(
-                                    selected,
-                                    zone_line("prayer-zone-row", zone),
-                                )
-                                .wrap(),
-                            )
+                            .add(egui::Button::selectable(selected, line.as_str()).wrap())
                             .clicked()
                         {
-                            picked = Some(zone.code.clone());
+                            picked = Some(code.clone());
                         }
                     }
                 });
@@ -776,6 +788,7 @@ fn zone_block(
                 state.mark_dirty();
             }
         }
+        state.zone_rows = rows;
     }
     ui.add_space(layout::ROW_GAP);
 }
@@ -800,7 +813,9 @@ fn calculation_block(
     layout::labelled_row(ui, columns, &ot_i18n::text("prayer-method-label"), |ui| {
         egui::ComboBox::from_id_salt("prayer-method")
             .width(columns.field)
-            .height(layout::field_height(ui))
+            // The popup's own cap: four methods need room, or the last one is
+            // hidden behind a scroll bar nobody looks for.
+            .height(layout::field_height(ui) * 6.0)
             .selected_text(ot_i18n::text(preset.name_key()))
             .show_ui(ui, |ui| {
                 for option in Preset::all() {
@@ -910,6 +925,79 @@ mod tests {
                 );
             }
         }
+    }
+
+    #[test]
+    fn the_zone_rows_are_formatted_once_per_query_and_language_not_each_frame() {
+        let dir = tempfile::tempdir().expect("a scratch folder");
+        let mut state =
+            State::for_layout_test(dir.path(), &PrayerSettings::default(), None, vec![]);
+        state.refresh_zone_rows();
+        assert_eq!(state.zone_rows.len(), zones::zones().len());
+        // Prove it is cached: a change made to the cached rows survives another
+        // refresh for the same query, and goes when the query changes.
+        state.zone_rows[0].1 = "cached".to_string();
+        state.refresh_zone_rows();
+        assert_eq!(
+            state.zone_rows[0].1, "cached",
+            "the same query rebuilds nothing"
+        );
+        state.zone_query = "selangor".to_string();
+        state.refresh_zone_rows();
+        assert!(
+            state
+                .zone_rows
+                .iter()
+                .all(|(code, _)| code.starts_with("SGR"))
+        );
+        assert!(state.zone_rows.len() < zones::zones().len());
+    }
+
+    #[test]
+    fn closing_the_window_cancels_and_the_next_draw_works_the_day_out_again() {
+        let dir = tempfile::tempdir().expect("a scratch folder");
+        std::fs::create_dir_all(dir.path().join("data")).expect("data folder");
+        // The app opens the store in `main` before any window thread exists; two
+        // threads creating a new database at once can fail on the WAL switch.
+        drop(ot_store::Store::open(dir.path()).expect("the store is created first"));
+        // Calculated, so no network is touched.
+        let settings = PrayerSettings {
+            source: "calculated".to_string(),
+            ..PrayerSettings::default()
+        };
+        let place = StoredLocation {
+            name: "Shah Alam".to_string(),
+            latitude: 3.09,
+            longitude: 101.53,
+            tz: MALAYSIA_TZ.to_string(),
+            country_code: Some("MY".to_string()),
+            origin: Origin::Manual,
+            updated_at: "2026-11-26T01:00:00Z".parse().expect("instant"),
+        };
+        let now: Timestamp = "2026-11-26T04:00:00Z".parse().expect("instant");
+        let mut state = State::for_layout_test(dir.path(), &settings, Some(place), vec![]);
+        state.plan_dirty = true;
+        state.tick(&settings, Consent::Granted, now);
+        assert!(matches!(state.day, Day::Loading), "a resolve was started");
+
+        // The window closes: the work is cancelled and the pane must not stay
+        // on "loading" for ever when it is shown again.
+        state.cancel();
+        assert!(state.plan_dirty, "the day is to be worked out again");
+        state.day = Day::Unavailable;
+        state.tick(&settings, Consent::Granted, now);
+        assert!(
+            matches!(state.day, Day::Loading),
+            "the next draw starts the resolve again"
+        );
+        // And the answer of that second resolve does arrive.
+        let deadline = std::time::Instant::now() + std::time::Duration::from_secs(10);
+        while !matches!(state.day, Day::Times) && std::time::Instant::now() < deadline {
+            state.tick(&settings, Consent::Granted, now);
+            std::thread::sleep(std::time::Duration::from_millis(10));
+        }
+        assert!(matches!(state.day, Day::Times), "the times arrive");
+        assert_eq!(state.rows.len(), 6, "the six prayers");
     }
 
     #[test]

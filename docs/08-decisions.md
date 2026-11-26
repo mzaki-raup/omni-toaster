@@ -666,6 +666,13 @@ current as the Windows it runs on.
   `threads-and-scheduling.md`'s "cancel must actually stop the work" with blocking
   `ureq`, and a Windows-only workspace, as the working of `rust.md`'s "clippy must
   pass on Linux".
+- **Note, 2026-11-26 (FEAT-0057): the basis of the owner's acceptance changed.**
+  "The worker has no path to the cache" was true when the owner accepted a bounded
+  cancel. The Prayer pane's resolve thread now writes the cache through the chain.
+  `Chain::resolve` checks the cancel flag before every store and a test holds it
+  (a `Fetch` that cancels mid-call and still answers stores nothing). A cancel
+  landing between the check and the write can still leave one complete range in
+  the cache. The owner is told, and the acceptance stands unless they say otherwise.
 - Later HTTP callers (weather, geolocation, updates) build their agent the same
   way and cite this ADR.
 

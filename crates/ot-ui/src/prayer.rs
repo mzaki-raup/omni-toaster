@@ -70,8 +70,9 @@ fn zone_point(zone: &Zone) -> Option<Place> {
         })
 }
 
-/// Decide what to ask for. A zone the user chose overrides the detected one; a
-/// chosen zone alone is enough to count as Malaysia.
+/// Decide what to ask for. A zone the user chose overrides the detected one. Whether
+/// this is Malaysia follows the saved place; a chosen zone counts only when there
+/// is no place.
 pub fn plan(settings: &PrayerSettings, saved: Option<&StoredLocation>) -> Plan {
     let source = SourceChoice::parse(&settings.source);
     let chosen = settings.zone.as_deref().and_then(zones::zone);
@@ -94,7 +95,13 @@ pub fn plan(settings: &PrayerSettings, saved: Option<&StoredLocation>) -> Plan {
             place.country_code.as_deref(),
         )
     });
-    let in_malaysia = chosen.is_some() || place_in_malaysia;
+    // Where the user is decides, not an old choice: a zone picked in Malaysia
+    // stays in the settings after a move abroad. With no place at all, a chosen
+    // zone is all there is to go on.
+    let in_malaysia = match saved {
+        Some(_) => place_in_malaysia,
+        None => chosen.is_some(),
+    };
 
     let place = saved
         .map(|place| Place {
@@ -501,6 +508,53 @@ mod tests {
     }
 
     #[test]
+    fn auto_follows_the_place_so_an_old_chosen_zone_does_not_pull_jakim_abroad() {
+        // A zone chosen in Malaysia stays in the settings after the user moves.
+        // Auto follows where they are (spec section 1), so in London it
+        // calculates for London, with the default method and no JAKIM request.
+        let abroad = plan(&settings("auto", Some("SGR01")), Some(&london()));
+        assert!(!abroad.in_malaysia, "the place decides, not the old zone");
+        assert_eq!(
+            abroad.calculation.expect("a place").preset,
+            Preset::MuslimWorldLeague
+        );
+        assert_eq!(abroad.tz, "Europe/London");
+        assert_eq!(
+            abroad.zone.map(|z| z.code.as_str()),
+            Some("SGR01"),
+            "still the chosen zone, for when the user picks JAKIM"
+        );
+
+        // With no place at all, a chosen zone is all there is to go on.
+        assert!(plan(&settings("auto", Some("SGR01")), None).in_malaysia);
+
+        // And the chain asks JAKIM nothing for that plan.
+        let store = Store::open_in_memory().expect("opens");
+        let fetch = StubFetch {
+            answer: Err(FetchError::Network("must not be called".into())),
+            calls: RefCell::new(0),
+        };
+        let resolved = resolve_day(
+            &store,
+            &fetch,
+            &abroad,
+            at("2026-11-20T01:00:00Z"),
+            &Cancel::new(),
+        );
+        let Resolution::Times(resolved) = resolved else {
+            panic!("times")
+        };
+        assert_eq!(
+            resolved.source,
+            Source::Calculated {
+                fallback: false,
+                approximate: false
+            }
+        );
+        assert_eq!(*fetch.calls.borrow(), 0);
+    }
+
+    #[test]
     fn abroad_there_is_no_zone_and_calculation_uses_the_places_own_time_zone() {
         let abroad = plan(&settings("auto", None), Some(&london()));
         assert_eq!(abroad.zone, None);
@@ -717,6 +771,9 @@ mod tests {
     fn a_newer_resolve_replaces_an_older_one_and_only_its_answer_arrives() {
         let dir = tempfile::tempdir().expect("a scratch folder");
         std::fs::create_dir_all(dir.path().join("data")).expect("data folder");
+        // As in the app, where `main` opens the store before any window thread:
+        // two threads creating a new database at once can fail on the WAL switch.
+        drop(Store::open(dir.path()).expect("the store is created first"));
         let mut controller = Controller::new(dir.path());
         let place = shah_alam();
         // Both are calculated, so neither waits on a network; the first is

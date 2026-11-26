@@ -192,8 +192,11 @@ As built (FEAT-0052), in `ot_prayer::fetch`:
 - **Cancel is bounded, not instant.** Blocking `ureq` cannot interrupt a read in
   progress, so a cancel is honoured before the request is sent and again before
   the outcome is delivered; the ten-second timeout bounds the time between. A
-  cancelled `spawn` delivers nothing, and the worker has no path to the cache,
-  so a late answer cannot be written after Settings is closed.
+  cancelled `spawn` delivers nothing. Since FEAT-0057 the resolve thread **does**
+  write the cache — through `Chain::resolve`, which now checks the flag before it
+  stores, whatever `Fetch` answered, so a cancelled resolve writes nothing. What
+  is left is a cancel arriving between that check and the write, which stores one
+  complete, valid range: harmless data, not a stale write after Settings closes.
 - The body is capped at 256 KB **as it is read**, a non-200 status is named
   (`Http(500)`), and an answer for another zone than the one asked for is
   refused.
