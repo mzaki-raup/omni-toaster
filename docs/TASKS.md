@@ -318,16 +318,16 @@ disabled; prayer labels match the reference table in both languages.
 - [x] Docs: spec · README · CHANGELOG · CHECKLIST · GOTCHAS — `docs/10-i18n.md` table · CHANGELOG · CHECKLIST; README already says prayer names show in both languages
 - **Notes:** This item carries the exit criterion "prayer labels match the reference table in both languages". Left open: Jumaat (Jumu'ah) once Jumu'ah is built.
 ### FEAT-0063 · The live reference check against the portal
-- **State:** Pending · **Spec:** docs/11-prayer-and-azan.md §11 · **Phase:** 5
+- **State:** Completed · **Spec:** docs/11-prayer-and-azan.md §11 · **Phase:** 5
 - **Branch:** feat/phase-5-prayer
 - **Depends on:** FEAT-0051, FEAT-0052
-- [ ] `tests/fixtures/jakim_reference.csv`: SGR01, WLY01 and JHR01 × five dates, captured by hand from the official portal's page with the capture date recorded
-- [ ] A test comparing a live fetch against it, not run when e-Solat is unreachable
-- [ ] The bundled-dataset question (spec §5) answered or left to the Phase 9 terms check, and said so
-- [ ] Test: the parsed fixtures and a live fetch against the captured table, three zones × five dates
-- [ ] Gate: fmt · clippy -D warnings · test --workspace --locked -j 4 · deny check · --self-test
-- [ ] App: `--data-dir ./tmp-data` — not applicable — the reference test is the check
-- [ ] Docs: spec · README · CHANGELOG · CHECKLIST · GOTCHAS
+- [x] `tests/fixtures/jakim_reference.csv`: SGR01, WLY01 and JHR01 × five dates, captured by hand from the official portal's page with the capture date recorded — at `crates/ot-prayer/tests/fixtures/`; read in the built-in browser from the portal's page, captured 2026-11-26
+- [x] A test comparing a live fetch against it, not run when e-Solat is unreachable — `a_live_fetch_matches_the_portal_for_three_zones`, `#[ignore]` as the other live test is; it passed when run with `--ignored`
+- [x] The bundled-dataset question (spec §5) answered or left to the Phase 9 terms check, and said so — left to the Phase 9 terms check; spec §5 says so
+- [x] Test: the parsed fixtures and a live fetch against the captured table, three zones × five dates — `tests/reference.rs`: the captured responses (every run) and a live fetch against the table, 3 zones × 5 dates; a changed cell fails both (mutation-checked)
+- [x] Gate: fmt · clippy -D warnings · test --workspace --locked -j 4 · deny check · --self-test — fmt · clippy · tests · deny · self-test
+- [x] App: `--data-dir ./tmp-data` — not applicable — the reference test is the check — not applicable, as the item says; the reference test is the check
+- [x] Docs: spec · README · CHANGELOG · CHECKLIST · GOTCHAS — spec §5 and §11 · CHANGELOG · CHECKLIST; README needs nothing; no GOTCHAS entry
 - **Notes:** This item carries the exit criterion "live JAKIM times match the official portal on the same dates for at least three zones". The portal page must be read by hand or in a browser the owner approves.
 
 ## v0.4.0 — In-Progress

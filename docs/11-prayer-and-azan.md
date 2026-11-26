@@ -207,6 +207,9 @@ As built (FEAT-0052), in `ot_prayer::fetch`:
   `rust-embed`.
 - Used **only** if the Phase 9 licensing review permits bundling. Otherwise the
   user triggers a download.
+- **Decided (FEAT-0063): left to the Phase 9 terms check.** Nothing is bundled
+  until then; the chain's `bundled` step exists and is tested, and finds nothing,
+  so the fallback today is cache, live fetch, calculated.
 - Its `source` is `bundled` and the UI shows "Offline data".
 - The app warns the user 30 days before the last bundled date, because bundled
   data expiring silently would stop prayer times without explanation.
@@ -418,7 +421,7 @@ table is in [10-i18n.md](10-i18n.md).
 | Check | How |
 |---|---|
 | Parser | `tests/fixtures/jakim_sample.json`, three zones |
-| Reference times | `tests/fixtures/jakim_reference.csv` — three zones (`SGR01`, `WLY01`, `JHR01`) × five dates, captured by hand from the official portal with the capture date recorded |
+| Reference times | `crates/ot-prayer/tests/fixtures/jakim_reference.csv` — three zones (`SGR01`, `WLY01`, `JHR01`) × five dates, read by hand from the portal's own page on 2026-11-26 (the page draws its table from the same service, so the check is that the app reads it as the portal shows it). `tests/reference.rs` compares the captured responses to it on every run and a live fetch to it under `--ignored` |
 | Zone mapping | State capitals map to the expected zone family; coordinates outside Malaysia are rejected for JAKIM mode |
 | Time zone | JAKIM times are read as UTC+8 even when the PC is set to another zone |
 | Fallback chain | Network disabled, HTTP 500, bad JSON, empty cache, bundled present and absent |
