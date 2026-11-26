@@ -98,6 +98,14 @@ image = { version = "0.25.10", default-features = false, features = [
     "webp",
 ] }
 
+# HTTP for the prayer fetch (ADR-002, ADR-019): blocking, on a worker thread.
+# Default features are off - no rustls, no ring, no bundled root list - and TLS
+# is Windows' own SChannel through native-tls, checking certificates against
+# the Windows store. Gzip stays off; e-Solat's answers are small.
+ureq = { version = "3.5.2", default-features = false, features = [
+    "native-tls-no-default",
+] }
+
 # Content-hashed asset names (docs/05-data-model-and-storage.md).
 sha2 = "0.11.1"
 # The window handle eframe hands over, for the title bar (CR-0002). Already in

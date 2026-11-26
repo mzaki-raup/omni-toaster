@@ -610,3 +610,57 @@ change means a new dated capture beside them and a `GOTCHAS.md` entry. The
 year boundary is a known, yearly gap the fallback chain must handle and the UI
 must label, not an outage. The endpoint stays undocumented — nothing here
 promises it will keep this shape.
+
+---
+
+## ADR-019 · `ureq` with the Windows TLS stack, for the prayer fetch
+
+**Status:** Accepted 2026-11-26 · **Phase:** 5 · **Builds on:** ADR-002 (blocking
+`ureq` on worker threads)
+
+**Context.** ADR-002 chose blocking `ureq` without saying which TLS stack it
+would use, and `ureq` 3 builds for `rustls` unless told otherwise. FEAT-0052 is
+the first HTTP in the app, and the weather fetch, the geolocation lookup and
+the update check will reuse the choice. `deny.toml` bans `openssl-sys`, and the
+exe is one static file that runs from a folder.
+
+**Options.** `rustls` with its bundled root list (what `ureq` ships by
+default) · `rustls` with the platform verifier · `native-tls`, which on Windows
+is SChannel and the Windows certificate store.
+
+**Decision.** `ureq` 3.5.2 with `default-features = false` and
+`native-tls-no-default`. The agent is configured **explicitly**:
+`TlsProvider::NativeTls` and `RootCerts::PlatformVerifier`, plus
+`https_only(true)`, a ten-second global timeout, `User-Agent:
+OmniToaster/<version>`, `http_status_as_error(false)` (the client names a 500
+itself, because e-Solat's 500 says JSON and sends HTML), and a body limit of
+`jakim::MAX_BODY` applied as the body is read. Gzip stays off: the answers are
+small.
+
+**Why Windows TLS.** The owner chose it on 2026-11-26. There is no second
+crypto library in the exe, no C or assembly build step for one (`ring`,
+`aws-lc`), and certificates are checked against the store Windows keeps up to
+date and the user's organisation may extend, rather than a root list frozen into
+a release. The cost is that the exe is not self-contained about TLS: it is as
+current as the Windows it runs on.
+
+**Consequences.**
+
+- **The configuration is not optional.** `ureq` never picks the provider up by
+  itself, and with `native-tls-no-default` its default root list
+  (`RootCerts::WebPki`) is compiled out and panics at runtime when used. A
+  build that compiles proves nothing, so the live three-zone test
+  (`cargo test -p ot-prayer -- --ignored`) is the check, and the client is
+  built in one place, `ot_prayer::fetch::Client`.
+- **`openssl-sys` stays banned**, and the reason in `deny.toml` is reworded: it
+  said "use rustls", which this decision contradicts. `deny.toml` checks the
+  Windows target only, where `native-tls` uses SChannel and no OpenSSL. On
+  Linux `native-tls` would pull in `openssl-sys`; nothing in CI builds there,
+  and a Linux build of the workspace is not supported by this decision.
+- **Cancel is bounded, not instant.** Blocking `ureq` cannot interrupt a read in
+  progress. A cancelled fetch is stopped before it sends and its result is
+  dropped before it is delivered, and the ten-second timeout bounds the time in
+  between. The worker has no path to the cache, so a late answer cannot be
+  written (docs/11-prayer-and-azan.md §4).
+- Later HTTP callers (weather, geolocation, updates) build their agent the same
+  way and cite this ADR.

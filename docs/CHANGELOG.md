@@ -13,7 +13,11 @@ Format: [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) · Versioning:
 
 - The JAKIM e-Solat parser: it reads the shape the spike verified — Malay and English month names, `HH:MM:SS` and `HH:MM` times taken as Malaysian time whatever the PC's zone — treats "no record" as no data rather than a failure, refuses an oversized body or an HTML error page, and sets aside whole any day with a missing, malformed or out-of-order time, tested against the three zones' captures and a hand-built sample of broken days (FEAT-0051).
 
+- The e-Solat client: one blocking attempt on a worker thread over Windows' own TLS (ADR-019), HTTPS only, ten-second timeout, `User-Agent: OmniToaster/<version>`, one POST for today to the end of next month, the body capped as it is read, and a cancel that stops the attempt before it sends and drops its result before it is delivered. When to look again is pure code the scheduler will call — weekly, daily while the answer stops short at the year's end, and 1, 5 and 15 minutes after a failure. Tested against a local server, and live for SGR01, WLY01 and JHR01 (FEAT-0052).
+
 ### Changed
+
+- `deny.toml`'s reason for banning `openssl-sys` no longer says "use rustls": the prayer fetch uses Windows' SChannel through `native-tls` (ADR-019), and the ban on OpenSSL stands (FEAT-0052).
 
 - Phase 5 begun with its spike: the JAKIM e-Solat endpoint verified for SGR01, WLY01 and JHR01 and recorded as ADR-018 — times are `HH:MM:SS`, dates use Malay month abbreviations, "no data" comes inside an HTTP 200, next month is a POST range, and there is no data for a year JAKIM has not published. The prayer spec now describes the verified shape, and Asar is confirmed Shafi'i. The phase is filed as FEAT-0049 to FEAT-0063 (FEAT-0049).
 

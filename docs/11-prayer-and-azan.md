@@ -156,9 +156,13 @@ country)`.
 
 - Fetch **today to the end of next month** for the selected zone once a week,
   and again whenever the zone changes — one POST `period=duration` request. When
-  next month is in a year JAKIM has not published, the range stops at
-  31 December; from then the fallback chain covers the gap, and the fetch is
-  retried daily until the new year appears (ADR-018).
+  next month is in a year JAKIM has not published, e-Solat itself stops the
+  range at 31 December (checked 2026-11-26: a range to 5 January answers with
+  the days to 31 December and `OK!`), so the client asks for the whole range
+  and reads the answer's last day instead of predicting which year is
+  published. An answer that stops short of the range is looked at again daily
+  until the new year appears, and the fallback chain covers the gap
+  (ADR-018).
 - Re-fetch if the cache is older than 30 days or has no entry for today.
 - HTTPS only, 10-second timeout, `User-Agent: OmniToaster/<version>`.
 - Retry with backoff: 1, then 5, then 15 minutes. Then wait for the next
@@ -171,8 +175,27 @@ Schema: `jakim_prayer_cache` in
 `"api"` or `"bundled"`.
 
 The fetch runs on a worker thread with blocking `ureq`
-([ADR-002](08-decisions.md)) and is cancellable — cancel must actually stop the
-work, not merely hide it.
+([ADR-002](08-decisions.md), [ADR-019](08-decisions.md)) and is cancellable —
+cancel must actually stop the work, not merely hide it.
+
+As built (FEAT-0052), in `ot_prayer::fetch`:
+
+- `Client::fetch(zone, range, &Cancel)` is **one attempt**: it never sleeps or
+  retries. `spawn` runs one on its own thread and sends the outcome over an
+  `mpsc` channel. The schedule is two pure functions the scheduler calls with an
+  outcome — `next_after_success` (weekly, or daily when the answer stopped short
+  of the range) and `next_after_failure(error, failures)` (1, 5 and 15 minutes,
+  then weekly; `NO_RECORD!` daily; a cancel or a bad zone code not at all).
+- `range(today)` is today to the last day of next month. A zone code is five
+  letters and digits, checked before it goes into a URL.
+- **Cancel is bounded, not instant.** Blocking `ureq` cannot interrupt a read in
+  progress, so a cancel is honoured before the request is sent and again before
+  the outcome is delivered; the ten-second timeout bounds the time between. A
+  cancelled `spawn` delivers nothing, and the worker has no path to the cache,
+  so a late answer cannot be written after Settings is closed.
+- The body is capped at 256 KB **as it is read**, a non-200 status is named
+  (`Http(500)`), and an answer for another zone than the one asked for is
+  refused.
 
 ## 5. Bundled dataset (option B)
 

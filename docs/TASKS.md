@@ -182,18 +182,18 @@ disabled; prayer labels match the reference table in both languages.
 - **Notes:** This item carries the exit criterion "the parser passes the fixtures for three zones" — met. Spec addition in this commit: a day whose times are out of order is set aside, as is an impossible date. In-Progress until FEAT-0052's app check.
 
 ### FEAT-0052 · The JAKIM client
-- **State:** Pending · **Spec:** docs/11-prayer-and-azan.md §4 · ADR-002 · ADR-018 · **Phase:** 5
+- **State:** In-Progress · **Spec:** docs/11-prayer-and-azan.md §4 · ADR-002 · ADR-018 · ADR-019 · **Phase:** 5
 - **Branch:** feat/phase-5-prayer
 - **Depends on:** FEAT-0051
-- [ ] Blocking `ureq` on a worker thread, HTTPS only, 10-second timeout, `User-Agent: OmniToaster/<version>` — the dependency recorded in an ADR and admitted by `cargo deny`
-- [ ] One POST `period=duration` from today to the end of next month, stopping at 31 December when next year is unpublished
-- [ ] Weekly, on a zone change and when the cache lacks today; retry 1, 5 and 15 minutes, then the next scheduled check; daily while the year's end leaves a gap; no polling loop
-- [ ] Cancellable: closing Settings mid-fetch stops the work, not only its result
-- [ ] Test: the request built from a zone and a date range; the backoff sequence; cancel stopping a fetch; the year-end range; a live fetch for three zones, not run when e-Solat is unreachable
-- [ ] Gate: fmt · clippy -D warnings · test --workspace --locked -j 4 · deny check · --self-test
-- [ ] App: `--data-dir ./tmp-data` — choose a zone and see times arrive, and the log's fetch line; with the network off, see the retry schedule in the log
-- [ ] Docs: spec · README · CHANGELOG · CHECKLIST · GOTCHAS
-- **Notes:** Tests that need e-Solat are not run when it is unreachable, and the report says so (testing.md).
+- [x] Blocking `ureq` on a worker thread, HTTPS only, 10-second timeout, `User-Agent: OmniToaster/<version>` — the dependency recorded in an ADR and admitted by `cargo deny` — ADR-019: `ureq` 3.5.2 over Windows TLS (`native-tls-no-default`, provider and platform root store set explicitly); `deny check` ok
+- [x] One POST `period=duration` from today to the end of next month, stopping at 31 December when next year is unpublished — the client asks for the whole range and e-Solat stops it at 31 December itself (probed 2026-11-26); `Fetched::cut_short` shows it, so nothing predicts which year is published. Spec §4 changed to say so
+- [x] Weekly, on a zone change and when the cache lacks today; retry 1, 5 and 15 minutes, then the next scheduled check; daily while the year's end leaves a gap; no polling loop — the schedule is `next_after_success` and `next_after_failure`, pure functions the scheduler calls; "on a zone change" and "cache lacks today" are the scheduler's and the cache's triggers (FEAT-0053, FEAT-0059)
+- [x] Cancellable: closing Settings mid-fetch stops the work, not only its result — bounded, not instant: stopped before it sends and its result dropped before delivery, the 10 s timeout bounding the rest, and the worker has no path to the cache (ADR-019, spec §4)
+- [x] Test: the request built from a zone and a date range; the backoff sequence; cancel stopping a fetch; the year-end range; a live fetch for three zones, not run when e-Solat is unreachable — 12 tests in `fetch.rs` against a local server (request, user-agent, 500, HTML, `NO_RECORD!`, wrong zone, closed port, size cap, plain HTTP refused, cancel before and in flight); the live test is `#[ignore]` and passed for SGR01, WLY01 and JHR01 in 0.46 s with `-- --ignored`
+- [x] Gate: fmt · clippy -D warnings · test --workspace --locked -j 4 · deny check · --self-test — `deny` needed `cargo update -p url` (RUSTSEC-2026-0592, not reached; same bump as BUG-0014 on `main`)
+- [ ] App: `--data-dir ./tmp-data` — choose a zone and see times arrive, and the log's fetch line; with the network off, see the retry schedule in the log — not made: nothing in the app calls the client yet. There is no zone setting (FEAT-0057) and no scheduler hook (FEAT-0059), and a debug flag only for this check was not added. The live test above exercised the real service over the real TLS stack, not the app
+- [x] Docs: spec · README · CHANGELOG · CHECKLIST · GOTCHAS — ADR-019 written; README unchanged (nothing visible yet); three GOTCHAS entries under "Weather and HTTP"; `deny.toml`'s `openssl-sys` reason reworded
+- **Notes:** The live test is `#[ignore = "needs e-Solat"]`, run explicitly, so an unreachable e-Solat is a failure you chose to run, never a silent pass. A Linux build of the workspace is not supported by ADR-019: `native-tls` would pull in `openssl-sys` there, and `deny` and CI check only Windows. In-Progress until the App box is made through FEAT-0059.
 ### FEAT-0053 · The prayer cache and migration 004
 - **State:** Pending · **Spec:** docs/11-prayer-and-azan.md §4 · docs/05-data-model-and-storage.md · **Phase:** 5
 - **Branch:** feat/phase-5-prayer
