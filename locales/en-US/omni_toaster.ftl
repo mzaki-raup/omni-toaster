@@ -914,3 +914,17 @@ error-import-audio-too-large = That clip is over 20 MB.
 error-import-not-audio = That file is not a WAV, MP3 or Ogg Vorbis clip, whatever its name says.
 # Said when an audio clip runs longer than ten minutes.
 error-import-audio-too-long = That clip runs longer than ten minutes.
+# The name of a weather condition: clear sky or mostly clear. Shown in Settings and in the weather notification.
+weather-clear = Clear
+# The name of a weather condition: partly cloudy or overcast.
+weather-cloudy = Cloudy
+# The name of a weather condition: drizzle, rain or rain showers.
+weather-rain = Rain
+# The name of a weather condition: a thunderstorm.
+weather-storm = Thunderstorm
+# The name of a weather condition: snow, snow grains or snow showers.
+weather-snow = Snow
+# The name of a weather condition: fog.
+weather-fog = Fog
+# The name shown when the weather service sends a condition this app does not know. Never an English word from the service.
+weather-unknown = Unclear conditions

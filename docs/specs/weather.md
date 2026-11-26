@@ -120,5 +120,12 @@ cargo run -p omnitoaster -- --data-dir ./tmp-data
   cache, no change detection and no toast yet: those are FEAT-0066 to FEAT-0071.
   Verified live for Kuala Lumpur, Kuching and London; the fixtures are in
   `crates/ot-weather/tests/fixtures/open-meteo-2026-11-26/`.
+- **Condition classes and keys (FEAT-0066).** `ot_weather::condition::classify` maps
+  the 29 WMO codes Open-Meteo documents to clear (0, 1), cloudy (2, 3), fog (45, 48),
+  rain (drizzle 51–57, rain 61–67, showers 80–82), snow (71–77, 85, 86) and storm
+  (95–99), and any other code to `Unknown` with a warning in the log. Each class has
+  a `weather-` key (`weather-clear`, `-cloudy`, `-rain`, `-storm`, `-snow`, `-fog`,
+  and `weather-unknown` for the generic one) in both locale files. Nothing shows
+  them yet: the pane is FEAT-0070.
 - **A licence point the owner must settle** (ADR-023): the free API is
   non-commercial and wants attribution.

@@ -13,6 +13,8 @@ Format: [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) · Versioning:
 
 ### Added
 
+- Weather conditions: the weather service's numeric codes are grouped into clear, cloudy, rain, thunderstorm, snow and fog, each named in English and Bahasa Melayu; a code the app does not know gets a generic name and a log line. Nothing displays them yet (FEAT-0066).
+
 - Weather groundwork: a client that asks Open-Meteo for the current temperature and weather code and the last few hours, over Windows' own TLS, sending coordinates rounded to two decimals, and reads the answer strictly. It is checked against captured answers for three cities and, on request, the live service; nothing in the app uses it yet (FEAT-0065).
 
 - Jumu'ah, the Friday prayer, in Dhuhr's place (36e02fe6)

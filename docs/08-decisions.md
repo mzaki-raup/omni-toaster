@@ -849,7 +849,7 @@ raw responses (`crates/ot-weather/tests/fixtures/open-meteo-2026-11-26/`, captur
   the ones sent; the app does not use them.
 - `current.time` moves in 15-minute steps (`interval: 900`), which is why a poll
   faster than 15 minutes (the spec's minimum) buys nothing.
-- Weather codes are WMO codes, a documented list of 28: 0, 1, 2, 3, 45, 48, 51,
+- Weather codes are WMO codes, a documented list of 29: 0, 1, 2, 3, 45, 48, 51,
   53, 55, 56, 57, 61, 63, 65, 66, 67, 71, 73, 75, 77, 80, 81, 82, 85, 86, 95, 96,
   97, 99. Codes 96 and 99 appear only with models that forecast hail. The API
   returns only numbers; every word is ours (FEAT-0066).

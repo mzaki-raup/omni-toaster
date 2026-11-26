@@ -891,3 +891,17 @@ error-import-audio-too-large = Klip itu melebihi 20 MB.
 error-import-not-audio = Fail itu bukan klip WAV, MP3 atau Ogg Vorbis, apa jua namanya.
 # Dinyatakan apabila klip audio berjalan lebih daripada sepuluh minit.
 error-import-audio-too-long = Klip itu berjalan lebih daripada sepuluh minit.
+# Nama keadaan cuaca: langit cerah atau kebanyakannya cerah. Dipaparkan dalam Tetapan dan dalam pemberitahuan cuaca.
+weather-clear = Cerah
+# Nama keadaan cuaca: separa berawan atau mendung.
+weather-cloudy = Berawan
+# Nama keadaan cuaca: renyai, hujan atau hujan lebat sekejap-sekejap.
+weather-rain = Hujan
+# Nama keadaan cuaca: ribut petir.
+weather-storm = Ribut petir
+# Nama keadaan cuaca: salji, butir salji atau hujan salji sekejap-sekejap.
+weather-snow = Salji
+# Nama keadaan cuaca: kabus.
+weather-fog = Kabus
+# Nama yang dipaparkan apabila perkhidmatan cuaca menghantar keadaan yang tidak dikenali aplikasi ini. Tidak pernah perkataan Inggeris daripada perkhidmatan itu.
+weather-unknown = Keadaan tidak jelas

@@ -154,15 +154,15 @@ stale marker in both languages.
 - **Notes:** The free API is non-commercial and asks for credit (ADR-023): the owner decides before a release relying on weather. `weather_cache` is already in migration 001. **One unexplained failure:** during this item's gate `ot-ui`'s `prayer::tests::the_controller_saves_and_reads_a_place_and_resolves_off_the_calling_thread` failed once in a workspace run (its message was not captured) and then passed alone 15 times and in three more workspace runs. It is not in code this item touched; it is a flake not yet localised, and is recorded here rather than dismissed.
 
 ### FEAT-0066 · Weather codes, condition classes and their Fluent keys
-- **State:** Pending · **Spec:** docs/specs/weather.md §4 · §5 · docs/10-i18n.md · **Phase:** 6
+- **State:** In-Progress · **Spec:** docs/specs/weather.md §4 · §5 · docs/10-i18n.md · **Phase:** 6
 - **Branch:** feat/phase-6-weather
 - **Depends on:** FEAT-0065
-- [ ] Every documented Open-Meteo code maps to one of the six classes: clear · cloudy · rain · storm · snow · fog; an unknown code maps to the generic class and is logged
-- [ ] A Fluent key for each class and the generic one under `weather-`, in both files, with the name in both languages; no API text is ever displayed
-- [ ] Test: every documented code maps; an unknown one maps to the generic class and logs; the keys exist in both locale files
-- [ ] Gate: fmt · clippy -D warnings · test --workspace --locked -j 4 · deny check · --self-test
-- [ ] App: `--data-dir ./tmp-data` — the names appear in the Weather pane (FEAT-0070), in both languages
-- [ ] Docs: spec · README · CHANGELOG · CHECKLIST · GOTCHAS
+- [x] Every documented Open-Meteo code maps to one of the six classes: clear · cloudy · rain · storm · snow · fog; an unknown code maps to the generic class and is logged — `classify` in `ot-weather/src/condition.rs`; 29 codes, the unknown case logs a warning
+- [x] A Fluent key for each class and the generic one under `weather-`, in both files, with the name in both languages; no API text is ever displayed — seven keys, `weather-clear` … `weather-unknown`, in both files, with translator comments; Malay: Cerah, Berawan, Hujan, Ribut petir, Salji, Kabus, Keadaan tidak jelas
+- [x] Test: every documented code maps; an unknown one maps to the generic class and logs; the keys exist in both locale files — 5 tests: every documented code to its class, distinct keys, the keys with text in both locale files, an unknown code logs and a known one does not
+- [x] Gate: fmt · clippy -D warnings · test --workspace --locked -j 4 · deny check · --self-test — fmt · clippy · tests · deny · self-test
+- [ ] App: `--data-dir ./tmp-data` — the names appear in the Weather pane (FEAT-0070), in both languages. Not made: nothing shows the names until the Weather pane (FEAT-0070), which carries this check
+- [x] Docs: spec · README · CHANGELOG · CHECKLIST · GOTCHAS — spec "What is implemented" · CHANGELOG · CHECKLIST; README and GOTCHAS: nothing yet
 
 ### FEAT-0067 · The weather cache and migration 008
 - **State:** Pending · **Spec:** docs/specs/weather.md §7 · §8 · docs/05-data-model-and-storage.md · **Phase:** 6

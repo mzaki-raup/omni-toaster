@@ -187,7 +187,7 @@ Last updated: 2026-11-19
 | Caching | Pending | TTL-based |
 | Condition change detection | Pending | Condition change or temperature threshold |
 | Per-condition templates | Pending | |
-| Weather code to Fluent key mapping | Pending | No API text displayed |
+| Weather code to Fluent key mapping | In-Progress | No API text displayed. FEAT-0066: `ot_weather::condition` maps all 29 documented codes to six classes and a generic one, with a `weather-` key each in both locale files; not yet shown anywhere (FEAT-0070) |
 | Offline stale marker | Pending | |
 
 ## Phase 7 — Time Announcements
