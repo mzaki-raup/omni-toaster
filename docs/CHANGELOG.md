@@ -53,6 +53,8 @@ Format: [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) · Versioning:
 
 ### Fixed
 
+- A test of the single-instance claim could fail on its own when another test claimed the same name at the same moment; the tests now take turns (BUG-0016)
+
 - Settings ▸ Prayer: the checkboxes in Notifications and the template's accent option now sit level with their labels instead of a little below them (BUG-0015)
 
 ## 0.12.1 — 2026-11-26

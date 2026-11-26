@@ -167,6 +167,11 @@ mod platform {
 mod tests {
     use super::*;
 
+    /// The claims are process-wide names and `cargo test` runs tests on
+    /// threads, so the tests that claim a role take this first: otherwise one
+    /// test's Supervisor claim lands inside another's (BUG-0016).
+    static CLAIMS: std::sync::Mutex<()> = std::sync::Mutex::new(());
+
     #[test]
     fn the_two_roles_use_different_names() {
         // If they collided, the supervisor would lock its own worker out and
@@ -193,6 +198,7 @@ mod tests {
 
     #[test]
     fn a_second_claim_of_the_same_role_is_refused_and_a_release_frees_it() {
+        let _only_claimant = CLAIMS.lock().unwrap_or_else(|p| p.into_inner());
         let first = InstanceGuard::acquire(Role::Supervisor).expect("the first claim succeeds");
         assert_eq!(first.role(), Role::Supervisor);
 
@@ -214,6 +220,7 @@ mod tests {
 
     #[test]
     fn the_worker_is_not_blocked_by_the_supervisor() {
+        let _only_claimant = CLAIMS.lock().unwrap_or_else(|p| p.into_inner());
         // The real arrangement: both run at once, from the same executable.
         let supervisor = InstanceGuard::acquire(Role::Worker).expect("worker claim");
         let other = InstanceGuard::acquire(Role::Supervisor);
