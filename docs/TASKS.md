@@ -285,7 +285,7 @@ disabled; prayer labels match the reference table in both languages.
 - [x] Docs: spec toast.md §8 as built · README and README.ms · CHANGELOG · CHECKLIST · GOTCHAS (two entries) — screenshots wait for the phase's finish
 - **Progress (store and builder, committed):** migration 005 seeds a template per prayer (`prayer_key`, nothing of the user's in it); `Store::{template_for_prayer, set_prayer_template, link_prayer_templates}` (saving nothing is "Use Default Text"); each prayer's managed reminder carries its template; `reminder_toast::prayer_spec` builds the toast from the template (own title, message, picture and accent, each falling back to the built-in text, the masjid picture for the prayer and the global accent) with the day's source label as its note, and the fire uses it. 3 store tests, 3 builder tests; gate green at 472. **Not built yet:** the editor in Settings ▸ Prayer (title, message, accent, picture, Use Default Text, Preview), its strings, the layout test for it, per-prayer style, and the app check; every box above stays open.
 ### FEAT-0060 · Audio playback: the Azan and the chime
-- **State:** Pending · **Spec:** docs/11-prayer-and-azan.md §9 · docs/06-security-and-privacy.md · **Phase:** 5
+- **State:** In-Progress · **Spec:** docs/11-prayer-and-azan.md §9 · docs/06-security-and-privacy.md · **Phase:** 5
 - **Branch:** feat/phase-5-prayer
 - **Depends on:** FEAT-0059
 - [ ] `ot-media` plays audio through `rodio` (an ADR); full Azan or a short chime per prayer; stop with the toast
@@ -296,6 +296,7 @@ disabled; prayer labels match the reference table in both languages.
 - [ ] App: `--data-dir ./tmp-data` — an Azan toast plays its audio and stops when dismissed; import a clip; both languages
 - [ ] Docs: spec · README · CHANGELOG · CHECKLIST · GOTCHAS
 - **Notes:** Audio output cannot be confirmed by a test; the App box is the check.
+- **Progress (ot-media, committed):** ADR-022; `ot_media::audio::check` (20 MB before reading, format by magic bytes, a bounded decode of the whole clip up to ten minutes, a Fluent key per refusal) and `ot_media::Player` (one thread, one device opened on the first clip, a new clip replaces the old, a missing device reported not panicked), with the stand-in chime and the two Azan clips embedded; 8 tests. **Not built yet:** the store side of an imported clip (`store_audio`, a sound mode per prayer), the editor controls, playing on a prayer's fire and stopping when it is dismissed, and the app check; every box above stays open.
 ### FEAT-0061 · Pre-prayer reminders
 - **State:** Pending · **Spec:** docs/11-prayer-and-azan.md §9 · **Phase:** 5
 - **Branch:** feat/phase-5-prayer

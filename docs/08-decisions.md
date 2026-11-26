@@ -730,6 +730,44 @@ READMEs say 18.0°.
 
 ---
 
+## ADR-022 · Audio with `rodio`, on a thread of its own
+
+**Status:** Accepted 2026-11-27 · **Phase:** 5 · **Builds on:** ADR-002 (threads, no
+async), `docs/specs/announcements.md` §7
+
+**Context.** The Azan, the chime and later the spoken announcements need sound,
+and the spec named `rodio` before anyone looked. A clip the user imports is a
+file from outside, so it follows the rules a picture does.
+
+**Decision.** `rodio` 0.23 with `default-features = false` and `playback`, `wav`,
+`mp3` and `vorbis`: WASAPI through `cpal`, and WAV, MP3 and Ogg Vorbis through
+`symphonia`. No recording, dithering, FLAC or MP4. `cargo deny` admits the tree
+as it stands.
+
+- **One thread owns the one output device** (`ot_media::Player`), opened on the
+  first clip so a machine with no speakers costs nothing until something plays. A
+  new clip replaces the one playing: an Azan is never mixed. A device that cannot
+  be opened is logged, reported by `has_no_device`, and silent — never a panic.
+- **Imports follow the picture rules** (`ot_media::audio::check`): at most 20 MB
+  before a byte is read; the format from the bytes (RIFF/WAVE, an ID3 tag or an
+  MPEG frame sync, `OggS`), never the name; and a **bounded decode** of the whole
+  clip up to ten minutes — the persistent-toast cap — so a corrupt file or one
+  that never ends is refused with a message. The copy under a hashed name is the
+  store's job and never leaves `assets/`. Decoding in the worker process is the
+  Phase 8 hardening.
+- **The clips that ship** are embedded: the stand-in chime, the Azan and the Azan
+  for Subuh, from `assets/sound/`. They are the owner's, with no licence
+  established (`assets/README.md`); **Phase 9's terms check decides whether they
+  may ship**, and the default for a prayer is the short chime so the full Azan is
+  a choice, not something a release plays unasked.
+
+**Consequences.** The exe grows by the clips (about five megabytes) and by the
+decoders. Playback cannot be proved by a test: the player's tests show it starts
+and stops, or that the machine has no output and says so, and the audible check
+is the app's.
+
+---
+
 ## ADR-021 · How the app learns where the user is
 
 **Status:** Accepted 2026-11-26 · **Phase:** 5 · **Builds on:** ADR-019 (HTTP),

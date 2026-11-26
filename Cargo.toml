@@ -102,6 +102,16 @@ image = { version = "0.25.10", default-features = false, features = [
 # against the adhan-js reference by its authors.
 adhan = "0.2.0"
 
+# Audio playback (ADR-022): WASAPI through cpal, and only the formats an
+# imported clip may be - WAV, MP3 and Ogg Vorbis - decoded by symphonia. No
+# recording, no dither, no mp4 or flac.
+rodio = { version = "0.23.0", default-features = false, features = [
+    "playback",
+    "wav",
+    "mp3",
+    "vorbis",
+] }
+
 # HTTP for the prayer fetch (ADR-002, ADR-019): blocking, on a worker thread.
 # Default features are off - no rustls, no ring, no bundled root list - and TLS
 # is Windows' own SChannel through native-tls, checking certificates against
