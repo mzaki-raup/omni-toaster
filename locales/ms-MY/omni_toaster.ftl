@@ -669,3 +669,17 @@ error-reminder-title-empty = Beri peringatan ini tajuk.
 error-reminder-time-passed = Masa ini telah berlalu dan peringatan ini tidak berulang, jadi ia tidak akan muncul.
 # Baris status apabila peringatan tidak dapat dibaca atau disimpan. $reason ialah puncanya.
 settings-status-reminders-failed = Peringatan anda tidak dapat dibaca atau disimpan: { $reason }
+# Label sumber waktu solat, sentiasa dipaparkan di sebelah waktu hari ini (Tetapan > Solat, tip alat dulang). Waktu diambil daripada JAKIM e-Solat. $time ialah masa ia diambil, diformat oleh pemformat kongsi.
+prayer-source-jakim = Sumber: JAKIM e-Solat, diambil { $time }
+# Label yang sama apabila waktu datang daripada salinan tersimpan kerana pengambilan tidak dapat atau tidak perlu dibuat. $time ialah masa salinan itu diambil.
+prayer-source-jakim-cached = Sumber: JAKIM e-Solat (salinan tersimpan), diambil { $time }
+# Label sumber waktu solat apabila waktu datang daripada set data yang disertakan dalam aplikasi.
+prayer-source-bundled = Data luar talian
+# Label sumber waktu solat apabila waktu dikira kerana pengguna memilihnya, atau lokasi berada di luar Malaysia.
+prayer-source-calculated = Dikira
+# Label yang sama apabila lokasi berada di dalam Malaysia, tempat waktu JAKIM sendiri boleh berbeza beberapa minit.
+prayer-source-calculated-approximate = Dikira (anggaran)
+# Label sumber waktu solat apabila waktu JAKIM dikehendaki tetapi tidak dapat diperoleh, maka aplikasi mengiranya.
+prayer-source-calculated-fallback = Dikira (sandaran)
+# Label sandaran yang sama apabila lokasi berada di dalam Malaysia, tempat pengiraan boleh berbeza daripada JAKIM beberapa minit.
+prayer-source-calculated-fallback-approximate = Dikira (sandaran, anggaran)

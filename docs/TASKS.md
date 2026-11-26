@@ -218,16 +218,16 @@ disabled; prayer labels match the reference table in both languages.
 - [x] Docs: spec · README · CHANGELOG · CHECKLIST · GOTCHAS — spec §8 as built, ADR-020, two GOTCHAS entries, both READMEs' angle
 - **Notes:** Not built: Imsak and Dhuha (JAKIM's own), JAKIM's one-to-three-minute precautions (a fitted guess; "approximate" stays true), and the chosen place and time zone for an overseas location (FEAT-0056 gives the place). In-Progress until FEAT-0057's app check.
 ### FEAT-0055 · The fallback chain and the source label
-- **State:** Pending · **Spec:** docs/11-prayer-and-azan.md §7 · **Phase:** 5
+- **State:** In-Progress · **Spec:** docs/11-prayer-and-azan.md §7 · **Phase:** 5
 - **Branch:** feat/phase-5-prayer
 - **Depends on:** FEAT-0052, FEAT-0053, FEAT-0054
-- [ ] Fresh cache → live fetch → bundled (only if FEAT-0063's terms check allows, else skipped) → Calculated, labelled "Calculated (fallback)" → nothing: one error toast a day and the last known times
-- [ ] Each step logged; the source label always visible, in both languages, with "Source: JAKIM e-Solat" and the last fetch time
-- [ ] Test: the chain with the network disabled, HTTP 500, bad JSON, an empty cache, `NO_RECORD!` at the year's end, bundled present and absent — each with its expected label
-- [ ] Gate: fmt · clippy -D warnings · test --workspace --locked -j 4 · deny check · --self-test
-- [ ] App: `--data-dir ./tmp-data` — with the network off, see the label fall back and say so; back on, see JAKIM return
-- [ ] Docs: spec · README · CHANGELOG · CHECKLIST · GOTCHAS
-- **Notes:** This item carries the exit criterion "the fallback chain passes with the network disabled".
+- [x] Fresh cache → live fetch → bundled (only if FEAT-0063's terms check allows, else skipped) → Calculated, labelled "Calculated (fallback)" → nothing: one error toast a day and the last known times — `ot_prayer::chain::Chain::resolve`; one step added to the spec's order, a cache row past its 30 days used before the bundled data, with its fetch time shown (spec §7, 2b); the toast rule is `should_toast`, the toast itself is FEAT-0058's
+- [x] Each step logged; the source label always visible, in both languages, with "Source: JAKIM e-Solat" and the last fetch time — each step logs through `tracing`; `Source` and seven Fluent keys in both files; "visible" is the UI's, in Settings ▸ Prayer (FEAT-0057) and the toast (FEAT-0059)
+- [x] Test: the chain with the network disabled, HTTP 500, bad JSON, an empty cache, `NO_RECORD!` at the year's end, bundled present and absent — each with its expected label — 14 tests in `chain.rs` against stub cache, fetch and bundled data: each failure (network, 500, bad JSON, too large, `NO_RECORD!`) with an empty cache ends at "Calculated (fallback)"; bundled present, missing the date and absent; a stale cache row; Auto abroad and Calculated by choice are not fallbacks; a polar day is nothing; both locale files hold every label key. Two mutations (Auto inverted, the fresh-cache step off) each fail it
+- [x] Gate: fmt · clippy -D warnings · test --workspace --locked -j 4 (410 passed) · deny check · --self-test
+- [ ] App: `--data-dir ./tmp-data` — with the network off, see the label fall back and say so; back on, see JAKIM return — not made: the chain is not wired into the app (the `Cache` adapter over the store and the fetch loop are FEAT-0058). The failures were stubbed, not a real disconnected network
+- [x] Docs: spec · README · CHANGELOG · CHECKLIST · GOTCHAS — spec §7 as built and its added step; README unchanged (nothing visible yet); no new gotcha
+- **Notes:** This item carries the exit criterion "the fallback chain passes with the network disabled" — met with stubs for the chain's logic; the real-network-off check is FEAT-0058's App box. The Malay label text wants the native speaker's review with the rest (docs/10-i18n.md). In-Progress until FEAT-0058.
 ### FEAT-0056 · Location: detection with consent, and manual entry
 - **State:** Pending · **Spec:** docs/11-prayer-and-azan.md §6 · docs/06-security-and-privacy.md · **Phase:** 5
 - **Branch:** feat/phase-5-prayer
@@ -255,13 +255,14 @@ disabled; prayer labels match the reference table in both languages.
 - **Branch:** feat/phase-5-prayer
 - **Depends on:** FEAT-0055
 - [ ] The fetch loop (FEAT-0052's client): a worker runs `ot_prayer::fetch` weekly, on a zone change and when the cache lacks today, and waits as `next_after_success` and `next_after_failure` say — 1, 5 and 15 minutes, then the next check, daily across the year's end — with no polling loop and a cancel when Settings closes; each attempt's outcome is logged
+- [ ] The binary's side of the chain (FEAT-0055): `ot_prayer::chain::Cache` implemented over `ot_store`'s prayer cache (mapping `PrayerDay` and `CachedDay`, and `Freshness`), the error toast shown when `Resolution::Nothing` and `should_toast` allows, and the last known times kept
 - [ ] Each day's times become fires, converted from `Asia/Kuala_Lumpur` whatever the PC's zone; rebuilt at midnight, after a fetch, a zone or a location change
 - [ ] Azan before Alarm before everything else; never suppressed by a pause (tray-and-settings §4) or quiet hours; persistent up to the 10-minute cap
 - [ ] The 1-hour catch-up window for a missed Azan, configurable — the part of FEAT-0045 that waited for Azan
 - [ ] Five prayers, plus Syuruk and Jumu'ah optional; Imsak and Dhuha hidden until enabled
 - [ ] Test: fires at the fetched times with the PC in another zone; the rebuild triggers; Azan first in the queue; a pause not suppressing it; a missed Azan inside and outside the hour
 - [ ] Gate: fmt · clippy -D warnings · test --workspace --locked -j 4 · deny check · --self-test
-- [ ] App: `--data-dir ./tmp-data` — with a zone chosen, see the day's times arrive and the log's fetch line, the next prayer fire on time (or a near time from a planted day), during a pause too; with the network off, see the retry schedule (1, 5, 15 minutes) in the log, and the cached times still there after a restart — the check FEAT-0051, FEAT-0052 and FEAT-0053 are waiting on
+- [ ] App: `--data-dir ./tmp-data` — with a zone chosen, see the day's times arrive and the log's fetch line, the next prayer fire on time (or a near time from a planted day), during a pause too; with the network off, see the retry schedule (1, 5, 15 minutes) in the log, and the cached times still there after a restart, and the source label fall back and say so, then JAKIM return when the network is back — the check FEAT-0051, FEAT-0052 and FEAT-0053 are waiting on
 - [ ] Docs: spec · README · CHANGELOG · CHECKLIST · GOTCHAS
 - **Notes:** Closing this also closes FEAT-0045's open box.
 ### FEAT-0059 · Per-prayer templates and their toasts

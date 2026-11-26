@@ -7,6 +7,7 @@
 //! may depend on.
 
 pub mod calculated;
+pub mod chain;
 pub mod fetch;
 pub mod jakim;
 pub mod zones;

@@ -224,10 +224,40 @@ As built (FEAT-0052), in `ot_prayer::fetch`:
 ```
 1. A fresh JAKIM cache entry for this zone and date  → use it      (source: api)
 2. A live fetch succeeds                             → update cache (source: api)
+2b. A cache entry for today that is past its 30 days  → use it, labelled with when it was fetched
 3. The bundled dataset has the date                  → use it      (source: bundled)
 4. Calculated (adhan, Fajr 18°, Isha 18°)            → use it, labelled "Calculated (fallback)"
 5. Nothing available                                 → one error toast per day, keep the last known times
 ```
+
+Step 2b is an addition (FEAT-0055). A cache row over 30 days old still holds the
+times JAKIM published for that date, and they are better than a calculation a few
+minutes off; the label shows how old the fetch is, so nothing is hidden.
+
+As built (FEAT-0055), in `ot_prayer::chain`: `Chain { cache, fetch, bundled }
+.resolve(&Request, &Cancel)` is that order, one function and the only place it
+lives. The cache, the live fetch and the bundled data are the traits `Cache`,
+`Fetch` and `Bundled`, because this crate cannot depend on `ot-store`; the binary
+implements `Cache` over the store (FEAT-0058) and `fetch::Client` is the real
+`Fetch`. It blocks for a live fetch, so it runs on a worker thread, and each step
+is logged. `Request` carries the user's `SourceChoice` (Auto, JAKIM, Calculated),
+whether the location is in Malaysia, today and now, and the place to calculate
+for. Auto asks JAKIM only inside Malaysia; Calculated never does. A fetch that
+answers without today's date is a miss, not a success. A calculated day with a
+time missing — the sun does not reach an angle — is a gap, not a partial day, so
+the chain reports `Nothing` and the caller keeps the last times. `should_toast`
+is the once-a-day rule for the error toast, and `bundled_expires_soon` the warning
+30 days before the bundled dataset ends (§5).
+
+The source label is `Source`, a value the UI turns into text with the Fluent key
+from `Source::label_key()` and, for the JAKIM sources, `$time` from
+`Source::fetched_at()` through the shared formatter. The keys, in both locale
+files: `prayer-source-jakim` ("Source: JAKIM e-Solat, fetched …"),
+`prayer-source-jakim-cached`, `prayer-source-bundled` ("Offline data"),
+`prayer-source-calculated`, `…-calculated-approximate`, `…-calculated-fallback`
+("Calculated (fallback)") and `…-calculated-fallback-approximate`. A calculated
+label says "fallback" when JAKIM was wanted and could not be had, and
+"approximate" when the location is in Malaysia (§8).
 
 The source label is **always visible** in the UI. The chain is tested with the
 network disabled, with HTTP 500, with bad JSON, with an empty cache, and with

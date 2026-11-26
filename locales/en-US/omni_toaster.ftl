@@ -689,3 +689,17 @@ error-reminder-title-empty = Give the reminder a title.
 error-reminder-time-passed = This time has passed and the reminder does not repeat, so it would never fire.
 # The status line when the reminders could not be read or saved. $reason is the cause.
 settings-status-reminders-failed = Your reminders could not be read or saved: { $reason }
+# The prayer source label, always shown beside the day's times (Settings > Prayer, the tray tooltip). Times fetched from JAKIM e-Solat. $time is when they were fetched, formatted by the shared formatter.
+prayer-source-jakim = Source: JAKIM e-Solat, fetched { $time }
+# The same label when the times come from the saved copy because a fetch was not possible or not needed. $time is when that copy was fetched.
+prayer-source-jakim-cached = Source: JAKIM e-Solat (saved copy), fetched { $time }
+# The prayer source label when the times come from the dataset shipped inside the app.
+prayer-source-bundled = Offline data
+# The prayer source label when the times are calculated because the user chose that, or the location is outside Malaysia.
+prayer-source-calculated = Calculated
+# The same label when the location is inside Malaysia, where JAKIM's own times can differ by a few minutes.
+prayer-source-calculated-approximate = Calculated (approximate)
+# The prayer source label when JAKIM times were wanted but could not be had, so the app calculated them instead.
+prayer-source-calculated-fallback = Calculated (fallback)
+# The same fallback label when the location is inside Malaysia, where the calculation can differ from JAKIM by a few minutes.
+prayer-source-calculated-fallback-approximate = Calculated (fallback, approximate)

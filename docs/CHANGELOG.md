@@ -19,6 +19,8 @@ Format: [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) · Versioning:
 
 - Calculated prayer times: Muslim World League, ISNA, Umm al-Qura and "Malaysia (JAKIM angles, approximate)", with Asar Shafi'i (the default) or Hanafi, from the `adhan` crate (ADR-020). Each time is an instant, and one the sun does not reach — inside the polar circles — is absent rather than invented. The Malaysia preset is within three minutes of JAKIM's published times in SGR01, WLY01 and JHR01; the other three match the adhan-js reference on 60 rows, including places east and west of Greenwich (FEAT-0054).
 
+- The prayer fallback chain and the source label: a fresh cache, then a live fetch, then a cached day past its age, then the offline data, then a calculation, then nothing — in one function, tested with the network down, an HTTP 500, bad JSON, an oversized answer, "no record", an empty cache and the offline data present and absent, each ending at its expected label. The label reads "Source: JAKIM e-Solat" with when it was fetched, "Offline data", or "Calculated", with "(fallback)" when JAKIM could not be had and "(approximate)" in Malaysia, in English and Malay (FEAT-0055).
+
 ### Changed
 
 - The Malaysia preset's Fajr angle is 18.0°, not the 20.0° the spec gave: JAKIM's own November tables put 20.0° ten minutes early, and the data fit about 17.5°. The spec, `PROPOSAL.md` and both READMEs say 18.0° (FEAT-0054).
