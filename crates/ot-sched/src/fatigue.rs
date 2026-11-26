@@ -39,7 +39,7 @@ pub fn next_fire(trigger: &Trigger, start: Timestamp, after: Timestamp) -> Optio
             }
             at
         }
-        Trigger::At { .. } | Trigger::OffsetBefore { .. } => return None,
+        Trigger::At { .. } | Trigger::OffsetBefore { .. } | Trigger::Prayer { .. } => return None,
     };
     Some(Fire {
         at,

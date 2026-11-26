@@ -50,7 +50,11 @@ pub fn next_fire(
         Trigger::At { at } => (*at, &[][..]),
         Trigger::OffsetBefore { at, offsets } => (*at, offsets.as_slice()),
         // Counted from the working day, not from a date: `crate::fatigue`.
-        Trigger::Every { .. } | Trigger::WorkHours { .. } => return None,
+        // The fatigue schedules count from the working day and a prayer's
+        // times are given to the scheduler: neither is a date and a repeat.
+        Trigger::Every { .. } | Trigger::WorkHours { .. } | Trigger::Prayer { .. } => {
+            return None;
+        }
     };
     let lead = offsets
         .iter()

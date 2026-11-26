@@ -340,6 +340,27 @@ publishes Dhuhr, Asar, Maghrib and Isha one to three minutes after the calculati
   change, and after every successful JAKIM fetch.
 - **Azan takes priority** over time announcements and non-urgent toasts
   ([specs/announcements.md](specs/announcements.md)).
+
+As built in the scheduler (FEAT-0058, `ot_sched`):
+
+- **A prayer is a managed reminder** with the trigger `Trigger::Prayer { prayer }`
+  — one row per enabled prayer (`fajr`, `syuruk`, `dhuhr`, `asr`, `maghrib`,
+  `isha`), kept by `Store::sync_prayer_reminders` and hidden from the list in
+  Settings ▸ Reminders, as the fatigue schedules are. Its stored next time
+  survives a restart, which is how a prayer that came due while the app was off
+  is found and found missed.
+- **The scheduler does not compute a prayer's time.** The app resolves the day
+  (the fallback chain, §7) and gives it `Command::PrayerTimes`, every time to
+  fire — today's and tomorrow's — as instants, so the PC's own zone never
+  enters. A new set replaces the old: a fetch, a zone or a place that moved a
+  time moves the fire. `Command::EnablePrayers` makes and removes the rows.
+- **A prayer is never done.** After its last known time it waits, active, for
+  the next day's times.
+- **Priority.** When two fires are due at the same instant the queue orders
+  them Azan, then an Alarm, then everything else (`specs/reminders.md` §8).
+- **Catch-up.** A missed prayer is listed if it is within the Azan window — one
+  hour by default, `Command::SetAzanWindow` — and older ones are dropped with a
+  log line and a `missed` row. Other reminders keep their own window.
 - An Azan toast may be persistent, capped at 10 minutes
   ([specs/toast.md](specs/toast.md)).
 

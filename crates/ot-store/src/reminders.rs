@@ -38,7 +38,15 @@ pub enum Trigger {
     /// The work-hour limit: once, so many minutes after the working day
     /// began.
     WorkHours { minutes: u32 },
+    /// A prayer: at each day's time for it, which the scheduler is given
+    /// rather than computes (`docs/11-prayer-and-azan.md` §9). `prayer` is one
+    /// of [`PRAYERS`].
+    Prayer { prayer: String },
 }
+
+/// The prayers a managed reminder can be for, by the key the scheduler is
+/// given their times under, in the order of the day.
+pub const PRAYERS: [&str; 6] = ["fajr", "syuruk", "dhuhr", "asr", "maghrib", "isha"];
 
 impl Trigger {
     /// The `trigger_type` column's value.
@@ -48,6 +56,7 @@ impl Trigger {
             Self::OffsetBefore { .. } => "offset_before",
             Self::Every { .. } => "every",
             Self::WorkHours { .. } => "work_hours",
+            Self::Prayer { .. } => "prayer",
         }
     }
 
@@ -56,6 +65,12 @@ impl Trigger {
     /// Reminders' Fatigue Reminders rather than in the editor.
     pub fn is_fatigue(&self) -> bool {
         matches!(self, Self::Every { .. } | Self::WorkHours { .. })
+    }
+
+    /// Whether this is a prayer's reminder, which the app manages from the
+    /// Prayer settings and the list in Settings ▸ Reminders does not show.
+    pub fn is_prayer(&self) -> bool {
+        matches!(self, Self::Prayer { .. })
     }
 }
 
@@ -431,6 +446,46 @@ impl Store {
             ],
         )?;
         Ok(changed == 1)
+    }
+
+    /// Keep one managed reminder for each prayer in `enabled` — keys from
+    /// [`PRAYERS`] — and none for the others. A prayer already there is left
+    /// alone, so its stored next time and its history survive a restart.
+    /// Returns whether anything was created or deleted.
+    pub fn sync_prayer_reminders(&self, enabled: &[&str]) -> Result<bool, ReminderError> {
+        let mut changed = false;
+        let mut present = Vec::new();
+        for reminder in self.reminders()? {
+            let Trigger::Prayer { prayer } = &reminder.draft.trigger else {
+                continue;
+            };
+            if enabled.contains(&prayer.as_str()) && !present.contains(prayer) {
+                present.push(prayer.clone());
+            } else {
+                // Not enabled, or a duplicate: gone.
+                self.delete_reminder(reminder.id)?;
+                changed = true;
+            }
+        }
+        for prayer in enabled.iter().filter(|p| PRAYERS.contains(p)) {
+            if present.iter().any(|have| have == prayer) {
+                continue;
+            }
+            self.create_reminder(&ReminderDraft {
+                category_id: None,
+                // The name is resolved from the key when the toast is built,
+                // in the language then in force, never stored.
+                title: String::new(),
+                body: None,
+                authored_lang: "en-US".to_owned(),
+                trigger: Trigger::Prayer {
+                    prayer: (*prayer).to_owned(),
+                },
+                recurrence: None,
+            })?;
+            changed = true;
+        }
+        Ok(changed)
     }
 
     /// Delete a reminder. Its snoozes go with it (`ON DELETE CASCADE`); its
@@ -957,5 +1012,74 @@ mod tests {
         assert_eq!(stamp(when), "2026-11-19T00:00:00.000Z");
         assert_eq!(stamp(when).parse::<Timestamp>().expect("parses"), when);
         assert!(stamp(when) < stamp(when + SignedDuration::from_millis(1)));
+    }
+
+    #[test]
+    fn the_managed_prayer_reminders_follow_what_is_enabled_and_keep_their_rows() {
+        let store = Store::open_in_memory().expect("opens");
+        let prayers = |store: &Store| -> Vec<(i64, String)> {
+            store
+                .reminders()
+                .expect("reads")
+                .into_iter()
+                .filter_map(|r| match r.draft.trigger {
+                    Trigger::Prayer { prayer } => Some((r.id, prayer)),
+                    _ => None,
+                })
+                .collect()
+        };
+
+        assert!(
+            store
+                .sync_prayer_reminders(&["fajr", "dhuhr"])
+                .expect("synced")
+        );
+        let first = prayers(&store);
+        assert_eq!(
+            first.iter().map(|(_, p)| p.as_str()).collect::<Vec<_>>(),
+            ["fajr", "dhuhr"]
+        );
+
+        // The same set again changes nothing and keeps the ids, which carry the
+        // stored next time and the history.
+        assert!(
+            !store
+                .sync_prayer_reminders(&["fajr", "dhuhr"])
+                .expect("synced")
+        );
+        assert_eq!(prayers(&store), first);
+
+        // Syuruk on, Dhuhr off.
+        assert!(
+            store
+                .sync_prayer_reminders(&["fajr", "syuruk"])
+                .expect("synced")
+        );
+        let second = prayers(&store);
+        assert_eq!(
+            second.iter().map(|(_, p)| p.as_str()).collect::<Vec<_>>(),
+            ["fajr", "syuruk"]
+        );
+        assert_eq!(second[0], first[0], "Fajr's row is the same row");
+
+        // A key nobody knows is not made, and an empty set clears them all.
+        store
+            .sync_prayer_reminders(&["imsak", "fajr"])
+            .expect("synced");
+        assert_eq!(prayers(&store).len(), 1);
+        store.sync_prayer_reminders(&[]).expect("synced");
+        assert!(prayers(&store).is_empty());
+        assert!(
+            Trigger::Prayer {
+                prayer: "fajr".into()
+            }
+            .is_prayer()
+        );
+        assert!(
+            !Trigger::Prayer {
+                prayer: "fajr".into()
+            }
+            .is_fatigue()
+        );
     }
 }

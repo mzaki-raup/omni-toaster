@@ -2282,9 +2282,9 @@ impl SettingsWindow {
     /// Tell the scheduler something; it holds the store.
     fn send(&self, command: ot_sched::scheduler::Command) {
         if let Some(scheduler) = &self.scheduler
-            && scheduler.send(command).is_err()
+            && let Err(error) = scheduler.send(command)
         {
-            tracing::warn!(?command, "the scheduler has stopped; a command was lost");
+            tracing::warn!(command = ?error.0, "the scheduler has stopped; a command was lost");
         }
     }
 
@@ -2529,8 +2529,11 @@ fn reminder_rows(listing: &crate::reminder_book::Listing) -> Vec<crate::reminder
     listing
         .reminders
         .iter()
-        // Fatigue schedules have their own section.
-        .filter(|reminder| !reminder.draft.trigger.is_fatigue())
+        // Fatigue schedules have their own section, and the prayers are managed
+        // from the Prayer settings.
+        .filter(|reminder| {
+            !reminder.draft.trigger.is_fatigue() && !reminder.draft.trigger.is_prayer()
+        })
         .map(|reminder| {
             let type_key = listing
                 .type_of(reminder.draft.category_id)

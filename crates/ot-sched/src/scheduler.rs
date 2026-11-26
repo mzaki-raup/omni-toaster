@@ -55,6 +55,20 @@ pub const MISSED_AFTER: SignedDuration = SignedDuration::from_secs(60);
 /// The catch-up window for a reminder until the settings say otherwise.
 pub const DEFAULT_MISSED_WINDOW_HOURS: u32 = 24;
 
+/// The catch-up window for a missed prayer until the settings say otherwise:
+/// an Azan an hour late is still worth knowing about, a day late is not
+/// (`docs/11-prayer-and-azan.md` §9, `docs/specs/reminders.md` §6).
+pub const DEFAULT_AZAN_WINDOW_MINUTES: u32 = 60;
+
+/// Where a fire sits when two are due at the same instant: Azan, then an
+/// Alarm, then everything else (`docs/specs/reminders.md` §8).
+const RANK_PRAYER: u8 = 0;
+const RANK_ALARM: u8 = 1;
+const RANK_OTHER: u8 = 2;
+
+/// The built-in type whose reminders rank as Alarms.
+const ALARM_TYPE: &str = "reminder-alarm";
+
 /// How long the PC may be off or asleep, or the scheduler not running, before
 /// the working day the fatigue reminders count from ends and the next one
 /// starts (`docs/specs/reminders.md` §3).
@@ -82,7 +96,7 @@ pub enum Recompute {
 }
 
 /// What the rest of the app tells the scheduler.
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub enum Command {
     /// A reminder was created or edited: read it again and requeue it.
     Changed(i64),
@@ -109,6 +123,16 @@ pub enum Command {
     },
     /// The catch-up window changed in Settings ▸ Reminders.
     SetMissedWindow { hours: u32 },
+    /// The day's prayer times, by prayer key (`ot_store::reminders::PRAYERS`):
+    /// every time to fire, today's and tomorrow's, replacing what was held.
+    /// The scheduler does not compute them (`docs/11-prayer-and-azan.md` §9);
+    /// the app resolves them and says when they change.
+    PrayerTimes(Vec<(String, Timestamp)>),
+    /// Which prayers have a reminder: the keys that are on. The rows are made
+    /// and removed to match, and the queue is rebuilt.
+    EnablePrayers(Vec<String>),
+    /// The catch-up window for a missed prayer, in minutes.
+    SetAzanWindow { minutes: u32 },
 }
 
 /// One fire, sent to the UI with what it needs to build the toast, so the UI
@@ -151,8 +175,14 @@ enum Kind {
 pub struct Core {
     store: Store,
     tz: TimeZone,
-    /// Ordered by fire time; the id breaks ties.
-    queue: BTreeSet<(Timestamp, i64, Kind)>,
+    /// Ordered by fire time, then by rank (Azan, Alarm, the rest), then id.
+    queue: BTreeSet<(Timestamp, u8, i64, Kind)>,
+    /// Each queued reminder's rank, read when it is scheduled.
+    ranks: BTreeMap<i64, u8>,
+    /// Every prayer's times to fire at, by key; given by the app.
+    prayer_times: BTreeMap<String, Vec<Timestamp>>,
+    /// How old a missed prayer may be and still be listed.
+    azan_window: SignedDuration,
     /// Each queued fire, by reminder and kind.
     pending: BTreeMap<(i64, Kind), Fire>,
     /// Each waiting snooze's place in its chain.
@@ -184,6 +214,9 @@ impl Core {
             store,
             tz,
             queue: BTreeSet::new(),
+            ranks: BTreeMap::new(),
+            prayer_times: BTreeMap::new(),
+            azan_window: SignedDuration::from_mins(i64::from(DEFAULT_AZAN_WINDOW_MINUTES)),
             pending: BTreeMap::new(),
             chain: BTreeMap::new(),
             held: VecDeque::new(),
@@ -273,7 +306,7 @@ impl Core {
 
     /// The next fire waiting, if any.
     pub fn next(&self) -> Option<(i64, Fire)> {
-        let &(_, id, kind) = self.queue.first()?;
+        let &(_, _, id, kind) = self.queue.first()?;
         self.pending.get(&(id, kind)).map(|fire| (id, *fire))
     }
 
@@ -311,6 +344,52 @@ impl Core {
                 limit,
             } => self.snooze(reminder_id, fired_at, minutes, snoozes, limit, now),
             Command::SetMissedWindow { hours } => self.set_missed_window(hours),
+            Command::SetAzanWindow { minutes } => {
+                self.azan_window = SignedDuration::from_mins(i64::from(minutes));
+            }
+            Command::PrayerTimes(times) => self.set_prayer_times(times, now),
+            Command::EnablePrayers(keys) => {
+                let keys: Vec<&str> = keys.iter().map(String::as_str).collect();
+                match self.store.sync_prayer_reminders(&keys) {
+                    Ok(true) => {
+                        tracing::info!(?keys, "the prayer reminders were changed");
+                        self.rebuild(now);
+                    }
+                    Ok(false) => {}
+                    Err(error) => {
+                        tracing::warn!(%error, "the prayer reminders could not be changed");
+                    }
+                }
+            }
+        }
+    }
+
+    /// Take the day's prayer times and queue every prayer's next one from
+    /// them. Replaces what was held: a zone, a place or a fetch that moved a
+    /// time moves the fire.
+    fn set_prayer_times(&mut self, times: Vec<(String, Timestamp)>, now: Timestamp) {
+        let mut held: BTreeMap<String, Vec<Timestamp>> = BTreeMap::new();
+        for (prayer, at) in times {
+            held.entry(prayer).or_default().push(at);
+        }
+        for list in held.values_mut() {
+            list.sort();
+            list.dedup();
+        }
+        tracing::info!(
+            prayers = held.len(),
+            times = held.values().map(Vec::len).sum::<usize>(),
+            "prayer times received"
+        );
+        self.prayer_times = held;
+        let after = self.horizon.min(now);
+        match self.store.reminders() {
+            Ok(reminders) => {
+                for reminder in reminders.iter().filter(|r| r.draft.trigger.is_prayer()) {
+                    self.schedule(reminder, after);
+                }
+            }
+            Err(error) => tracing::warn!(%error, "the prayer reminders could not be read"),
         }
     }
 
@@ -330,7 +409,7 @@ impl Core {
             self.apply(Command::Recompute(Recompute::Midnight), now);
         }
 
-        while let Some(&(at, id, kind)) = self.queue.first() {
+        while let Some(&(at, _, id, kind)) = self.queue.first() {
             if at > now {
                 break;
             }
@@ -368,12 +447,20 @@ impl Core {
                 self.requeue_after_fire(&reminder, now);
                 continue;
             }
-            let (fire, dropped) = if late && kind == Kind::Regular {
+            // A prayer is its own occurrence: there is no run of skipped ones to
+            // walk, and its window is the Azan's.
+            let prayer = reminder.draft.trigger.is_prayer();
+            let (fire, dropped) = if late && kind == Kind::Regular && !prayer {
                 self.latest_skipped(&reminder, fire, now)
             } else {
                 (fire, None)
             };
-            let listed = !late || now.duration_since(fire.at) <= self.missed_window;
+            let window = if prayer {
+                self.azan_window
+            } else {
+                self.missed_window
+            };
+            let listed = !late || now.duration_since(fire.at) <= window;
             let dropped = if listed {
                 dropped
             } else {
@@ -437,7 +524,7 @@ impl Core {
             return HELD_RETRY;
         }
         let mut until = self.midnight;
-        if let Some(&(at, _, _)) = self.queue.first() {
+        if let Some(&(at, _, _, _)) = self.queue.first() {
             until = until.min(at);
         }
         Duration::try_from(until.duration_since(now))
@@ -530,6 +617,8 @@ impl Core {
         if !matches!(reminder.status, Status::Active | Status::Snoozed) {
             return;
         }
+        let rank = self.rank_of(reminder);
+        self.ranks.insert(id, rank);
         let after = match reminder.next_fire_at {
             Some(stored) if stored <= after => stored
                 .checked_sub(SignedDuration::from_nanos(1))
@@ -559,7 +648,8 @@ impl Core {
         match next {
             // A fatigue schedule is never done: the work-hour limit has no
             // more fires today, and comes again with the next working day.
-            None if reminder.draft.trigger.is_fatigue() => {}
+            // Nor is a prayer: its next time comes with the next day's times.
+            None if reminder.draft.trigger.is_fatigue() || reminder.draft.trigger.is_prayer() => {}
             Some(fire) => self.insert(id, Kind::Regular, fire),
             None if !self.pending.contains_key(&(id, Kind::Snooze)) => {
                 self.set_status(id, Status::Done);
@@ -574,6 +664,9 @@ impl Core {
     fn next_of(&self, reminder: &Reminder, after: Timestamp) -> Option<Fire> {
         if reminder.draft.trigger.is_fatigue() {
             return crate::fatigue::next_fire(&reminder.draft.trigger, self.workday_start, after);
+        }
+        if let ot_store::reminders::Trigger::Prayer { prayer } = &reminder.draft.trigger {
+            return self.prayer_next(reminder, prayer, after);
         }
         next_fire(
             &reminder.draft.trigger,
@@ -626,10 +719,42 @@ impl Core {
     }
 
     fn insert(&mut self, id: i64, kind: Kind, fire: Fire) {
+        let rank = self.ranks.get(&id).copied().unwrap_or(RANK_OTHER);
         if let Some(old) = self.pending.insert((id, kind), fire) {
-            self.queue.remove(&(old.at, id, kind));
+            self.queue.remove(&(old.at, rank, id, kind));
         }
-        self.queue.insert((fire.at, id, kind));
+        self.queue.insert((fire.at, rank, id, kind));
+    }
+
+    /// Azan before Alarm before everything else, when two are due together.
+    fn rank_of(&self, reminder: &Reminder) -> u8 {
+        if reminder.draft.trigger.is_prayer() {
+            return RANK_PRAYER;
+        }
+        let alarm = reminder
+            .draft
+            .category_id
+            .and_then(|category| self.store.template(category).ok().flatten())
+            .is_some_and(|template| template.type_key.as_deref() == Some(ALARM_TYPE));
+        if alarm { RANK_ALARM } else { RANK_OTHER }
+    }
+
+    /// A prayer's next time after `after`: from the times the app gave, which
+    /// are the truth, or — before it has given any, as at start — from the
+    /// time stored with the reminder, so a prayer that came due while the app
+    /// was off is still found, and found missed.
+    fn prayer_next(&self, reminder: &Reminder, prayer: &str, after: Timestamp) -> Option<Fire> {
+        let given = self
+            .prayer_times
+            .get(prayer)
+            .and_then(|times| times.iter().find(|at| **at > after))
+            .copied();
+        let at = given.or_else(|| reminder.next_fire_at.filter(|stored| *stored > after))?;
+        Some(Fire {
+            at,
+            occurrence: at,
+            offset: None,
+        })
     }
 
     fn insert_snooze(&mut self, id: i64, until: Timestamp, count: u32) {
@@ -670,9 +795,10 @@ impl Core {
     }
 
     fn unschedule(&mut self, id: i64) {
+        let rank = self.ranks.get(&id).copied().unwrap_or(RANK_OTHER);
         for kind in [Kind::Regular, Kind::Snooze] {
             if let Some(fire) = self.pending.remove(&(id, kind)) {
-                self.queue.remove(&(fire.at, id, kind));
+                self.queue.remove(&(fire.at, rank, id, kind));
             }
         }
         self.chain.remove(&id);
@@ -1673,5 +1799,255 @@ mod tests {
             "fired {late:?} after its target"
         );
         drop(scheduler);
+    }
+
+    // ---- prayers (FEAT-0058) ----
+
+    fn prayer_times(day: &str, minutes: [(&str, &str); 3]) -> Command {
+        Command::PrayerTimes(
+            minutes
+                .iter()
+                .map(|(prayer, time)| ((*prayer).to_owned(), instant(&format!("{day}T{time}Z"))))
+                .collect(),
+        )
+    }
+
+    fn with_prayers(keys: &[&str], now: &str, tz: TimeZone) -> Core {
+        let store = Store::open_in_memory().expect("opens");
+        store.sync_prayer_reminders(keys).expect("synced");
+        Core::new(store, instant(now), tz)
+    }
+
+    fn names(fires: &Receiver<Fired>) -> Vec<(String, Timestamp)> {
+        fires
+            .try_iter()
+            .map(|fired| {
+                let key = match fired.reminder.draft.trigger {
+                    Trigger::Prayer { prayer } => prayer,
+                    _ => "other".to_owned(),
+                };
+                (key, fired.fire.at)
+            })
+            .collect()
+    }
+
+    #[test]
+    fn a_prayer_fires_at_the_time_it_was_given_whatever_the_pcs_zone() {
+        // The times are instants - Malaysian clock values already read in
+        // Asia/Kuala_Lumpur - so a PC in New York fires them at the same
+        // moments a PC in Kuala Lumpur does.
+        let new_york = TimeZone::get("America/New_York").expect("a zone");
+        let mut core = with_prayers(&["fajr", "dhuhr", "isha"], "2026-11-19T00:00Z", new_york);
+        let (out, fires) = fire_channel();
+        core.apply(
+            prayer_times(
+                "2026-11-19",
+                [
+                    ("fajr", "21:49:00"),
+                    ("dhuhr", "05:02:00"),
+                    ("isha", "12:12:00"),
+                ],
+            ),
+            instant("2026-11-19T00:00Z"),
+        );
+        // Nothing early.
+        core.tick(instant("2026-11-19T05:01:59Z"), &out)
+            .expect("connected");
+        assert!(names(&fires).is_empty());
+        core.tick(instant("2026-11-19T05:02:00Z"), &out)
+            .expect("connected");
+        assert_eq!(
+            names(&fires),
+            [("dhuhr".to_owned(), instant("2026-11-19T05:02:00Z"))]
+        );
+        core.tick(instant("2026-11-19T12:12:30Z"), &out)
+            .expect("connected");
+        assert_eq!(
+            names(&fires),
+            [("isha".to_owned(), instant("2026-11-19T12:12:00Z"))]
+        );
+    }
+
+    #[test]
+    fn a_prayer_is_never_done_and_comes_again_with_the_next_days_times() {
+        let mut core = with_prayers(&["fajr"], "2026-11-19T00:00Z", TimeZone::UTC);
+        let (out, fires) = fire_channel();
+        core.apply(
+            Command::PrayerTimes(vec![("fajr".into(), instant("2026-11-19T05:49:00Z"))]),
+            instant("2026-11-19T00:00Z"),
+        );
+        core.tick(instant("2026-11-19T05:49:00Z"), &out)
+            .expect("connected");
+        assert_eq!(names(&fires).len(), 1);
+        // No more times are known, and the reminder is still active, not done.
+        let store = core.into_store();
+        let row = store.reminders().expect("reads").remove(0);
+        assert_eq!(row.status, Status::Active);
+        assert_eq!(row.next_fire_at, None);
+
+        // Tomorrow's times arrive: it fires again.
+        let mut core = Core::new(store, instant("2026-11-19T06:00Z"), TimeZone::UTC);
+        core.apply(
+            Command::PrayerTimes(vec![("fajr".into(), instant("2026-11-20T05:49:00Z"))]),
+            instant("2026-11-19T06:00Z"),
+        );
+        core.tick(instant("2026-11-20T05:49:00Z"), &out)
+            .expect("connected");
+        assert_eq!(
+            names(&fires),
+            [("fajr".to_owned(), instant("2026-11-20T05:49:00Z"))]
+        );
+    }
+
+    #[test]
+    fn new_times_move_the_fire_and_midnight_and_a_zone_change_keep_it() {
+        let mut core = with_prayers(&["dhuhr"], "2026-11-19T00:00Z", TimeZone::UTC);
+        core.apply(
+            Command::PrayerTimes(vec![("dhuhr".into(), instant("2026-11-19T05:02:00Z"))]),
+            instant("2026-11-19T00:00Z"),
+        );
+        let next = |core: &Core| core.next().map(|(_, fire)| fire.at);
+        assert_eq!(next(&core), Some(instant("2026-11-19T05:02:00Z")));
+
+        // A fetch corrected the time, or the zone changed: the fire moves.
+        core.apply(
+            Command::PrayerTimes(vec![("dhuhr".into(), instant("2026-11-19T05:05:00Z"))]),
+            instant("2026-11-19T00:00Z"),
+        );
+        assert_eq!(next(&core), Some(instant("2026-11-19T05:05:00Z")));
+
+        // The queue is rebuilt at midnight and after a zone change, and the
+        // times the app gave are still there.
+        core.apply(
+            Command::Recompute(Recompute::Midnight),
+            instant("2026-11-19T00:00Z"),
+        );
+        assert_eq!(next(&core), Some(instant("2026-11-19T05:05:00Z")));
+        core.set_zone(
+            TimeZone::get("Asia/Kuala_Lumpur").expect("a zone"),
+            instant("2026-11-19T00:00Z"),
+        );
+        assert_eq!(next(&core), Some(instant("2026-11-19T05:05:00Z")));
+    }
+
+    #[test]
+    fn azan_comes_before_an_alarm_before_everything_else_at_the_same_instant() {
+        let store = Store::open_in_memory().expect("opens");
+        store.sync_prayer_reminders(&["maghrib"]).expect("synced");
+        let alarm = store
+            .template_for_type("reminder-alarm")
+            .expect("reads")
+            .expect("seeded");
+        // Created so the plain one has the lowest id and would come first by id.
+        let plain = store
+            .create_reminder(&draft(at("2026-11-19T11:00"), None))
+            .expect("creates");
+        let mut alarm_draft = draft(at("2026-11-19T11:00"), None);
+        alarm_draft.category_id = Some(alarm.id);
+        let alarm_id = store.create_reminder(&alarm_draft).expect("creates");
+        let mut core = Core::new(store, instant("2026-11-19T10:00Z"), TimeZone::UTC);
+        core.apply(
+            Command::PrayerTimes(vec![("maghrib".into(), instant("2026-11-19T11:00:00Z"))]),
+            instant("2026-11-19T10:00Z"),
+        );
+        let (out, fires) = fire_channel();
+        core.tick(instant("2026-11-19T11:00:00Z"), &out)
+            .expect("connected");
+        let order: Vec<i64> = fires.try_iter().map(|f| f.reminder_id).collect();
+        assert_eq!(order.len(), 3);
+        assert_eq!(order[1], alarm_id, "the alarm second");
+        assert_eq!(order[2], plain, "the ordinary reminder last");
+        assert!(
+            order[0] != alarm_id && order[0] != plain,
+            "the prayer first"
+        );
+    }
+
+    #[test]
+    fn a_missed_azan_is_listed_inside_the_hour_and_dropped_past_it() {
+        for (now, listed) in [
+            ("2026-11-19T13:01:00Z", true),
+            ("2026-11-19T13:01:00.001Z", false),
+        ] {
+            // Started with the time stored, as after the app was off.
+            let store = Store::open_in_memory().expect("opens");
+            store.sync_prayer_reminders(&["dhuhr"]).expect("synced");
+            let id = store.reminders().expect("reads")[0].id;
+            store
+                .set_next_fire_at(id, Some(instant("2026-11-19T12:01:00Z")))
+                .expect("stored");
+            let (out, fires) = fire_channel();
+            let mut core = Core::new(store, instant(now), TimeZone::UTC);
+            core.tick(instant(now), &out).expect("connected");
+            let fired = fires.try_iter().collect::<Vec<_>>();
+            assert_eq!(fired.len(), usize::from(listed), "{now}");
+            if let Some(fired) = fired.first() {
+                assert!(fired.missed, "listed, not a toast");
+            }
+            let store = core.into_store();
+            let history = store.history(id).expect("reads");
+            assert_eq!(
+                history
+                    .iter()
+                    .any(|(_, action)| *action == NotificationAction::Missed),
+                !listed,
+                "a dropped one leaves a missed row: {now}"
+            );
+        }
+    }
+
+    #[test]
+    fn the_azan_window_is_configurable() {
+        let store = Store::open_in_memory().expect("opens");
+        store.sync_prayer_reminders(&["asr"]).expect("synced");
+        let id = store.reminders().expect("reads")[0].id;
+        store
+            .set_next_fire_at(id, Some(instant("2026-11-19T08:00:00Z")))
+            .expect("stored");
+        let (out, fires) = fire_channel();
+        let mut core = Core::new(store, instant("2026-11-19T08:45:00Z"), TimeZone::UTC);
+        // 45 minutes late, with a 30-minute window: dropped.
+        core.apply(
+            Command::SetAzanWindow { minutes: 30 },
+            instant("2026-11-19T08:45:00Z"),
+        );
+        core.tick(instant("2026-11-19T08:45:00Z"), &out)
+            .expect("connected");
+        assert_eq!(fires.try_iter().count(), 0);
+    }
+
+    #[test]
+    fn enabling_prayers_makes_their_rows_and_queues_them() {
+        let store = Store::open_in_memory().expect("opens");
+        let mut core = Core::new(store, instant("2026-11-19T00:00Z"), TimeZone::UTC);
+        core.apply(
+            Command::PrayerTimes(vec![
+                ("fajr".into(), instant("2026-11-19T05:40:00Z")),
+                ("syuruk".into(), instant("2026-11-19T06:00:00Z")),
+            ]),
+            instant("2026-11-19T00:00Z"),
+        );
+        assert!(core.next().is_none(), "no prayer is enabled yet");
+        core.apply(
+            Command::EnablePrayers(vec!["fajr".into()]),
+            instant("2026-11-19T00:00Z"),
+        );
+        assert_eq!(
+            core.next().map(|(_, fire)| fire.at),
+            Some(instant("2026-11-19T05:40:00Z"))
+        );
+        core.apply(
+            Command::EnablePrayers(vec!["fajr".into(), "syuruk".into()]),
+            instant("2026-11-19T00:00Z"),
+        );
+        let (out, fires) = fire_channel();
+        core.tick(instant("2026-11-19T06:00:30Z"), &out)
+            .expect("connected");
+        let fired = names(&fires);
+        assert_eq!(
+            fired.len(),
+            2,
+            "Fajr was due too, inside the hour: {fired:?}"
+        );
     }
 }
