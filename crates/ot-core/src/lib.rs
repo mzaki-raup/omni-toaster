@@ -15,4 +15,4 @@ pub mod settings;
 pub use logging::{HostInfo, LogError, LogGuard, RecentLines};
 pub use paths::{DataRoot, PathError};
 pub use pause::{Pause, PauseFor};
-pub use settings::{General, Reminders, Settings, SettingsError};
+pub use settings::{General, LocationSettings, PrayerSettings, Reminders, Settings, SettingsError};

@@ -85,6 +85,29 @@ pub fn zone(code: &str) -> Option<&'static Zone> {
         .find(|zone| zone.code.eq_ignore_ascii_case(code))
 }
 
+/// The zones matching what the user typed, in JAKIM's order: a case-insensitive
+/// match on the code, the state or the areas, in either language, so "selangor",
+/// "SGR", "ulu langat" and "hulu langat" all find their zone. An empty query
+/// matches every zone.
+pub fn search(query: &str) -> Vec<&'static Zone> {
+    let needle = query.trim().to_lowercase();
+    ZONES
+        .iter()
+        .filter(|zone| {
+            needle.is_empty()
+                || [
+                    &zone.code,
+                    &zone.state_ms,
+                    &zone.state_en,
+                    &zone.areas_ms,
+                    &zone.areas_en,
+                ]
+                .iter()
+                .any(|field| field.to_lowercase().contains(&needle))
+        })
+        .collect()
+}
+
 /// The zone of the point nearest a location, and how far that point is.
 pub fn nearest(latitude: f64, longitude: f64) -> Option<(&'static Zone, f64)> {
     let (point, km) = POINTS
@@ -346,5 +369,43 @@ mod tests {
         assert!(split(r#"A,"open"#).is_err());
         assert!(rows("x,y\n1\n", &["x", "y"]).is_err(), "a short row");
         assert!(rows("a,b\n", &["x", "y"]).is_err(), "a wrong header");
+    }
+
+    #[test]
+    fn zone_search_finds_by_code_state_and_area_in_either_language() {
+        let codes = |query: &str| -> Vec<String> {
+            search(query).iter().map(|zone| zone.code.clone()).collect()
+        };
+        assert_eq!(search("").len(), zones().len(), "empty matches every zone");
+        assert_eq!(search("   ").len(), zones().len());
+        assert_eq!(codes("sgr01"), ["SGR01"], "a code, in any case");
+        assert!(codes("SGR").starts_with(&["SGR01".to_string()]));
+        // A state, by JAKIM's name and by the English one.
+        assert!(codes("selangor").contains(&"SGR01".to_string()));
+        assert!(codes("Selangor").iter().all(|code| code.starts_with("SGR")));
+        // An area, which is how most people look for a zone.
+        assert!(codes("hulu langat").contains(&"SGR01".to_string()));
+        assert!(codes("petaling").contains(&"SGR01".to_string()));
+        assert_eq!(codes("no such place anywhere"), Vec::<String>::new());
+        assert!(
+            codes("  kuala lumpur ").contains(&"WLY01".to_string()),
+            "trimmed"
+        );
+    }
+
+    #[test]
+    fn the_longest_zone_text_is_known_so_a_layout_can_be_tested_with_it() {
+        let longest = zones()
+            .iter()
+            .flat_map(|zone| [&zone.areas_ms, &zone.areas_en])
+            .map(|text| text.chars().count())
+            .max()
+            .expect("zones");
+        // Recorded so a layout test uses the real worst case, and a data change
+        // that makes it longer is noticed here and not in a clipped label.
+        assert!(
+            (100..=400).contains(&longest),
+            "the longest areas text is {longest} characters"
+        );
     }
 }

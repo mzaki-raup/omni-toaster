@@ -44,6 +44,38 @@ pub struct Settings {
     pub reminders: Reminders,
     /// Settings ▸ Prayer ▸ Location (`docs/11-prayer-and-azan.md` §6).
     pub location: LocationSettings,
+    /// Settings ▸ Prayer: the source, the zone and the calculation.
+    pub prayer: PrayerSettings,
+}
+
+/// Settings ▸ Prayer (`docs/11-prayer-and-azan.md` §1, §3, §8). Strings, not
+/// the prayer crate's enums, because `ot-core` depends on nothing else in the
+/// workspace; `ot_prayer` parses them and an unknown value there falls back to
+/// the default, so a hand-edited file cannot break the pane.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(default, deny_unknown_fields)]
+pub struct PrayerSettings {
+    /// `auto`, `jakim` or `calculated`.
+    pub source: String,
+    /// A JAKIM zone code the user chose, which overrides the detected zone.
+    /// Absent follows the saved location.
+    pub zone: Option<String>,
+    /// `muslim-world-league`, `isna`, `umm-al-qura` or `malaysia`. Absent picks
+    /// by location: `malaysia` inside Malaysia, `muslim-world-league` outside.
+    pub preset: Option<String>,
+    /// `shafii` or `hanafi`.
+    pub asr: String,
+}
+
+impl Default for PrayerSettings {
+    fn default() -> Self {
+        Self {
+            source: "auto".to_string(),
+            zone: None,
+            preset: None,
+            asr: "shafii".to_string(),
+        }
+    }
 }
 
 /// Whether the app may look up the PC's place from its IP address. Nothing is
@@ -286,6 +318,31 @@ mod tests {
         Settings::default().save(&root).expect("the save succeeds");
         let text = std::fs::read_to_string(Settings::path_in(&root)).expect("the file");
         assert!(!text.contains("ip_consent"), "{text}");
+    }
+
+    #[test]
+    fn the_prayer_settings_default_to_auto_and_shafii_and_survive_a_save() {
+        let (_dir, root) = scratch();
+        let defaults = Settings::default().prayer;
+        assert_eq!(
+            (
+                defaults.source.as_str(),
+                defaults.zone.as_deref(),
+                defaults.preset.as_deref(),
+                defaults.asr.as_str()
+            ),
+            ("auto", None, None, "shafii")
+        );
+        let mut settings = Settings::default();
+        settings.prayer.source = "jakim".to_string();
+        settings.prayer.zone = Some("SGR01".to_string());
+        settings.prayer.preset = Some("isna".to_string());
+        settings.prayer.asr = "hanafi".to_string();
+        settings.save(&root).expect("the save succeeds");
+        assert_eq!(
+            Settings::load(&root).expect("loads").prayer,
+            settings.prayer
+        );
     }
 
     #[test]

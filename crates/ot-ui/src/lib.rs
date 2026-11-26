@@ -13,6 +13,7 @@ pub mod images;
 pub mod layout;
 pub mod library;
 pub mod phrases;
+pub mod prayer;
 pub mod reminder_book;
 pub mod reminder_editor;
 pub mod reminder_toast;

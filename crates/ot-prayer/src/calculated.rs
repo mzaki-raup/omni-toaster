@@ -26,6 +26,85 @@ pub enum Preset {
     MalaysiaJakim,
 }
 
+impl Preset {
+    /// The value stored in `settings.toml`.
+    pub fn as_str(self) -> &'static str {
+        match self {
+            Self::MuslimWorldLeague => "muslim-world-league",
+            Self::Isna => "isna",
+            Self::UmmAlQura => "umm-al-qura",
+            Self::MalaysiaJakim => "malaysia",
+        }
+    }
+
+    /// A stored value, or `None` for one nobody recognises (the caller then
+    /// picks by location, as for an absent one).
+    pub fn parse(text: &str) -> Option<Self> {
+        Self::all()
+            .into_iter()
+            .find(|preset| preset.as_str() == text)
+    }
+
+    /// The Fluent key of the preset in the Method dropdown.
+    pub fn name_key(self) -> &'static str {
+        match self {
+            Self::MuslimWorldLeague => "prayer-preset-mwl",
+            Self::Isna => "prayer-preset-isna",
+            Self::UmmAlQura => "prayer-preset-umm-al-qura",
+            Self::MalaysiaJakim => "prayer-preset-malaysia",
+        }
+    }
+
+    pub fn all() -> [Self; 4] {
+        [
+            Self::MuslimWorldLeague,
+            Self::Isna,
+            Self::UmmAlQura,
+            Self::MalaysiaJakim,
+        ]
+    }
+
+    /// What nobody chose: the Malaysia preset in Malaysia, Muslim World League
+    /// elsewhere (spec §8).
+    pub fn default_for(in_malaysia: bool) -> Self {
+        if in_malaysia {
+            Self::MalaysiaJakim
+        } else {
+            Self::MuslimWorldLeague
+        }
+    }
+}
+
+impl Asr {
+    /// The value stored in `settings.toml`.
+    pub fn as_str(self) -> &'static str {
+        match self {
+            Self::Shafii => "shafii",
+            Self::Hanafi => "hanafi",
+        }
+    }
+
+    /// A stored value; one nobody recognises is Shafi'i, the default.
+    pub fn parse(text: &str) -> Self {
+        match text {
+            "hanafi" => Self::Hanafi,
+            _ => Self::Shafii,
+        }
+    }
+
+    /// The Fluent key of the school in the Asar dropdown.
+    pub fn name_key(self) -> &'static str {
+        match self {
+            Self::Shafii => "prayer-asr-shafii",
+            Self::Hanafi => "prayer-asr-hanafi",
+        }
+    }
+
+    pub fn all() -> [Self; 2] {
+        [Self::Shafii, Self::Hanafi]
+    }
+}
+
 /// The Asar school. Shafi'i is JAKIM's convention and the default; Hanafi puts
 /// Asar about an hour later, so a mismatch silently changes a prayer.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
@@ -350,6 +429,28 @@ mod tests {
         );
         assert_eq!(june.syuruk, None);
         assert!(june.dhuhr.is_some());
+    }
+
+    #[test]
+    fn stored_values_round_trip_and_an_unknown_one_falls_back_to_the_default() {
+        for preset in Preset::all() {
+            assert_eq!(Preset::parse(preset.as_str()), Some(preset));
+        }
+        assert_eq!(Preset::parse("egyptian"), None, "not offered, so not read");
+        assert_eq!(Preset::default_for(true), Preset::MalaysiaJakim);
+        assert_eq!(Preset::default_for(false), Preset::MuslimWorldLeague);
+        for asr in Asr::all() {
+            assert_eq!(Asr::parse(asr.as_str()), asr);
+        }
+        assert_eq!(Asr::parse("maliki"), Asr::Shafii);
+        assert_eq!(Asr::parse(""), Asr::Shafii);
+        for choice in crate::chain::SourceChoice::all() {
+            assert_eq!(crate::chain::SourceChoice::parse(choice.as_str()), choice);
+        }
+        assert_eq!(
+            crate::chain::SourceChoice::parse("moonsighting"),
+            crate::chain::SourceChoice::Auto
+        );
     }
 
     #[test]

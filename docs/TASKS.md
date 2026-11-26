@@ -241,7 +241,7 @@ disabled; prayer labels match the reference table in both languages.
 - [x] Docs: spec · README · CHANGELOG · CHECKLIST · GOTCHAS — spec §6 as built, ADR-021, `05` and `06`, both READMEs; no new gotcha
 - **Notes:** Not built: an offline city search (the embedded Malaysian places could serve one), and a coordinate-to-zone lookup abroad. The saved place is not yet read by anything: the zone, the chain and the scheduler use it from FEAT-0057 and FEAT-0058. In-Progress until FEAT-0057's app check.
 ### FEAT-0057 · Settings ▸ Prayer: source and zone
-- **State:** Pending · **Spec:** docs/11-prayer-and-azan.md §1 · §3 · docs/04-ui-design.md · **Phase:** 5
+- **State:** In-Progress · **Spec:** docs/11-prayer-and-azan.md §1 · §3 · docs/04-ui-design.md · **Phase:** 5
 - **Branch:** feat/phase-5-prayer
 - **Depends on:** FEAT-0050, FEAT-0055, FEAT-0056
 - [ ] The location (FEAT-0056): the first-run consent prompt before any IP lookup, in both languages, with Allow and Not Now; the detected place shown for confirmation with the zone; city search results and a coordinates field; the PC's zone shown for confirmation when the coordinates are outside Malaysia; the answer saved as `[location] ip_consent`
@@ -252,12 +252,13 @@ disabled; prayer labels match the reference table in both languages.
 - [ ] Gate: fmt · clippy -D warnings · test --workspace --locked -j 4 · deny check · --self-test
 - [ ] App: `--data-dir ./tmp-data` — pick a zone, change it, see the times follow — both languages, all three themes, the narrow window; first run: the consent prompt, decline and enter a city, accept and see the detected place to confirm; and switch the source to Calculated, choose each preset and Asar school, and see the times and the "approximate" label change — the check FEAT-0054 is waiting on
 - [ ] Docs: spec · README · CHANGELOG · CHECKLIST · GOTCHAS
+- **Progress (data layer, committed):** `[prayer]` in `settings.toml`; `parse`, `as_str` and `name_key` on the source, method and Asar enums; `zones::search`; `ot_ui::prayer` — `plan` (the zone detected from the place or the one the user chose, `in_malaysia`, the warnings, the zone a day is read in), `StoreCache` (the chain's cache over the store), `resolve_day`, and the `Controller` whose blocking work runs on short-lived threads with stale replies dropped and a new resolve cancelling the old one. Tests: 11 in `ot-ui`, 2 in `zones`, 1 each in `ot-core` and `calculated`. **Not built yet:** the pane itself, its strings, the layout test and the app check; every box above stays open until then.
 ### FEAT-0058 · Prayer times in the scheduler
 - **State:** Pending · **Spec:** docs/11-prayer-and-azan.md §9 · docs/specs/reminders.md §6 · §8 · **Phase:** 5
 - **Branch:** feat/phase-5-prayer
 - **Depends on:** FEAT-0055
 - [ ] The fetch loop (FEAT-0052's client): a worker runs `ot_prayer::fetch` weekly, on a zone change and when the cache lacks today, and waits as `next_after_success` and `next_after_failure` say — 1, 5 and 15 minutes, then the next check, daily across the year's end — with no polling loop and a cancel when Settings closes; each attempt's outcome is logged
-- [ ] The binary's side of the chain (FEAT-0055): `ot_prayer::chain::Cache` implemented over `ot_store`'s prayer cache (mapping `PrayerDay` and `CachedDay`, and `Freshness`), the error toast shown when `Resolution::Nothing` and `should_toast` allows, and the last known times kept
+- [ ] The binary's side of the chain (FEAT-0055): the error toast shown when `Resolution::Nothing` and `should_toast` allows, and the last known times kept (the `Cache` over the store is `ot_ui::prayer::StoreCache`, built in FEAT-0057)
 - [ ] Each day's times become fires, converted from `Asia/Kuala_Lumpur` whatever the PC's zone; rebuilt at midnight, after a fetch, a zone or a location change
 - [ ] Azan before Alarm before everything else; never suppressed by a pause (tray-and-settings §4) or quiet hours; persistent up to the 10-minute cap
 - [ ] The 1-hour catch-up window for a missed Azan, configurable — the part of FEAT-0045 that waited for Azan

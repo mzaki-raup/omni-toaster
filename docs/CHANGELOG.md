@@ -23,6 +23,8 @@ Format: [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) · Versioning:
 
 - The user's location: an IP lookup that asks first — nothing is sent until the user agrees, the answer is looked up again at most once a day, and the IP address in it is dropped — plus city search and typed coordinates, every place rounded to about a kilometre, and the saved place kept in the database so one chosen by hand is never overwritten by a detection. The services are ipapi.co and Open-Meteo's geocoding (ADR-021) (FEAT-0056).
 
+- Settings ▸ Prayer's data side: a `[prayer]` section in `settings.toml` (source, zone, method, Asar school — a value nobody recognises falls back to the default), a search over the 60 zones by code, state or area in either language, the prayer cache behind the fallback chain, and the work — a store read, an IP lookup, a city search, a day's times — each on a thread of its own, so a slow e-Solat fetch never holds a search behind it, and a reply that a newer request has replaced is dropped (FEAT-0057).
+
 ### Changed
 
 - The Malaysia preset's Fajr angle is 18.0°, not the 20.0° the spec gave: JAKIM's own November tables put 20.0° ten minutes early, and the data fit about 17.5°. The spec, `PROPOSAL.md` and both READMEs say 18.0° (FEAT-0054).

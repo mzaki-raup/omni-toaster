@@ -2571,6 +2571,7 @@ dependencies = [
  "ot-core",
  "ot-i18n",
  "ot-platform",
+ "ot-prayer",
  "ot-sched",
  "ot-store",
  "ot-toast",

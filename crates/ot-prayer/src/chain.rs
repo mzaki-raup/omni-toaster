@@ -34,6 +34,39 @@ pub enum SourceChoice {
     Calculated,
 }
 
+impl SourceChoice {
+    /// The value stored in `settings.toml`.
+    pub fn as_str(self) -> &'static str {
+        match self {
+            Self::Auto => "auto",
+            Self::Jakim => "jakim",
+            Self::Calculated => "calculated",
+        }
+    }
+
+    /// A stored value; one nobody recognises is `Auto`, the default.
+    pub fn parse(text: &str) -> Self {
+        match text {
+            "jakim" => Self::Jakim,
+            "calculated" => Self::Calculated,
+            _ => Self::Auto,
+        }
+    }
+
+    /// The Fluent key of the choice in the Source dropdown.
+    pub fn name_key(self) -> &'static str {
+        match self {
+            Self::Auto => "prayer-choice-auto",
+            Self::Jakim => "prayer-choice-jakim",
+            Self::Calculated => "prayer-choice-calculated",
+        }
+    }
+
+    pub fn all() -> [Self; 3] {
+        [Self::Auto, Self::Jakim, Self::Calculated]
+    }
+}
+
 /// Whether the cache can serve a zone today. The rule itself lives in
 /// `ot-store`, which the binary maps to this.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
