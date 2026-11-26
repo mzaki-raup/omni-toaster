@@ -183,7 +183,7 @@ Last updated: 2026-11-19
 
 | Item | State | Notes |
 |---|---|---|
-| Open-Meteo service | Pending | No API key |
+| Open-Meteo service | In-Progress | No API key. FEAT-0065: the service verified live for three cities and recorded as ADR-023; `ot-weather` has the client and the strict reader, tested against captured answers and live; not yet running in the app (FEAT-0069). The free tier is non-commercial and wants attribution — the owner's call |
 | Caching | Pending | TTL-based |
 | Condition change detection | Pending | Condition change or temperature threshold |
 | Per-condition templates | Pending | |

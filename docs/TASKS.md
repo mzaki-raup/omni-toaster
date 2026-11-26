@@ -142,15 +142,16 @@ a condition change triggers a toast in simulation, and offline mode shows the
 stale marker in both languages.
 
 ### FEAT-0065 · The Open-Meteo verification spike and its client
-- **State:** Pending · **Spec:** docs/specs/weather.md §3 · ADR-009 · ADR-011 · **Phase:** 6
+- **State:** Completed · **Spec:** docs/specs/weather.md §3 · ADR-009 · ADR-011 · **Phase:** 6
 - **Branch:** feat/phase-6-weather
-- [ ] The request and the response verified live for a few places and the fields the app needs (current weather code, temperature, the hourly series for a threshold), the raw responses kept as fixtures with a note of how each was captured
-- [ ] Recorded as an ADR, and `docs/specs/weather.md` §3 and §12 updated to the verified shape
-- [ ] `ot-weather`: one blocking `ureq` attempt on a worker thread, HTTPS only, ten-second timeout, a response size cap, coordinates rounded before they are sent, cancellable, never a panic on a truncated, empty or malformed body
-- [ ] Test: the parser against the fixtures and against broken bodies; the rounding; cancel stops the work; a live fetch, not run when Open-Meteo is unreachable
-- [ ] Gate: fmt · clippy -D warnings · test --workspace --locked -j 4 · deny check · --self-test
-- [ ] App: `--data-dir ./tmp-data` — not applicable on its own — exercised through the service (FEAT-0069)
-- [ ] Docs: spec · README · CHANGELOG · CHECKLIST · GOTCHAS
+- [x] The request and the response verified live for a few places and the fields the app needs (current weather code, temperature, the hourly series for a threshold), the raw responses kept as fixtures with a note of how each was captured — Kuala Lumpur, Kuching and London on 2026-11-26, plus the history request, a 400 and the empty-200 case; raw files and a README in `crates/ot-weather/tests/fixtures/open-meteo-2026-11-26/`
+- [x] Recorded as an ADR, and `docs/specs/weather.md` §3 and §12 updated to the verified shape — ADR-023, and `docs/specs/weather.md` §3 and "What is implemented"; §12's open questions are for FEAT-0068
+- [x] `ot-weather`: one blocking `ureq` attempt on a worker thread, HTTPS only, ten-second timeout, a response size cap, coordinates rounded before they are sent, cancellable, never a panic on a truncated, empty or malformed body — `fetch::Client` and `observation::parse`; the agent and `Cancel` are second copies of the prayer crate's (ADR-023 says why)
+- [x] Test: the parser against the fixtures and against broken bodies; the rounding; cancel stops the work; a live fetch, not run when Open-Meteo is unreachable — 19 tests, plus the live one run by hand with `--ignored` against three cities; broken bodies, the empty 200, the size cap, the rounding and a cancel that sends nothing are each tested
+- [x] Gate: fmt · clippy -D warnings · test --workspace --locked -j 4 · deny check · --self-test — fmt · clippy · tests · deny · self-test
+- [x] App: `--data-dir ./tmp-data` — not applicable on its own — exercised through the service (FEAT-0069) — not applicable on its own, as the item says — the service runs in the app with FEAT-0069
+- [x] Docs: spec · README · CHANGELOG · CHECKLIST · GOTCHAS — ADR-023 · spec · CHANGELOG · CHECKLIST · two GOTCHAS entries; README: nothing user-visible yet
+- **Notes:** The free API is non-commercial and asks for credit (ADR-023): the owner decides before a release relying on weather. `weather_cache` is already in migration 001. **One unexplained failure:** during this item's gate `ot-ui`'s `prayer::tests::the_controller_saves_and_reads_a_place_and_resolves_off_the_calling_thread` failed once in a workspace run (its message was not captured) and then passed alone 15 times and in three more workspace runs. It is not in code this item touched; it is a flake not yet localised, and is recorded here rather than dismissed.
 
 ### FEAT-0066 · Weather codes, condition classes and their Fluent keys
 - **State:** Pending · **Spec:** docs/specs/weather.md §4 · §5 · docs/10-i18n.md · **Phase:** 6

@@ -20,7 +20,7 @@ is not the goal; a toast when rain is starting is.
 Open-Meteo. No API key, which is why it was chosen — the app holds no
 credentials ([ADR-011](../08-decisions.md)).
 
-- Polled every **30 minutes**, configurable, **minimum 15 minutes**.
+- Polled every **30 minutes**, configurable, **minimum 15 minutes** (the service's own values change in 15-minute steps, ADR-023).
 - HTTPS, a timeout, a response size cap, and retry with backoff. No polling
   loop tighter than the configured interval.
 - Coordinates are **rounded before they are sent**
@@ -110,6 +110,15 @@ cargo run -p omnitoaster -- --data-dir ./tmp-data
 2. Whether a severe-weather alert (as opposed to a condition change) deserves
    the Alarm priority class.
 
-## What is implemented (2026-11-08)
+## What is implemented
 
-Nothing. Phase 6 has not started; this file is the requirement.
+- **The client and the reader (FEAT-0065, ADR-023).** `ot_weather::fetch::Client`
+  asks `api.open-meteo.com/v1/forecast` for the current temperature and code and the
+  last six hourly temperatures, in UTC, with the coordinates rounded to two
+  decimals; `ot_weather::observation::parse` reads the answer into an
+  `Observation` and refuses what is not the shape Open-Meteo sends. No polling, no
+  cache, no change detection and no toast yet: those are FEAT-0066 to FEAT-0071.
+  Verified live for Kuala Lumpur, Kuching and London; the fixtures are in
+  `crates/ot-weather/tests/fixtures/open-meteo-2026-11-26/`.
+- **A licence point the owner must settle** (ADR-023): the free API is
+  non-commercial and wants attribution.
