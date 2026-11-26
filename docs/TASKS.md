@@ -206,16 +206,17 @@ disabled; prayer labels match the reference table in both languages.
 - [x] Docs: spec · README · CHANGELOG · CHECKLIST · GOTCHAS — `05-data-model` says how the table is used; README unchanged (nothing visible); no new gotcha
 - **Notes:** Not built, because nothing asks for it yet: a range read for the scheduler (FEAT-0058 adds it when it needs one) and pruning of old months (the spec keeps "the current and next month"; at about 365 rows a zone a year it is not urgent). In-Progress until FEAT-0058's app check.
 ### FEAT-0054 · Calculated mode and its presets
-- **State:** Pending · **Spec:** docs/11-prayer-and-azan.md §8 · ADR-008 · **Phase:** 5
+- **State:** In-Progress · **Spec:** docs/11-prayer-and-azan.md §8 · ADR-008 · ADR-020 · **Phase:** 5
 - **Branch:** feat/phase-5-prayer
 - **Depends on:** FEAT-0049
-- [ ] Local calculation with presets: Muslim World League (the default outside Malaysia), ISNA, Umm al-Qura, and "Malaysia (JAKIM angles, approximate)" with Fajr 20.0° and Isha 18.0° — the library chosen in an ADR
-- [ ] Asar: Shafi'i (default) or Hanafi, a visible setting
-- [ ] Labelled "approximate" when the zone is in Malaysia and the source is not JAKIM
-- [ ] Test: each preset against published reference times within a minute or two; the Malaysia preset against the spike's three zones; Shafi'i against Hanafi
-- [ ] Gate: fmt · clippy -D warnings · test --workspace --locked -j 4 · deny check · --self-test
-- [ ] App: `--data-dir ./tmp-data` — switch the source to Calculated and see the times and the label change, in both languages
-- [ ] Docs: spec · README · CHANGELOG · CHECKLIST · GOTCHAS
+- [x] Local calculation with presets: Muslim World League (the default outside Malaysia), ISNA, Umm al-Qura, and "Malaysia (JAKIM angles, approximate)" — the library chosen in an ADR — ADR-020: `adhan` 0.2.0. **The Malaysia preset is Fajr 18.0° and Isha 18.0°, not the 20.0° and 18.0° this item first said:** JAKIM's own tables put 20.0° ten minutes early. The owner chose 18.0° on 2026-11-26; spec §8, `PROPOSAL.md` and both READMEs changed in this commit
+- [x] Asar: Shafi'i (default) or Hanafi, a visible setting — `Asr::{Shafii, Hanafi}`, Shafi'i the default; the setting's control is Settings ▸ Prayer (FEAT-0057)
+- [x] Labelled "approximate" when the zone is in Malaysia and the source is not JAKIM — `is_approximate(preset, in_malaysia)`, true for the Malaysia preset anywhere and any preset in Malaysia; the visible label and its Fluent keys come with the source label (FEAT-0055)
+- [x] Test: each preset against published reference times within a minute or two; the Malaysia preset against the spike's three zones; Shafi'i against Hanafi — 6 tests in `calculated.rs`: the three zones × 30 days × 6 times all within 3 minutes of JAKIM; 60 reference rows for the other three presets (UTC readings exact to the minute) in both Asar schools, east and west of Greenwich; Hanafi 50–60 minutes after Shafi'i with only Asar moving; a polar day with no sunrise. The reference rows are **adhan-js output**, not an independent timetable, so they check our wiring and not the crate's astronomy; two mutations (no day placement, Fajr at 20°) each fail the tests
+- [x] Gate: fmt · clippy -D warnings · test --workspace --locked -j 4 (396 passed) · deny check · --self-test
+- [ ] App: `--data-dir ./tmp-data` — switch the source to Calculated and see the times and the label change, in both languages — not made: there is no source setting or prayer pane yet (FEAT-0057), and nothing calls calculated mode. The check moves to FEAT-0057
+- [x] Docs: spec · README · CHANGELOG · CHECKLIST · GOTCHAS — spec §8 as built, ADR-020, two GOTCHAS entries, both READMEs' angle
+- **Notes:** Not built: Imsak and Dhuha (JAKIM's own), JAKIM's one-to-three-minute precautions (a fitted guess; "approximate" stays true), and the chosen place and time zone for an overseas location (FEAT-0056 gives the place). In-Progress until FEAT-0057's app check.
 ### FEAT-0055 · The fallback chain and the source label
 - **State:** Pending · **Spec:** docs/11-prayer-and-azan.md §7 · **Phase:** 5
 - **Branch:** feat/phase-5-prayer
@@ -247,7 +248,7 @@ disabled; prayer labels match the reference table in both languages.
 - [ ] The day's times with the source label and the last fetch time; empty, loading and error states that each say something
 - [ ] Test: the layout test in English, Malay and the pseudo-locale at 100–200%, with the longest zone names; the zone search
 - [ ] Gate: fmt · clippy -D warnings · test --workspace --locked -j 4 · deny check · --self-test
-- [ ] App: `--data-dir ./tmp-data` — pick a zone, change it, see the times follow — both languages, all three themes, the narrow window
+- [ ] App: `--data-dir ./tmp-data` — pick a zone, change it, see the times follow — both languages, all three themes, the narrow window; and switch the source to Calculated, choose each preset and Asar school, and see the times and the "approximate" label change — the check FEAT-0054 is waiting on
 - [ ] Docs: spec · README · CHANGELOG · CHECKLIST · GOTCHAS
 ### FEAT-0058 · Prayer times in the scheduler
 - **State:** Pending · **Spec:** docs/11-prayer-and-azan.md §9 · docs/specs/reminders.md §6 · §8 · **Phase:** 5

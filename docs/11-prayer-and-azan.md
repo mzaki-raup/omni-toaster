@@ -40,7 +40,7 @@ has about 60 zones.
 |---|---|---|
 | **A. e-Solat JSON endpoint** (primary) | Monthly or weekly JSON for one zone | Live fetch and the monthly cache |
 | **B. Official export** (fallback) | Monthly or yearly tables bundled as JSON | Offline fallback, only if the terms allow — the Phase 9 terms check |
-| **C. Calculated** (last resort) | `adhan` with Fajr 20.0° and Isha 18.0° | When A and B both fail |
+| **C. Calculated** (last resort) | `adhan` with Fajr 18.0° and Isha 18.0° | When A and B both fail |
 
 > **The endpoint is not a documented public API.** Its path and response shape
 > may change without notice. The Phase 5 spike verified it against SGR01, WLY01
@@ -225,7 +225,7 @@ As built (FEAT-0052), in `ot_prayer::fetch`:
 1. A fresh JAKIM cache entry for this zone and date  → use it      (source: api)
 2. A live fetch succeeds                             → update cache (source: api)
 3. The bundled dataset has the date                  → use it      (source: bundled)
-4. Calculated (adhan, Fajr 20°, Isha 18°)            → use it, labelled "Calculated (fallback)"
+4. Calculated (adhan, Fajr 18°, Isha 18°)            → use it, labelled "Calculated (fallback)"
 5. Nothing available                                 → one error toast per day, keep the last known times
 ```
 
@@ -237,8 +237,10 @@ the bundled data present and absent — each must produce the expected label
 ## 8. Calculated mode
 
 - Method presets: Muslim World League (the default outside Malaysia), ISNA,
-  Umm al-Qura, and **"Malaysia (JAKIM angles, approximate)"** with Fajr 20.0°
-  and Isha 18.0°.
+  Umm al-Qura, and **"Malaysia (JAKIM angles, approximate)"** with Fajr 18.0°
+  and Isha 18.0°. The spec first said Fajr 20.0°; JAKIM's own tables for SGR01,
+  WLY01 and JHR01 (November 2026) put that ten minutes early, and 18.0° keeps
+  every time within three minutes (FEAT-0054, ADR-020).
 - Asar madhab (Shafi'i or Hanafi) is a user setting, visible and documented
   because a mismatch silently changes Asar. **The default is Shafi'i**, which
   the owner confirmed is JAKIM's convention and the spike re-confirmed: JAKIM's
@@ -246,6 +248,16 @@ the bundled data present and absent — each must produce the expected label
   and JHR01, and about 55 minutes before Hanafi (ADR-018).
 - When the zone is in Malaysia and the source is not JAKIM, times are labelled
   **"approximate"**.
+
+As built (FEAT-0054), in `ot_prayer::calculated`: `day(date, place, preset, asr)`
+gives a `CalculatedDay` of six instants — Fajr, Syuruk, Dhuhr, Asar, Maghrib,
+Isha — so no zone is guessed here; a time is `None` where the sun does not reach
+the angle (inside the polar circles), never an invented number. Imsak and Dhuha
+are JAKIM's own and are not calculated. `is_approximate(preset, in_malaysia)` is
+the "approximate" rule: the Malaysia preset always, any preset in Malaysia. JAKIM
+publishes Dhuhr, Asar, Maghrib and Isha one to three minutes after the calculation
+(a precaution the angles do not carry); no offsets are added, so the label
+"approximate" is true.
 
 ## 9. Azan behaviour
 

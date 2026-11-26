@@ -668,3 +668,55 @@ current as the Windows it runs on.
   pass on Linux".
 - Later HTTP callers (weather, geolocation, updates) build their agent the same
   way and cite this ADR.
+
+---
+
+## ADR-020 · `adhan` for calculated prayer times, and a Malaysia preset at 18°
+
+**Status:** Accepted 2026-11-26 · **Phase:** 5 · **Builds on:** ADR-008 (calculated
+times as the last resort), ADR-017 (`jiff`, not `chrono`)
+
+**Context.** Calculated mode is the offline and overseas source and the last link
+of the fallback chain. ADR-008 named the `adhan` crate before anyone had looked at
+one, and the spec fixed the Malaysia preset at Fajr 20.0° and Isha 18.0°.
+
+**Options.** The `adhan` crate (0.2.0) · `salah`, the older port · our own
+implementation of Meeus's astronomical algorithms.
+
+**Decision.** `adhan` 0.2.0. It has **no dependencies**, forbids `unsafe`, is
+Apache-2.0 (already allowed by `deny.toml`), and reports its own checking against
+the adhan-js reference library, the implementation most prayer apps use. `salah`
+depends on `chrono`, which ADR-017 rules out. Writing the astronomy ourselves would
+be the one place in the app where a quiet error moves a prayer, and a published,
+reference-checked implementation is the better thing to lean on.
+
+**What we checked ourselves, because the crate is young** (a 0.2 from a small
+organisation, not a long-established one):
+
+- **The three non-Malaysian presets** against 60 rows of adhan-js output the crate
+  ships as test fixtures (`tests/fixtures/adhan_js_presets.tsv`): five places east
+  and west of Greenwich, two dates, both Asar schools. This checks our wiring, not
+  the crate's astronomy against an independent timetable.
+- **The Malaysia preset against JAKIM itself**: the spike's three zones, 30 days
+  each. This is the independent check, and it changed the preset.
+
+**The Malaysia preset is Fajr 18.0° and Isha 18.0°, not 20.0° and 18.0°.** At a
+Fajr of 20.0° every calculated Fajr is 10 to 12 minutes earlier than JAKIM's in all
+three zones; the data fit about 17.5°, and 18.0° keeps every time within three
+minutes. Isha at 18.0° was right. The owner chose 18.0° on 2026-11-26 over 17.5°
+(a value fitted to one month of data, not a published figure, under a name that
+says "JAKIM angles") and over keeping 20.0°. The spec, `PROPOSAL.md` and both
+READMEs say 18.0°.
+
+**Consequences.**
+
+- JAKIM publishes Dhuhr, Asar, Maghrib and Isha one to three minutes after the
+  calculation and Syuruk within three minutes either way. **No offsets are added**:
+  they are a fitted guess, and the label "approximate" stays true.
+- `adhan` gives a time as a UTC clock reading with the day taken off, so
+  `calculated::place_on_day` puts it on the neighbouring UTC day nearest the
+  place's solar noon.
+- Inside the polar circles a time can be absent. It is `None`, never a made-up
+  number, and the fallback chain (FEAT-0055) must treat a day with a missing time
+  as a gap.
+- Imsak and Dhuha are JAKIM's own and are not calculated.

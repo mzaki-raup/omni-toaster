@@ -319,7 +319,7 @@ The e-Solat portal (`e-solat.gov.my`) publishes times by zone code. Malaysia has
 |---|---|---|
 | **A. e-Solat JSON endpoint** (primary) | Monthly or weekly JSON for one zone | Live fetch and monthly cache |
 | **B. Official export** (fallback) | Monthly or yearly tables bundled as JSON | Offline fallback, only if terms allow (Phase 9 terms check, §13) |
-| **C. Calculated** (last resort) | `adhan` with Fajr 20.0° and Isha 18.0°, plus JAKIM precautionary offsets if confirmed | When A and B fail |
+| **C. Calculated** (last resort) | `adhan` with Fajr 18.0° and Isha 18.0° (the spike showed 20.0° is ten minutes early); JAKIM's one-to-three-minute precautions are not added, so it is labelled approximate | When A and B fail |
 
 > **Important:** The e-Solat JSON endpoint is not a formally documented public API. Its path and response format may change without notice. Phase 5 begins with a verification spike (§13). The implementation treats the endpoint as unstable: every field is validated, missing keys are handled, and a format change never crashes the app.
 
@@ -403,12 +403,12 @@ Times are stored as local clock values and converted to absolute timestamps in `
 1. Fresh JAKIM cache for zone and date   -> use it          (source: api)
 2. Live fetch succeeds                   -> update cache    (source: api)
 3. Bundled JAKIM dataset has the date    -> use it          (source: bundled)
-4. Calculated (adhan, Fajr 20°, Isha 18°) -> use it, label "Calculated (fallback)"
+4. Calculated (adhan, Fajr 18°, Isha 18°) -> use it, label "Calculated (fallback)"
 5. Nothing available                     -> one error toast per day, keep last known times
 ```
 
 ### 7.7 Calculated Mode
-- Method presets: Muslim World League (default outside Malaysia), ISNA, Umm al-Qura, and **"Malaysia (JAKIM angles, approximate)"** with Fajr 20.0° and Isha 18.0°.
+- Method presets: Muslim World League (default outside Malaysia), ISNA, Umm al-Qura, and **"Malaysia (JAKIM angles, approximate)"** with Fajr 18.0° and Isha 18.0°.
 - Asar method (Shafi'i or Hanafi) is a user setting. The default follows the JAKIM published convention, to be confirmed in the spike.
 - When the zone is in Malaysia and the source is not JAKIM, times are labelled "approximate".
 

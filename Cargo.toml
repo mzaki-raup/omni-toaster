@@ -98,6 +98,10 @@ image = { version = "0.25.10", default-features = false, features = [
     "webp",
 ] }
 
+# Calculated prayer times (ADR-020): no dependencies, no chrono, and checked
+# against the adhan-js reference by its authors.
+adhan = "0.2.0"
+
 # HTTP for the prayer fetch (ADR-002, ADR-019): blocking, on a worker thread.
 # Default features are off - no rustls, no ring, no bundled root list - and TLS
 # is Windows' own SChannel through native-tls, checking certificates against

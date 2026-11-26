@@ -151,7 +151,7 @@ minggu.
 Di luar Malaysia — atau semasa luar talian, atau apabila e-Solat tidak dapat
 dicapai — waktu solat **dikira** dengan crate `adhan`. Pratetap kaedah ialah
 Muslim World League, ISNA, Umm al-Qura dan "Malaysia (sudut JAKIM, anggaran)"
-dengan Subuh 20.0° dan Isyak 18.0°. Asar mengikut mazhab Syafie secara lalai.
+dengan Subuh 18.0° dan Isyak 18.0°. Asar mengikut mazhab Syafie secara lalai.
 Waktu yang dikira di dalam Malaysia dilabel sebagai anggaran. Sumber yang
 digunakan, dan masa pengambilan terakhir, sentiasa dipaparkan pada skrin.
 

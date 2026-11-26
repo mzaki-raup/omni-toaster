@@ -168,7 +168,7 @@ Last updated: 2026-11-19
 | Cache and migration 004 | In-Progress | `004_jakim.sql`. FEAT-0053: `ot_store::prayer` writes, reads and judges freshness, tested on a fresh and a version 3 database; not yet written by the app — the fetch loop is FEAT-0058, where "the times survive a restart with the network off" is checked |
 | Fallback chain | Pending | Cache → live → bundled → calculated → last known |
 | Zone selection UI | Pending | Detected zone shown for confirmation, always overridable |
-| Calculated mode with Malaysia preset | Pending | Fajr 20.0°, Isha 18.0°, Asar Shafi'i |
+| Calculated mode with Malaysia preset | In-Progress | Fajr 18.0° (not 20.0°: JAKIM's tables put that ten minutes early), Isha 18.0°, Asar Shafi'i. FEAT-0054: `ot_prayer::calculated` built; every time within three minutes of JAKIM's in SGR01, WLY01 and JHR01; the other presets match the adhan-js reference rows; not yet shown in the app — Settings ▸ Prayer is FEAT-0057 |
 | Per-prayer templates | Pending | Audio, title, body, image, accent, style |
 | Audio playback | Pending | Full Azan or short chime |
 | Pre-prayer reminders | Pending | |

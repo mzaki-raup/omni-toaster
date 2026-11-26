@@ -135,7 +135,7 @@ refreshed weekly.
 
 Outside Malaysia — or offline, or when e-Solat is unavailable — times are
 **calculated** with the `adhan` crate. Method presets are Muslim World League,
-ISNA, Umm al-Qura and "Malaysia (JAKIM angles, approximate)" at Fajr 20.0° and
+ISNA, Umm al-Qura and "Malaysia (JAKIM angles, approximate)" at Fajr 18.0° and
 Isha 18.0°. Asar follows Shafi'i by default. Calculated times inside Malaysia
 are labelled approximate. The source in use, and the time of the last fetch, are
 always on screen.

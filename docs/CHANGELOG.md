@@ -17,7 +17,11 @@ Format: [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) · Versioning:
 
 - The prayer-times cache: migration 004 adds `jakim_prayer_cache`, and the store writes a fetched range in one transaction, replacing a day that was corrected, reads a zone's day with its source and when it was fetched, and says whether the cache can serve today — it has the day and wrote it under 30 days ago. Tested on a fresh database, on a version 3 database as v0.12.0 left it, round trip, at the 30-day edge and with a damaged row (FEAT-0053).
 
+- Calculated prayer times: Muslim World League, ISNA, Umm al-Qura and "Malaysia (JAKIM angles, approximate)", with Asar Shafi'i (the default) or Hanafi, from the `adhan` crate (ADR-020). Each time is an instant, and one the sun does not reach — inside the polar circles — is absent rather than invented. The Malaysia preset is within three minutes of JAKIM's published times in SGR01, WLY01 and JHR01; the other three match the adhan-js reference on 60 rows, including places east and west of Greenwich (FEAT-0054).
+
 ### Changed
+
+- The Malaysia preset's Fajr angle is 18.0°, not the 20.0° the spec gave: JAKIM's own November tables put 20.0° ten minutes early, and the data fit about 17.5°. The spec, `PROPOSAL.md` and both READMEs say 18.0° (FEAT-0054).
 
 - `deny.toml`'s reason for banning `openssl-sys` no longer says "use rustls": the prayer fetch uses Windows' SChannel through `native-tls` (ADR-019), and the ban on OpenSSL stands (FEAT-0052).
 
