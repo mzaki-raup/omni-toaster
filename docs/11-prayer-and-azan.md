@@ -372,6 +372,15 @@ As built in the scheduler (FEAT-0058, `ot_sched`):
   Dismiss and nothing to snooze, and goes to the front of the queue; a pause
   never holds it back. Quiet hours do not exist yet; when announcements arrive
   they must leave Azan alone too.
+- **Sound** (FEAT-0060, ADR-022). Each prayer's template has a sound: the short
+  chime (the default), the full Azan that ships in the exe — Subuh's own for
+  Fajr — a clip the user chose, or silence. A chosen clip is checked before it is
+  copied (20 MB before a byte is read, the format from the bytes, a bounded
+  decode of the whole clip up to ten minutes) and stored under its hash in
+  `assets/`. The sound starts when the prayer's toast appears and stops when it is
+  dismissed or closes at its cap; Play Sound in Settings lets the user hear it.
+  One thread owns the one output device, opened on the first clip; a new clip
+  replaces the old. Quiet hours and the announcements' own audio come later.
 - **Settings.** `[prayer] notify_syuruk` gives Syuruk its own notification, and
   `azan_window_minutes` is the catch-up window (1 to 1440, 60 by default); both
   have controls in Settings ▸ Prayer ▸ Notifications. Jumu'ah is not built.

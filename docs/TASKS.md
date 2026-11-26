@@ -288,13 +288,13 @@ disabled; prayer labels match the reference table in both languages.
 - **State:** In-Progress · **Spec:** docs/11-prayer-and-azan.md §9 · docs/06-security-and-privacy.md · **Phase:** 5
 - **Branch:** feat/phase-5-prayer
 - **Depends on:** FEAT-0059
-- [ ] `ot-media` plays audio through `rodio` (an ADR); full Azan or a short chime per prayer; stop with the toast
-- [ ] Importing an audio file goes through the import rules: size, magic bytes, a hashed copy, a bounded decode
-- [ ] The default Azan only where its licence allows (`assets/README.md`)
-- [ ] Test: the format check by magic bytes; the size limit; a corrupt file refused with a message; playback started and stopped
-- [ ] Gate: fmt · clippy -D warnings · test --workspace --locked -j 4 · deny check · --self-test
-- [ ] App: `--data-dir ./tmp-data` — an Azan toast plays its audio and stops when dismissed; import a clip; both languages
-- [ ] Docs: spec · README · CHANGELOG · CHECKLIST · GOTCHAS
+- [x] `ot-media` plays audio through `rodio` (an ADR); full Azan or a short chime per prayer; stop with the toast — ADR-022; `ot_media::Player`; the sound is chosen per prayer in the template editor; it stops with the toast (`drive_toasts`)
+- [x] Importing an audio file goes through the import rules: size, magic bytes, a hashed copy, a bounded decode — `ot_media::audio::check` then `ot_store::assets::store_audio`; refused files never reach the folder (tested)
+- [x] The default Azan only where its licence allows (`assets/README.md`) — the Azan clips are embedded but the default for a prayer is the short chime, so the full Azan is a choice; the licence is Phase 9's terms check (`assets/README.md`)
+- [x] Test: the format check by magic bytes; the size limit; a corrupt file refused with a message; playback started and stopped — 8 `ot-media` tests, 1 store test, 2 controller tests (the clip a prayer plays; a chosen clip checked and copied, a fake refused) and the key test; the player test plays the chime or reports no device
+- [x] Gate: fmt · clippy -D warnings · test --workspace --locked -j 4 · deny check · --self-test — fmt · clippy · 483 tests · deny · self-test
+- [ ] App: `--data-dir ./tmp-data` — an Azan toast plays its audio and stops when dismissed; import a clip; both languages. **Made:** Full Azan chosen for Fajr, saved and previewed: the log shows `playing a clip clip=AzanSubuh` with no device error, and `the clip was stopped` eleven seconds later when the toast was dismissed. **Not made:** hearing it (only the owner can), the file dialog and an import through it (a Windows dialog the harness does not drive; the import is tested with a real clip), and Malay. Left open for these
+- [x] Docs: spec `11` §9 · `assets/README.md` · CHANGELOG · CHECKLIST · GOTCHAS (three entries); README already lists per-prayer audio
 - **Notes:** Audio output cannot be confirmed by a test; the App box is the check.
 - **Progress (ot-media, committed):** ADR-022; `ot_media::audio::check` (20 MB before reading, format by magic bytes, a bounded decode of the whole clip up to ten minutes, a Fluent key per refusal) and `ot_media::Player` (one thread, one device opened on the first clip, a new clip replaces the old, a missing device reported not panicked), with the stand-in chime and the two Azan clips embedded; 8 tests. **Not built yet:** the store side of an imported clip (`store_audio`, a sound mode per prayer), the editor controls, playing on a prayer's fire and stopping when it is dismissed, and the app check; every box above stays open.
 ### FEAT-0061 · Pre-prayer reminders

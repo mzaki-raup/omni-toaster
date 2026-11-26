@@ -182,7 +182,9 @@ have.
 - **`ureq` turns a 4xx or 5xx into an error unless told not to.** `http_status_as_error(false)` lets the client read the status itself; e-Solat's 500 has `Content-Type: application/json` and an HTML body, so a message built from the content type would be wrong (FEAT-0052).
 
 ## Audio and Speech
-Nothing recorded yet.
+- **`rodio` 0.23 is not the `rodio` of most guides.** `OutputStream`, `OutputStreamHandle` and `Sink` are gone: the device is `DeviceSinkBuilder::open_default_sink()` giving a `MixerDeviceSink` that must be kept alive, a clip is a `Player` connected to its `mixer()`, and the decoder is `Decoder::new(reader)` over a `Read + Seek + Send + Sync + 'static`. Read the crate's own source, not an older example (FEAT-0060).
+- **The player's test plays the chime.** `cargo test -p ot-media` opens the real output device and plays the short chime for a moment before stopping it, because "started and stopped" cannot be shown otherwise; on a machine with no output it passes by the player reporting that. It is the short clip on purpose, never the Azan (FEAT-0060).
+- **A clip is checked by decoding all of it, not by its header.** A WAV header can claim any length, and an MP3 with no length at all has none to read, so the bounded decode counts every sample up to ten minutes and refuses what goes past; the 602-second test clip is 9.6 MB and passes the size rule (FEAT-0060).
 
 ## Tray, Startup and Supervisor
 Nothing recorded yet.
