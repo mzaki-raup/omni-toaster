@@ -173,7 +173,7 @@ Last updated: 2026-11-19
 | Per-prayer templates | In-Progress | Audio, title, body, image, accent, style. FEAT-0059: title, message, accent and picture per prayer, with Use Default Text and Preview, seen in the app in English and Malay; the per-prayer style override is not built, and audio is FEAT-0060 |
 | Audio playback | In-Progress | Full Azan or short chime. FEAT-0060: `ot-media` plays through `rodio` (ADR-022) on one thread; a prayer's sound is the chime, the full Azan, an imported clip or none; a clip is checked (size, magic bytes, a bounded decode) before it is copied in. In the app, Subuh's Azan started and stopped with its toast, as the log shows; whether it was heard, and the file dialog's import, were not checked there |
 | Pre-prayer reminders | In-Progress | FEAT-0061: optional per prayer, a lead of 1 to 120 minutes (10 by default), derived from the prayer's own time by the scheduler, so it moves with it; built-in text in both languages; skipped when late. Seen in the app firing ahead of a planted Asr; the Malay text and its own per-prayer template text were not checked there |
-| Dual prayer names | Pending | "Subuh (Fajr)" in settings |
+| Dual prayer names | In-Progress | FEAT-0062: the six listed prayers show both names in both languages (Maghrib is one word in both); the reference table in `docs/10-i18n.md` is read by `crates/ot-i18n/tests/prayer_names.rs`. Seen in the Prayer pane in English and Malay. Jumaat (Jumu'ah) has no key because Jumu'ah is not built |
 
 ## Phase 6 — Weather
 > **Exit criteria:** a condition change triggers a toast in simulation, and offline mode shows the stale marker in both languages.

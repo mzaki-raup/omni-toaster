@@ -23,6 +23,8 @@ Format: [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) · Versioning:
 
 - The user's location: an IP lookup that asks first — nothing is sent until the user agrees, the answer is looked up again at most once a day, and the IP address in it is dropped — plus city search and typed coordinates, every place rounded to about a kilometre, and the saved place kept in the database so one chosen by hand is never overwritten by a detection. The services are ipapi.co and Open-Meteo's geocoding (ADR-021) (FEAT-0056).
 
+- Prayer names: Settings and the notifications name each prayer in the active language with the other language's name in brackets — "Subuh (Fajr)", "Zohor (Dhuhr)", "Asar (Asr)", "Isyak (Isha)", "Syuruk (Sunrise)" — and a test checks every label against the reference table in the i18n document, in both languages (FEAT-0062).
+
 - Pre-prayer reminders: each prayer can also give a short reminder ahead of it — "Asr (Asar) is in 10 minutes." — a number of minutes you choose (10 by default, up to 120), set in Settings > Prayer > Notifications. The reminder moves with the prayer's time, is skipped if the PC was asleep through it, and is held back by a pause, as any ordinary reminder is (FEAT-0061).
 
 - Prayer sounds: each prayer can play the short chime (the default), the full Azan that ships with the app (Subuh's own for Fajr), an audio clip of your own, or nothing. A chosen WAV, MP3 or Ogg clip is checked first — at most 20 MB and ten minutes, and what is inside must really be that kind of audio, not just named like it — and kept inside the data folder. The sound starts with the notification and stops when it is dismissed, and Play Sound lets you hear it in Settings (FEAT-0060).

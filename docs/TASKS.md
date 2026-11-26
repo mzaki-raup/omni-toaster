@@ -307,16 +307,16 @@ disabled; prayer labels match the reference table in both languages.
 - [ ] App: `--data-dir ./tmp-data` — turn on a pre-prayer reminder and see it fire ahead of the prayer. **Made:** with Asr planted four minutes ahead (offline, a manual Kuala Lumpur place, lead 2) the log shows `a pre-prayer reminder became a toast prayer=asr minutes=2` at exactly two minutes before (07:27:00 and again on a second run), then `a prayer became a toast` at Asr itself; Settings > Prayer > Notifications shows the minutes field and a checkbox per prayer, with Asr ticked and 2 read back from the settings file. **Not made:** the toast's pixels (the capture helper only sees the settings window, so what the toast looks like, and its Malay text, were not seen), a pause holding it back in the app, and the Malay pane. Left open for these
 - [x] Docs: spec `11` §9 · CHANGELOG · CHECKLIST · README already lists the pre-prayer reminder; GOTCHAS: nothing new
 ### FEAT-0062 · Dual prayer names
-- **State:** Pending · **Spec:** docs/11-prayer-and-azan.md §10 · docs/10-i18n.md · **Phase:** 5
+- **State:** In-Progress · **Spec:** docs/11-prayer-and-azan.md §10 · docs/10-i18n.md · **Phase:** 5
 - **Branch:** feat/phase-5-prayer
 - **Depends on:** FEAT-0059
-- [ ] Settings shows both names — "Subuh (Fajr)", "Zohor (Dhuhr)", "Asar (Asr)", "Isyak (Isha)", "Syuruk (Sunrise)", "Jumaat (Jumu'ah)" — in both languages; the identifiers never change
-- [ ] The reference table in `docs/10-i18n.md` is the one the test reads
-- [ ] Test: every prayer's label against the reference table in both languages
-- [ ] Gate: fmt · clippy -D warnings · test --workspace --locked -j 4 · deny check · --self-test
-- [ ] App: `--data-dir ./tmp-data` — the prayer rows in English and Malay
-- [ ] Docs: spec · README · CHANGELOG · CHECKLIST · GOTCHAS
-- **Notes:** This item carries the exit criterion "prayer labels match the reference table in both languages".
+- [x] Settings shows both names — "Subuh (Fajr)", "Zohor (Dhuhr)", "Asar (Asr)", "Isyak (Isha)", "Syuruk (Sunrise)", "Jumaat (Jumu'ah)" — in both languages; the identifiers never change — already built with FEAT-0057 (`prayer-name-*` keys); Jumaat (Jumu'ah) is not listed because Jumu'ah is not built, so that name is unchecked
+- [x] The reference table in `docs/10-i18n.md` is the one the test reads — `docs/10-i18n.md` now has the table with the real keys; the test reads it
+- [x] Test: every prayer's label against the reference table in both languages — `crates/ot-i18n/tests/prayer_names.rs`, six rows in both languages; a wrong cell in the table fails it (mutation-checked)
+- [x] Gate: fmt · clippy -D warnings · test --workspace --locked -j 4 · deny check · --self-test — fmt · clippy · tests · deny · self-test
+- [x] App: `--data-dir ./tmp-data` — the prayer rows in English and Malay — Prayer pane in Malay: the notification checkboxes read Subuh (Fajr), Syuruk (Sunrise), Zohor (Dhuhr), Asar (Asr), Maghrib, Isyak (Isha); in English earlier: Fajr (Subuh), Dhuhr (Zohor), Asr (Asar), Maghrib, Isha (Isyak). The Malay pre-prayer controls (FEAT-0061) fit too
+- [x] Docs: spec · README · CHANGELOG · CHECKLIST · GOTCHAS — `docs/10-i18n.md` table · CHANGELOG · CHECKLIST; README already says prayer names show in both languages
+- **Notes:** This item carries the exit criterion "prayer labels match the reference table in both languages". Left open: Jumaat (Jumu'ah) once Jumu'ah is built.
 ### FEAT-0063 · The live reference check against the portal
 - **State:** Pending · **Spec:** docs/11-prayer-and-azan.md §11 · **Phase:** 5
 - **Branch:** feat/phase-5-prayer
