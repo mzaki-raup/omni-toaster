@@ -9,6 +9,18 @@ Format: [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) · Versioning:
 
 - (nothing yet)
 
+## 0.15.0 — 2026-11-26
+
+### Added
+
+- The current weather and the offline stale marker (5c6462d8)
+- Settings > Weather, with a template for each condition (08a40aa5)
+- The service - polling, the cache, backoff and a toast on a change (333df6b1)
+- Change detection - once, after two readings, never from stale data (c90ad12d)
+- The weather cache, emptied when the place moves (f80fa3c6)
+- Weather codes grouped into conditions, with Fluent names (71d3418c)
+- The Open-Meteo client and strict reader, verified live (5e44f340)
+
 ## 0.14.0 — 2026-11-26
 
 ### Added
