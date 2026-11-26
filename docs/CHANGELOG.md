@@ -9,6 +9,12 @@ Format: [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) · Versioning:
 
 - (nothing yet)
 
+## 0.14.0 — 2026-11-26
+
+### Added
+
+- Jumu'ah, the Friday prayer, in Dhuhr's place (36e02fe6)
+
 ## 0.13.0 — 2026-11-26
 
 ### Added
