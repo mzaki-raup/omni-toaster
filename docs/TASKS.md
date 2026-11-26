@@ -198,12 +198,13 @@ disabled; prayer labels match the reference table in both languages.
 - **State:** Pending · **Spec:** docs/11-prayer-and-azan.md §4 · docs/05-data-model-and-storage.md · **Phase:** 5
 - **Branch:** feat/phase-5-prayer
 - **Depends on:** FEAT-0051
-- [ ] `004_jakim.sql`: `jakim_zones` and `jakim_prayer_cache` (zone, date, the eight times, source `api` or `bundled`, fetched at)
-- [ ] Write a fetched range, read a zone's day, and tell whether the cache is fresh (under 30 days, and has today)
-- [ ] Test: the migration on a fresh and on a version 3 database; a range round trip; freshness at its edges; a re-fetch replacing a corrected day
-- [ ] Gate: fmt · clippy -D warnings · test --workspace --locked -j 4 · deny check · --self-test
-- [ ] App: `--data-dir ./tmp-data` — the fetched times survive a restart with the network off
-- [ ] Docs: spec · README · CHANGELOG · CHECKLIST · GOTCHAS
+- [x] `004_jakim.sql`: `jakim_prayer_cache` (zone, date, the eight times, source `api` or `bundled`, fetched at) — **no `jakim_zones` table**: the zone table is embedded data since FEAT-0050, and the spec already says so
+- [x] Write a fetched range, read a zone's day, and tell whether the cache is fresh (under 30 days, and has today) — `Store::{write_prayer_days, prayer_day, prayer_freshness}` in `ot_store::prayer`, over plain `CachedDay` values the binary converts to and from `ot_prayer`'s, since service crates do not depend on each other
+- [x] Test: the migration on a fresh and on a version 3 database; a range round trip; freshness at its edges; a re-fetch replacing a corrected day — 6 tests in `prayer.rs` and the version 3 upgrade test; 29 days 23 hours fresh, exactly 30 days stale, a clock set back fresh, a damaged row an error; the five version pins in `lib.rs` moved from 3 to 4
+- [x] Gate: fmt · clippy -D warnings · test --workspace --locked -j 4 (390 passed) · deny check · --self-test
+- [ ] App: `--data-dir ./tmp-data` — the fetched times survive a restart with the network off — not made: nothing in the app writes the cache yet. The check moves to FEAT-0058 with the fetch loop
+- [x] Docs: spec · README · CHANGELOG · CHECKLIST · GOTCHAS — `05-data-model` says how the table is used; README unchanged (nothing visible); no new gotcha
+- **Notes:** Not built, because nothing asks for it yet: a range read for the scheduler (FEAT-0058 adds it when it needs one) and pruning of old months (the spec keeps "the current and next month"; at about 365 rows a zone a year it is not urgent). In-Progress until FEAT-0058's app check.
 ### FEAT-0054 · Calculated mode and its presets
 - **State:** Pending · **Spec:** docs/11-prayer-and-azan.md §8 · ADR-008 · **Phase:** 5
 - **Branch:** feat/phase-5-prayer
@@ -259,7 +260,7 @@ disabled; prayer labels match the reference table in both languages.
 - [ ] Five prayers, plus Syuruk and Jumu'ah optional; Imsak and Dhuha hidden until enabled
 - [ ] Test: fires at the fetched times with the PC in another zone; the rebuild triggers; Azan first in the queue; a pause not suppressing it; a missed Azan inside and outside the hour
 - [ ] Gate: fmt · clippy -D warnings · test --workspace --locked -j 4 · deny check · --self-test
-- [ ] App: `--data-dir ./tmp-data` — with a zone chosen, see the day's times arrive and the log's fetch line, the next prayer fire on time (or a near time from a planted day), during a pause too; with the network off, see the retry schedule (1, 5, 15 minutes) in the log — the check FEAT-0051 and FEAT-0052 are waiting on
+- [ ] App: `--data-dir ./tmp-data` — with a zone chosen, see the day's times arrive and the log's fetch line, the next prayer fire on time (or a near time from a planted day), during a pause too; with the network off, see the retry schedule (1, 5, 15 minutes) in the log, and the cached times still there after a restart — the check FEAT-0051, FEAT-0052 and FEAT-0053 are waiting on
 - [ ] Docs: spec · README · CHANGELOG · CHECKLIST · GOTCHAS
 - **Notes:** Closing this also closes FEAT-0045's open box.
 ### FEAT-0059 · Per-prayer templates and their toasts

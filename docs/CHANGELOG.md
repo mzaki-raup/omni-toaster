@@ -15,6 +15,8 @@ Format: [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) · Versioning:
 
 - The e-Solat client: one blocking attempt on a worker thread over Windows' own TLS (ADR-019), HTTPS only, ten-second timeout, `User-Agent: OmniToaster/<version>`, one POST for today to the end of next month, the body capped as it is read, and a cancel that stops the attempt before it sends and drops its result before it is delivered. When to look again is pure code the scheduler will call — weekly, daily while the answer stops short at the year's end, and 1, 5 and 15 minutes after a failure. Tested against a local server, and live for SGR01, WLY01 and JHR01 (FEAT-0052).
 
+- The prayer-times cache: migration 004 adds `jakim_prayer_cache`, and the store writes a fetched range in one transaction, replacing a day that was corrected, reads a zone's day with its source and when it was fetched, and says whether the cache can serve today — it has the day and wrote it under 30 days ago. Tested on a fresh database, on a version 3 database as v0.12.0 left it, round trip, at the 30-day edge and with a damaged row (FEAT-0053).
+
 ### Changed
 
 - `deny.toml`'s reason for banning `openssl-sys` no longer says "use rustls": the prayer fetch uses Windows' SChannel through `native-tls` (ADR-019), and the ban on OpenSSL stands (FEAT-0052).

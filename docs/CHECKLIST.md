@@ -165,7 +165,7 @@ Last updated: 2026-11-19
 | Zone table | In-Progress | `data/jakim_zones.csv`, reviewed commits only. FEAT-0050: 60 zones from JAKIM's portal and 208 area points from GeoNames, the nearest area deciding; every state capital lands in its zone, outside Malaysia is refused, tested. Seen in the app with the zone picker (FEAT-0057) |
 | JAKIM client | In-Progress | HTTPS, 10 s timeout, backoff 1/5/15 min, no polling. FEAT-0052: `ot_prayer::fetch` built and tested, live for SGR01, WLY01 and JHR01 over Windows TLS; not yet running in the app — the scheduler and the zone setting come in FEAT-0059 and FEAT-0057 |
 | Parser with fixtures | Completed | `tests/fixtures/jakim_sample.json`. FEAT-0051: `ot_prayer::jakim::parse` reads all 30 November days of SGR01, WLY01 and JHR01 as captured, with 20 November's times matching e-Solat's; every broken day in the sample set aside with its reason, tested |
-| Cache and migration 004 | Pending | `004_jakim.sql` |
+| Cache and migration 004 | In-Progress | `004_jakim.sql`. FEAT-0053: `ot_store::prayer` writes, reads and judges freshness, tested on a fresh and a version 3 database; not yet written by the app — the fetch loop is FEAT-0058, where "the times survive a restart with the network off" is checked |
 | Fallback chain | Pending | Cache → live → bundled → calculated → last known |
 | Zone selection UI | Pending | Detected zone shown for confirmation, always overridable |
 | Calculated mode with Malaysia preset | Pending | Fajr 20.0°, Isha 18.0°, Asar Shafi'i |

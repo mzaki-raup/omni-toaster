@@ -105,6 +105,13 @@ jakim_prayer_cache (zone_code, date, hijri, imsak, fajr, syuruk, dhuha,
                     PRIMARY KEY (zone_code, date))
 ```
 
+`jakim_prayer_cache` as built (FEAT-0053, `ot_store::prayer`): `zone_code` is
+upper case; `date` is `YYYY-MM-DD`; the eight times are `HH:MM:SS` Malaysian
+clock values; `fetched_at` is the UTC instant the row was last written; `source`
+is `api` or `bundled`, enforced by the table. A fetch **replaces** a day it
+already holds. A cached day is *fresh* while it has a row for today and that row
+was written under 30 days before now (a clock set back counts as fresh).
+
 ## Migrations
 
 Numbered SQL files, tracked with `PRAGMA user_version`. A migration is never

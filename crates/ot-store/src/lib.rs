@@ -11,6 +11,7 @@
 pub mod assets;
 pub mod builtin;
 pub mod library;
+pub mod prayer;
 pub mod reminders;
 
 use std::path::{Path, PathBuf};
@@ -37,10 +38,15 @@ const MIGRATIONS: &[(i64, &str, &str)] = &[
         "003_locale_keys.sql",
         include_str!("../migrations/003_locale_keys.sql"),
     ),
+    (
+        4,
+        "004_jakim.sql",
+        include_str!("../migrations/004_jakim.sql"),
+    ),
 ];
 
 /// The schema version this build migrates to: the last migration's number.
-pub const SCHEMA_VERSION: i64 = 3;
+pub const SCHEMA_VERSION: i64 = 4;
 
 /// The database file, relative to the data root.
 const DB_RELATIVE_PATH: &str = "data/omnitoaster.db";
@@ -219,7 +225,7 @@ mod tests {
     #[test]
     fn a_fresh_database_migrates_to_the_latest_version() {
         let store = Store::open_in_memory().expect("opens");
-        assert_eq!(store.schema_version().expect("version"), 3);
+        assert_eq!(store.schema_version().expect("version"), 4);
     }
 
     #[test]
@@ -244,6 +250,7 @@ mod tests {
             "settings",
             "snooze_log",
             "weather_cache",
+            "jakim_prayer_cache",
         ] {
             assert!(
                 tables.iter().any(|t| t == expected),
@@ -260,13 +267,13 @@ mod tests {
         {
             let store = Store::open(dir.path()).expect("first open");
             store.set_setting("theme", "dark").expect("write");
-            assert_eq!(store.schema_version().expect("version"), 3);
+            assert_eq!(store.schema_version().expect("version"), 4);
         }
 
         // Re-opening must not re-run 001 — which would fail on the existing
         // tables — and must leave the data alone.
         let store = Store::open(dir.path()).expect("second open");
-        assert_eq!(store.schema_version().expect("version"), 3);
+        assert_eq!(store.schema_version().expect("version"), 4);
         assert_eq!(
             store.setting("theme").expect("read").as_deref(),
             Some("dark"),
@@ -295,7 +302,7 @@ mod tests {
         }
 
         let store = Store::open(dir.path()).expect("migrates");
-        assert_eq!(store.schema_version().expect("version"), 3);
+        assert_eq!(store.schema_version().expect("version"), 4);
         let label: String = store
             .connection()
             .query_row("SELECT label FROM asset WHERE sha256 = 'abc'", [], |row| {
@@ -332,7 +339,7 @@ mod tests {
         }
 
         let store = Store::open(dir.path()).expect("migrates");
-        assert_eq!(store.schema_version().expect("version"), 3);
+        assert_eq!(store.schema_version().expect("version"), 4);
         let conn = store.connection();
 
         let (title, key, lang): (String, Option<String>, Option<String>) = conn
@@ -362,6 +369,46 @@ mod tests {
             )
             .expect("count");
         assert_eq!(types, 12);
+    }
+
+    #[test]
+    fn a_version_3_database_gains_the_prayer_cache_and_keeps_its_rows() {
+        // 004 on an existing database: a file built by 001 to 003, as v0.12.0
+        // left it, with a reminder in it.
+        let dir = tempfile::tempdir().expect("temp dir");
+        std::fs::create_dir_all(dir.path().join("data")).expect("mkdir");
+        {
+            let conn =
+                Connection::open(dir.path().join(DB_RELATIVE_PATH)).expect("a version 3 file");
+            for migration in &MIGRATIONS[..3] {
+                conn.execute_batch(migration.2)
+                    .expect("an earlier migration");
+            }
+            conn.pragma_update(None, "user_version", 3i64)
+                .expect("version 3");
+            conn.execute(
+                "INSERT INTO reminder (id, title, trigger_type, trigger_json, created_at, updated_at) \
+                 VALUES (1, 'Old', 'at', '{}', '2026-11-10', '2026-11-10')",
+                [],
+            )
+            .expect("an old reminder");
+        }
+
+        let store = Store::open(dir.path()).expect("migrates");
+        assert_eq!(store.schema_version().expect("version"), 4);
+        let conn = store.connection();
+        let title: String = conn
+            .query_row("SELECT title FROM reminder WHERE id = 1", [], |row| {
+                row.get(0)
+            })
+            .expect("the old reminder is still there");
+        assert_eq!(title, "Old");
+        let cached: i64 = conn
+            .query_row("SELECT count(*) FROM jakim_prayer_cache", [], |row| {
+                row.get(0)
+            })
+            .expect("the cache table exists and is empty");
+        assert_eq!(cached, 0);
     }
 
     #[test]
@@ -443,7 +490,7 @@ mod tests {
                 error,
                 StoreError::FromTheFuture {
                     found: 99,
-                    known: 3
+                    known: 4
                 }
             ),
             "got {error:?}"
