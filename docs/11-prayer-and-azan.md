@@ -358,6 +358,23 @@ As built in the scheduler (FEAT-0058, `ot_sched`):
   the next day's times.
 - **Priority.** When two fires are due at the same instant the queue orders
   them Azan, then an Alarm, then everything else (`specs/reminders.md` §8).
+- **The service** (`ot_ui::prayer_service`) runs on a thread of its own, so the
+  times stay current with Settings closed. A pass reads the settings and the
+  place, looks the place up again after a day (with consent), fetches when the
+  cache has nothing for today — which is also what a zone change looks like — or
+  the stored time of the next check has come (weekly, or daily while an answer
+  stopped short at the year's end), resolves today's and tomorrow's times through
+  the chain **without** a fetch of its own, and gives them to the scheduler. A
+  failed fetch is tried again after 1, 5 and 15 minutes, then at the next check;
+  nothing runs until something is due. When nothing can be had the scheduler
+  keeps the last times, and the user is told once a day.
+- **The toast.** A prayer's toast is persistent up to the ten-minute cap, has
+  Dismiss and nothing to snooze, and goes to the front of the queue; a pause
+  never holds it back. Quiet hours do not exist yet; when announcements arrive
+  they must leave Azan alone too.
+- **Settings.** `[prayer] notify_syuruk` gives Syuruk its own notification, and
+  `azan_window_minutes` is the catch-up window (1 to 1440, 60 by default); both
+  have controls in Settings ▸ Prayer ▸ Notifications. Jumu'ah is not built.
 - **Catch-up.** A missed prayer is listed if it is within the Azan window — one
   hour by default, `Command::SetAzanWindow` — and older ones are dropped with a
   log line and a `missed` row. Other reminders keep their own window.
