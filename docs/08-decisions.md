@@ -766,6 +766,18 @@ decoders. Playback cannot be proved by a test: the player's tests show it starts
 and stops, or that the machine has no output and says so, and the audible check
 is the app's.
 
+**Update 2026-11-26 (CR-0008): the default is now the Azan.** The owner asked that
+every prayer's call be the Azan, Subuh's own for Fajr, and chose to do it before
+the licence is settled. A prayer whose template chose no sound now plays
+`azan.mp3` (`azan-subuh.mp3` for Fajr), and the chime is a choice. **Syuruk is the
+exception**: it is the sunrise, which has no call to prayer, so it keeps the chime.
+The licence question above is **unchanged and still open**: a release now plays
+clips whose terms Phase 9 has not checked, so that check must happen before the
+release that should stand behind this default. A template saved before this
+change with the chime chosen stored "nothing" (the chime was the default, so it
+was not written down), and so now follows the new default; it cannot be told apart
+from one that never chose, and the user chooses the chime again if they want it.
+
 ---
 
 ## ADR-021 · How the app learns where the user is

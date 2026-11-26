@@ -402,9 +402,10 @@ As built in the scheduler (FEAT-0058, `ot_sched`):
   Dismiss and nothing to snooze, and goes to the front of the queue; a pause
   never holds it back. Quiet hours do not exist yet; when announcements arrive
   they must leave Azan alone too.
-- **Sound** (FEAT-0060, ADR-022). Each prayer's template has a sound: the short
-  chime (the default), the full Azan that ships in the exe — Subuh's own for
-  Fajr — a clip the user chose, or silence. A chosen clip is checked before it is
+- **Sound** (FEAT-0060, ADR-022, CR-0008). Each prayer's template has a sound: the
+  full Azan that ships in the exe — Subuh's own for Fajr — which is **the
+  default** for every called prayer, Jumu'ah included; the short chime, the default
+  for Syuruk, which is not a call; a clip the user chose; or silence. A chosen clip is checked before it is
   copied (20 MB before a byte is read, the format from the bytes, a bounded
   decode of the whole clip up to ten minutes) and stored under its hash in
   `assets/`. The sound starts when the prayer's toast appears and stops when it is

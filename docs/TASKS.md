@@ -207,17 +207,17 @@ shipped on its own.
 - **Notes:** The prayer toast already carries the source label as its note; the place goes beside it.
 
 ### CR-0008 · The Azan is the default sound for every prayer, Subuh's for Fajr
-- **State:** Pending · **Spec:** docs/11-prayer-and-azan.md §9 · ADR-022 · assets/README.md
-- **Branch:** to be cut from `main` once Phase 6 is merged
+- **State:** In-Progress · **Spec:** docs/11-prayer-and-azan.md §9 · ADR-022 · assets/README.md
+- **Branch:** cr/cr-0008-azan-default
 - **Depends on:** FEAT-0060
 - **Source:** the owner: "All Prayer call is same using azan wav/mp3, except subuh/fajr, use azan subuh wav/mp3"; chose to do it **now**
-- [ ] A prayer with no sound of its own plays the full Azan — `azan.mp3` for every prayer but Fajr, and `azan-subuh.mp3` for Fajr — instead of the short chime; the chime stays a choice
-- [ ] Existing templates are not rewritten: a template that never chose a sound (a NULL sound mode) follows the new default; one that chose the chime or silence keeps it
-- [ ] Test: `clip_for` for each prayer with no template and with a NULL sound; a chosen sound still wins
-- [ ] The licence of the Azan clips is still unsettled (Phase 9's terms check): record that this default ships them, in `assets/README.md` and the ADR, and decide before a release that this should stand
-- [ ] Gate: fmt · clippy -D warnings · test --workspace --locked -j 4 · deny check · --self-test
-- [ ] App: `--data-dir ./tmp-data` — a prayer fires and plays the Azan (Subuh's for Fajr), and stops on dismiss
-- [ ] Docs: spec · README · CHANGELOG · CHECKLIST · GOTCHAS
+- [x] A prayer with no sound of its own plays the full Azan — `azan.mp3` for every prayer but Fajr, and `azan-subuh.mp3` for Fajr — instead of the short chime; the chime stays a choice — `prayer::default_sound` and `clip_for`; **Syuruk is the exception and keeps the chime** — it is the sunrise, not a call to prayer; Jumu'ah plays the Azan; the Settings pane shows the default as selected and stores it as nothing
+- [x] Existing templates are not rewritten: a template that never chose a sound (a NULL sound mode) follows the new default; one that chose the chime or silence keeps it — NULL follows the new default. **A template that had the chime chosen before this change also stored NULL** (the chime was the default, so it was never written down), so it cannot be told apart and now plays the Azan until the user picks the chime again; recorded in ADR-022
+- [x] Test: `clip_for` for each prayer with no template and with a NULL sound; a chosen sound still wins — `clip_for` for every prayer with nothing chosen, with each choice, and Subuh's for Fajr; the pane's `SoundMode::parse` for the default, a choice and an unknown mode
+- [x] The licence of the Azan clips is still unsettled (Phase 9's terms check): record that this default ships them, in `assets/README.md` and the ADR, and decide before a release that this should stand — ADR-022's update, `assets/README.md` and spec §9 say a release plays the clips unsettled; **the owner decides before a release that this should stand**
+- [x] Gate: fmt · clippy -D warnings · test --workspace --locked -j 4 · deny check · --self-test — fmt · clippy · tests · deny · self-test
+- [ ] App: `--data-dir ./tmp-data` — a prayer fires and plays the Azan (Subuh's for Fajr), and stops on dismiss. **Made:** a debug build offline with Asr planted four minutes ahead and no sound chosen: the pre-prayer reminder fired two minutes before without a sound, and at Asr itself the log shows `playing a clip clip=Azan` (the full Azan, where it was the chime before). **Not made:** hearing it (only the owner can), Fajr's `AzanSubuh` in the app (the time was Asr; `clip_for` is tested for Fajr), the Settings sound dropdown showing Full Azan on a fresh template, and the Syuruk chime in the app. Left open for these
+- [x] Docs: spec · README · CHANGELOG · CHECKLIST · GOTCHAS — ADR-022 update · spec §9 · `assets/README.md` · CHANGELOG · CHECKLIST; README: nothing; GOTCHAS: nothing new
 - **Notes:** A change of a documented default (ADR-022 chose the chime so that a release would not play an unsettled-licence clip unasked): the owner chose to proceed, which this item records.
 
 ---
