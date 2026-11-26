@@ -853,3 +853,31 @@ prayer-template-default = Guna Teks Lalai
 prayer-template-preview = Pratonton Pemberitahuan
 # Dipaparkan selepas templat disimpan.
 prayer-template-saved = Templat disimpan.
+# Label senarai juntai yang memilih apa yang dimainkan oleh sesuatu solat apabila tiba waktunya.
+prayer-sound-label = Bunyi
+# Pilihan bunyi: loceng pendek yang disertakan dengan aplikasi. Yang lalai.
+prayer-sound-chime = Loceng Pendek
+# Pilihan bunyi: azan penuh yang disertakan dengan aplikasi.
+prayer-sound-azan = Azan Penuh
+# Pilihan bunyi: klip audio yang dipilih pengguna daripada failnya sendiri.
+prayer-sound-file = Fail Audio Saya
+# Pilihan bunyi: tiada bunyi langsung.
+prayer-sound-none = Senyap
+# Butang yang membuka dialog untuk memilih klip audio.
+prayer-sound-choose = Pilih Fail Audio
+# Dipaparkan selagi belum ada klip audio dipilih.
+prayer-sound-none-chosen = Belum ada fail dipilih.
+# Butang yang memainkan bunyi solat itu sekarang, untuk didengar.
+prayer-sound-play = Main Bunyi
+# Butang yang menghentikan bunyi.
+prayer-sound-stop = Henti
+# Tajuk dialog untuk memilih klip audio.
+prayer-sound-dialog-title = Pilih klip audio
+# Nama penapis jenis fail dalam dialog itu.
+prayer-sound-filter = Audio (WAV, MP3, Ogg)
+# Dinyatakan apabila klip audio melebihi had saiz.
+error-import-audio-too-large = Klip itu melebihi 20 MB.
+# Dinyatakan apabila fail yang dipilih bukan fail audio jenis yang dimainkan aplikasi, apa jua namanya.
+error-import-not-audio = Fail itu bukan klip WAV, MP3 atau Ogg Vorbis, apa jua namanya.
+# Dinyatakan apabila klip audio berjalan lebih daripada sepuluh minit.
+error-import-audio-too-long = Klip itu berjalan lebih daripada sepuluh minit.

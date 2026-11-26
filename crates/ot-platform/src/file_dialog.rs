@@ -31,7 +31,13 @@ pub enum DialogError {
 /// `title` and `filter_name` arrive already in the user's language; this
 /// crate owns Windows, not words.
 pub fn pick_image(title: &str, filter_name: &str) -> Result<Option<PathBuf>, DialogError> {
-    platform::pick_image(title, filter_name)
+    platform::pick(title, filter_name, "*.png;*.jpg;*.jpeg;*.webp")
+}
+
+/// The same dialog for an audio clip: WAV, MP3 and Ogg. The patterns are only
+/// a convenience; the import checks the bytes (ADR-022).
+pub fn pick_audio(title: &str, filter_name: &str) -> Result<Option<PathBuf>, DialogError> {
+    platform::pick(title, filter_name, "*.wav;*.mp3;*.ogg")
 }
 
 #[cfg(windows)]
@@ -50,9 +56,6 @@ mod platform {
     use windows::core::{HSTRING, PCWSTR};
 
     use super::DialogError;
-
-    /// The patterns offered. Only a convenience: the import checks the bytes.
-    const PATTERNS: &str = "*.png;*.jpg;*.jpeg;*.webp";
 
     /// Gives the apartment back when the dialog is done, however it ends.
     struct Apartment;
@@ -73,9 +76,10 @@ mod platform {
         unsafe_code,
         reason = "COM calls; each one's contract is argued at the call"
     )]
-    pub(super) fn pick_image(
+    pub(super) fn pick(
         title: &str,
         filter_name: &str,
+        patterns: &str,
     ) -> Result<Option<PathBuf>, DialogError> {
         let fail = |error: windows::core::Error| DialogError::Failed(error.to_string());
 
@@ -94,7 +98,7 @@ mod platform {
 
         let title = HSTRING::from(title);
         let filter_name = HSTRING::from(filter_name);
-        let patterns = HSTRING::from(PATTERNS);
+        let patterns = HSTRING::from(patterns);
         let filters = [COMDLG_FILTERSPEC {
             pszName: PCWSTR(filter_name.as_ptr()),
             pszSpec: PCWSTR(patterns.as_ptr()),
@@ -141,9 +145,10 @@ mod platform {
 
     use super::DialogError;
 
-    pub(super) fn pick_image(
+    pub(super) fn pick(
         _title: &str,
         _filter_name: &str,
+        _patterns: &str,
     ) -> Result<Option<PathBuf>, DialogError> {
         Err(DialogError::Unsupported)
     }

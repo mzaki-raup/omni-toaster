@@ -873,3 +873,31 @@ prayer-template-default = Use Default Text
 prayer-template-preview = Preview Toast
 # Shown after the template was saved.
 prayer-template-saved = Template saved.
+# The label of the dropdown that chooses what a prayer plays when it is time.
+prayer-sound-label = Sound
+# A sound choice: the short chime that ships with the app. The default.
+prayer-sound-chime = Short Chime
+# A sound choice: the full Azan that ships with the app.
+prayer-sound-azan = Full Azan
+# A sound choice: an audio clip the user picked from their own files.
+prayer-sound-file = My Audio File
+# A sound choice: no sound at all.
+prayer-sound-none = Silent
+# The button that opens the dialog for choosing an audio clip.
+prayer-sound-choose = Choose Audio File
+# Shown while no audio clip has been chosen yet.
+prayer-sound-none-chosen = No file chosen yet.
+# The button that plays the prayer's sound now, to hear it.
+prayer-sound-play = Play Sound
+# The button that stops the sound.
+prayer-sound-stop = Stop
+# The title of the dialog for choosing an audio clip.
+prayer-sound-dialog-title = Choose an audio clip
+# The name of the file type filter in that dialog.
+prayer-sound-filter = Audio (WAV, MP3, Ogg)
+# Said when an audio clip is over the size limit.
+error-import-audio-too-large = That clip is over 20 MB.
+# Said when a chosen file is not an audio file of a kind the app plays, whatever its name says.
+error-import-not-audio = That file is not a WAV, MP3 or Ogg Vorbis clip, whatever its name says.
+# Said when an audio clip runs longer than ten minutes.
+error-import-audio-too-long = That clip runs longer than ten minutes.

@@ -262,8 +262,68 @@ pub enum Reply {
         prayer: String,
         template: Option<ot_store::reminders::Template>,
     },
+    /// A clip was chosen, checked and copied in; the path is under the data folder.
+    AudioImported {
+        relative_path: String,
+    },
+    /// The chosen clip broke a rule; the Fluent key says which.
+    AudioRefused(&'static str),
+    /// The dialog was cancelled.
+    AudioCancelled,
     /// A store or thread failure the pane should say out loud.
     Failed(String),
+}
+
+/// Which clip a prayer plays: the short chime unless the template says
+/// otherwise, the full Azan (Subuh's own for Fajr), the user's imported clip, or
+/// none. A `file` with no clip falls back to the chime rather than silence.
+pub fn clip_for(
+    prayer: &str,
+    mode: Option<&str>,
+    sound: Option<&str>,
+    root: &Path,
+) -> Option<ot_media::Clip> {
+    use ot_media::Clip;
+    match mode.unwrap_or("chime") {
+        "none" => None,
+        "azan" if prayer == "fajr" => Some(Clip::AzanSubuh),
+        "azan" => Some(Clip::Azan),
+        "file" => Some(sound.map_or(Clip::Chime, |path| Clip::File(root.join(path)))),
+        _ => Some(Clip::Chime),
+    }
+}
+
+/// Check a chosen file and copy it in: the size before a byte is read, then the
+/// format and a bounded decode, then the hashed copy and its row. Blocking.
+fn import_clip(root: &Path, path: &Path) -> Reply {
+    let refused = |error: ot_media::audio::AudioError| Reply::AudioRefused(error.name_key());
+    let unreadable = || Reply::AudioRefused("error-import-unreadable");
+    let Ok(metadata) = std::fs::metadata(path) else {
+        return unreadable();
+    };
+    if let Err(error) = ot_media::audio::check_size(metadata.len()) {
+        return refused(error);
+    }
+    let Ok(bytes) = std::fs::read(path) else {
+        return unreadable();
+    };
+    let checked = match ot_media::audio::check(&bytes) {
+        Ok(checked) => checked,
+        Err(error) => return refused(error),
+    };
+    let stored = match ot_store::assets::store_audio(root, &bytes, checked.format.extension()) {
+        Ok(stored) => stored,
+        Err(error) => {
+            tracing::warn!(%error, "an audio clip could not be copied in");
+            return unreadable();
+        }
+    };
+    match Store::open(root).and_then(|store| store.add_audio_asset(&stored)) {
+        Ok(()) => Reply::AudioImported {
+            relative_path: stored.relative_path,
+        },
+        Err(error) => Reply::Failed(error.to_string()),
+    }
 }
 
 /// What the replies are tagged with, so a stale one can be recognised.
@@ -391,6 +451,19 @@ impl Controller {
         });
     }
 
+    /// Open the file dialog on a thread of its own and import what is chosen. The
+    /// strings arrive in the user's language.
+    pub fn import_audio(&self, title: String, filter_name: String) {
+        self.spawn("prayer-audio-import", move |root, out| {
+            let reply = match ot_platform::file_dialog::pick_audio(&title, &filter_name) {
+                Ok(None) => Reply::AudioCancelled,
+                Ok(Some(path)) => import_clip(root, &path),
+                Err(error) => Reply::Failed(error.to_string()),
+            };
+            send(out, None, None, reply);
+        });
+    }
+
     /// Read a prayer's template.
     pub fn load_template(&self, prayer: String) {
         self.spawn("prayer-template", move |root, out| {
@@ -514,6 +587,83 @@ mod tests {
                 requested: range,
             })
         }
+    }
+
+    #[test]
+    fn a_prayer_plays_the_chime_unless_its_template_says_otherwise() {
+        use ot_media::Clip;
+        let root = Path::new("D:/data");
+        assert_eq!(clip_for("dhuhr", None, None, root), Some(Clip::Chime));
+        assert_eq!(
+            clip_for("dhuhr", Some("chime"), None, root),
+            Some(Clip::Chime)
+        );
+        assert_eq!(
+            clip_for("dhuhr", Some("azan"), None, root),
+            Some(Clip::Azan)
+        );
+        assert_eq!(
+            clip_for("fajr", Some("azan"), None, root),
+            Some(Clip::AzanSubuh),
+            "Subuh's own"
+        );
+        assert_eq!(
+            clip_for("isha", Some("none"), Some("assets/x.mp3"), root),
+            None
+        );
+        assert_eq!(
+            clip_for("asr", Some("file"), Some("assets/x.mp3"), root),
+            Some(Clip::File(root.join("assets/x.mp3")))
+        );
+        assert_eq!(
+            clip_for("asr", Some("file"), None, root),
+            Some(Clip::Chime),
+            "no clip, the chime"
+        );
+        assert_eq!(
+            clip_for("asr", Some("garbage"), None, root),
+            Some(Clip::Chime)
+        );
+    }
+
+    #[test]
+    fn a_chosen_clip_is_checked_then_copied_in_and_a_bad_one_never_lands() {
+        let dir = tempfile::tempdir().expect("a scratch folder");
+        std::fs::create_dir_all(dir.path().join("data")).expect("data folder");
+        drop(Store::open(dir.path()).expect("the store is created first"));
+
+        // Not audio at all, named like a clip.
+        let fake = dir.path().join("clip.mp3");
+        std::fs::write(&fake, b"this is text, not an MP3").expect("written");
+        assert!(matches!(
+            import_clip(dir.path(), &fake),
+            Reply::AudioRefused("error-import-not-audio")
+        ));
+        assert!(
+            !dir.path().join("assets").exists(),
+            "a refused file never reaches the folder"
+        );
+
+        // A real clip: the chime that ships, written out as a file.
+        let real = dir.path().join("mine.mp3");
+        std::fs::write(&real, ot_media::player::CHIME).expect("written");
+        let Reply::AudioImported { relative_path } = import_clip(dir.path(), &real) else {
+            panic!("the chime should import");
+        };
+        assert!(
+            relative_path.starts_with("assets/") && relative_path.ends_with(".mp3"),
+            "{relative_path}"
+        );
+        assert!(
+            dir.path().join(&relative_path).is_file(),
+            "it landed where it says"
+        );
+
+        // Not there at all.
+        assert!(matches!(
+            import_clip(dir.path(), &dir.path().join("missing.mp3")),
+            Reply::AudioRefused("error-import-unreadable")
+        ));
     }
 
     #[test]

@@ -339,6 +339,10 @@ pub struct SettingsWindow {
     prayer_service: Option<crate::prayer_service::Service>,
     /// Where today's prayer times came from, for the label on a prayer's toast.
     prayer_source: Option<ot_prayer::chain::Source>,
+    /// The audio thread: opens no device until something plays (ADR-022).
+    audio: ot_media::Player,
+    /// The prayer toasts whose sound is playing, so it stops with the toast.
+    sounding: std::collections::HashSet<ot_toast::ToastId>,
     /// The list's rows, built when a list arrives, never per frame.
     reminder_rows: Option<Vec<crate::reminders::ListRow>>,
     /// The reminder being edited, if any.
@@ -481,6 +485,8 @@ impl SettingsWindow {
             prayer: crate::prayer_pane::State::new(&root_path),
             prayer_service: None,
             prayer_source: None,
+            audio: ot_media::Player::start(),
+            sounding: std::collections::HashSet::new(),
             reminder_rows: None,
             editor: None,
             reminder_history: Vec::new(),
@@ -910,6 +916,10 @@ impl SettingsWindow {
             // left until egui notices a frame without it.
             ctx.send_viewport_cmd_to(id.viewport_id(), egui::ViewportCommand::Close);
             ot_platform::toast_window::forget(&id.window_title());
+            // A prayer's sound stops with its toast, dismissed or timed out.
+            if self.sounding.remove(&id) {
+                self.audio.stop();
+            }
             if self.missed_toast == Some(id) {
                 self.missed_toast = None;
             }
@@ -1331,6 +1341,19 @@ impl SettingsWindow {
         }
         // The editor's Preview: the toast a fire would show, from the same
         // function, to the front.
+        if let Some(play) = outcome.play_sound.take()
+            && let Some(clip) = crate::prayer::clip_for(
+                &play.prayer,
+                play.template.sound_mode.as_deref(),
+                play.template.sound.as_deref(),
+                self.root.path(),
+            )
+        {
+            self.audio.play(clip);
+        }
+        if outcome.stop_sound {
+            self.audio.stop();
+        }
         if let Some(preview) = outcome.preview.take() {
             let note = self.prayer_source.map(crate::prayer_pane::source_label);
             let spec = crate::reminder_toast::prayer_spec(
@@ -1340,7 +1363,18 @@ impl SettingsWindow {
                 Some(formatted_time(now)),
                 note,
             );
-            self.toasts.push_first(spec, Instant::now());
+            let id = self.toasts.push_first(spec, Instant::now());
+            // The preview is a fire as far as the sound goes: it plays what a
+            // fire would, and stops when the toast is dismissed.
+            if let Some(clip) = crate::prayer::clip_for(
+                &preview.prayer,
+                preview.template.sound_mode.as_deref(),
+                preview.template.sound.as_deref(),
+                self.root.path(),
+            ) {
+                self.audio.play(clip);
+                self.sounding.insert(id);
+            }
         }
         // A changed setting or place is a new day to work out, now.
         if (outcome.settings_changed | self.prayer.take_changed())
@@ -2259,6 +2293,18 @@ impl SettingsWindow {
                 let persistent = spec.behaviour.persistent;
                 let id = self.toasts.push_first(spec, Instant::now());
                 tracing::info!(prayer, toast = ?id, "a prayer became a toast");
+                if let Some(clip) = crate::prayer::clip_for(
+                    &prayer,
+                    fired
+                        .template
+                        .as_ref()
+                        .and_then(|t| t.sound_mode.as_deref()),
+                    fired.template.as_ref().and_then(|t| t.sound.as_deref()),
+                    self.root.path(),
+                ) {
+                    self.audio.play(clip);
+                    self.sounding.insert(id);
+                }
                 self.reminder_toasts.insert(
                     id,
                     ReminderToast {

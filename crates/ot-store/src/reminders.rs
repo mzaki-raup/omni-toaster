@@ -55,6 +55,10 @@ pub struct PrayerTemplateEdit {
     pub image: Option<String>,
     /// `en-US` or `ms-MY`: the language the text was typed in.
     pub authored_lang: &'static str,
+    /// `chime`, `azan`, `file` or `none`; `None` is the chime.
+    pub sound_mode: Option<String>,
+    /// An imported clip's `sha256`, for `file`.
+    pub sound: Option<String>,
 }
 
 /// The prayers a managed reminder can be for, by the key the scheduler is
@@ -302,6 +306,11 @@ pub struct Template {
     pub accent_color: Option<String>,
     /// The template's picture, as a relative path under the data folder.
     pub image: Option<String>,
+    /// A prayer's sound: `chime` (the default, also `None`), `azan`, `file` or
+    /// `none`.
+    pub sound_mode: Option<String>,
+    /// The imported clip for `file`, as a relative path under the data folder.
+    pub sound: Option<String>,
 }
 
 /// An instant as the database stores it.
@@ -577,7 +586,7 @@ impl Store {
         Ok(self
             .conn
             .query_row(
-                "SELECT c.id, c.type_key, c.custom_title, c.custom_body, c.accent_color,                  a.relative_path, c.prayer_key FROM category c LEFT JOIN asset a ON a.sha256 = c.image_id                  WHERE c.id = ?1",
+                "SELECT c.id, c.type_key, c.custom_title, c.custom_body, c.accent_color,                  a.relative_path, c.prayer_key, c.sound_mode, s.relative_path FROM category c LEFT JOIN asset a ON a.sha256 = c.image_id                  LEFT JOIN asset s ON s.sha256 = c.sound_id WHERE c.id = ?1",
                 params![id],
                 |row| {
                     Ok(Template {
@@ -588,6 +597,8 @@ impl Store {
                         accent_color: row.get(4)?,
                         image: row.get(5)?,
                         prayer_key: row.get(6)?,
+                        sound_mode: row.get(7)?,
+                        sound: row.get(8)?,
                     })
                 },
             )
@@ -629,10 +640,35 @@ impl Store {
         let lang = (title.is_some() || body.is_some()).then_some(edit.authored_lang);
         let changed = self.conn.execute(
             "UPDATE category SET custom_title = ?2, custom_body = ?3, accent_color = ?4, \
-             image_id = ?5, authored_lang = ?6 WHERE prayer_key = ?1",
-            params![prayer, title, body, edit.accent, edit.image, lang],
+             image_id = ?5, authored_lang = ?6, sound_mode = ?7, sound_id = ?8 \
+             WHERE prayer_key = ?1",
+            params![
+                prayer,
+                title,
+                body,
+                edit.accent,
+                edit.image,
+                lang,
+                edit.sound_mode,
+                edit.sound
+            ],
         )?;
         Ok(changed == 1)
+    }
+
+    /// Record an audio clip that was copied into `assets/`, so a template can
+    /// name it. The same clip recorded twice is recorded once.
+    pub fn add_audio_asset(&self, clip: &crate::assets::StoredAudio) -> Result<(), StoreError> {
+        self.conn.execute(
+            "INSERT OR IGNORE INTO asset (sha256, kind, relative_path, bytes, created_at) \
+             VALUES (?1, 'audio', ?2, ?3, strftime('%Y-%m-%dT%H:%M:%fZ', 'now'))",
+            params![
+                clip.sha256,
+                clip.relative_path,
+                i64::try_from(clip.bytes).unwrap_or(i64::MAX)
+            ],
+        )?;
+        Ok(())
     }
 
     /// Point each prayer's managed reminder at its template, so a fire carries
@@ -1186,6 +1222,8 @@ mod tests {
             accent: Some("#3b9eff".to_owned()),
             image: None,
             authored_lang: "ms-MY",
+            sound_mode: None,
+            sound: None,
         };
         assert!(store.set_prayer_template("fajr", &written).expect("saved"));
         let fajr = store
@@ -1209,6 +1247,8 @@ mod tests {
             accent: None,
             image: None,
             authored_lang: "en-US",
+            sound_mode: None,
+            sound: None,
         };
         store.set_prayer_template("fajr", &cleared).expect("saved");
         let fajr = store
@@ -1260,6 +1300,73 @@ mod tests {
         assert_eq!(
             again.next_fire_at,
             Some("2026-11-19T05:00:00Z".parse().expect("instant"))
+        );
+    }
+    #[test]
+    fn a_prayers_sound_is_the_chime_until_chosen_and_an_imported_clip_is_named_by_its_asset() {
+        let dir = tempfile::tempdir().expect("a scratch folder");
+        let store = Store::open_in_memory().expect("opens");
+        let fajr = store
+            .template_for_prayer("fajr")
+            .expect("reads")
+            .expect("there");
+        assert_eq!(
+            (fajr.sound_mode.as_deref(), fajr.sound.as_deref()),
+            (None, None),
+            "the chime"
+        );
+
+        // A clip, copied in under its hash and recorded; storing it twice is one file.
+        let clip =
+            crate::assets::store_audio(dir.path(), b"RIFFxxxxWAVEdata", "wav").expect("stored");
+        assert_eq!(clip.relative_path, format!("assets/{}.wav", clip.sha256));
+        assert!(
+            dir.path().join(&clip.relative_path).is_file(),
+            "it landed where the path says"
+        );
+        assert_eq!(
+            crate::assets::store_audio(dir.path(), b"RIFFxxxxWAVEdata", "wav").expect("again"),
+            clip
+        );
+        store.add_audio_asset(&clip).expect("recorded");
+        store.add_audio_asset(&clip).expect("recorded again");
+
+        let edit = |mode: &str, sound: Option<String>| PrayerTemplateEdit {
+            title: None,
+            body: None,
+            accent: None,
+            image: None,
+            authored_lang: "en-US",
+            sound_mode: Some(mode.to_owned()),
+            sound,
+        };
+        store
+            .set_prayer_template("fajr", &edit("file", Some(clip.sha256.clone())))
+            .expect("saved");
+        let fajr = store
+            .template_for_prayer("fajr")
+            .expect("reads")
+            .expect("there");
+        assert_eq!(fajr.sound_mode.as_deref(), Some("file"));
+        assert_eq!(fajr.sound.as_deref(), Some(clip.relative_path.as_str()));
+
+        store
+            .set_prayer_template("fajr", &edit("none", None))
+            .expect("saved");
+        assert_eq!(
+            store
+                .template_for_prayer("fajr")
+                .expect("reads")
+                .expect("there")
+                .sound_mode
+                .as_deref(),
+            Some("none")
+        );
+        // A mode nobody knows is refused by the table, not stored.
+        assert!(
+            store
+                .set_prayer_template("fajr", &edit("loud", None))
+                .is_err()
         );
     }
 }

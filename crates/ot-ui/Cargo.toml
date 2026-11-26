@@ -18,6 +18,7 @@ eframe.workspace = true
 egui.workspace = true
 ot-core = { path = "../ot-core" }
 ot-i18n = { path = "../ot-i18n" }
+ot-media = { path = "../ot-media" }
 ot-platform = { path = "../ot-platform" }
 ot-prayer = { path = "../ot-prayer" }
 ot-sched = { path = "../ot-sched" }

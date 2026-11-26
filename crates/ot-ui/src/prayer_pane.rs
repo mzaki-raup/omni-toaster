@@ -119,6 +119,10 @@ pub struct State {
     edit: TemplateEdit,
     template_loaded: Option<usize>,
     template_saved: bool,
+    /// Why the last chosen clip was refused, as a Fluent key.
+    sound_error: Option<&'static str>,
+    /// A file dialog or an import is under way.
+    importing: bool,
 }
 
 /// A template as typed: empty text is the built-in text.
@@ -130,6 +134,48 @@ struct TemplateEdit {
     accent: egui::Color32,
     /// The picture's path under the data folder, or `None` for the built-in.
     picture: Option<String>,
+    sound_mode: SoundMode,
+    /// The imported clip's path under the data folder.
+    sound_file: Option<String>,
+}
+
+/// Which sound a prayer plays.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
+enum SoundMode {
+    #[default]
+    Chime,
+    Azan,
+    File,
+    Silent,
+}
+
+impl SoundMode {
+    const ALL: [Self; 4] = [Self::Chime, Self::Azan, Self::File, Self::Silent];
+
+    fn as_str(self) -> &'static str {
+        match self {
+            Self::Chime => "chime",
+            Self::Azan => "azan",
+            Self::File => "file",
+            Self::Silent => "none",
+        }
+    }
+
+    fn parse(text: Option<&str>) -> Self {
+        Self::ALL
+            .into_iter()
+            .find(|mode| Some(mode.as_str()) == text)
+            .unwrap_or_default()
+    }
+
+    fn key(self) -> &'static str {
+        match self {
+            Self::Chime => "prayer-sound-chime",
+            Self::Azan => "prayer-sound-azan",
+            Self::File => "prayer-sound-file",
+            Self::Silent => "prayer-sound-none",
+        }
+    }
 }
 
 /// A picture in the library, as the template's picker lists it.
@@ -189,6 +235,8 @@ impl State {
             edit: TemplateEdit::default(),
             template_loaded: None,
             template_saved: false,
+            sound_error: None,
+            importing: false,
         }
     }
 
@@ -228,7 +276,12 @@ impl State {
             accent_on: true,
             accent: egui::Color32::from_rgb(0x3b, 0x9e, 0xff),
             picture: Some("assets/long-label.png".to_string()),
+            sound_mode: SoundMode::File,
+            sound_file: Some(
+                "assets/0123456789abcdef0123456789abcdef0123456789abcdef.mp3".to_string(),
+            ),
         };
+        state.sound_error = Some("error-import-audio-too-large");
         state.template_saved = true;
         state.day = Day::Times;
         state.rows = LISTED
@@ -365,9 +418,22 @@ impl State {
                             .and_then(parse_hex)
                             .unwrap_or(egui::Color32::from_rgb(0x3b, 0x9e, 0xff)),
                         picture: template.image,
+                        sound_mode: SoundMode::parse(template.sound_mode.as_deref()),
+                        sound_file: template.sound,
                     };
                 }
             }
+            Reply::AudioImported { relative_path } => {
+                self.edit.sound_file = Some(relative_path);
+                self.edit.sound_mode = SoundMode::File;
+                self.sound_error = None;
+                self.importing = false;
+            }
+            Reply::AudioRefused(key) => {
+                self.sound_error = Some(key);
+                self.importing = false;
+            }
+            Reply::AudioCancelled => self.importing = false,
             Reply::Failed(reason) => {
                 tracing::warn!(%reason, "a prayer pane request failed");
                 self.detecting = false;
@@ -508,6 +574,10 @@ pub struct Outcome {
     pub settings_changed: bool,
     /// Show this toast: the editor's Preview.
     pub preview: Option<Preview>,
+    /// Play this prayer's sound as the template has it now: the Play Sound button.
+    pub play_sound: Option<Preview>,
+    /// Stop the sound.
+    pub stop_sound: bool,
 }
 
 /// Draw the pane. The window owns the settings and saves them when
@@ -1178,6 +1248,51 @@ fn template_block(
     );
     ui.add_space(layout::ROW_GAP);
 
+    // The sound: the chime by default, the full Azan, a clip of the user's own,
+    // or none.
+    let mut mode = state.edit.sound_mode;
+    layout::labelled_row(ui, columns, &ot_i18n::text("prayer-sound-label"), |ui| {
+        egui::ComboBox::from_id_salt("prayer-sound")
+            .width(columns.field)
+            .height(layout::field_height(ui) * 6.0)
+            .selected_text(ot_i18n::text(mode.key()))
+            .show_ui(ui, |ui| {
+                for option in SoundMode::ALL {
+                    ui.selectable_value(&mut mode, option, ot_i18n::text(option.key()));
+                }
+            });
+    });
+    state.edit.sound_mode = mode;
+    if mode == SoundMode::File {
+        ui.add_space(layout::ROW_GAP);
+        let shown = state.edit.sound_file.as_deref().map_or_else(
+            || ot_i18n::text("prayer-sound-none-chosen"),
+            |path| ellipsize(path, (columns.field / 9.0) as usize),
+        );
+        ui.horizontal_wrapped(|ui| {
+            ui.add_space(columns.label);
+            note(ui, &shown, tokens.text_dim);
+        });
+        ui.horizontal_wrapped(|ui| {
+            ui.add_space(columns.label);
+            ui.add_enabled_ui(!state.importing, |ui| {
+                if button(ui, ot_i18n::text("prayer-sound-choose")).clicked() {
+                    state.importing = true;
+                    state.sound_error = None;
+                    state.controller.import_audio(
+                        ot_i18n::text("prayer-sound-dialog-title"),
+                        ot_i18n::text("prayer-sound-filter"),
+                    );
+                }
+            });
+        });
+    }
+    if let Some(key) = state.sound_error {
+        ui.add_space(layout::ROW_GAP / 2.0);
+        note(ui, &ot_i18n::text(key), tokens.danger);
+    }
+    ui.add_space(layout::ROW_GAP);
+
     // Save, restore, preview.
     let template = |state: &State| ot_store::reminders::Template {
         prayer_key: Some(prayer.to_owned()),
@@ -1185,6 +1300,8 @@ fn template_block(
         custom_body: Some(state.edit.message.trim().to_owned()).filter(|t| !t.is_empty()),
         accent_color: state.edit.accent_on.then(|| hex(state.edit.accent)),
         image: state.edit.picture.clone(),
+        sound_mode: Some(state.edit.sound_mode.as_str().to_owned()),
+        sound: state.edit.sound_file.clone(),
         ..Default::default()
     };
     let save = |state: &mut State| {
@@ -1204,6 +1321,16 @@ fn template_block(
                 accent: saved.accent_color,
                 image: sha,
                 authored_lang: language,
+                sound_mode: (state.edit.sound_mode != SoundMode::Chime)
+                    .then(|| state.edit.sound_mode.as_str().to_owned()),
+                // The clip's name is its hash: `assets/<sha256>.<ext>`.
+                sound: state
+                    .edit
+                    .sound_file
+                    .as_deref()
+                    .filter(|_| state.edit.sound_mode == SoundMode::File)
+                    .and_then(|path| std::path::Path::new(path).file_stem())
+                    .map(|stem| stem.to_string_lossy().into_owned()),
             },
         );
         state.template_saved = true;
@@ -1224,6 +1351,17 @@ fn template_block(
                 prayer: prayer.to_owned(),
                 template: template(state),
             });
+        }
+        ui.add_space(layout::OPTION_GAP - ui.spacing().item_spacing.x);
+        if button(ui, ot_i18n::text("prayer-sound-play")).clicked() {
+            outcome.play_sound = Some(Preview {
+                prayer: prayer.to_owned(),
+                template: template(state),
+            });
+        }
+        ui.add_space(layout::OPTION_GAP - ui.spacing().item_spacing.x);
+        if button(ui, ot_i18n::text("prayer-sound-stop")).clicked() {
+            outcome.stop_sound = true;
         }
     });
     if state.template_saved {
@@ -1283,6 +1421,16 @@ mod tests {
         keys.extend(Preset::all().map(|p| p.name_key().to_owned()));
         keys.extend(Asr::all().map(|a| a.name_key().to_owned()));
         keys.extend(ot_prayer::chain::LABEL_KEYS.map(str::to_owned));
+        // The reasons an audio clip is refused are named through `name_key`.
+        for error in [
+            ot_media::audio::AudioError::TooLarge(0),
+            ot_media::audio::AudioError::NotAudio,
+            ot_media::audio::AudioError::Undecodable(String::new()),
+            ot_media::audio::AudioError::TooLong,
+        ] {
+            keys.push(error.name_key().to_owned());
+        }
+        keys.push("error-import-unreadable".to_owned());
         keys.sort();
         keys.dedup();
         keys
