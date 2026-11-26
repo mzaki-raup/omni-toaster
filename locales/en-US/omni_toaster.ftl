@@ -703,3 +703,133 @@ prayer-source-calculated-approximate = Calculated (approximate)
 prayer-source-calculated-fallback = Calculated (fallback)
 # The same fallback label when the location is inside Malaysia, where the calculation can differ from JAKIM by a few minutes.
 prayer-source-calculated-fallback-approximate = Calculated (fallback, approximate)
+# The name of the Prayer section in the settings window's left-hand list.
+settings-section-prayer = Prayer
+# The heading of the location group in Settings > Prayer.
+prayer-location-heading = Location
+# The question in the first-run card that asks before the app looks up the user's place from their internet address.
+prayer-consent-title = Detect your location from your internet address?
+# The explanation under that question. ipapi.co is the name of the lookup service and stays as written.
+prayer-consent-body = OmniToaster can look up where you are once a day, to choose your prayer zone. Your internet address is sent to ipapi.co and is not kept. You can type a place instead.
+# The button that agrees to the lookup.
+prayer-consent-allow = Allow
+# The button that declines the lookup for now; the user can still change their mind later.
+prayer-consent-decline = Not Now
+# The checkbox that turns the daily lookup on or off after the first answer.
+prayer-detect-checkbox = Detect my location from my internet address
+# The hint under that checkbox.
+prayer-detect-hint = Once a day, only with your permission. A place you set yourself is never replaced.
+# Shown while the lookup is running.
+prayer-location-looking = Looking up your location…
+# Shown when the lookup could not reach the service.
+prayer-error-network = The location service could not be reached. Check your connection, or type a place instead.
+# Shown when the location service refused the request, for example because it was asked too often.
+prayer-error-service = The location service did not give an answer. Try again later, or type a place instead.
+# Shown when the location service answered with something that could not be used.
+prayer-error-answer = The location service gave an answer that could not be used. Type a place instead.
+# The saved place when it was found from the internet address. $place is a city and region.
+prayer-location-detected = Location: { $place } (detected from your internet address)
+# The saved place when the user chose it. $place is a city and region, or coordinates.
+prayer-location-manual = Location: { $place } (set by you)
+# Shown when there is no saved place yet.
+prayer-location-none = No location is set. Search for a city or type coordinates.
+# The button that opens the place entry controls.
+prayer-location-change = Change Location
+# The button that closes the place entry controls.
+prayer-close = Close
+# The label of the city search field.
+prayer-search-label = City
+# The grey hint inside the empty city search field.
+prayer-search-placeholder = Search for a city
+# The button that runs the city search.
+prayer-search-button = Search
+# Shown while a city search is running.
+prayer-search-loading = Searching…
+# Shown when a city search found nothing.
+prayer-search-empty = No city matches that search.
+# One city search result. $place is a city and region; $zone is its time zone name.
+prayer-search-result = { $place } ({ $zone })
+# The label of the coordinates field.
+prayer-coords-label = Coordinates
+# The grey hint inside the empty coordinates field.
+prayer-coords-placeholder = Latitude, longitude, for example 3.14, 101.69
+# The button that uses the typed coordinates.
+prayer-coords-use = Use Coordinates
+# Shown when the typed coordinates are not two numbers.
+prayer-coords-error-format = Type a latitude and a longitude, like 3.14, 101.69.
+# Shown when the typed coordinates are outside the Earth's range.
+prayer-coords-error-range = Latitude is from -90 to 90 and longitude from -180 to 180.
+# Shown when this PC's own time zone could not be read for coordinates outside Malaysia.
+prayer-coords-error-zone = This PC's time zone could not be read. Search for a city instead.
+# Shown after coordinates outside Malaysia are used. $zone is this PC's time zone, which was assumed.
+prayer-coords-zone-note = Time zone: { $zone }, taken from this PC. Check that it is right for this place, or search for a city instead.
+# The label of the source dropdown.
+prayer-source-label = Source
+# The first choice in the source dropdown: JAKIM inside Malaysia and calculated elsewhere.
+prayer-choice-auto = Auto
+# The second choice in the source dropdown.
+prayer-choice-jakim = JAKIM e-Solat
+# The third choice in the source dropdown.
+prayer-choice-calculated = Calculated
+# The hint under the source dropdown.
+prayer-source-hint = Auto uses JAKIM e-Solat inside Malaysia and calculates elsewhere.
+# A warning shown when JAKIM is chosen but there is no zone to ask about.
+prayer-warning-needs-zone = JAKIM needs a zone. Choose one below, or use Auto.
+# A warning shown when JAKIM is chosen for a place outside Malaysia.
+prayer-warning-abroad = This place is outside Malaysia. JAKIM times follow the zone you chose and may differ from local custom.
+# The label of the zone row.
+prayer-zone-label = Zone
+# The zone found from the saved place. $code is a JAKIM zone code like SGR01; $areas is a list of areas; $state is a state.
+prayer-zone-detected = Detected zone: { $code } · { $areas } · { $state }
+# The zone the user chose. The same placeholders as the detected zone.
+prayer-zone-chosen = Zone: { $code } · { $areas } · { $state }
+# Shown when there is no zone yet.
+prayer-zone-none = No zone yet. Set a location in Malaysia, or choose a zone.
+# The button that opens the zone list.
+prayer-zone-change = Change Zone
+# The button that goes back to the zone found from the place.
+prayer-zone-use-detected = Use Detected Zone
+# The grey hint inside the empty zone search field.
+prayer-zone-search-placeholder = Search by code, state or area
+# Shown when a zone search found nothing.
+prayer-zone-no-match = No zone matches that search.
+# One row of the zone list. $code is a zone code, $state a state, $areas a list of areas.
+prayer-zone-row = { $code } · { $state } · { $areas }
+# The label of the calculation method dropdown.
+prayer-method-label = Method
+# A calculation method.
+prayer-preset-mwl = Muslim World League
+# A calculation method.
+prayer-preset-isna = ISNA
+# A calculation method.
+prayer-preset-umm-al-qura = Umm al-Qura
+# A calculation method that follows JAKIM's angles but is not JAKIM's own times.
+prayer-preset-malaysia = Malaysia (JAKIM Angles, Approximate)
+# The label of the Asar school dropdown. Asar is the afternoon prayer.
+prayer-asr-label = Asar School
+# An Asar school; the one JAKIM follows.
+prayer-asr-shafii = Shafi'i
+# An Asar school.
+prayer-asr-hanafi = Hanafi
+# The hint under the Asar school dropdown.
+prayer-asr-hint = Shafi'i is JAKIM's convention. Hanafi puts Asar about an hour later.
+# The heading of the list of today's prayer times.
+prayer-today-heading = Today's Prayer Times
+# Shown while today's times are being worked out.
+prayer-today-loading = Working out today's times…
+# Shown when no source could give today's times.
+prayer-today-nothing = No prayer times are available. Set a location, or check your connection and try again.
+# Shown before there is a location to work from.
+prayer-today-none-yet = Choose a location to see today's times.
+# A prayer in the day's list: both names, so a reader of either can find it. Fajr is the dawn prayer.
+prayer-name-fajr = Fajr (Subuh)
+# Sunrise, which ends the dawn prayer's time.
+prayer-name-syuruk = Sunrise (Syuruk)
+# The midday prayer.
+prayer-name-dhuhr = Dhuhr (Zohor)
+# The afternoon prayer.
+prayer-name-asr = Asr (Asar)
+# The sunset prayer.
+prayer-name-maghrib = Maghrib
+# The night prayer.
+prayer-name-isha = Isha (Isyak)

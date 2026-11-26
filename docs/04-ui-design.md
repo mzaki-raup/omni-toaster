@@ -53,7 +53,7 @@ bottom.
 | **Animation** | In and out animation, duration, easing, the Reduce Motion switch with Windows' own "Show animations" stated under it, and Play, which fires a test toast with them (FEAT-0036) |
 | **Notifications** | Display duration, stacking, screen and corner, quiet hours |
 | **Reminders** | The reminder list and editor, categories, lead offsets, snooze defaults. Built: Missed Reminders (FEAT-0045), Your Reminders and the editor with each reminder's history (FEAT-0046), and the Snooze section with the catch-up window (FEAT-0043, FEAT-0045) — `docs/specs/reminders.md` §10 |
-| **Prayer** | Source (JAKIM · Calculated), zone picker, per-prayer audio, pre-prayer lead, Imsak and Dhuha switches, the source label |
+| **Prayer** | Location (the consent card, the saved place, city search and coordinates), source (Auto · JAKIM · Calculated), zone picker, calculation method and Asar school, today's times with the source label — as built in FEAT-0057, with per-prayer audio, pre-prayer lead and the Imsak and Dhuha switches to come |
 | **Weather** | Enable, location, units, which condition changes notify |
 | **Announcements** | Schedule, voice, test button, chime fallback |
 | **Location** | Detected location, manual override, the confirmation step |

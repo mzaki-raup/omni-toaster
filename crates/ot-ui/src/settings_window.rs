@@ -57,6 +57,9 @@ pub enum Section {
     /// What Snooze does now; the reminder list and editor with FEAT-0046
     /// (Phase 4, `docs/specs/reminders.md` §10).
     Reminders,
+    /// The prayer source, zone and location, and today's times (Phase 5,
+    /// `docs/11-prayer-and-azan.md`).
+    Prayer,
 }
 
 impl Section {
@@ -68,16 +71,18 @@ impl Section {
             Self::Pictures => "settings-section-pictures",
             Self::Animation => "settings-section-animation",
             Self::Reminders => "settings-section-reminders",
+            Self::Prayer => "settings-section-prayer",
         }
     }
 
-    pub fn all() -> [Self; 5] {
+    pub fn all() -> [Self; 6] {
         [
             Self::General,
             Self::Appearance,
             Self::Animation,
             Self::Pictures,
             Self::Reminders,
+            Self::Prayer,
         ]
     }
 }
@@ -327,6 +332,8 @@ pub struct SettingsWindow {
     /// The reminders' own thread; `None` until `run` starts it with the
     /// scheduler's sender, and in the layout tests.
     book: Option<crate::reminder_book::Book>,
+    /// The Prayer pane's own state and its threads' controller (FEAT-0057).
+    prayer: crate::prayer_pane::State,
     /// The list's rows, built when a list arrives, never per frame.
     reminder_rows: Option<Vec<crate::reminders::ListRow>>,
     /// The reminder being edited, if any.
@@ -466,6 +473,7 @@ impl SettingsWindow {
             missed: Vec::new(),
             missed_toast: None,
             book: None,
+            prayer: crate::prayer_pane::State::new(&root_path),
             reminder_rows: None,
             editor: None,
             reminder_history: Vec::new(),
@@ -1275,6 +1283,34 @@ impl SettingsWindow {
     }
 
     /// Settings ▸ Reminders: for now, the Snooze section.
+    fn prayer_pane(&mut self, ui: &mut egui::Ui) {
+        let tokens = self.theme.tokens();
+        let now = jiff::Timestamp::now();
+        let consent = ot_prayer::location::Consent::from(self.settings.location.ip_consent);
+        self.prayer.tick(&self.settings.prayer, consent, now);
+        // Replies arrive off the UI thread and egui only repaints on an event,
+        // so while work is pending the pane asks to be drawn again soon.
+        if self.prayer.busy() {
+            ui.ctx().request_repaint_after(Duration::from_millis(100));
+        }
+        let mut outcome = crate::prayer_pane::Outcome::default();
+        egui::ScrollArea::vertical()
+            .auto_shrink([false, false])
+            .show(ui, |ui| {
+                outcome = crate::prayer_pane::show(
+                    ui,
+                    &mut self.prayer,
+                    &mut self.settings.prayer,
+                    &mut self.settings.location,
+                    tokens,
+                    now,
+                );
+            });
+        if outcome.settings_changed {
+            self.save();
+        }
+    }
+
     fn reminders_pane(&mut self, ui: &mut egui::Ui) {
         let tokens = self.theme.tokens();
         let rows: Vec<crate::reminders::MissedRow> =
@@ -1436,6 +1472,7 @@ impl SettingsWindow {
     /// editor's repeat summary. They are built once, not per frame, so a
     /// change has to rebuild them (FEAT-0047).
     fn reformat(&mut self) {
+        self.prayer.reformat();
         if let Some(book) = &self.book
             && let Some(listing) = book.listing()
         {
@@ -1562,6 +1599,9 @@ impl SettingsWindow {
     /// and without frames nothing drains the tray's clicks or drives a toast.
     /// Hiding is only the fallback where parking is not possible.
     fn hide_window(&mut self, ctx: &egui::Context) {
+        // Closing Settings stops the prayer work in flight, so a fetch does not
+        // run on for a window nobody is looking at (FEAT-0052, FEAT-0057).
+        self.prayer.cancel();
         if self.parked.is_some() {
             return;
         }
@@ -2416,6 +2456,7 @@ impl eframe::App for SettingsWindow {
                 Section::Pictures => self.pictures_pane(ui),
                 Section::Animation => self.animation_pane(ui),
                 Section::Reminders => self.reminders_pane(ui),
+                Section::Prayer => self.prayer_pane(ui),
             });
 
         if self.confirming_quit {

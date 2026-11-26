@@ -1,0 +1,933 @@
+//! Settings ▸ Prayer (FEAT-0057, `docs/11-prayer-and-azan.md` §1, §3, §6, §8).
+//!
+//! The pane draws and nothing in it blocks: the lookups, the search and the day's
+//! times run on the threads of [`crate::prayer::Controller`], and each frame
+//! [`State::tick`] drains what has come back. What is derived — the plan, the
+//! zone matches, the formatted times — is cached and rebuilt when its inputs
+//! change, never every frame (`.claude/rules/ui.md`, "Per-frame cost").
+
+use jiff::Timestamp;
+use jiff::tz::TimeZone;
+use ot_core::{LocationSettings, PrayerSettings};
+use ot_prayer::calculated::{Asr, Preset};
+use ot_prayer::chain::{Resolution, Resolved, Source, SourceChoice};
+use ot_prayer::jakim::Prayer;
+use ot_prayer::location::{
+    self, Consent, CoordinateError, Located, LookupError, MALAYSIA_TZ, Origin as LocationOrigin,
+    Step,
+};
+use ot_prayer::zones::{self, Zone};
+use ot_store::location::{Origin, StoredLocation};
+
+use crate::layout::{self, Columns};
+use crate::prayer::{self, Controller, Plan, Reply, Warning};
+use crate::theme::Tokens;
+
+/// The prayers listed, in the order of the day. Imsak and Dhuha stay hidden
+/// until they can be switched on (spec §1).
+const LISTED: [(Prayer, &str); 6] = [
+    (Prayer::Fajr, "prayer-name-fajr"),
+    (Prayer::Syuruk, "prayer-name-syuruk"),
+    (Prayer::Dhuhr, "prayer-name-dhuhr"),
+    (Prayer::Asr, "prayer-name-asr"),
+    (Prayer::Maghrib, "prayer-name-maghrib"),
+    (Prayer::Isha, "prayer-name-isha"),
+];
+
+/// Where a city search stands.
+#[derive(Debug)]
+enum Search {
+    Idle,
+    Loading,
+    Results(Vec<Located>),
+    Failed(&'static str),
+}
+
+/// Where today's times stand.
+#[derive(Debug)]
+enum Day {
+    /// No place and no zone to work from.
+    NoPlace,
+    Loading,
+    Times,
+    Unavailable,
+}
+
+/// Everything the pane remembers between frames.
+pub struct State {
+    controller: Controller,
+    saved: Option<StoredLocation>,
+    loaded: bool,
+    detecting: bool,
+    /// Whether this run has asked the lookup service already, so a failure is
+    /// not retried every frame.
+    detect_attempted: bool,
+    detect_error: Option<&'static str>,
+    plan_dirty: bool,
+    plan: Option<Plan>,
+    day: Day,
+    resolved: Option<Resolved>,
+    /// The day's rows, as formatted text: name, time.
+    rows: Vec<(String, String)>,
+    label: String,
+    editing: bool,
+    city: String,
+    search: Search,
+    coords: String,
+    coords_error: Option<&'static str>,
+    coords_note: Option<String>,
+    zone_open: bool,
+    zone_query: String,
+    /// The zone list for `zone_query`, rebuilt only when the text changes.
+    zone_matches: Vec<&'static Zone>,
+    zone_matches_for: Option<String>,
+    system_tz: String,
+}
+
+impl State {
+    /// Start reading the saved place; nothing is drawn until it arrives.
+    pub fn new(root: &std::path::Path) -> Self {
+        let state = Self::new_idle(root);
+        state.controller.load_location();
+        state
+    }
+
+    fn new_idle(root: &std::path::Path) -> Self {
+        let controller = Controller::new(root);
+        Self {
+            controller,
+            saved: None,
+            loaded: false,
+            detecting: false,
+            detect_attempted: false,
+            detect_error: None,
+            plan_dirty: true,
+            plan: None,
+            day: Day::NoPlace,
+            resolved: None,
+            rows: Vec::new(),
+            label: String::new(),
+            editing: false,
+            city: String::new(),
+            search: Search::Idle,
+            coords: String::new(),
+            coords_error: None,
+            coords_note: None,
+            zone_open: false,
+            zone_query: String::new(),
+            zone_matches: Vec::new(),
+            zone_matches_for: None,
+            system_tz: TimeZone::system()
+                .iana_name()
+                .unwrap_or_default()
+                .to_string(),
+        }
+    }
+
+    /// A state with every part of the pane on show, for the layout tests: the
+    /// place, the entry controls with results and errors, the zone list and a
+    /// full day. Nothing is started and nothing is read from disk.
+    #[doc(hidden)]
+    pub fn for_layout_test(
+        root: &std::path::Path,
+        settings: &PrayerSettings,
+        place: Option<StoredLocation>,
+        results: Vec<Located>,
+    ) -> Self {
+        let mut state = Self::new_idle(root);
+        state.loaded = true;
+        state.saved = place;
+        let plan = prayer::plan(settings, state.saved.as_ref());
+        state.plan = Some(plan);
+        state.editing = true;
+        state.city = "Shah Alam".to_string();
+        state.search = Search::Results(results);
+        state.coords = "3.14, 101.69".to_string();
+        state.coords_error = Some("prayer-coords-error-range");
+        state.coords_note = Some(ot_i18n::text_with(
+            "prayer-coords-zone-note",
+            &[("zone", "America/Argentina/ComodRivadavia".into())],
+        ));
+        state.detect_error = Some("prayer-error-service");
+        state.zone_open = true;
+        state.day = Day::Times;
+        state.rows = LISTED
+            .iter()
+            .map(|(_, key)| (ot_i18n::text(key), "12:34 pm".to_string()))
+            .collect();
+        state.label = ot_i18n::text_with(
+            "prayer-source-calculated-fallback-approximate",
+            &[("time", "26/11/2026 at 11:26 am".into())],
+        );
+        state
+    }
+
+    /// The settings changed (or the place did): work out the plan again.
+    pub fn mark_dirty(&mut self) {
+        self.plan_dirty = true;
+    }
+
+    /// Stop the work in flight, for a window that is closing. The day is worked
+    /// out again the next time the pane is drawn, so a cancelled resolve never
+    /// leaves it stuck loading.
+    pub fn cancel(&mut self) {
+        self.controller.cancel();
+        self.plan_dirty = true;
+    }
+
+    /// Whether an answer is still to come, so the window keeps repainting.
+    pub fn busy(&self) -> bool {
+        !self.loaded
+            || self.detecting
+            || matches!(self.day, Day::Loading)
+            || matches!(self.search, Search::Loading)
+    }
+
+    /// A language or clock change: the rows and the label are text, so they are
+    /// built again from what was resolved.
+    pub fn reformat(&mut self) {
+        self.rebuild_rows();
+    }
+
+    /// The step the rule gives for this consent and this saved place.
+    fn step(&self, consent: Consent, now: Timestamp) -> Step {
+        let saved = self.saved.as_ref().map(|place| {
+            let origin = match place.origin {
+                Origin::Ip => LocationOrigin::Ip,
+                Origin::Manual => LocationOrigin::Manual,
+            };
+            (origin, place.updated_at)
+        });
+        location::next_step(consent, saved, now)
+    }
+
+    /// Drain the replies, start a lookup the rule calls for, and resolve the day
+    /// when its inputs changed. Called once a frame, before drawing.
+    pub fn tick(&mut self, prayer_settings: &PrayerSettings, consent: Consent, now: Timestamp) {
+        for reply in self.controller.drain() {
+            self.apply(reply);
+        }
+        if !self.loaded {
+            return;
+        }
+        match self.step(consent, now) {
+            Step::Lookup if !self.detecting && !self.detect_attempted => {
+                self.detecting = true;
+                self.detect_attempted = true;
+                self.detect_error = None;
+                self.controller.detect(Consent::Granted);
+            }
+            Step::EnterManually if self.saved.is_none() => self.editing = true,
+            _ => {}
+        }
+        if self.plan_dirty {
+            self.plan_dirty = false;
+            let plan = prayer::plan(prayer_settings, self.saved.as_ref());
+            if plan.zone.is_some() || plan.calculation.is_some() {
+                self.day = Day::Loading;
+                self.controller.resolve(plan.clone());
+            } else {
+                self.controller.cancel();
+                self.day = Day::NoPlace;
+                self.resolved = None;
+                self.rows.clear();
+            }
+            self.plan = Some(plan);
+        }
+    }
+
+    fn apply(&mut self, reply: Reply) {
+        match reply {
+            Reply::Location(place) => {
+                self.saved = place;
+                self.loaded = true;
+                self.detecting = false;
+                self.plan_dirty = true;
+            }
+            Reply::DetectFailed(error) => {
+                self.detecting = false;
+                self.detect_error = Some(error_key(&error));
+            }
+            Reply::Search(Ok(found)) => self.search = Search::Results(found),
+            Reply::Search(Err(error)) => self.search = Search::Failed(error_key(&error)),
+            Reply::Day(Resolution::Times(resolved)) => {
+                self.resolved = Some(resolved);
+                self.day = Day::Times;
+                self.rebuild_rows();
+            }
+            Reply::Day(Resolution::Nothing) => {
+                self.day = Day::Unavailable;
+                self.resolved = None;
+                self.rows.clear();
+            }
+            Reply::Failed(reason) => {
+                tracing::warn!(%reason, "a prayer pane request failed");
+                self.detecting = false;
+                self.loaded = true;
+                if matches!(self.day, Day::Loading) {
+                    self.day = Day::Unavailable;
+                }
+            }
+        }
+    }
+
+    /// The rows and the label, formatted for the language and clock in force.
+    fn rebuild_rows(&mut self) {
+        self.rows.clear();
+        self.label.clear();
+        let (Some(resolved), Some(plan)) = (&self.resolved, &self.plan) else {
+            return;
+        };
+        // JAKIM's times are Malaysian clock values; a calculated day is read in
+        // the place's own zone.
+        let tz_name = match resolved.source {
+            Source::Calculated { .. } => plan.tz.as_str(),
+            _ => MALAYSIA_TZ,
+        };
+        let tz = TimeZone::get(tz_name).unwrap_or(TimeZone::UTC);
+        let prefs = ot_i18n::format::TimePrefs::current();
+        for (prayer, key) in LISTED {
+            if let Some((_, at)) = resolved.times.iter().find(|(p, _)| *p == prayer) {
+                let local = at.to_zoned_datetime(tz.clone()).datetime();
+                self.rows.push((
+                    ot_i18n::text(key),
+                    ot_i18n::format::format_time(&local, prefs),
+                ));
+            }
+        }
+        let fetched = resolved
+            .source
+            .fetched_at()
+            .map(|at| {
+                ot_i18n::format::format_datetime(
+                    &at.to_zoned_datetime(tz.clone()).datetime(),
+                    prefs,
+                )
+            })
+            .unwrap_or_default();
+        self.label = ot_i18n::text_with(resolved.source.label_key(), &[("time", fetched.into())]);
+    }
+
+    /// Zones matching the search text, rebuilt only when the text changed.
+    fn matches(&mut self) -> &[&'static Zone] {
+        if self.zone_matches_for.as_deref() != Some(self.zone_query.as_str()) {
+            self.zone_matches = zones::search(&self.zone_query);
+            self.zone_matches_for = Some(self.zone_query.clone());
+        }
+        &self.zone_matches
+    }
+}
+
+/// The Fluent key of what went wrong with a lookup or a search.
+fn error_key(error: &LookupError) -> &'static str {
+    match error {
+        LookupError::Network(_) | LookupError::Http(500..) => "prayer-error-network",
+        LookupError::Service(_) | LookupError::Http(_) => "prayer-error-service",
+        _ => "prayer-error-answer",
+    }
+}
+
+fn coordinate_error_key(error: &CoordinateError) -> &'static str {
+    match error {
+        CoordinateError::Format => "prayer-coords-error-format",
+        CoordinateError::Range => "prayer-coords-error-range",
+        CoordinateError::TimeZone(_) => "prayer-coords-error-zone",
+    }
+}
+
+fn english() -> bool {
+    ot_i18n::current_language() != Some(ot_i18n::Language::Malay)
+}
+
+fn language_code() -> &'static str {
+    if english() { "en" } else { "ms" }
+}
+
+/// A zone as one wrapped line: code, state and areas, in the active language.
+fn zone_line(key: &str, zone: &Zone) -> String {
+    let english = english();
+    ot_i18n::text_with(
+        key,
+        &[
+            ("code", zone.code.clone().into()),
+            ("state", zone.state(english).to_string().into()),
+            ("areas", zone.areas(english).to_string().into()),
+        ],
+    )
+}
+
+/// A button as tall as the fields beside it.
+fn button(ui: &mut egui::Ui, text: String) -> egui::Response {
+    // A minimum height and no fixed width: a zero width squeezes the label to a
+    // letter a line.
+    ui.add(egui::Button::new(text).min_size(egui::vec2(0.0, layout::field_height(ui))))
+}
+
+fn subheading(ui: &mut egui::Ui, key: &str) {
+    ui.label(egui::RichText::new(ot_i18n::text(key)).strong());
+    ui.add_space(layout::ROW_GAP);
+}
+
+fn rule(ui: &mut egui::Ui) {
+    ui.add_space(layout::ROW_GAP);
+    ui.separator();
+    ui.add_space(layout::ROW_GAP);
+}
+
+/// A sentence in the pane, wrapped to the width it has, in a colour.
+fn note(ui: &mut egui::Ui, text: &str, colour: egui::Color32) {
+    ui.add(egui::Label::new(egui::RichText::new(text).color(colour)).wrap());
+}
+
+/// What a frame of the pane changed.
+#[derive(Debug, Default, Clone, Copy)]
+pub struct Outcome {
+    /// `settings.toml` should be saved.
+    pub settings_changed: bool,
+}
+
+/// Draw the pane. The window owns the settings and saves them when
+/// [`Outcome::settings_changed`] is set.
+pub fn show(
+    ui: &mut egui::Ui,
+    state: &mut State,
+    prayer_settings: &mut PrayerSettings,
+    location_settings: &mut LocationSettings,
+    tokens: Tokens,
+    now: Timestamp,
+) -> Outcome {
+    let mut outcome = Outcome::default();
+    let columns = layout::columns(ui);
+    let consent = Consent::from(location_settings.ip_consent);
+
+    location_block(
+        ui,
+        columns,
+        state,
+        location_settings,
+        consent,
+        tokens,
+        now,
+        &mut outcome,
+    );
+    rule(ui);
+    source_block(ui, columns, state, prayer_settings, tokens, &mut outcome);
+    rule(ui);
+    today_block(ui, state, tokens);
+    outcome
+}
+
+#[allow(
+    clippy::too_many_arguments,
+    reason = "one pane block, each argument a distinct input"
+)]
+fn location_block(
+    ui: &mut egui::Ui,
+    columns: Columns,
+    state: &mut State,
+    settings: &mut LocationSettings,
+    consent: Consent,
+    tokens: Tokens,
+    now: Timestamp,
+    outcome: &mut Outcome,
+) {
+    subheading(ui, "prayer-location-heading");
+    if !state.loaded {
+        note(
+            ui,
+            &ot_i18n::text("prayer-location-looking"),
+            tokens.text_dim,
+        );
+        return;
+    }
+
+    if state.step(consent, now) == Step::AskConsent {
+        egui::Frame::new()
+            .fill(tokens.surface_raised)
+            .stroke(egui::Stroke::new(1.0_f32, tokens.border))
+            .corner_radius(6.0_f32)
+            .inner_margin(layout::PANE_MARGIN)
+            .show(ui, |ui| {
+                ui.label(egui::RichText::new(ot_i18n::text("prayer-consent-title")).strong());
+                ui.add_space(layout::ROW_GAP);
+                note(ui, &ot_i18n::text("prayer-consent-body"), tokens.text);
+                ui.add_space(layout::ROW_GAP);
+                ui.horizontal_wrapped(|ui| {
+                    if button(ui, ot_i18n::text("prayer-consent-allow")).clicked() {
+                        settings.ip_consent = Some(true);
+                        outcome.settings_changed = true;
+                        state.detect_attempted = false;
+                    }
+                    ui.add_space(layout::OPTION_GAP - ui.spacing().item_spacing.x);
+                    if button(ui, ot_i18n::text("prayer-consent-decline")).clicked() {
+                        settings.ip_consent = Some(false);
+                        outcome.settings_changed = true;
+                        state.editing = true;
+                    }
+                });
+            });
+        ui.add_space(layout::ROW_GAP);
+    } else {
+        // The saved place, or the lookup in progress, or why it failed.
+        if state.detecting {
+            note(
+                ui,
+                &ot_i18n::text("prayer-location-looking"),
+                tokens.text_dim,
+            );
+        } else if let Some(place) = &state.saved {
+            let key = match place.origin {
+                Origin::Ip => "prayer-location-detected",
+                Origin::Manual => "prayer-location-manual",
+            };
+            note(
+                ui,
+                &ot_i18n::text_with(key, &[("place", place.name.clone().into())]),
+                tokens.text,
+            );
+        } else {
+            note(ui, &ot_i18n::text("prayer-location-none"), tokens.text_dim);
+        }
+        if let Some(key) = state.detect_error {
+            ui.add_space(layout::ROW_GAP / 2.0);
+            note(ui, &ot_i18n::text(key), tokens.danger);
+        }
+        ui.add_space(layout::ROW_GAP);
+
+        // The consent can be changed after the first answer.
+        let mut agreed = consent == Consent::Granted;
+        let mut toggled = false;
+        // A box and a label that wraps: the long Malay sentence must not run
+        // past the pane, and clicking the words toggles the box.
+        ui.horizontal_top(|ui| {
+            ui.add_space(columns.label);
+            toggled |= ui.checkbox(&mut agreed, "").changed();
+            let words = ui.add(
+                egui::Label::new(ot_i18n::text("prayer-detect-checkbox"))
+                    .wrap()
+                    .sense(egui::Sense::click()),
+            );
+            if words.clicked() {
+                agreed = !agreed;
+                toggled = true;
+            }
+        });
+        if toggled {
+            settings.ip_consent = Some(agreed);
+            outcome.settings_changed = true;
+            state.detect_attempted = false;
+        }
+        layout::field_hint(
+            ui,
+            columns,
+            &ot_i18n::text("prayer-detect-hint"),
+            tokens.text_dim,
+        );
+        ui.add_space(layout::ROW_GAP);
+    }
+
+    if !state.editing {
+        if button(ui, ot_i18n::text("prayer-location-change")).clicked() {
+            state.editing = true;
+        }
+        return;
+    }
+    entry_controls(ui, columns, state, tokens);
+}
+
+/// City search and typed coordinates.
+fn entry_controls(ui: &mut egui::Ui, columns: Columns, state: &mut State, tokens: Tokens) {
+    // City.
+    let mut run_search = false;
+    layout::labelled_row(ui, columns, &ot_i18n::text("prayer-search-label"), |ui| {
+        let field = (columns.field - 96.0).max(120.0);
+        let response = ui.add_sized(
+            [field, layout::field_height(ui)],
+            egui::TextEdit::singleline(&mut state.city)
+                .hint_text(ot_i18n::text("prayer-search-placeholder")),
+        );
+        let enter = response.lost_focus() && ui.input(|input| input.key_pressed(egui::Key::Enter));
+        if button(ui, ot_i18n::text("prayer-search-button")).clicked() || enter {
+            run_search = true;
+        }
+    });
+    if run_search && !state.city.trim().is_empty() {
+        state.search = Search::Loading;
+        state.controller.search(state.city.clone(), language_code());
+    }
+    let mut chosen = None;
+    match &state.search {
+        Search::Idle => {}
+        Search::Loading => {
+            ui.add_space(layout::ROW_GAP / 2.0);
+            note(ui, &ot_i18n::text("prayer-search-loading"), tokens.text_dim);
+        }
+        Search::Failed(key) => {
+            ui.add_space(layout::ROW_GAP / 2.0);
+            note(ui, &ot_i18n::text(key), tokens.danger);
+        }
+        Search::Results(found) if found.is_empty() => {
+            ui.add_space(layout::ROW_GAP / 2.0);
+            note(ui, &ot_i18n::text("prayer-search-empty"), tokens.text_dim);
+        }
+        Search::Results(found) => {
+            ui.add_space(layout::ROW_GAP / 2.0);
+            for place in found {
+                let text = ot_i18n::text_with(
+                    "prayer-search-result",
+                    &[
+                        ("place", place.name.clone().into()),
+                        ("zone", place.tz.clone().into()),
+                    ],
+                );
+                if ui
+                    .add(egui::Button::selectable(false, text).wrap())
+                    .clicked()
+                {
+                    chosen = Some(place.clone());
+                }
+            }
+        }
+    }
+    if let Some(place) = chosen {
+        state.controller.save_manual(place);
+        state.search = Search::Idle;
+        state.editing = false;
+        state.coords_note = None;
+    }
+    ui.add_space(layout::ROW_GAP);
+
+    // Coordinates.
+    let mut use_coords = false;
+    layout::labelled_row(ui, columns, &ot_i18n::text("prayer-coords-label"), |ui| {
+        let field = (columns.field - 150.0).max(120.0);
+        ui.add_sized(
+            [field, layout::field_height(ui)],
+            egui::TextEdit::singleline(&mut state.coords)
+                .hint_text(ot_i18n::text("prayer-coords-placeholder")),
+        );
+        if button(ui, ot_i18n::text("prayer-coords-use")).clicked() {
+            use_coords = true;
+        }
+    });
+    if use_coords {
+        match location::from_coordinates(&state.coords, &state.system_tz) {
+            Ok(place) => {
+                state.coords_error = None;
+                // Outside Malaysia the zone is this PC's, which is a guess.
+                state.coords_note = (place.tz != MALAYSIA_TZ).then(|| {
+                    ot_i18n::text_with(
+                        "prayer-coords-zone-note",
+                        &[("zone", place.tz.clone().into())],
+                    )
+                });
+                state.controller.save_manual(place);
+                state.editing = false;
+            }
+            Err(error) => {
+                state.coords_note = None;
+                state.coords_error = Some(coordinate_error_key(&error));
+            }
+        }
+    }
+    if let Some(key) = state.coords_error {
+        ui.add_space(layout::ROW_GAP / 2.0);
+        note(ui, &ot_i18n::text(key), tokens.danger);
+    }
+    ui.add_space(layout::ROW_GAP);
+    if button(ui, ot_i18n::text("prayer-close")).clicked() {
+        state.editing = false;
+        state.search = Search::Idle;
+    }
+}
+
+fn source_block(
+    ui: &mut egui::Ui,
+    columns: Columns,
+    state: &mut State,
+    settings: &mut PrayerSettings,
+    tokens: Tokens,
+    outcome: &mut Outcome,
+) {
+    // Source.
+    let source = SourceChoice::parse(&settings.source);
+    let mut chosen = source;
+    layout::labelled_row(ui, columns, &ot_i18n::text("prayer-source-label"), |ui| {
+        egui::ComboBox::from_id_salt("prayer-source")
+            .width(columns.field)
+            .height(layout::field_height(ui))
+            .selected_text(ot_i18n::text(source.name_key()))
+            .show_ui(ui, |ui| {
+                for option in SourceChoice::all() {
+                    ui.selectable_value(&mut chosen, option, ot_i18n::text(option.name_key()));
+                }
+            });
+    });
+    if chosen != source {
+        settings.source = chosen.as_str().to_string();
+        outcome.settings_changed = true;
+        state.mark_dirty();
+    }
+    layout::field_hint(
+        ui,
+        columns,
+        &ot_i18n::text("prayer-source-hint"),
+        tokens.text_dim,
+    );
+    if let Some(warning) = state.plan.as_ref().and_then(|plan| plan.warning) {
+        ui.add_space(layout::ROW_GAP / 2.0);
+        let key = match warning {
+            Warning::JakimNeedsAZone => "prayer-warning-needs-zone",
+            Warning::JakimAbroad => "prayer-warning-abroad",
+        };
+        note(ui, &ot_i18n::text(key), tokens.danger);
+    }
+    ui.add_space(layout::ROW_GAP);
+
+    if chosen != SourceChoice::Calculated {
+        zone_block(ui, columns, state, settings, tokens, outcome);
+    }
+    if chosen != SourceChoice::Jakim {
+        calculation_block(ui, columns, state, settings, tokens, outcome);
+    }
+}
+
+fn zone_block(
+    ui: &mut egui::Ui,
+    columns: Columns,
+    state: &mut State,
+    settings: &mut PrayerSettings,
+    tokens: Tokens,
+    outcome: &mut Outcome,
+) {
+    ui.label(egui::RichText::new(ot_i18n::text("prayer-zone-label")).strong());
+    ui.add_space(layout::ROW_GAP / 2.0);
+    match state
+        .plan
+        .as_ref()
+        .and_then(|plan| plan.zone.map(|z| (z, plan.zone_detected)))
+    {
+        Some((zone, detected)) => {
+            let key = if detected {
+                "prayer-zone-detected"
+            } else {
+                "prayer-zone-chosen"
+            };
+            note(ui, &zone_line(key, zone), tokens.text);
+        }
+        None => note(ui, &ot_i18n::text("prayer-zone-none"), tokens.text_dim),
+    }
+    ui.add_space(layout::ROW_GAP);
+    ui.horizontal_wrapped(|ui| {
+        if button(ui, ot_i18n::text("prayer-zone-change")).clicked() {
+            state.zone_open = !state.zone_open;
+        }
+        if settings.zone.is_some() {
+            ui.add_space(layout::OPTION_GAP - ui.spacing().item_spacing.x);
+            if button(ui, ot_i18n::text("prayer-zone-use-detected")).clicked() {
+                settings.zone = None;
+                outcome.settings_changed = true;
+                state.mark_dirty();
+            }
+        }
+    });
+    if state.zone_open {
+        ui.add_space(layout::ROW_GAP);
+        ui.add_sized(
+            [
+                columns.field.max(columns.label + 120.0),
+                layout::field_height(ui),
+            ],
+            egui::TextEdit::singleline(&mut state.zone_query)
+                .hint_text(ot_i18n::text("prayer-zone-search-placeholder")),
+        );
+        ui.add_space(layout::ROW_GAP);
+        let matches: Vec<&'static Zone> = state.matches().to_vec();
+        if matches.is_empty() {
+            note(ui, &ot_i18n::text("prayer-zone-no-match"), tokens.text_dim);
+        } else {
+            let mut picked = None;
+            egui::ScrollArea::vertical()
+                .id_salt("prayer-zones")
+                .min_scrolled_height(220.0)
+                .max_height(220.0)
+                .auto_shrink([false, true])
+                .show(ui, |ui| {
+                    for zone in &matches {
+                        let selected = settings.zone.as_deref() == Some(zone.code.as_str());
+                        if ui
+                            .add(
+                                egui::Button::selectable(
+                                    selected,
+                                    zone_line("prayer-zone-row", zone),
+                                )
+                                .wrap(),
+                            )
+                            .clicked()
+                        {
+                            picked = Some(zone.code.clone());
+                        }
+                    }
+                });
+            if let Some(code) = picked {
+                settings.zone = Some(code);
+                outcome.settings_changed = true;
+                state.zone_open = false;
+                state.mark_dirty();
+            }
+        }
+    }
+    ui.add_space(layout::ROW_GAP);
+}
+
+fn calculation_block(
+    ui: &mut egui::Ui,
+    columns: Columns,
+    state: &mut State,
+    settings: &mut PrayerSettings,
+    tokens: Tokens,
+    outcome: &mut Outcome,
+) {
+    // The method shown is the one in force, which may be the default for where
+    // the user is.
+    let in_malaysia = state.plan.as_ref().is_some_and(|plan| plan.in_malaysia);
+    let preset = settings
+        .preset
+        .as_deref()
+        .and_then(Preset::parse)
+        .unwrap_or_else(|| Preset::default_for(in_malaysia));
+    let mut chosen = preset;
+    layout::labelled_row(ui, columns, &ot_i18n::text("prayer-method-label"), |ui| {
+        egui::ComboBox::from_id_salt("prayer-method")
+            .width(columns.field)
+            .height(layout::field_height(ui))
+            .selected_text(ot_i18n::text(preset.name_key()))
+            .show_ui(ui, |ui| {
+                for option in Preset::all() {
+                    ui.selectable_value(&mut chosen, option, ot_i18n::text(option.name_key()));
+                }
+            });
+    });
+    if chosen != preset {
+        settings.preset = Some(chosen.as_str().to_string());
+        outcome.settings_changed = true;
+        state.mark_dirty();
+    }
+    ui.add_space(layout::ROW_GAP);
+
+    let asr = Asr::parse(&settings.asr);
+    let mut chosen_asr = asr;
+    layout::labelled_row(ui, columns, &ot_i18n::text("prayer-asr-label"), |ui| {
+        egui::ComboBox::from_id_salt("prayer-asr")
+            .width(columns.field)
+            .height(layout::field_height(ui))
+            .selected_text(ot_i18n::text(asr.name_key()))
+            .show_ui(ui, |ui| {
+                for option in Asr::all() {
+                    ui.selectable_value(&mut chosen_asr, option, ot_i18n::text(option.name_key()));
+                }
+            });
+    });
+    if chosen_asr != asr {
+        settings.asr = chosen_asr.as_str().to_string();
+        outcome.settings_changed = true;
+        state.mark_dirty();
+    }
+    layout::field_hint(
+        ui,
+        columns,
+        &ot_i18n::text("prayer-asr-hint"),
+        tokens.text_dim,
+    );
+}
+
+fn today_block(ui: &mut egui::Ui, state: &State, tokens: Tokens) {
+    subheading(ui, "prayer-today-heading");
+    match state.day {
+        Day::NoPlace => note(ui, &ot_i18n::text("prayer-today-none-yet"), tokens.text_dim),
+        Day::Loading => note(ui, &ot_i18n::text("prayer-today-loading"), tokens.text_dim),
+        Day::Unavailable => note(ui, &ot_i18n::text("prayer-today-nothing"), tokens.danger),
+        Day::Times => {
+            // The source label is always beside the times (spec §7).
+            note(ui, &state.label, tokens.text_dim);
+            ui.add_space(layout::ROW_GAP);
+            egui::Grid::new("prayer-times")
+                .num_columns(2)
+                .spacing([layout::OPTION_GAP, layout::ROW_GAP / 2.0])
+                .show(ui, |ui| {
+                    for (name, time) in &state.rows {
+                        ui.label(name);
+                        ui.label(egui::RichText::new(time).strong());
+                        ui.end_row();
+                    }
+                });
+        }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    /// Every `"prayer-…"` literal in this file, plus the keys
+    /// the enums and the source label name — so a key added later is held to
+    /// the same rule without anyone remembering to list it.
+    fn keys_used() -> Vec<String> {
+        let mut keys: Vec<String> = include_str!("prayer_pane.rs")
+            .lines()
+            // A widget id looks like a key and is not one.
+            .filter(|line| !line.contains("id_salt") && !line.contains("Grid::new"))
+            .flat_map(|line| line.split('"'))
+            .filter(|token| {
+                token.starts_with("prayer-")
+                    && !token.ends_with('-')
+                    && token
+                        .bytes()
+                        .all(|b| b.is_ascii_lowercase() || b.is_ascii_digit() || b == b'-')
+            })
+            .map(str::to_owned)
+            .collect();
+        keys.push("settings-section-prayer".to_owned());
+        keys.extend(SourceChoice::all().map(|c| c.name_key().to_owned()));
+        keys.extend(Preset::all().map(|p| p.name_key().to_owned()));
+        keys.extend(Asr::all().map(|a| a.name_key().to_owned()));
+        keys.extend(ot_prayer::chain::LABEL_KEYS.map(str::to_owned));
+        keys.sort();
+        keys.dedup();
+        keys
+    }
+
+    #[test]
+    fn every_key_the_pane_uses_exists_in_both_catalogues() {
+        let keys = keys_used();
+        assert!(keys.len() > 50, "the scan found only {} keys", keys.len());
+        for tag in ["en-US", "ms-MY"] {
+            let present = ot_i18n::message_keys(tag).expect("the catalogue loads");
+            for key in &keys {
+                assert!(
+                    present.contains(key.as_str()),
+                    "{tag} has no message {key}, so the pane would draw its key"
+                );
+            }
+        }
+    }
+
+    #[test]
+    fn a_lookup_error_maps_to_a_sentence_the_user_can_act_on() {
+        assert_eq!(
+            error_key(&LookupError::Network("x".into())),
+            "prayer-error-network"
+        );
+        assert_eq!(error_key(&LookupError::Http(503)), "prayer-error-network");
+        assert_eq!(
+            error_key(&LookupError::Service("RateLimited".into())),
+            "prayer-error-service"
+        );
+        assert_eq!(error_key(&LookupError::Http(429)), "prayer-error-service");
+        assert_eq!(error_key(&LookupError::TooLarge), "prayer-error-answer");
+        assert_eq!(
+            error_key(&LookupError::Shape("x".into())),
+            "prayer-error-answer"
+        );
+    }
+}

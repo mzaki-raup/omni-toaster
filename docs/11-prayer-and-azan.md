@@ -238,6 +238,19 @@ As built (FEAT-0056, [ADR-021](08-decisions.md)):
   **Typed coordinates** ("3.14, 101.69") inside Malaysia get `Asia/Kuala_Lumpur`;
   elsewhere there is no free offline coordinate-to-zone lookup, so the zone is the
   PC's own and is shown for the user to confirm.
+- **The pane** (FEAT-0057, `ot_ui::prayer_pane`) is one scrolling page of three
+  parts, each set apart by a rule: **Location**, **Source** (with the zone and the
+  calculation controls under it) and **Today's Prayer Times**. The consent card is
+  **inline in the pane**, shown when the rule says `AskConsent`, and not a popup at
+  start: the user meets it where the setting lives, and a window nobody opened
+  never asks. Allow and Not Now are its two buttons; afterwards the same choice is
+  a checkbox. The zone block shows when the source is not Calculated and the
+  method and Asar controls when it is not JAKIM. The day is worked out when the
+  pane is first shown and again whenever the place or a setting changes, and the
+  work stops when the window closes. States: no place yet, loading, the times with
+  the label, and "no prayer times are available"; a JAKIM warning shows when
+  JAKIM is chosen with no zone, or for a place outside Malaysia. Imsak and Dhuha
+  are not listed until they can be switched on.
 - **Rounding.** Every place is rounded to two decimals (about 1.1 km) when it
   arrives, whichever way it was found, so a stored or sent coordinate is never
   more precise than that.

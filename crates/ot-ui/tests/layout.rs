@@ -112,6 +112,62 @@ fn overflowing(width: f32, scale: f32) -> Vec<String> {
             },
         )
         .collect();
+    // Settings > Prayer (FEAT-0057), twice: with everything on show — a place
+    // abroad, JAKIM chosen with the zone whose areas are the longest text in
+    // the table, the entry controls with long results and every error — and as
+    // a first run, which is the consent card.
+    let longest = ot_prayer::zones::zones()
+        .iter()
+        .max_by_key(|zone| {
+            zone.areas_ms
+                .chars()
+                .count()
+                .max(zone.areas_en.chars().count())
+        })
+        .expect("the zone table");
+    let mut prayer_settings = ot_core::PrayerSettings {
+        source: "jakim".to_owned(),
+        zone: Some(longest.code.clone()),
+        ..Default::default()
+    };
+    let mut location_settings = ot_core::LocationSettings {
+        ip_consent: Some(true),
+    };
+    let place = ot_store::location::StoredLocation {
+        name: "Kota Kinabalu, Sabah, Bahagian Pantai Barat, Malaysia Timur".to_owned(),
+        latitude: 51.51,
+        longitude: -0.13,
+        tz: "Europe/London".to_owned(),
+        country_code: Some("GB".to_owned()),
+        origin: ot_store::location::Origin::Ip,
+        updated_at: "2026-11-26T01:00:00Z".parse().expect("instant"),
+    };
+    let result = |name: &str| ot_prayer::location::Located {
+        name: name.to_owned(),
+        latitude: 3.09,
+        longitude: 101.53,
+        tz: "America/Argentina/ComodRivadavia".to_owned(),
+        country_code: None,
+    };
+    let scratch = tempfile::tempdir().expect("a scratch folder");
+    let mut prayer_state = ot_ui::prayer_pane::State::for_layout_test(
+        scratch.path(),
+        &prayer_settings,
+        Some(place),
+        vec![
+            result("Shah Alam, Selangor"),
+            result("Kampung Baru Sungai Buloh Hulu Selangor Dengkil Sepang Selangor Darul Ehsan"),
+        ],
+    );
+    let mut first_run_settings = ot_core::PrayerSettings::default();
+    let mut first_run = ot_core::LocationSettings::default();
+    let mut first_run_state = ot_ui::prayer_pane::State::for_layout_test(
+        scratch.path(),
+        &first_run_settings,
+        None,
+        Vec::new(),
+    );
+    let now: jiff::Timestamp = "2026-11-26T04:00:00Z".parse().expect("instant");
     let mut harness = Harness::builder()
         .with_size([width, 4000.0])
         .with_pixels_per_point(scale)
@@ -163,6 +219,22 @@ fn overflowing(width: f32, scale: f32) -> Vec<String> {
                 ot_ui::Tokens::DARK,
             );
             let _ = ot_ui::reminders::history(ui, &history_rows, &mut confirming, ot_ui::Tokens::DARK);
+            let _ = ot_ui::prayer_pane::show(
+                ui,
+                &mut prayer_state,
+                &mut prayer_settings,
+                &mut location_settings,
+                ot_ui::Tokens::DARK,
+                now,
+            );
+            let _ = ot_ui::prayer_pane::show(
+                ui,
+                &mut first_run_state,
+                &mut first_run_settings,
+                &mut first_run,
+                ot_ui::Tokens::DARK,
+                now,
+            );
         });
     // The real font set: with `default_fonts` off, the harness's own
     // context would measure every glyph as zero wide and pass anything.

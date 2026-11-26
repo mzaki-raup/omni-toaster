@@ -683,3 +683,133 @@ prayer-source-calculated-approximate = Dikira (anggaran)
 prayer-source-calculated-fallback = Dikira (sandaran)
 # Label sandaran yang sama apabila lokasi berada di dalam Malaysia, tempat pengiraan boleh berbeza daripada JAKIM beberapa minit.
 prayer-source-calculated-fallback-approximate = Dikira (sandaran, anggaran)
+# Nama bahagian Solat dalam senarai di sebelah kiri tetingkap tetapan.
+settings-section-prayer = Solat
+# Tajuk kumpulan lokasi dalam Tetapan > Solat.
+prayer-location-heading = Lokasi
+# Soalan dalam kad larian pertama yang bertanya sebelum aplikasi mencari tempat pengguna daripada alamat internetnya.
+prayer-consent-title = Kesan lokasi anda daripada alamat internet anda?
+# Penerangan di bawah soalan itu. ipapi.co ialah nama perkhidmatan carian dan kekal seperti ditulis.
+prayer-consent-body = OmniToaster boleh mencari di mana anda berada sekali sehari, untuk memilih zon solat anda. Alamat internet anda dihantar kepada ipapi.co dan tidak disimpan. Anda boleh menaip tempat sebagai ganti.
+# Butang yang bersetuju dengan carian itu.
+prayer-consent-allow = Benarkan
+# Butang yang menolak carian itu buat masa ini; pengguna masih boleh mengubah fikiran kemudian.
+prayer-consent-decline = Bukan Sekarang
+# Kotak semak yang menghidupkan atau mematikan carian harian selepas jawapan pertama.
+prayer-detect-checkbox = Kesan lokasi saya daripada alamat internet saya
+# Petunjuk di bawah kotak semak itu.
+prayer-detect-hint = Sekali sehari, dengan kebenaran anda sahaja. Tempat yang anda tetapkan sendiri tidak akan diganti.
+# Dipaparkan semasa carian sedang berjalan.
+prayer-location-looking = Sedang mencari lokasi anda…
+# Dipaparkan apabila perkhidmatan carian lokasi tidak dapat dihubungi.
+prayer-error-network = Perkhidmatan lokasi tidak dapat dihubungi. Semak sambungan anda, atau taip tempat sebagai ganti.
+# Dipaparkan apabila perkhidmatan lokasi menolak permintaan, contohnya kerana ditanya terlalu kerap.
+prayer-error-service = Perkhidmatan lokasi tidak memberi jawapan. Cuba lagi kemudian, atau taip tempat sebagai ganti.
+# Dipaparkan apabila perkhidmatan lokasi menjawab sesuatu yang tidak dapat digunakan.
+prayer-error-answer = Perkhidmatan lokasi memberi jawapan yang tidak dapat digunakan. Taip tempat sebagai ganti.
+# Tempat tersimpan apabila ia dijumpai daripada alamat internet. $place ialah bandar dan wilayah.
+prayer-location-detected = Lokasi: { $place } (dikesan daripada alamat internet anda)
+# Tempat tersimpan apabila pengguna memilihnya. $place ialah bandar dan wilayah, atau koordinat.
+prayer-location-manual = Lokasi: { $place } (ditetapkan oleh anda)
+# Dipaparkan apabila belum ada tempat tersimpan.
+prayer-location-none = Belum ada lokasi ditetapkan. Cari bandar atau taip koordinat.
+# Butang yang membuka kawalan memasukkan tempat.
+prayer-location-change = Tukar Lokasi
+# Butang yang menutup kawalan memasukkan tempat.
+prayer-close = Tutup
+# Label medan carian bandar.
+prayer-search-label = Bandar
+# Petunjuk kelabu dalam medan carian bandar yang kosong.
+prayer-search-placeholder = Cari bandar
+# Butang yang menjalankan carian bandar.
+prayer-search-button = Cari
+# Dipaparkan semasa carian bandar sedang berjalan.
+prayer-search-loading = Sedang mencari…
+# Dipaparkan apabila carian bandar tidak menemui apa-apa.
+prayer-search-empty = Tiada bandar sepadan dengan carian itu.
+# Satu hasil carian bandar. $place ialah bandar dan wilayah; $zone ialah nama zon waktunya.
+prayer-search-result = { $place } ({ $zone })
+# Label medan koordinat.
+prayer-coords-label = Koordinat
+# Petunjuk kelabu dalam medan koordinat yang kosong.
+prayer-coords-placeholder = Latitud, longitud, contohnya 3.14, 101.69
+# Butang yang menggunakan koordinat yang ditaip.
+prayer-coords-use = Guna Koordinat
+# Dipaparkan apabila koordinat yang ditaip bukan dua nombor.
+prayer-coords-error-format = Taip latitud dan longitud, seperti 3.14, 101.69.
+# Dipaparkan apabila koordinat yang ditaip berada di luar julat Bumi.
+prayer-coords-error-range = Latitud ialah dari -90 hingga 90 dan longitud dari -180 hingga 180.
+# Dipaparkan apabila zon waktu PC ini tidak dapat dibaca untuk koordinat di luar Malaysia.
+prayer-coords-error-zone = Zon waktu PC ini tidak dapat dibaca. Cari bandar sebagai ganti.
+# Dipaparkan selepas koordinat di luar Malaysia digunakan. $zone ialah zon waktu PC ini, yang diandaikan.
+prayer-coords-zone-note = Zon waktu: { $zone }, diambil daripada PC ini. Semak sama ada ia betul untuk tempat ini, atau cari bandar sebagai ganti.
+# Label senarai juntai sumber.
+prayer-source-label = Sumber
+# Pilihan pertama dalam senarai juntai sumber: JAKIM di dalam Malaysia dan dikira di tempat lain.
+prayer-choice-auto = Automatik
+# Pilihan kedua dalam senarai juntai sumber.
+prayer-choice-jakim = JAKIM e-Solat
+# Pilihan ketiga dalam senarai juntai sumber.
+prayer-choice-calculated = Dikira
+# Petunjuk di bawah senarai juntai sumber.
+prayer-source-hint = Automatik menggunakan JAKIM e-Solat di dalam Malaysia dan mengira di tempat lain.
+# Amaran yang dipaparkan apabila JAKIM dipilih tetapi tiada zon untuk ditanya.
+prayer-warning-needs-zone = JAKIM memerlukan zon. Pilih satu di bawah, atau gunakan Automatik.
+# Amaran yang dipaparkan apabila JAKIM dipilih untuk tempat di luar Malaysia.
+prayer-warning-abroad = Tempat ini di luar Malaysia. Waktu JAKIM mengikut zon yang anda pilih dan mungkin berbeza daripada amalan tempatan.
+# Label baris zon.
+prayer-zone-label = Zon
+# Zon yang dijumpai daripada tempat tersimpan. $code ialah kod zon JAKIM seperti SGR01; $areas ialah senarai kawasan; $state ialah negeri.
+prayer-zone-detected = Zon dikesan: { $code } · { $areas } · { $state }
+# Zon yang dipilih pengguna. Pemegang tempat yang sama seperti zon yang dikesan.
+prayer-zone-chosen = Zon: { $code } · { $areas } · { $state }
+# Dipaparkan apabila belum ada zon.
+prayer-zone-none = Belum ada zon. Tetapkan lokasi di Malaysia, atau pilih zon.
+# Butang yang membuka senarai zon.
+prayer-zone-change = Tukar Zon
+# Butang yang kembali kepada zon yang dijumpai daripada tempat.
+prayer-zone-use-detected = Guna Zon Dikesan
+# Petunjuk kelabu dalam medan carian zon yang kosong.
+prayer-zone-search-placeholder = Cari mengikut kod, negeri atau kawasan
+# Dipaparkan apabila carian zon tidak menemui apa-apa.
+prayer-zone-no-match = Tiada zon sepadan dengan carian itu.
+# Satu baris senarai zon. $code ialah kod zon, $state ialah negeri, $areas ialah senarai kawasan.
+prayer-zone-row = { $code } · { $state } · { $areas }
+# Label senarai juntai kaedah pengiraan.
+prayer-method-label = Kaedah
+# Satu kaedah pengiraan.
+prayer-preset-mwl = Liga Dunia Islam (Muslim World League)
+# Satu kaedah pengiraan.
+prayer-preset-isna = ISNA
+# Satu kaedah pengiraan.
+prayer-preset-umm-al-qura = Umm al-Qura
+# Satu kaedah pengiraan yang mengikut sudut JAKIM tetapi bukan waktu JAKIM sendiri.
+prayer-preset-malaysia = Malaysia (Sudut JAKIM, Anggaran)
+# Label senarai juntai mazhab Asar. Asar ialah solat waktu petang.
+prayer-asr-label = Mazhab Asar
+# Satu mazhab Asar; yang diikuti JAKIM.
+prayer-asr-shafii = Syafie
+# Satu mazhab Asar.
+prayer-asr-hanafi = Hanafi
+# Petunjuk di bawah senarai juntai mazhab Asar.
+prayer-asr-hint = Syafie ialah ikutan JAKIM. Hanafi meletakkan Asar kira-kira sejam lebih lewat.
+# Tajuk senarai waktu solat hari ini.
+prayer-today-heading = Waktu Solat Hari Ini
+# Dipaparkan semasa waktu hari ini sedang dikira.
+prayer-today-loading = Sedang mengira waktu hari ini…
+# Dipaparkan apabila tiada sumber dapat memberi waktu hari ini.
+prayer-today-nothing = Tiada waktu solat tersedia. Tetapkan lokasi, atau semak sambungan anda dan cuba lagi.
+# Dipaparkan sebelum ada lokasi untuk dijadikan asas.
+prayer-today-none-yet = Pilih lokasi untuk melihat waktu hari ini.
+# Satu solat dalam senarai hari itu: kedua-dua nama, supaya pembaca mana-mana nama dapat mencarinya. Subuh ialah solat waktu fajar.
+prayer-name-fajr = Subuh (Fajr)
+# Syuruk, yang menamatkan waktu solat Subuh.
+prayer-name-syuruk = Syuruk (Sunrise)
+# Solat waktu tengah hari.
+prayer-name-dhuhr = Zohor (Dhuhr)
+# Solat waktu petang.
+prayer-name-asr = Asar (Asr)
+# Solat waktu matahari terbenam.
+prayer-name-maghrib = Maghrib
+# Solat waktu malam.
+prayer-name-isha = Isyak (Isha)
