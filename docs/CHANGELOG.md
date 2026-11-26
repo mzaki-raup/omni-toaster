@@ -9,6 +9,12 @@ Format: [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) · Versioning:
 
 - (nothing yet)
 
+## 0.17.0 — 2026-11-26
+
+### Added
+
+- The weather and prayer toasts name the place (fd67c946)
+
 ## 0.16.0 — 2026-11-26
 
 ### Added
