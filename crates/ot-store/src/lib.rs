@@ -54,10 +54,15 @@ const MIGRATIONS: &[(i64, &str, &str)] = &[
         "006_prayer_sound.sql",
         include_str!("../migrations/006_prayer_sound.sql"),
     ),
+    (
+        7,
+        "007_jumuah.sql",
+        include_str!("../migrations/007_jumuah.sql"),
+    ),
 ];
 
 /// The schema version this build migrates to: the last migration's number.
-pub const SCHEMA_VERSION: i64 = 6;
+pub const SCHEMA_VERSION: i64 = 7;
 
 /// The database file, relative to the data root.
 const DB_RELATIVE_PATH: &str = "data/omnitoaster.db";
@@ -236,7 +241,7 @@ mod tests {
     #[test]
     fn a_fresh_database_migrates_to_the_latest_version() {
         let store = Store::open_in_memory().expect("opens");
-        assert_eq!(store.schema_version().expect("version"), 6);
+        assert_eq!(store.schema_version().expect("version"), 7);
     }
 
     #[test]
@@ -278,13 +283,13 @@ mod tests {
         {
             let store = Store::open(dir.path()).expect("first open");
             store.set_setting("theme", "dark").expect("write");
-            assert_eq!(store.schema_version().expect("version"), 6);
+            assert_eq!(store.schema_version().expect("version"), 7);
         }
 
         // Re-opening must not re-run 001 — which would fail on the existing
         // tables — and must leave the data alone.
         let store = Store::open(dir.path()).expect("second open");
-        assert_eq!(store.schema_version().expect("version"), 6);
+        assert_eq!(store.schema_version().expect("version"), 7);
         assert_eq!(
             store.setting("theme").expect("read").as_deref(),
             Some("dark"),
@@ -313,7 +318,7 @@ mod tests {
         }
 
         let store = Store::open(dir.path()).expect("migrates");
-        assert_eq!(store.schema_version().expect("version"), 6);
+        assert_eq!(store.schema_version().expect("version"), 7);
         let label: String = store
             .connection()
             .query_row("SELECT label FROM asset WHERE sha256 = 'abc'", [], |row| {
@@ -350,7 +355,7 @@ mod tests {
         }
 
         let store = Store::open(dir.path()).expect("migrates");
-        assert_eq!(store.schema_version().expect("version"), 6);
+        assert_eq!(store.schema_version().expect("version"), 7);
         let conn = store.connection();
 
         let (title, key, lang): (String, Option<String>, Option<String>) = conn
@@ -406,7 +411,7 @@ mod tests {
         }
 
         let store = Store::open(dir.path()).expect("migrates");
-        assert_eq!(store.schema_version().expect("version"), 6);
+        assert_eq!(store.schema_version().expect("version"), 7);
         let conn = store.connection();
         let title: String = conn
             .query_row("SELECT title FROM reminder WHERE id = 1", [], |row| {
@@ -501,7 +506,7 @@ mod tests {
                 error,
                 StoreError::FromTheFuture {
                     found: 99,
-                    known: 6
+                    known: 7
                 }
             ),
             "got {error:?}"

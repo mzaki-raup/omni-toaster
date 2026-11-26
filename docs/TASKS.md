@@ -126,7 +126,7 @@ Refs: BUG-0003
 
 ```
 Version : v0.5.1
-Features : FEAT-0064
+Features : FEAT-0065
 Bugs : BUG-0017
 Change Request : CR-0008
 ```
@@ -264,7 +264,7 @@ disabled; prayer labels match the reference table in both languages.
 - [x] Each day's times become fires, converted from `Asia/Kuala_Lumpur` whatever the PC's zone; rebuilt at midnight, after a fetch, a zone or a location change — tested with the PC in New York, after new times, midnight and a zone change; seen: a planted Maghrib fired 2 ms after its target and became a toast
 - [x] Azan before Alarm before everything else; never suppressed by a pause (tray-and-settings §4) or quiet hours; persistent up to the 10-minute cap — tested: the queue order and the one-hour window; the toast is persistent to the cap, Dismiss only, at the front; `pause_suppresses` is tested. Quiet hours do not exist yet. The pause was not tried in the app
 - [x] The 1-hour catch-up window for a missed Azan, configurable — the part of FEAT-0045 that waited for Azan — tested at both edges and configurable; seen: at a restart a prayer 30 minutes late was listed missed and one 90 minutes late dropped with its log line. Closes FEAT-0045's box
-- [ ] Five prayers, plus Syuruk and Jumu'ah optional; Imsak and Dhuha hidden until enabled — Syuruk is optional (`notify_syuruk`, a checkbox in Notifications) and Imsak and Dhuha are not offered; **Jumu'ah is not built**, so this box stays open
+- [x] Five prayers, plus Syuruk and Jumu'ah optional; Imsak and Dhuha hidden until enabled — Syuruk is optional (`notify_syuruk`, a checkbox in Notifications) and Imsak and Dhuha are not offered; Jumu'ah is FEAT-0064
 - [x] Test: fires at the fetched times with the PC in another zone; the rebuild triggers; Azan first in the queue; a pause not suppressing it; a missed Azan inside and outside the hour — 7 scheduler tests, 1 store test, 9 service tests, 3 window tests; mutations of the rank, never-done and the retry wait each fail a test
 - [x] Gate: fmt · clippy -D warnings · test --workspace --locked -j 4 · deny check · --self-test — fmt · clippy · 466 tests · deny · self-test, re-run on the committed state
 - [ ] App: `--data-dir ./tmp-data` — with a zone chosen, see the day's times arrive and the log's fetch line, the next prayer fire on time (or a near time from a planted day), during a pause too; with the network off, see the retry schedule (1, 5, 15 minutes) in the log, and the cached times still there after a restart, and the source label fall back and say so, then JAKIM return when the network is back — the check FEAT-0051, FEAT-0052 and FEAT-0053 are waiting on. **Made, on scratch folders:** the day's times arriving with the log's fetch line; a planted prayer firing on time; the retry schedule 60, 300 and 900 s with the proxy dead; the pane's "Calculated (fallback, approximate)" label meanwhile; JAKIM back at the next start; a missed prayer listed and an older one dropped at a restart. **Not made:** the pause in the app (a tray menu click), and the cached times surviving a restart with the network off after a successful fetch (the planted cache stood in)
@@ -329,6 +329,21 @@ disabled; prayer labels match the reference table in both languages.
 - [x] App: `--data-dir ./tmp-data` — not applicable — the reference test is the check — not applicable, as the item says; the reference test is the check
 - [x] Docs: spec · README · CHANGELOG · CHECKLIST · GOTCHAS — spec §5 and §11 · CHANGELOG · CHECKLIST; README needs nothing; no GOTCHAS entry
 - **Notes:** This item carries the exit criterion "live JAKIM times match the official portal on the same dates for at least three zones". The portal page must be read by hand or in a browser the owner approves.
+
+### FEAT-0064 · Jumu'ah, the Friday prayer
+- **State:** Completed · **Spec:** docs/11-prayer-and-azan.md §9 · **Phase:** 5
+- **Branch:** feat/jumuah
+- **Depends on:** FEAT-0058, FEAT-0062
+- **Source:** the open box in FEAT-0058, "Jumu'ah optional"; the owner chose that it **replaces** Dhuhr on Fridays
+- [x] `[prayer] notify_jumuah`, off by default; the key `jumuah` in `enabled_prayers` after Dhuhr
+- [x] Migration 007: a template row for `jumuah`; schema version 7
+- [x] The service sends Dhuhr's time as `jumuah` on a Friday in the place's zone when it is on, as `dhuhr` otherwise
+- [x] Its name in both languages, its checkbox, its template, its pre-prayer reminder, the reference table row
+- [x] Test: the service swaps Dhuhr for Jumu'ah on the Friday and not the Saturday, and not when off; the scheduler fires `jumuah` as a prayer like the others; the settings test; the migration and name tests
+- [x] Gate: fmt · clippy -D warnings · test --workspace --locked -j 4 · deny check · --self-test
+- [x] App: scratch folder, offline, Jumu'ah and its reminder on: the log says `prayers=6` (the Friday's Jumu'ah beside Dhuhr), the store has the `jumuah` prayer row and its `prayer_before` row, and the Prayer pane shows "Notify for Jumu'ah (Replaces Dhuhr on Fridays)" and "Jumu'ah (Jumaat)" ticked under Remind Before
+- [x] Docs: spec §9 · `10-i18n.md` table · CHANGELOG · CHECKLIST
+- **Notes:** Not seen in the app: Jumu'ah's own toast and its reminder firing, since the check ran on a Thursday; the Malay pane; the template editor with Jumu'ah chosen.
 
 ### BUG-0015 · Checkboxes in Settings ▸ Prayer sit lower than their labels
 - **State:** Completed · **Spec:** docs/04-ui-design.md · `.claude/rules/ui.md` (one middle line)

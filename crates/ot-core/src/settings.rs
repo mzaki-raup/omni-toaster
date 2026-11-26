@@ -69,6 +69,9 @@ pub struct PrayerSettings {
     /// prayers always do; Imsak and Dhuha stay hidden until they can be
     /// switched on.
     pub notify_syuruk: bool,
+    /// Whether Jumu'ah, the Friday prayer, has a notification. On Fridays it
+    /// takes Dhuhr's place: one notification at Dhuhr's time, Jumu'ah's.
+    pub notify_jumuah: bool,
     /// How late a prayer missed while the PC was off may be and still be
     /// listed, in minutes, within [`AZAN_WINDOW_MINUTES`].
     pub azan_window_minutes: u32,
@@ -93,6 +96,7 @@ impl Default for PrayerSettings {
             preset: None,
             asr: "shafii".to_string(),
             notify_syuruk: false,
+            notify_jumuah: false,
             azan_window_minutes: 60,
             pre_prayer: Vec::new(),
             pre_prayer_minutes: 10,
@@ -108,7 +112,11 @@ impl PrayerSettings {
         if self.notify_syuruk {
             keys.push("syuruk");
         }
-        keys.extend(["dhuhr", "asr", "maghrib", "isha"]);
+        keys.push("dhuhr");
+        if self.notify_jumuah {
+            keys.push("jumuah");
+        }
+        keys.extend(["asr", "maghrib", "isha"]);
         keys
     }
 
@@ -398,10 +406,13 @@ mod tests {
         );
         let mut on = defaults.clone();
         on.notify_syuruk = true;
+        on.notify_jumuah = true;
         on.azan_window_minutes = 0;
         assert_eq!(
             on.enabled_prayers(),
-            ["fajr", "syuruk", "dhuhr", "asr", "maghrib", "isha"]
+            [
+                "fajr", "syuruk", "dhuhr", "jumuah", "asr", "maghrib", "isha"
+            ]
         );
         assert_eq!(on.azan_window(), 1, "a zero window is brought into range");
         assert_eq!(defaults.pre_prayer_lead(), 10);

@@ -167,7 +167,7 @@ pub fn default_prayer_image(prayer: &str) -> Option<&'static str> {
     Some(match prayer {
         "fajr" => "@builtin/masjid-subuh",
         "syuruk" => "@builtin/masjid-dhuha",
-        "dhuhr" => "@builtin/masjid-zohor",
+        "dhuhr" | "jumuah" => "@builtin/masjid-zohor",
         "asr" => "@builtin/masjid-asar",
         "maghrib" => "@builtin/masjid-maghrib",
         "isha" => "@builtin/masjid-isyak",

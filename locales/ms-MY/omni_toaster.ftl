@@ -811,12 +811,16 @@ prayer-name-dhuhr = Zohor (Dhuhr)
 prayer-name-asr = Asar (Asr)
 # Solat waktu matahari terbenam.
 prayer-name-maghrib = Maghrib
+# Nama solat Jumaat dalam bahasa Melayu, dengan nama Inggeris di sebelahnya, dalam senarai solat dan pemberitahuannya.
+prayer-name-jumuah = Jumaat (Jumu'ah)
 # Solat waktu malam.
 prayer-name-isha = Isyak (Isha)
 # Tajuk kumpulan tetapan pemberitahuan dalam Tetapan > Solat.
 prayer-notify-heading = Pemberitahuan
 # Kotak semak yang memberi Syuruk (matahari terbit) pemberitahuan tersendiri. Lima waktu solat sehari sentiasa ada satu.
 prayer-notify-syuruk = Beritahu pada Syuruk (Sunrise)
+# Kotak semak yang memberi Jumaat (solat Jumaat) pemberitahuan. Pada hari Jumaat ia menggantikan pemberitahuan Zohor, pada masa yang sama.
+prayer-notify-jumuah = Beritahu untuk Jumaat (Gantikan Zohor pada Hari Jumaat)
 # Petunjuk di bawah kotak semak Syuruk.
 prayer-notify-hint = Lima waktu solat sehari sentiasa mempunyai pemberitahuan.
 # Label medan nombor bagi berapa lama solat yang terlepas boleh disenaraikan.

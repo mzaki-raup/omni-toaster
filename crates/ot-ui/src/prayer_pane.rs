@@ -50,17 +50,26 @@ pub fn source_label(source: Source) -> String {
     ot_i18n::text_with(source.label_key(), &[("time", fetched.into())])
 }
 
+/// Every prayer with a template, by the scheduler's key and its name's key, in
+/// the order of the day. Jumu'ah is one of them though it has no time of its
+/// own: it is Dhuhr's, on Fridays.
+const TEMPLATES: [(&str, &str); 7] = [
+    ("fajr", "prayer-name-fajr"),
+    ("syuruk", "prayer-name-syuruk"),
+    ("dhuhr", "prayer-name-dhuhr"),
+    ("jumuah", "prayer-name-jumuah"),
+    ("asr", "prayer-name-asr"),
+    ("maghrib", "prayer-name-maghrib"),
+    ("isha", "prayer-name-isha"),
+];
+
 /// A prayer's name in both languages, from the scheduler's key.
 pub fn prayer_name(key: &str) -> String {
-    LISTED
+    TEMPLATES
         .iter()
-        .zip(ot_store::reminders::PRAYERS)
-        .find(|(_, scheduler_key)| *scheduler_key == key)
-        .map_or_else(|| key.to_owned(), |((_, fluent), _)| ot_i18n::text(fluent))
+        .find(|(scheduler_key, _)| *scheduler_key == key)
+        .map_or_else(|| key.to_owned(), |(_, fluent)| ot_i18n::text(fluent))
 }
-
-/// The scheduler's key of each listed prayer, in the same order as `LISTED`.
-const LISTED_KEYS: [&str; 6] = ot_store::reminders::PRAYERS;
 
 /// Where a city search stands.
 #[derive(Debug)]
@@ -349,7 +358,7 @@ impl State {
         if self.template_loaded != Some(self.template_prayer) {
             self.template_loaded = Some(self.template_prayer);
             self.controller
-                .load_template(LISTED_KEYS[self.template_prayer].to_owned());
+                .load_template(TEMPLATES[self.template_prayer].0.to_owned());
         }
         if !self.loaded {
             return;
@@ -406,7 +415,7 @@ impl State {
                 self.rows.clear();
             }
             Reply::Template { prayer, template } => {
-                if prayer == LISTED_KEYS[self.template_prayer] {
+                if prayer == TEMPLATES[self.template_prayer].0 {
                     let template = template.unwrap_or_default();
                     self.edit = TemplateEdit {
                         title: template.custom_title.unwrap_or_default(),
@@ -1061,6 +1070,16 @@ fn notification_block(
         settings.notify_syuruk = syuruk;
         outcome.settings_changed = true;
     }
+    let mut jumuah = settings.notify_jumuah;
+    if wrapped_checkbox(
+        ui,
+        columns.label,
+        &mut jumuah,
+        &ot_i18n::text("prayer-notify-jumuah"),
+    ) {
+        settings.notify_jumuah = jumuah;
+        outcome.settings_changed = true;
+    }
     layout::field_hint(
         ui,
         columns,
@@ -1174,9 +1193,9 @@ fn template_block(
             egui::ComboBox::from_id_salt("prayer-template-prayer")
                 .width(columns.field)
                 .height(layout::field_height(ui) * 6.0)
-                .selected_text(ot_i18n::text(LISTED[chosen].1))
+                .selected_text(ot_i18n::text(TEMPLATES[chosen].1))
                 .show_ui(ui, |ui| {
-                    for (index, (_, key)) in LISTED.iter().enumerate() {
+                    for (index, (_, key)) in TEMPLATES.iter().enumerate() {
                         ui.selectable_value(&mut chosen, index, ot_i18n::text(key));
                     }
                 });
@@ -1188,7 +1207,7 @@ fn template_block(
     }
     ui.add_space(layout::ROW_GAP);
 
-    let prayer = LISTED_KEYS[state.template_prayer];
+    let prayer = TEMPLATES[state.template_prayer].0;
     let name = prayer_name(prayer);
     let field = columns.field;
 

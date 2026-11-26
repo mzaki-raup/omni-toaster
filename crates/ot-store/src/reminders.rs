@@ -67,7 +67,9 @@ pub struct PrayerTemplateEdit {
 
 /// The prayers a managed reminder can be for, by the key the scheduler is
 /// given their times under, in the order of the day.
-pub const PRAYERS: [&str; 6] = ["fajr", "syuruk", "dhuhr", "asr", "maghrib", "isha"];
+pub const PRAYERS: [&str; 7] = [
+    "fajr", "syuruk", "dhuhr", "jumuah", "asr", "maghrib", "isha",
+];
 
 impl Trigger {
     /// The `trigger_type` column's value.

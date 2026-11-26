@@ -27,7 +27,7 @@ fn table() -> Vec<(String, String, String)> {
 #[test]
 fn every_prayer_label_matches_the_reference_table_in_both_languages() {
     let rows = table();
-    assert_eq!(rows.len(), 6, "the six listed prayers: {rows:?}");
+    assert_eq!(rows.len(), 7, "the seven prayers with a name: {rows:?}");
     ot_i18n::init(Language::English).expect("installs");
     for (key, english, _) in &rows {
         assert_eq!(&ot_i18n::text(key), english, "{key} in English");

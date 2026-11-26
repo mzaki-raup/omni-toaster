@@ -122,6 +122,11 @@ fn key_of(prayer: Prayer) -> Option<&'static str> {
     })
 }
 
+/// Whether `at` falls on a Friday in `tz`, the place's own zone.
+fn is_friday(at: Timestamp, tz: &TimeZone) -> bool {
+    at.to_zoned_datetime(tz.clone()).date().weekday() == jiff::civil::Weekday::Friday
+}
+
 /// The next local midnight in `tz`, or a day from now if the zone cannot say.
 fn next_midnight(now: Timestamp, tz: &TimeZone) -> Timestamp {
     now.to_zoned_datetime(tz.clone())
@@ -259,6 +264,8 @@ impl Engine {
             self.fetch_now(&store, &zone.code, today, now);
         }
 
+        let jumuah = enabled.iter().any(|key| key == "jumuah");
+        let tz = TimeZone::get(&plan.tz).unwrap_or(TimeZone::UTC);
         // Today's and tomorrow's times, through the chain with no fetch of its own.
         let mut times: Vec<(String, Timestamp)> = Vec::new();
         let mut any = false;
@@ -271,7 +278,13 @@ impl Engine {
                 any = true;
                 source.get_or_insert(resolved.source);
                 times.extend(resolved.times.into_iter().filter_map(|(prayer, at)| {
-                    let key = key_of(prayer)?;
+                    // On a Friday Dhuhr's time is Jumu'ah's, when that has a
+                    // notification: it takes Dhuhr's place that day.
+                    let key = if prayer == Prayer::Dhuhr && jumuah && is_friday(at, &tz) {
+                        "jumuah"
+                    } else {
+                        key_of(prayer)?
+                    };
                     enabled
                         .iter()
                         .any(|e| e == key)
@@ -841,6 +854,53 @@ mod tests {
                 .iter()
                 .any(|c| matches!(c, Command::EnablePrePrayers { .. })),
             "an unchanged choice is not sent again"
+        );
+    }
+
+    #[test]
+    fn on_a_friday_jumuah_takes_dhuhrs_place_when_it_is_switched_on() {
+        // 20 November 2026 is a Friday and the 21st a Saturday.
+        let friday_dhuhr = at("2026-11-20T05:02:00Z");
+        let saturday_dhuhr = at("2026-11-21T05:02:00Z");
+        let keys = |commands: &[Command]| {
+            prayer_times(commands)
+                .into_iter()
+                .filter(|(_, when)| *when == friday_dhuhr || *when == saturday_dhuhr)
+                .collect::<Vec<_>>()
+        };
+
+        let mut off = rig(&Settings::default(), Ok(november()));
+        off.place_in_malaysia(Origin::Manual, "2026-11-19T00:00:00Z");
+        off.engine.run(at(NOW));
+        assert_eq!(
+            keys(&off.commands()),
+            [
+                ("dhuhr".to_owned(), friday_dhuhr),
+                ("dhuhr".to_owned(), saturday_dhuhr)
+            ],
+            "off: Dhuhr both days, and no Jumu'ah"
+        );
+
+        let mut settings = Settings::default();
+        settings.prayer.notify_jumuah = true;
+        let mut on = rig(&settings, Ok(november()));
+        on.place_in_malaysia(Origin::Manual, "2026-11-19T00:00:00Z");
+        on.engine.run(at(NOW));
+        let commands = on.commands();
+        assert!(
+            commands.contains(&Command::EnablePrayers(
+                ["fajr", "dhuhr", "jumuah", "asr", "maghrib", "isha"]
+                    .map(str::to_owned)
+                    .to_vec()
+            ))
+        );
+        assert_eq!(
+            keys(&commands),
+            [
+                ("jumuah".to_owned(), friday_dhuhr),
+                ("dhuhr".to_owned(), saturday_dhuhr)
+            ],
+            "on: Jumu'ah in Dhuhr's place on the Friday, Dhuhr on the Saturday"
         );
     }
 

@@ -831,12 +831,16 @@ prayer-name-dhuhr = Dhuhr (Zohor)
 prayer-name-asr = Asr (Asar)
 # The sunset prayer.
 prayer-name-maghrib = Maghrib
+# The name of the Friday prayer in English, with the Malay name beside it, in lists of prayers and in its notification.
+prayer-name-jumuah = Jumu'ah (Jumaat)
 # The night prayer.
 prayer-name-isha = Isha (Isyak)
 # The heading of the group of notification settings in Settings > Prayer.
 prayer-notify-heading = Notifications
 # The checkbox that gives Syuruk (sunrise) its own notification. The five daily prayers always have one.
 prayer-notify-syuruk = Notify at Sunrise (Syuruk)
+# The checkbox that gives Jumu'ah, the Friday prayer, a notification. On Fridays it takes the place of Dhuhr's, at the same time.
+prayer-notify-jumuah = Notify for Jumu'ah (Replaces Dhuhr on Fridays)
 # The hint under the Syuruk checkbox.
 prayer-notify-hint = The five daily prayers always have a notification.
 # The label of the number field for how old a missed prayer may be and still be listed.

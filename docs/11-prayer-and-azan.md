@@ -341,6 +341,18 @@ publishes Dhuhr, Asar, Maghrib and Isha one to three minutes after the calculati
 - An optional pre-prayer reminder — 10 minutes before, say.
 - Times are recalculated at midnight, after a location change, after a zone
   change, and after every successful JAKIM fetch.
+- **Jumu'ah** (FEAT-0064). The Friday prayer, optional and off by default
+  (`[prayer] notify_jumuah`), kept at Dhuhr's time. On a Friday it **replaces**
+  Dhuhr's notification: one notification at that time, Jumu'ah's, not two. Other
+  days Dhuhr is unchanged, and with Jumu'ah off Dhuhr is always Dhuhr's. The
+  service decides it, from the place's own zone, when it hands the scheduler the
+  day's times: Dhuhr's time goes under the key `jumuah` on a Friday and under
+  `dhuhr` otherwise, so the scheduler needs nothing new and a Jumu'ah that has
+  been switched off never fires. It has a template of its own (migration 007, a
+  `category` row like the others'), the Dhuhr picture by default, the short chime,
+  the name "Jumu'ah (Jumaat)" / "Jumaat (Jumu'ah)", and a pre-prayer reminder of
+  its own. Settings ▸ Prayer ▸ Today's Prayer Times still lists Dhuhr's time, which
+  is Jumu'ah's on a Friday.
 - **Pre-prayer reminder** (FEAT-0061). Per prayer, optional and off by default,
   one reminder so many minutes ahead of it — `[prayer] pre_prayer` lists the
   prayers and `pre_prayer_minutes` the lead (1 to 120, 10 by default), both
@@ -401,7 +413,7 @@ As built in the scheduler (FEAT-0058, `ot_sched`):
   replaces the old. Quiet hours and the announcements' own audio come later.
 - **Settings.** `[prayer] notify_syuruk` gives Syuruk its own notification, and
   `azan_window_minutes` is the catch-up window (1 to 1440, 60 by default); both
-  have controls in Settings ▸ Prayer ▸ Notifications. Jumu'ah is not built.
+  have controls in Settings ▸ Prayer ▸ Notifications, with `notify_jumuah` for Jumu'ah (below).
 - **Catch-up.** A missed prayer is listed if it is within the Azan window — one
   hour by default, `Command::SetAzanWindow` — and older ones are dropped with a
   log line and a `missed` row. Other reminders keep their own window.
