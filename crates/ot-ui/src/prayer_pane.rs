@@ -538,7 +538,7 @@ fn zone_line(key: &str, zone: &Zone) -> String {
 }
 
 /// A button as tall as the fields beside it.
-fn button(ui: &mut egui::Ui, text: String) -> egui::Response {
+pub(crate) fn button(ui: &mut egui::Ui, text: String) -> egui::Response {
     // A minimum height and no fixed width: a zero width squeezes the label to a
     // letter a line.
     ui.add(egui::Button::new(text).min_size(egui::vec2(0.0, layout::field_height(ui))))
@@ -546,7 +546,7 @@ fn button(ui: &mut egui::Ui, text: String) -> egui::Response {
 
 /// A box and a label that wraps: a long Malay sentence must not run past the
 /// pane, and clicking the words toggles the box. Returns whether it changed.
-fn wrapped_checkbox(ui: &mut egui::Ui, indent: f32, on: &mut bool, text: &str) -> bool {
+pub(crate) fn wrapped_checkbox(ui: &mut egui::Ui, indent: f32, on: &mut bool, text: &str) -> bool {
     let mut toggled = false;
     // On one middle line with the label: the row opens as tall as a field, and
     // the box is made that tall too, so the words are centred on it. Raising
@@ -566,19 +566,19 @@ fn wrapped_checkbox(ui: &mut egui::Ui, indent: f32, on: &mut bool, text: &str) -
     toggled
 }
 
-fn subheading(ui: &mut egui::Ui, key: &str) {
+pub(crate) fn subheading(ui: &mut egui::Ui, key: &str) {
     ui.label(egui::RichText::new(ot_i18n::text(key)).strong());
     ui.add_space(layout::ROW_GAP);
 }
 
-fn rule(ui: &mut egui::Ui) {
+pub(crate) fn rule(ui: &mut egui::Ui) {
     ui.add_space(layout::ROW_GAP);
     ui.separator();
     ui.add_space(layout::ROW_GAP);
 }
 
 /// A sentence in the pane, wrapped to the width it has, in a colour.
-fn note(ui: &mut egui::Ui, text: &str, colour: egui::Color32) {
+pub(crate) fn note(ui: &mut egui::Ui, text: &str, colour: egui::Color32) {
     ui.add(egui::Label::new(egui::RichText::new(text).color(colour)).wrap());
 }
 
@@ -1146,7 +1146,7 @@ fn notification_block(
 
 /// `text` cut to `max` characters with an ellipsis: for a name the user gave,
 /// which can be any length, and never for the app's own labels.
-fn ellipsize(text: &str, max: usize) -> String {
+pub(crate) fn ellipsize(text: &str, max: usize) -> String {
     if text.chars().count() <= max {
         return text.to_owned();
     }
@@ -1154,7 +1154,7 @@ fn ellipsize(text: &str, max: usize) -> String {
     format!("{kept}…")
 }
 
-fn parse_hex(text: &str) -> Option<egui::Color32> {
+pub(crate) fn parse_hex(text: &str) -> Option<egui::Color32> {
     let hex = text.strip_prefix('#')?;
     if hex.len() != 6 || !hex.is_ascii() {
         return None;
@@ -1167,7 +1167,7 @@ fn parse_hex(text: &str) -> Option<egui::Color32> {
     ))
 }
 
-fn hex(colour: egui::Color32) -> String {
+pub(crate) fn hex(colour: egui::Color32) -> String {
     format!("#{:02x}{:02x}{:02x}", colour.r(), colour.g(), colour.b())
 }
 

@@ -817,3 +817,70 @@ when nothing matches.
   not covered by the IP-lookup consent. `docs/06` lists it as its own row.
 - Two third parties now see an IP address at the user's request: ipapi.co once a
   day with consent, Open-Meteo when searching.
+
+---
+
+## ADR-023 · What Open-Meteo is, as verified, and how the app asks
+
+**Status:** Accepted 2026-11-26 · **Phase:** 6 · **Builds on:** ADR-009 (Open-Meteo),
+ADR-011 (no credentials), ADR-019 (blocking `ureq` over Windows TLS)
+
+**Context.** ADR-009 chose Open-Meteo before anyone had looked at its answers.
+FEAT-0065 does what FEAT-0049 did for e-Solat: ask the live service, keep the
+raw responses (`crates/ot-weather/tests/fixtures/open-meteo-2026-11-26/`, captured
+2026-11-26, with a README of how each was made) and build only on what they show.
+
+**What the service is.**
+
+- `GET https://api.open-meteo.com/v1/forecast`, HTTPS, no key, no account. A
+  request with a few variables costs one call against 600 a minute, 5,000 an hour
+  and 10,000 a day (`X-RateLimit-*` headers and the pricing page).
+- The request the app makes: `latitude`, `longitude` (rounded to two decimals),
+  `current=temperature_2m,weather_code`, `hourly=temperature_2m`,
+  `past_hours=6`, `forecast_hours=1`, `timezone=GMT`. About 560 bytes back. The
+  `past_hours` rows are the history a temperature threshold needs; without them
+  there is only the current value.
+- **`timezone=GMT` is deliberate.** With `timezone=auto` the times are local with
+  no offset in the string, and London in winter has an offset of 0 while being a
+  named zone. Asking for GMT makes every time UTC and lets the client refuse any
+  answer whose `utc_offset_seconds` is not 0, instead of reading a local time as
+  UTC.
+- The answer's coordinates are the model grid cell's (3.1282952 for 3.14), not
+  the ones sent; the app does not use them.
+- `current.time` moves in 15-minute steps (`interval: 900`), which is why a poll
+  faster than 15 minutes (the spec's minimum) buys nothing.
+- Weather codes are WMO codes, a documented list of 29: 0, 1, 2, 3, 45, 48, 51,
+  53, 55, 56, 57, 61, 63, 65, 66, 67, 71, 73, 75, 77, 80, 81, 82, 85, 86, 95, 96,
+  97, 99. Codes 96 and 99 appear only with models that forecast hail. The API
+  returns only numbers; every word is ours (FEAT-0066).
+- **Failures.** A bad request is HTTP 400 with `{"error":true,"reason":"…"}`; the
+  reason is the service's text and may leak its internals, so it is logged and
+  never shown. **A request with no coordinates is HTTP 200 with an empty body**,
+  so a 200 is not proof of an answer. Hourly values can be `null`.
+
+**Decision.** `ot_weather::fetch::Client`: one blocking attempt on a worker thread,
+the agent of ADR-019 (Windows TLS, ten seconds, `OmniToaster/<version>`, status
+codes left to the caller), a 64 KB cap applied as the body is read, a `Cancel`
+checked before the request and before an outcome is delivered, and the retry
+schedule of 1, 5 and 15 minutes as a pure function. `ot_weather::observation::parse`
+checks every field: a missing or odd one fails the whole answer, extra fields are
+ignored, a temperature outside −100…70 °C and a code over 99 are refused, and
+nothing panics. The coordinates are rounded where the URL is built, so no caller
+can send more.
+
+**Consequences.**
+
+- `weather_cache` already exists in migration 001, so FEAT-0067 may need no new
+  migration; it will say so.
+- The agent builder and `Cancel` are written a second time here, because a
+  service crate may not depend on another (`docs/03-architecture.md`). If a third
+  service needs them they belong in a shared place; that is a change request, not
+  a quiet third copy.
+- **The free API is for non-commercial use, has no uptime guarantee, and the data
+  is CC BY 4.0, which asks for credit** (the pricing page, read 2026-11-26).
+  OmniToaster as a personal portable tool fits the free tier; shipping it to others
+  commercially would need Open-Meteo's paid customer API, with a key, which
+  reopens ADR-011. **The owner decides this before a release that includes
+  weather is relied on**, and the About pane should credit Open-Meteo whatever is
+  decided (FEAT-0070).
+- 10,000 calls a day is far above one poll every 15 to 30 minutes (at most 96).

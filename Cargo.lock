@@ -2790,6 +2790,7 @@ dependencies = [
  "ot-sched",
  "ot-store",
  "ot-toast",
+ "ot-weather",
  "raw-window-handle",
  "tempfile",
  "thiserror 2.0.21",
@@ -2799,6 +2800,14 @@ dependencies = [
 [[package]]
 name = "ot-weather"
 version = "0.14.0"
+dependencies = [
+ "jiff",
+ "serde_json",
+ "thiserror 2.0.21",
+ "tracing",
+ "tracing-subscriber",
+ "ureq",
+]
 
 [[package]]
 name = "owned_ttf_parser"

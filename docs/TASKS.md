@@ -126,10 +126,201 @@ Refs: BUG-0003
 
 ```
 Version : v0.5.1
-Features : FEAT-0065
-Bugs : BUG-0017
-Change Request : CR-0008
+Features : FEAT-0077
+Bugs : BUG-0018
+Change Request : CR-0009
 ```
+
+---
+
+## v0.6.1 — Planned
+
+Requests from the owner on 2026-11-26, while Phase 6 was being built. They are
+separate pieces of work and are filed apart so each can be taken, reviewed and
+shipped on its own.
+
+### FEAT-0072 · The weather has its own place, searched and chosen in the Weather pane
+- **State:** Pending · **Spec:** docs/specs/weather.md §9 · docs/11-prayer-and-azan.md §6
+- **Branch:** to be cut from `main` once Phase 6 is merged
+- **Depends on:** FEAT-0056, FEAT-0070
+- **Source:** the owner: "Allow weather location to be choose/search/select by user"; chose **its own place**, not a shared one
+- [ ] A weather place of its own, stored apart from the prayer place (a new row or table, with a migration); it starts as a copy of the prayer place and is then independent
+- [ ] The Weather pane's place row becomes the Prayer pane's controls: search by city (Open-Meteo geocoding, as FEAT-0056), typed coordinates, and the result list, with the consent the search already has
+- [ ] The service and the cache use the weather place; changing it empties the cache and re-baselines the detector, as FEAT-0067 does for the prayer place
+- [ ] Test: a weather place saved and read back apart from the prayer place; the service asks for the weather place's coordinates; changing it empties the cache; the layout test with the new controls in Malay
+- [ ] Gate: fmt · clippy -D warnings · test --workspace --locked -j 4 · deny check · --self-test
+- [ ] App: `--data-dir ./tmp-data` — search a city in Settings ▸ Weather, choose it, see the current weather for it while Prayer keeps its own place
+- [ ] Docs: spec · README · CHANGELOG · CHECKLIST · GOTCHAS
+- **Notes:** The city search sends the typed text and the IP address to Open-Meteo (ADR-021); `docs/06` already lists it.
+
+### FEAT-0073 · Settings ▸ Reminders as two columns: the list, and the details
+- **State:** Pending · **Spec:** docs/specs/tray-and-settings.md · docs/specs/reminders.md · docs/04-ui-design.md
+- **Branch:** to be cut from `main` once Phase 6 is merged
+- **Depends on:** FEAT-0043, FEAT-0046
+- **Source:** the owner: "revamp the reminder list and config. Make a 2 column. Left column is the Reminder Title Lists, while the right column is the reminder setting details. New reminder reuse the empty form of reminder setting details"
+- [ ] The reminder titles in a column on the left, the chosen one's editor on the right; choosing a title opens its details
+- [ ] New Reminder selects an empty form in the same right-hand editor (one form, reused), rather than a separate one
+- [ ] The missed list, history, fatigue section and snooze settings keep their place and still work
+- [ ] Narrow window: the columns stack or the list collapses, nothing overlaps (`.claude/rules/ui.md`); both languages at the longest Malay title
+- [ ] Test: the layout test and the reminders-pane tests for the new arrangement, including choosing, creating and deleting from the list
+- [ ] Gate: fmt · clippy -D warnings · test --workspace --locked -j 4 · deny check · --self-test
+- [ ] App: `--data-dir ./tmp-data` — create, choose, edit and delete reminders in the two columns, in both languages and all three themes, narrow and wide
+- [ ] Docs: spec · README · CHANGELOG · CHECKLIST · GOTCHAS
+- **Notes:** A UI rework of a pane that already has tests and a layout test; the editor itself (FEAT-0045, FEAT-0046) should be reused, not rewritten.
+
+### FEAT-0074 · Hazy weather, from an air-quality or visibility reading
+- **State:** Pending · **Spec:** docs/specs/weather.md §4 · §5 · ADR-023
+- **Branch:** to be cut from `main` once Phase 6 is merged
+- **Depends on:** FEAT-0065, FEAT-0066
+- **Source:** the owner: "Add hazy weather to notify user too"; chose an **air-quality or visibility reading** as the source
+- [ ] Verify the source first, as FEAT-0065 did: Open-Meteo has no haze weather code, so check its air-quality service (and visibility) live for a few places, keep the answers as fixtures, and record the choice and the haze threshold as an ADR
+- [ ] A seventh condition, Hazy, with its `weather-hazy` key in both languages, its template row (a migration), its pane checkbox and its built-in picture (the `hazy` one exists)
+- [ ] The service asks for the extra reading, and the detector treats haze like any condition: two readings, never from stale data; fog still wins when it is fog
+- [ ] Test: haze classified from the reading at and either side of the threshold, fog preferred, the keys in both catalogues, a change to Hazy told once
+- [ ] Gate: fmt · clippy -D warnings · test --workspace --locked -j 4 · deny check · --self-test
+- [ ] App: `--data-dir ./tmp-data` — simulate a hazy reading and see exactly one toast; the Weather pane lists Hazy
+- [ ] Docs: spec · README · CHANGELOG · CHECKLIST · GOTCHAS
+- **Notes:** A second request per poll (still far inside the free tier's 10,000 a day) and a new threshold the owner may want to tune.
+
+### FEAT-0075 · The weather toast names the place
+- **State:** Pending · **Spec:** docs/specs/weather.md §4 · docs/specs/toast.md
+- **Branch:** to be cut from `main` once Phase 6 is merged
+- **Depends on:** FEAT-0069
+- **Source:** the owner: "In weather toast, display also the location of the weather"
+- [ ] The toast shows the weather place's name (the note line, or in the body), in both languages, for a condition change and a temperature move
+- [ ] Test: the spec for a change carries the place's name; a long place name is cut with an ellipsis, not the toast's own text
+- [ ] Gate: fmt · clippy -D warnings · test --workspace --locked -j 4 · deny check · --self-test
+- [ ] App: `--data-dir ./tmp-data` — a simulated change shows the place on the toast
+- [ ] Docs: spec · README · CHANGELOG · CHECKLIST · GOTCHAS
+- **Notes:** After FEAT-0072 it is the weather place's name; until then, the saved place's.
+
+### FEAT-0076 · The prayer toast names the place
+- **State:** Pending · **Spec:** docs/11-prayer-and-azan.md §9 · docs/specs/toast.md §8
+- **Branch:** to be cut from `main` once Phase 6 is merged
+- **Depends on:** FEAT-0059
+- **Source:** the owner: "In prayer toast, display also the location of the time prayer"
+- [ ] A prayer's toast, and the pre-prayer reminder's, show the place the times are for (its name, and the JAKIM zone when there is one), beside the source label
+- [ ] Test: the prayer spec carries the place; a long name is cut with an ellipsis; the preview and the real toast stay the same function's output
+- [ ] Gate: fmt · clippy -D warnings · test --workspace --locked -j 4 · deny check · --self-test
+- [ ] App: `--data-dir ./tmp-data` — fire a prayer from a planted time and see the place on it
+- [ ] Docs: spec · README · CHANGELOG · CHECKLIST · GOTCHAS
+- **Notes:** The prayer toast already carries the source label as its note; the place goes beside it.
+
+### CR-0008 · The Azan is the default sound for every prayer, Subuh's for Fajr
+- **State:** Pending · **Spec:** docs/11-prayer-and-azan.md §9 · ADR-022 · assets/README.md
+- **Branch:** to be cut from `main` once Phase 6 is merged
+- **Depends on:** FEAT-0060
+- **Source:** the owner: "All Prayer call is same using azan wav/mp3, except subuh/fajr, use azan subuh wav/mp3"; chose to do it **now**
+- [ ] A prayer with no sound of its own plays the full Azan — `azan.mp3` for every prayer but Fajr, and `azan-subuh.mp3` for Fajr — instead of the short chime; the chime stays a choice
+- [ ] Existing templates are not rewritten: a template that never chose a sound (a NULL sound mode) follows the new default; one that chose the chime or silence keeps it
+- [ ] Test: `clip_for` for each prayer with no template and with a NULL sound; a chosen sound still wins
+- [ ] The licence of the Azan clips is still unsettled (Phase 9's terms check): record that this default ships them, in `assets/README.md` and the ADR, and decide before a release that this should stand
+- [ ] Gate: fmt · clippy -D warnings · test --workspace --locked -j 4 · deny check · --self-test
+- [ ] App: `--data-dir ./tmp-data` — a prayer fires and plays the Azan (Subuh's for Fajr), and stops on dismiss
+- [ ] Docs: spec · README · CHANGELOG · CHECKLIST · GOTCHAS
+- **Notes:** A change of a documented default (ADR-022 chose the chime so that a release would not play an unsettled-licence clip unasked): the owner chose to proceed, which this item records.
+
+---
+
+## v0.6.0 — Pending
+
+Phase 6, Weather, on `feat/phase-6-weather` (`docs/07-roadmap.md`,
+`docs/specs/weather.md`). Like Phase 5, it starts by looking at the service:
+Open-Meteo is verified before anything is built on its shape. The exit criteria:
+a condition change triggers a toast in simulation, and offline mode shows the
+stale marker in both languages.
+
+### BUG-0017 · "The data folder is not writable" when two threads resolve it at once
+- **State:** Completed · **Spec:** docs/06-security-and-privacy.md (writability check)
+- **Branch:** feat/phase-6-weather
+- **Source:** found running FEAT-0069: with the weather service started beside the prayer service, the app logged "the settings could not be read … is not writable: Access is denied" and fell back to the defaults
+- **Verified:** the new test failed on the old code (about 840 of 1,600 resolves from eight threads) and passes on the fix, 10 runs in 10; the app then read its settings and polled
+- [x] Establish the cause: `probe_writable` wrote and deleted one fixed file, `.omnitoaster-write-probe`, so concurrent callers collided
+- [x] Test: `many_threads_resolving_at_once_do_not_trip_over_each_others_probe`, written first and seen to fail
+- [x] Fix: a probe name unique per call (process id and a counter)
+- [x] Gate: fmt · clippy -D warnings · test --workspace --locked -j 4 · deny check · --self-test
+- [x] App: the real weather mode and the simulation both read their settings
+- [x] Docs: CHANGELOG · GOTCHAS · TASKS
+- **Notes:** This may also explain the one unexplained failure of `ot-ui`'s `prayer::tests::the_controller_saves_and_reads_a_place_and_resolves_off_the_calling_thread` noted under FEAT-0065, whose controller threads resolve the same folder; that is a likely cause, not a proven one.
+
+### FEAT-0065 · The Open-Meteo verification spike and its client
+- **State:** Completed · **Spec:** docs/specs/weather.md §3 · ADR-009 · ADR-011 · **Phase:** 6
+- **Branch:** feat/phase-6-weather
+- [x] The request and the response verified live for a few places and the fields the app needs (current weather code, temperature, the hourly series for a threshold), the raw responses kept as fixtures with a note of how each was captured — Kuala Lumpur, Kuching and London on 2026-11-26, plus the history request, a 400 and the empty-200 case; raw files and a README in `crates/ot-weather/tests/fixtures/open-meteo-2026-11-26/`
+- [x] Recorded as an ADR, and `docs/specs/weather.md` §3 and §12 updated to the verified shape — ADR-023, and `docs/specs/weather.md` §3 and "What is implemented"; §12's open questions are for FEAT-0068
+- [x] `ot-weather`: one blocking `ureq` attempt on a worker thread, HTTPS only, ten-second timeout, a response size cap, coordinates rounded before they are sent, cancellable, never a panic on a truncated, empty or malformed body — `fetch::Client` and `observation::parse`; the agent and `Cancel` are second copies of the prayer crate's (ADR-023 says why)
+- [x] Test: the parser against the fixtures and against broken bodies; the rounding; cancel stops the work; a live fetch, not run when Open-Meteo is unreachable — 19 tests, plus the live one run by hand with `--ignored` against three cities; broken bodies, the empty 200, the size cap, the rounding and a cancel that sends nothing are each tested
+- [x] Gate: fmt · clippy -D warnings · test --workspace --locked -j 4 · deny check · --self-test — fmt · clippy · tests · deny · self-test
+- [x] App: `--data-dir ./tmp-data` — not applicable on its own — exercised through the service (FEAT-0069) — not applicable on its own, as the item says — the service runs in the app with FEAT-0069
+- [x] Docs: spec · README · CHANGELOG · CHECKLIST · GOTCHAS — ADR-023 · spec · CHANGELOG · CHECKLIST · two GOTCHAS entries; README: nothing user-visible yet
+- **Notes:** The free API is non-commercial and asks for credit (ADR-023): the owner decides before a release relying on weather. `weather_cache` is already in migration 001. **One unexplained failure:** during this item's gate `ot-ui`'s `prayer::tests::the_controller_saves_and_reads_a_place_and_resolves_off_the_calling_thread` failed once in a workspace run (its message was not captured) and then passed alone 15 times and in three more workspace runs. It is not in code this item touched; it is a flake not yet localised, and is recorded here rather than dismissed.
+
+### FEAT-0066 · Weather codes, condition classes and their Fluent keys
+- **State:** In-Progress · **Spec:** docs/specs/weather.md §4 · §5 · docs/10-i18n.md · **Phase:** 6
+- **Branch:** feat/phase-6-weather
+- **Depends on:** FEAT-0065
+- [x] Every documented Open-Meteo code maps to one of the six classes: clear · cloudy · rain · storm · snow · fog; an unknown code maps to the generic class and is logged — `classify` in `ot-weather/src/condition.rs`; 29 codes, the unknown case logs a warning
+- [x] A Fluent key for each class and the generic one under `weather-`, in both files, with the name in both languages; no API text is ever displayed — seven keys, `weather-clear` … `weather-unknown`, in both files, with translator comments; Malay: Cerah, Berawan, Hujan, Ribut petir, Salji, Kabus, Keadaan tidak jelas
+- [x] Test: every documented code maps; an unknown one maps to the generic class and logs; the keys exist in both locale files — 5 tests: every documented code to its class, distinct keys, the keys with text in both locale files, an unknown code logs and a known one does not
+- [x] Gate: fmt · clippy -D warnings · test --workspace --locked -j 4 · deny check · --self-test — fmt · clippy · tests · deny · self-test
+- [ ] App: `--data-dir ./tmp-data` — the names appear in the Weather pane (FEAT-0070), in both languages. Not made: nothing shows the names until the Weather pane (FEAT-0070), which carries this check
+- [x] Docs: spec · README · CHANGELOG · CHECKLIST · GOTCHAS — spec "What is implemented" · CHANGELOG · CHECKLIST; README and GOTCHAS: nothing yet
+
+### FEAT-0067 · The weather cache and migration 008
+- **State:** In-Progress · **Spec:** docs/specs/weather.md §7 · §8 · docs/05-data-model-and-storage.md · **Phase:** 6
+- **Branch:** feat/phase-6-weather
+- **Depends on:** FEAT-0065
+- [x] Migration 008: `weather_cache (location_id, fetched_at, payload_json)`; the store writes and reads the last response and says how old it is — **no migration was needed:** `weather_cache` has been in migration 001 since Phase 0, with exactly these columns; `Store::write_weather`, `weather` and `clear_weather` and `CachedWeather::age` are new, in `ot-store/src/weather.rs`
+- [x] A TTL after which cached data counts as stale; deleting the cache costs a refetch, never correctness — `DEFAULT_TTL` of two hours and `is_stale(now, ttl)`; emptied when the saved place's coordinates change
+- [x] Test: a round trip, a TTL expiry, migrations on a fresh and an existing database, the file landing where it should — 7 tests: a round trip and replacement, age and the TTL boundary exactly, a clock that went back, it needs a saved place, emptying, moving the place empties it and saving the same place again does not (mutation-checked), a damaged time reads as no cache, and a restart with the file in the data folder and nothing beside it. Migrations on a fresh and an existing database: nothing changed, the existing tests stand
+- [x] Gate: fmt · clippy -D warnings · test --workspace --locked -j 4 · deny check · --self-test — fmt · clippy · tests · deny · self-test
+- [ ] App: `--data-dir ./tmp-data` — the cached weather survives a restart with the network off (FEAT-0069). Not made: nothing in the app writes the cache until the service (FEAT-0069), which carries this check
+- [x] Docs: spec · README · CHANGELOG · CHECKLIST · GOTCHAS — spec "What is implemented" · `05` · CHANGELOG · CHECKLIST; README and GOTCHAS: nothing yet
+
+### FEAT-0068 · Change detection: condition changes and temperature thresholds
+- **State:** In-Progress · **Spec:** docs/specs/weather.md §4 · §12 · **Phase:** 6
+- **Branch:** feat/phase-6-weather
+- **Depends on:** FEAT-0066
+- [x] A class change fires once, and only when it persists across two consecutive polls; the last notified class is what is compared against, not the last observed — `Detector::observe`; a silent baseline for the first reading; a reading repeating the previous `at` is not a second sighting
+- [x] A temperature move beyond a set delta in a window — a drop of 5 °C within 3 hours, by default — fires at the boundary and not inside it — `Threshold` (direction, delta, window), `default_fall()` is 5 °C in 3 hours; exactly the delta fires; once per spell, re-armed when the move falls under the delta
+- [x] Stale data never produces a change; a change is only ever derived from a fresh response — `observe(.., fresh: false, ..)` changes nothing, not even a pending sighting
+- [x] Test: one toast for a change, none for flapping between two classes, the threshold at and just inside its boundary, stale data silent. Open question 1 (two polls or a time-in-class) answered or left, and said so — 17 tests; the boundary and the repeated-reading guard were each broken on purpose and caught; open question 1 answered in the spec (two distinct readings)
+- [x] Gate: fmt · clippy -D warnings · test --workspace --locked -j 4 · deny check · --self-test — fmt · clippy · tests · deny · self-test
+- [ ] App: `--data-dir ./tmp-data` — a simulated change produces exactly one toast (FEAT-0069). Not made: nothing in the app uses the detector until the service (FEAT-0069), which carries this check
+- [x] Docs: spec §12 answered and "What is implemented" · CHANGELOG · CHECKLIST; README and GOTCHAS: nothing yet
+
+### FEAT-0069 · The weather service: polling, the toast and the simulation
+- **State:** Completed · **Spec:** docs/specs/weather.md §3 · §4 · §7 · docs/03-architecture.md · **Phase:** 6
+- **Branch:** feat/phase-6-weather
+- **Depends on:** FEAT-0065, FEAT-0067, FEAT-0068
+- [x] A worker thread polls every 30 minutes (configurable, 15 at least), with the retry backoff, no tighter loop; weather off stops all outbound requests; cancel really stops it — `weather_service::{Engine, Service}`; `[weather]` settings (`enabled` off by default, `poll_minutes` 15 to 240, thresholds, `notify_classes`); retry 1, 5, 15 minutes; cancel on drop; the last class told is kept in the store
+- [x] A change becomes a toast built from a `ToastSpec` by the one function the preview uses, with the condition's template (FEAT-0070) or the built-in text — `reminder_toast::weather_spec` from the `Change`, built-in text in both languages and the condition's picture; the per-condition template is FEAT-0070's
+- [x] A way to simulate a condition change without waiting for the weather (a developer-only argument or setting), because that is the exit criterion — debug-only `--simulate-weather <code>`
+- [x] Test: the service against a stubbed fetch — a change fires once, stale and failed fetches fire nothing and keep the last data, weather off makes no request — 13 engine tests (off and no-place fetch nothing, a baseline, the interval, a change once, a class not chosen, a threshold, backoff, stale judged by age, stale never fed, a restart, cancel, the simulation) plus 3 toast tests and the settings test
+- [x] Gate: fmt · clippy -D warnings · test --workspace --locked -j 4 · deny check · --self-test — fmt · clippy · tests · deny · self-test
+- [x] App: `--data-dir ./tmp-data` — simulate a condition change and watch the toast appear; turn the network off and see it keep the last data and not notify. **Made (debug build, scratch folder):** with `--simulate-weather 95` the log shows clear, then two storms, and exactly one `a weather change became a toast change=Condition { from: Clear, to: Storm }` on the third look, none after; with weather on against the live service for a hand-set place, the answer was fetched, cached (the row is in the database) and `weather.notified` kept; restarted offline with a fresh cache, nothing was asked; with the cache made old, the offline poll failed and logged "keeping the last answer". **Not made:** the toast's pixels (the capture helper cannot see a toast), a pause holding it back, and the Malay text on screen (the strings are tested)
+- [x] Docs: spec · README · CHANGELOG · CHECKLIST · GOTCHAS — spec · CHANGELOG · CHECKLIST · GOTCHAS (BUG-0017); README: nothing user-visible until the pane
+
+### FEAT-0070 · Settings ▸ Weather: the pane and the per-condition templates
+- **State:** In-Progress · **Spec:** docs/specs/weather.md §6 · §9 · docs/04-ui-design.md · docs/specs/toast.md §8 · **Phase:** 6
+- **Branch:** feat/phase-6-weather
+- **Depends on:** FEAT-0066, FEAT-0069
+- [x] The pane: enable, the place (shared with Prayer), the poll interval, which condition changes notify, the thresholds, and a template per condition (title, message, accent, picture, sound) with Use Default Text and Preview — `ot_ui::weather_pane`, the seventh section; templates are `category` rows (migration 008, the column from 003); sound is silent or the short chime, and the Prayer's Azan and own-clip import are not offered
+- [x] Every string a Fluent key in both files; Malay laid out at its longest; empty, loading and error states that say something; the checkboxes on one middle line — 21 new keys in both files; the generic template words reuse the Prayer's `prayer-template-*` and `prayer-sound-*`; the layout test now draws the pane with the longest Malay text and passes; the checkboxes use the shared one-middle-line row
+- [x] Test: the layout test with the pane in the Malay and pseudo-locale, the templates saved and read back, the defaults — the layout test, a store test (seeded, saved, cleared, trimmed), two pane tests (the threads read the place and a template; a save reaches the store), a toast test (a template wins, blank falls back), a service test (the template of the condition a change is to), the settings test with the thresholds brought into range
+- [x] Gate: fmt · clippy -D warnings · test --workspace --locked -j 4 · deny check · --self-test — fmt · clippy · tests · deny · self-test
+- [ ] App: `--data-dir ./tmp-data` — both languages, all three themes, the narrow window, 100% and 200% scaling; change a template and fire it. **Made (debug build, scratch folder, 1080p):** the pane in English and Malay, no clipping; the enable checkbox saved `[weather] enabled = true`; a typed title saved to the store with its language; the place shows. Found and fixed: the message hint read "from Clear to Clear". **Not made:** the toast Preview's pixels, a library picture and a colour chosen, the System theme, 150% and 200% scaling, the narrow window by eye (the layout test covers a narrow width), and the Weather pane in the Light theme. Left open for these
+- [x] Docs: spec · README · CHANGELOG · CHECKLIST · GOTCHAS — spec · README and README.ms (the stale "next phases" sentence is corrected) · CHANGELOG · CHECKLIST; screenshots wait for the phase's finish; GOTCHAS: nothing new
+
+### FEAT-0071 · The offline stale marker
+- **State:** Completed · **Spec:** docs/specs/weather.md §7 · docs/10-i18n.md · **Phase:** 6
+- **Branch:** feat/phase-6-weather
+- **Depends on:** FEAT-0067, FEAT-0070
+- [x] Offline, the cached data is shown marked stale, with how old it is, in both languages; fresh data carries no marker — `weather_pane::now_block` from the service's `Snapshot`; fresh data says when it was updated and carries no marker; aged past its TTL it says "Not up to date: showing the weather from … ago" in the accent colour; judged when drawn
+- [x] Test: the stale message in both catalogues with its age; stale data does not notify — `tests/weather_stale.rs` (the age and the marker in both languages, the keys in both catalogues), `Snapshot::is_stale` between passes, and FEAT-0069's "stale data never feeds the detector"
+- [x] Gate: fmt · clippy -D warnings · test --workspace --locked -j 4 · deny check · --self-test — fmt · clippy · tests · deny · self-test
+- [x] App: `--data-dir ./tmp-data` — disconnect the network and see the marker in English and Malay — Phase 6's second exit criterion — debug build offline with a planted 5-hour-old cache: the English pane read "Cloudy, 26 °C" and "Not up to date: showing the weather from 5 hours ago.", the Malay one "Berawan, 26 °C" and "Tidak terkini: memaparkan cuaca dari 5 jam lalu."; with a 6-minute-old cache "Updated 6 minutes ago." and no marker. Not seen: the Light theme, 150% scaling and the narrow window by eye
+- [x] Docs: spec · README · CHANGELOG · CHECKLIST · GOTCHAS — spec · CHANGELOG · CHECKLIST; README already describes the pane; GOTCHAS: nothing new
 
 ---
 

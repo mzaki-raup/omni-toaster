@@ -78,6 +78,11 @@ const KNOWN_FLAGS: &[&str] = &[
     // only.
     #[cfg(debug_assertions)]
     "--alarm-cap",
+    // A weather code to simulate: the weather service reads a sky that is clear
+    // once and then this code, every few seconds, so a change of weather can be
+    // watched without waiting for rain. Debug only.
+    #[cfg(debug_assertions)]
+    "--simulate-weather",
 ];
 
 fn main() -> ExitCode {
@@ -409,12 +414,21 @@ fn main() -> ExitCode {
     #[cfg(not(debug_assertions))]
     let alarm_cap_secs = None;
 
+    #[cfg(debug_assertions)]
+    let simulate_weather = value_of(&args, "--simulate-weather")
+        .ok()
+        .flatten()
+        .and_then(|text| text.parse::<u8>().ok());
+    #[cfg(not(debug_assertions))]
+    let simulate_weather = None;
+
     let dev = ot_ui::settings_window::DevOptions {
         test_toast,
         ui_scale,
         reduce_motion,
         slow_frames,
         alarm_cap_secs,
+        simulate_weather,
     };
     if let Err(error) =
         ot_ui::settings_window::run(root, settings, dev, fires, scheduler.commands())

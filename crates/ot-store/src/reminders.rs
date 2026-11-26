@@ -312,6 +312,9 @@ pub struct Template {
     /// The prayer this template is for, one of [`PRAYERS`]; `None` for any
     /// other template.
     pub prayer_key: Option<String>,
+    /// The weather condition this template is for (`clear`, `rain` and so on);
+    /// `None` for any other template.
+    pub weather_key: Option<String>,
     pub custom_title: Option<String>,
     pub custom_body: Option<String>,
     /// `#rrggbb`, as the editor stores it.
@@ -653,7 +656,7 @@ impl Store {
         Ok(self
             .conn
             .query_row(
-                "SELECT c.id, c.type_key, c.custom_title, c.custom_body, c.accent_color,                  a.relative_path, c.prayer_key, c.sound_mode, s.relative_path FROM category c LEFT JOIN asset a ON a.sha256 = c.image_id                  LEFT JOIN asset s ON s.sha256 = c.sound_id WHERE c.id = ?1",
+                "SELECT c.id, c.type_key, c.custom_title, c.custom_body, c.accent_color,                  a.relative_path, c.prayer_key, c.sound_mode, s.relative_path, c.weather_key FROM category c LEFT JOIN asset a ON a.sha256 = c.image_id                  LEFT JOIN asset s ON s.sha256 = c.sound_id WHERE c.id = ?1",
                 params![id],
                 |row| {
                     Ok(Template {
@@ -666,6 +669,7 @@ impl Store {
                         prayer_key: row.get(6)?,
                         sound_mode: row.get(7)?,
                         sound: row.get(8)?,
+                        weather_key: row.get(9)?,
                     })
                 },
             )
@@ -718,6 +722,53 @@ impl Store {
                 lang,
                 edit.sound_mode,
                 edit.sound
+            ],
+        )?;
+        Ok(changed == 1)
+    }
+
+    /// A weather condition's template, seeded by migration 008.
+    pub fn template_for_weather(&self, condition: &str) -> Result<Option<Template>, StoreError> {
+        let id: Option<i64> = self
+            .conn
+            .query_row(
+                "SELECT id FROM category WHERE weather_key = ?1",
+                params![condition],
+                |row| row.get(0),
+            )
+            .optional()?;
+        id.map_or(Ok(None), |id| self.template(id))
+    }
+
+    /// Save what the user wrote for a condition's template; the same rules as a
+    /// prayer's (`None` and empty text are the built-in text). Its sound is
+    /// `chime` or `none`, and `None` is silence. Returns whether the condition
+    /// has a template.
+    pub fn set_weather_template(
+        &self,
+        condition: &str,
+        edit: &PrayerTemplateEdit,
+    ) -> Result<bool, StoreError> {
+        let text = |value: &Option<String>| {
+            value
+                .as_deref()
+                .map(str::trim)
+                .filter(|t| !t.is_empty())
+                .map(str::to_owned)
+        };
+        let (title, body) = (text(&edit.title), text(&edit.body));
+        let lang = (title.is_some() || body.is_some()).then_some(edit.authored_lang);
+        let changed = self.conn.execute(
+            "UPDATE category SET custom_title = ?2, custom_body = ?3, accent_color = ?4, \
+             image_id = ?5, authored_lang = ?6, sound_mode = ?7 WHERE weather_key = ?1",
+            params![
+                condition,
+                title,
+                body,
+                edit.accent,
+                edit.image,
+                lang,
+                edit.sound_mode
             ],
         )?;
         Ok(changed == 1)
@@ -1254,6 +1305,87 @@ mod tests {
                 prayer: "fajr".into()
             }
             .is_fatigue()
+        );
+    }
+
+    #[test]
+    fn every_weather_condition_has_a_seeded_empty_template_and_one_can_be_saved_and_cleared() {
+        let store = Store::open_in_memory().expect("opens");
+        for condition in ["clear", "cloudy", "rain", "storm", "snow", "fog"] {
+            let template = store
+                .template_for_weather(condition)
+                .expect("reads")
+                .unwrap_or_else(|| panic!("{condition} has no template"));
+            assert_eq!(template.weather_key.as_deref(), Some(condition));
+            assert_eq!(template.prayer_key, None);
+            assert_eq!(
+                (
+                    template.custom_title,
+                    template.custom_body,
+                    template.accent_color,
+                    template.image,
+                    template.sound_mode
+                ),
+                (None, None, None, None, None)
+            );
+        }
+        assert_eq!(store.template_for_weather("hail").expect("reads"), None);
+        assert_eq!(
+            store.template_for_prayer("rain").expect("reads"),
+            None,
+            "a condition is not a prayer"
+        );
+        let edit = |title: &str, sound: Option<&str>| PrayerTemplateEdit {
+            title: Some(title.to_owned()),
+            body: Some("  Take an umbrella  ".to_owned()),
+            accent: Some("#336699".to_owned()),
+            image: None,
+            authored_lang: "ms-MY",
+            sound_mode: sound.map(str::to_owned),
+            sound: None,
+        };
+        assert!(
+            store
+                .set_weather_template("rain", &edit("Hujan!", Some("chime")))
+                .expect("saved")
+        );
+        let saved = store
+            .template_for_weather("rain")
+            .expect("reads")
+            .expect("a row");
+        assert_eq!(saved.custom_title.as_deref(), Some("Hujan!"));
+        assert_eq!(
+            saved.custom_body.as_deref(),
+            Some("Take an umbrella"),
+            "trimmed"
+        );
+        assert_eq!(saved.accent_color.as_deref(), Some("#336699"));
+        assert_eq!(saved.sound_mode.as_deref(), Some("chime"));
+        // Another condition is untouched.
+        assert_eq!(
+            store
+                .template_for_weather("fog")
+                .expect("reads")
+                .expect("a row")
+                .custom_title,
+            None
+        );
+        // Empty text is the built-in text again.
+        assert!(
+            store
+                .set_weather_template("rain", &edit("   ", None))
+                .expect("saved")
+        );
+        let cleared = store
+            .template_for_weather("rain")
+            .expect("reads")
+            .expect("a row");
+        assert_eq!(cleared.custom_title, None);
+        assert_eq!(cleared.sound_mode, None);
+        assert!(
+            !store
+                .set_weather_template("hail", &edit("x", None))
+                .expect("saved")
         );
     }
 

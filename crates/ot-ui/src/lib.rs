@@ -22,6 +22,8 @@ pub mod reminder_toast;
 pub mod reminders;
 pub mod settings_window;
 pub mod theme;
+pub mod weather_pane;
+pub mod weather_service;
 
 pub use settings_window::{SettingsWindow, WindowError};
 pub use theme::{Appearance, Theme, ThemeMode, Tokens};

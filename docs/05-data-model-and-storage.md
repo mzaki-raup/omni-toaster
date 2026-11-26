@@ -158,5 +158,5 @@ Every migration is tested on both a fresh database and an existing one
 | Logs | the last 14 days, rotated daily |
 | Crash reports | the last 20 |
 | `notification_log` | 90 days, then pruned on start |
-| `weather_cache` | until the TTL expires, then overwritten |
+| `weather_cache` | until the TTL (two hours) passes it is fresh; after that it is still shown, marked stale, until a fetch overwrites it. Emptied when the saved place moves |
 | `jakim_prayer_cache` | the current and next month, refreshed weekly ([11-prayer-and-azan.md](11-prayer-and-azan.md) §4) |

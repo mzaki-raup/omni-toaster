@@ -13,7 +13,7 @@ use crate::reminders::stamp;
 use crate::{Store, StoreError};
 
 /// The row's id: there is only ever one.
-const ROW: i64 = 1;
+pub(crate) const ROW: i64 = 1;
 
 /// How the app came to know the place; the `source` column.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -64,6 +64,20 @@ where
 
 impl Store {
     fn write_location(&self, place: &StoredLocation) -> Result<(), StoreError> {
+        // The weather cached for another place is not this place's: when the
+        // coordinates change it goes, and costs a refetch (FEAT-0067).
+        let moved = self
+            .conn
+            .query_row(
+                "SELECT lat, lon FROM location WHERE id = ?1",
+                params![ROW],
+                |row| Ok((row.get::<_, f64>(0)?, row.get::<_, f64>(1)?)),
+            )
+            .optional()?
+            .is_some_and(|(lat, lon)| lat != place.latitude || lon != place.longitude);
+        if moved {
+            self.clear_weather()?;
+        }
         self.conn.execute(
             "INSERT INTO location (id, name, lat, lon, tz, country_code, source, updated_at) \
              VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8) \

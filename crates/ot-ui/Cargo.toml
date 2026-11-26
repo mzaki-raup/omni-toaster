@@ -22,6 +22,7 @@ ot-media = { path = "../ot-media" }
 ot-platform = { path = "../ot-platform" }
 ot-prayer = { path = "../ot-prayer" }
 ot-sched = { path = "../ot-sched" }
+ot-weather = { path = "../ot-weather" }
 ot-store = { path = "../ot-store" }
 ot-toast = { path = "../ot-toast" }
 raw-window-handle.workspace = true

@@ -25,7 +25,10 @@ aplikasi terus berjalan di sebalik ikon, dan Keluar terdapat dalam menu dulang,
 yang juga boleh menjeda semua pemberitahuan selama setengah jam, sejam atau
 sehingga anda menyambungnya semula. **Peringatan** dibuat dalam Tetapan ▸
 Peringatan dan dipaparkan sebagai toast tepat pada masanya, dengan tunda,
-susulan peringatan yang terlepas dan sejarah; azan dan cuaca ialah fasa
+susulan peringatan yang terlepas dan sejarah. **Waktu solat dan azan** ada dalam
+Tetapan ▸ Solat, dan **perubahan cuaca** dalam Tetapan ▸ Cuaca, yang dimatikan
+sehingga anda menghidupkannya kerana ia menghantar lokasi anda, dibundarkan
+kepada kira-kira satu kilometer, kepada Open-Meteo; pengumuman masa ialah fasa
 seterusnya.
 `--data-dir`, `--self-test`, `--version`, `--help`, `--lang` dan `--worker`
 semuanya berfungsi.

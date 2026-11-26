@@ -13,6 +13,20 @@ Format: [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) · Versioning:
 
 ### Added
 
+- Weather: Settings ▸ Weather now shows the current weather and how old it is. When the app is offline, or the last answer is old, it says so — "Not up to date: showing the weather from 5 hours ago" — in English and Bahasa Melayu, and no notification is ever produced from such old data (FEAT-0071).
+
+- Settings ▸ Weather: turn weather notifications on, see the place they use, choose how often to check, which kinds of weather to be told about and how big a sudden temperature fall or rise must be, and write your own title, message, accent colour, picture and sound for each condition, with Use Default Text and a preview. Weather data is credited to Open-Meteo on the pane (FEAT-0070).
+
+- Weather: with `enabled = true` under `[weather]` in the settings file (the Weather pane comes next), the app polls Open-Meteo for your saved place, keeps the last answer so it survives a restart and an offline spell, and shows a toast when the weather changes or the temperature falls quickly. It is off by default, and off means no request is sent (FEAT-0069).
+
+- Weather change detection: a change of weather is reported once, only after two separate readings agree, so weather that flickers between two kinds never notifies; a temperature drop (or rise) beyond a set amount within a window is reported once per spell; the first reading after start and anything from the cache never notify. Nothing in the app uses it yet (FEAT-0068).
+
+- Weather cache: the last weather answer is kept for the saved place, with when it was fetched, so it survives a restart and can be shown marked as old when there is no network. Choosing a different place empties it (FEAT-0067).
+
+- Weather conditions: the weather service's numeric codes are grouped into clear, cloudy, rain, thunderstorm, snow and fog, each named in English and Bahasa Melayu; a code the app does not know gets a generic name and a log line. Nothing displays them yet (FEAT-0066).
+
+- Weather groundwork: a client that asks Open-Meteo for the current temperature and weather code and the last few hours, over Windows' own TLS, sending coordinates rounded to two decimals, and reads the answer strictly. It is checked against captured answers for three cities and, on request, the live service; nothing in the app uses it yet (FEAT-0065).
+
 - Jumu'ah, the Friday prayer, in Dhuhr's place (36e02fe6)
 
 ## 0.13.0 — 2026-11-26
@@ -39,6 +53,8 @@ Format: [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) · Versioning:
 - The JAKIM zone table (17d2edbb)
 
 ### Fixed
+
+- Starting the app could report "the data folder is not writable" when two parts of it checked the folder at the same moment, because they shared one test file; each check now uses its own (BUG-0017).
 
 - The single-instance tests take turns (472c3039)
 - Checkboxes in Settings > Prayer level with their labels (0cb083c2)

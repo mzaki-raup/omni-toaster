@@ -23,8 +23,10 @@ switch **while it runs**. Double-click the tray icon to open Settings; closing
 the window leaves the app running behind the icon, and Quit is in the tray
 menu, which also pauses all notifications for half an hour, an hour or until
 you resume them. **Reminders** are made in Settings ▸ Reminders and fire as
-toasts on time, with snooze, missed-reminder catch-up and a history; the Azan
-and weather are the next phases.
+toasts on time, with snooze, missed-reminder catch-up and a history. **Prayer
+times and the Azan** are in Settings ▸ Prayer, and **weather changes** in Settings ▸
+Weather, which is off until you turn it on because it sends your place, rounded to
+about a kilometre, to Open-Meteo; time announcements are the next phase.
 `--data-dir`, `--self-test`, `--version`, `--help`, `--lang` and `--worker`
 all work.
 

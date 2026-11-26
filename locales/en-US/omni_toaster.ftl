@@ -705,6 +705,8 @@ prayer-source-calculated-fallback = Calculated (fallback)
 prayer-source-calculated-fallback-approximate = Calculated (fallback, approximate)
 # The name of the Prayer section in the settings window's left-hand list.
 settings-section-prayer = Prayer
+# The name of the Weather section in the settings window's left-hand list.
+settings-section-weather = Weather
 # The heading of the location group in Settings > Prayer.
 prayer-location-heading = Location
 # The question in the first-run card that asks before the app looks up the user's place from their internet address.
@@ -914,3 +916,104 @@ error-import-audio-too-large = That clip is over 20 MB.
 error-import-not-audio = That file is not a WAV, MP3 or Ogg Vorbis clip, whatever its name says.
 # Said when an audio clip runs longer than ten minutes.
 error-import-audio-too-long = That clip runs longer than ten minutes.
+# The name of a weather condition: clear sky or mostly clear. Shown in Settings and in the weather notification.
+weather-clear = Clear
+# The name of a weather condition: partly cloudy or overcast.
+weather-cloudy = Cloudy
+# The name of a weather condition: drizzle, rain or rain showers.
+weather-rain = Rain
+# The name of a weather condition: a thunderstorm.
+weather-storm = Thunderstorm
+# The name of a weather condition: snow, snow grains or snow showers.
+weather-snow = Snow
+# The name of a weather condition: fog.
+weather-fog = Fog
+# The name shown when the weather service sends a condition this app does not know. Never an English word from the service.
+weather-unknown = Unclear conditions
+# The body of the notification when the weather changes. $from and $to are condition names (weather-rain and so on).
+weather-toast-condition-body = The weather changed from { $from } to { $to }.
+# The title of the notification when the temperature falls quickly.
+weather-toast-fall-title = Temperature is falling
+# The body of that notification. $degrees is how many whole degrees Celsius it fell, $now the temperature now, and $count the number of hours it fell over.
+weather-toast-fall-body = { $count ->
+    [one] It is { $degrees } °C colder than an hour ago, now { $now } °C.
+   *[other] It is { $degrees } °C colder than { $count } hours ago, now { $now } °C.
+}
+# The title of the notification when the temperature rises quickly.
+weather-toast-rise-title = Temperature is rising
+# The body of that notification. $degrees is how many whole degrees Celsius it rose, $now the temperature now, and $count the number of hours it rose over.
+weather-toast-rise-body = { $count ->
+    [one] It is { $degrees } °C warmer than an hour ago, now { $now } °C.
+   *[other] It is { $degrees } °C warmer than { $count } hours ago, now { $now } °C.
+}
+# The heading of Settings > Weather.
+weather-heading = Weather Notifications
+# The checkbox that turns weather notifications on. Off by default.
+weather-enable = Notify me when the weather changes
+# The hint under that checkbox: what is sent, and that off sends nothing.
+weather-enable-hint = Sends the place saved under Prayer, rounded to about a kilometre, to Open-Meteo. Turned off, nothing is sent.
+# The label of the row that names the place the weather is for.
+weather-place-label = Place
+# Shown when no place has been saved yet.
+weather-place-none = No place is set. Set one under Prayer.
+# The hint under the place.
+weather-place-hint = The weather uses the same place as the prayer times.
+# The label of the field for how many minutes pass between looks at the weather.
+weather-poll-label = Check Every (Minutes)
+# The hint under that field.
+weather-poll-hint = The service updates about every 15 minutes, so asking more often changes nothing.
+# The heading of the list of kinds of weather to be told about.
+weather-notify-heading = Tell Me When It Becomes
+# The hint under that list.
+weather-notify-hint = A change is told only once the new weather has been seen twice in a row, so weather that flickers never notifies.
+# The heading of the sudden temperature change settings.
+weather-temperature-heading = Sudden Temperature Changes
+# The checkbox for telling about a quick fall in temperature.
+weather-fall-enable = Tell me when the temperature falls quickly
+# The checkbox for telling about a quick rise in temperature.
+weather-rise-enable = Tell me when the temperature rises quickly
+# The label of the field for how many degrees Celsius the temperature must move.
+weather-delta-label = By at Least (°C)
+# The label of the field for the number of hours the move must happen within.
+weather-window-label = Within (Hours)
+# The hint under the temperature settings.
+weather-temperature-hint = For example 5 °C in 3 hours. It is told once, and again only after the temperature has settled.
+# The heading of the weather templates.
+weather-template-heading = Weather Templates
+# The label of the list for choosing which condition's template to edit.
+weather-template-condition = Condition
+# Said when the weather settings or a template could not be read or saved. The cause is in the log.
+weather-error = The weather settings could not be read or saved.
+# The credit line at the bottom of Settings > Weather. Open-Meteo's data is licensed CC BY 4.0, which asks for credit.
+weather-credit = Weather data by Open-Meteo.com, licensed CC BY 4.0.
+# The heading of the block showing the weather as it stands.
+weather-now-heading = Current Weather
+# The label of the row giving the weather now.
+weather-now-label = Now
+# The weather as it stands. $condition is a condition name (weather-rain and so on), $temperature whole degrees Celsius.
+weather-now = { $condition }, { $temperature } °C
+# Under the weather when it is up to date. $age is how long ago, like "5 minutes ago" or "just now".
+weather-updated = Updated { $age }.
+# The marker shown instead when the weather is out of date, for instance when offline. $age is how long ago it was fetched, like "3 hours ago". No change is ever reported from such data.
+weather-stale = Not up to date: showing the weather from { $age }.
+# Shown when weather is on but nothing has been found yet.
+weather-now-none = No weather has been found yet.
+# Shown when weather notifications are off.
+weather-now-off = Weather notifications are off.
+# How long ago, for a moment less than a minute ago.
+weather-age-now = just now
+# How long ago, in minutes. $count is a number.
+weather-age-minutes = { $count ->
+    [one] 1 minute ago
+   *[other] { $count } minutes ago
+}
+# How long ago, in hours. $count is a number.
+weather-age-hours = { $count ->
+    [one] 1 hour ago
+   *[other] { $count } hours ago
+}
+# How long ago, in days. $count is a number.
+weather-age-days = { $count ->
+    [one] 1 day ago
+   *[other] { $count } days ago
+}

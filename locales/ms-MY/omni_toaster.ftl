@@ -685,6 +685,8 @@ prayer-source-calculated-fallback = Dikira (sandaran)
 prayer-source-calculated-fallback-approximate = Dikira (sandaran, anggaran)
 # Nama bahagian Solat dalam senarai di sebelah kiri tetingkap tetapan.
 settings-section-prayer = Solat
+# Nama bahagian Cuaca dalam senarai di sebelah kiri tetingkap tetapan.
+settings-section-weather = Cuaca
 # Tajuk kumpulan lokasi dalam Tetapan > Solat.
 prayer-location-heading = Lokasi
 # Soalan dalam kad larian pertama yang bertanya sebelum aplikasi mencari tempat pengguna daripada alamat internetnya.
@@ -891,3 +893,89 @@ error-import-audio-too-large = Klip itu melebihi 20 MB.
 error-import-not-audio = Fail itu bukan klip WAV, MP3 atau Ogg Vorbis, apa jua namanya.
 # Dinyatakan apabila klip audio berjalan lebih daripada sepuluh minit.
 error-import-audio-too-long = Klip itu berjalan lebih daripada sepuluh minit.
+# Nama keadaan cuaca: langit cerah atau kebanyakannya cerah. Dipaparkan dalam Tetapan dan dalam pemberitahuan cuaca.
+weather-clear = Cerah
+# Nama keadaan cuaca: separa berawan atau mendung.
+weather-cloudy = Berawan
+# Nama keadaan cuaca: renyai, hujan atau hujan lebat sekejap-sekejap.
+weather-rain = Hujan
+# Nama keadaan cuaca: ribut petir.
+weather-storm = Ribut petir
+# Nama keadaan cuaca: salji, butir salji atau hujan salji sekejap-sekejap.
+weather-snow = Salji
+# Nama keadaan cuaca: kabus.
+weather-fog = Kabus
+# Nama yang dipaparkan apabila perkhidmatan cuaca menghantar keadaan yang tidak dikenali aplikasi ini. Tidak pernah perkataan Inggeris daripada perkhidmatan itu.
+weather-unknown = Keadaan tidak jelas
+# Kandungan pemberitahuan apabila cuaca berubah. $from dan $to ialah nama keadaan (weather-rain dan seterusnya).
+weather-toast-condition-body = Cuaca berubah daripada { $from } kepada { $to }.
+# Tajuk pemberitahuan apabila suhu jatuh dengan cepat.
+weather-toast-fall-title = Suhu sedang menurun
+# Kandungan pemberitahuan itu. $degrees ialah bilangan darjah Celsius penuh ia jatuh, $now suhu sekarang, dan $count bilangan jam ia jatuh. Bahasa Melayu tiada bentuk jamak.
+weather-toast-fall-body = Suhu { $degrees } °C lebih sejuk berbanding { $count } jam lalu, kini { $now } °C.
+# Tajuk pemberitahuan apabila suhu naik dengan cepat.
+weather-toast-rise-title = Suhu sedang meningkat
+# Kandungan pemberitahuan itu. $degrees ialah bilangan darjah Celsius penuh ia naik, $now suhu sekarang, dan $count bilangan jam ia naik.
+weather-toast-rise-body = Suhu { $degrees } °C lebih panas berbanding { $count } jam lalu, kini { $now } °C.
+# Tajuk Tetapan > Cuaca.
+weather-heading = Pemberitahuan Cuaca
+# Kotak semak yang menghidupkan pemberitahuan cuaca. Dimatikan secara lalai.
+weather-enable = Beritahu saya apabila cuaca berubah
+# Petunjuk di bawah kotak semak itu: apa yang dihantar, dan bahawa apabila dimatikan tiada apa-apa dihantar.
+weather-enable-hint = Menghantar lokasi yang disimpan di bawah Solat, dibundarkan kepada kira-kira satu kilometer, kepada Open-Meteo. Apabila dimatikan, tiada apa-apa dihantar.
+# Label baris yang menamakan lokasi untuk cuaca.
+weather-place-label = Lokasi
+# Dipaparkan apabila belum ada lokasi disimpan.
+weather-place-none = Tiada lokasi ditetapkan. Tetapkan satu di bawah Solat.
+# Petunjuk di bawah lokasi.
+weather-place-hint = Cuaca menggunakan lokasi yang sama dengan waktu solat.
+# Label medan bilangan minit antara setiap semakan cuaca.
+weather-poll-label = Semak Setiap (Minit)
+# Petunjuk di bawah medan itu.
+weather-poll-hint = Perkhidmatan dikemas kini kira-kira setiap 15 minit, jadi bertanya lebih kerap tidak mengubah apa-apa.
+# Tajuk senarai jenis cuaca yang hendak diberitahu.
+weather-notify-heading = Beritahu Saya Apabila Menjadi
+# Petunjuk di bawah senarai itu.
+weather-notify-hint = Perubahan hanya diberitahu setelah cuaca baharu dilihat dua kali berturut-turut, jadi cuaca yang berubah-ubah tidak pernah memberitahu.
+# Tajuk tetapan perubahan suhu mendadak.
+weather-temperature-heading = Perubahan Suhu Mendadak
+# Kotak semak untuk memberitahu suhu jatuh dengan cepat.
+weather-fall-enable = Beritahu saya apabila suhu jatuh dengan cepat
+# Kotak semak untuk memberitahu suhu naik dengan cepat.
+weather-rise-enable = Beritahu saya apabila suhu naik dengan cepat
+# Label medan bilangan darjah Celsius yang mesti berubah.
+weather-delta-label = Sekurang-kurangnya (°C)
+# Label medan bilangan jam perubahan itu mesti berlaku dalamnya.
+weather-window-label = Dalam Masa (Jam)
+# Petunjuk di bawah tetapan suhu.
+weather-temperature-hint = Contohnya 5 °C dalam 3 jam. Ia diberitahu sekali, dan sekali lagi hanya selepas suhu stabil.
+# Tajuk templat cuaca.
+weather-template-heading = Templat Cuaca
+# Label senarai untuk memilih templat keadaan yang hendak disunting.
+weather-template-condition = Keadaan
+# Dinyatakan apabila tetapan cuaca atau templat tidak dapat dibaca atau disimpan. Puncanya ada dalam log.
+weather-error = Tetapan cuaca tidak dapat dibaca atau disimpan.
+# Baris kredit di bahagian bawah Tetapan > Cuaca. Data Open-Meteo dilesenkan CC BY 4.0, yang meminta kredit.
+weather-credit = Data cuaca oleh Open-Meteo.com, dilesenkan CC BY 4.0.
+# Tajuk blok yang menunjukkan cuaca semasa.
+weather-now-heading = Cuaca Semasa
+# Label baris yang memberi cuaca sekarang.
+weather-now-label = Sekarang
+# Cuaca semasa. $condition ialah nama keadaan (weather-rain dan seterusnya), $temperature darjah Celsius penuh.
+weather-now = { $condition }, { $temperature } °C
+# Di bawah cuaca apabila ia terkini. $age ialah berapa lama dahulu, seperti "5 minit lalu" atau "sebentar tadi".
+weather-updated = Dikemas kini { $age }.
+# Penanda yang dipaparkan apabila cuaca sudah lapuk, contohnya ketika luar talian. $age ialah berapa lama dahulu ia diambil, seperti "3 jam lalu". Tiada perubahan dilaporkan daripada data sedemikian.
+weather-stale = Tidak terkini: memaparkan cuaca dari { $age }.
+# Dipaparkan apabila cuaca dihidupkan tetapi belum ada yang ditemui.
+weather-now-none = Belum ada cuaca ditemui.
+# Dipaparkan apabila pemberitahuan cuaca dimatikan.
+weather-now-off = Pemberitahuan cuaca dimatikan.
+# Berapa lama dahulu, untuk kurang daripada seminit yang lalu.
+weather-age-now = sebentar tadi
+# Berapa lama dahulu, dalam minit. $count ialah nombor. Bahasa Melayu tiada bentuk jamak.
+weather-age-minutes = { $count } minit lalu
+# Berapa lama dahulu, dalam jam. $count ialah nombor.
+weather-age-hours = { $count } jam lalu
+# Berapa lama dahulu, dalam hari. $count ialah nombor.
+weather-age-days = { $count } hari lalu
