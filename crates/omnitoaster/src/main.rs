@@ -11,6 +11,12 @@
 //! `--worker` is accepted and recognised but does nothing yet: the supervisor
 //! that would spawn it is Phase 8. Everything else here is live.
 
+// A release build is a GUI program: no console window behind the tray icon
+// (BUG-0013). A debug build keeps its console, where `cargo run` shows the log.
+// `console::attach` gives a terminal its output back and `console::report`
+// shows a startup failure in a message box, so neither is lost with it.
+#![cfg_attr(not(debug_assertions), windows_subsystem = "windows")]
+
 mod self_test;
 
 use std::path::PathBuf;
@@ -75,6 +81,7 @@ const KNOWN_FLAGS: &[&str] = &[
 ];
 
 fn main() -> ExitCode {
+    ot_platform::console::attach();
     let args: Vec<String> = std::env::args().skip(1).collect();
 
     if args.iter().any(|a| a == "--version" || a == "-V") {
@@ -126,7 +133,7 @@ fn main() -> ExitCode {
     if let Err(error) = ot_i18n::init(language) {
         // Nothing is translatable yet if this failed, so plain English is all
         // there is.
-        eprintln!("OmniToaster cannot start: {error}");
+        fail(&format!("OmniToaster cannot start: {error}"));
         return ExitCode::FAILURE;
     }
 
@@ -160,11 +167,14 @@ fn main() -> ExitCode {
         Err(ot_platform::InstanceError::AlreadyRunning) => {
             // Not a failure: the user asked for OmniToaster and OmniToaster is
             // running. Focusing the existing window is FEAT-0014's job.
-            println!("{}", ot_i18n::text("notice-already-running"));
+            ot_platform::console::report(
+                ot_platform::console::Kind::Notice,
+                &ot_i18n::text("notice-already-running"),
+            );
             return ExitCode::SUCCESS;
         }
         Err(error) => {
-            eprintln!("OmniToaster cannot start: {error}");
+            fail(&format!("OmniToaster cannot start: {error}"));
             return ExitCode::FAILURE;
         }
     };
@@ -184,9 +194,13 @@ fn main() -> ExitCode {
                 .as_deref()
                 .map(|p| p.display().to_string())
                 .unwrap_or_else(|| ot_core::paths::DATA_DIR_NAME.to_string());
-            eprintln!("{}", ot_i18n::text_with(key, &[("path", path.into())]));
-            eprintln!("{}", ot_i18n::text("error-data-dir-advice"));
-            eprintln!("({error})");
+            fail(&format!(
+                "{}
+{}
+({error})",
+                ot_i18n::text_with(key, &[("path", path.into())]),
+                ot_i18n::text("error-data-dir-advice"),
+            ));
             return ExitCode::FAILURE;
         }
     };
@@ -205,7 +219,7 @@ fn main() -> ExitCode {
     let guard = match logging::init(&root, &level, DEFAULT_RETENTION_DAYS) {
         Ok(guard) => guard,
         Err(error) => {
-            eprintln!("OmniToaster cannot start: {error}");
+            fail(&format!("OmniToaster cannot start: {error}"));
             return ExitCode::FAILURE;
         }
     };
@@ -218,7 +232,7 @@ fn main() -> ExitCode {
         Ok(store) => store,
         Err(error) => {
             tracing::error!(%error, "the database could not be opened");
-            eprintln!("OmniToaster cannot start: {error}");
+            fail(&format!("OmniToaster cannot start: {error}"));
             return ExitCode::FAILURE;
         }
     };
@@ -327,7 +341,7 @@ fn main() -> ExitCode {
         Ok(scheduler) => scheduler,
         Err(error) => {
             tracing::error!(%error, "the scheduler could not be started");
-            eprintln!("OmniToaster cannot start: {error}");
+            fail(&format!("OmniToaster cannot start: {error}"));
             return ExitCode::FAILURE;
         }
     };
@@ -406,7 +420,7 @@ fn main() -> ExitCode {
         ot_ui::settings_window::run(root, settings, dev, fires, scheduler.commands())
     {
         tracing::error!(%error, "the settings window could not be opened");
-        eprintln!("OmniToaster cannot show its window: {error}");
+        fail(&format!("OmniToaster cannot show its window: {error}"));
         drop(guard);
         return ExitCode::FAILURE;
     }
@@ -493,6 +507,13 @@ fn move_test_reminder(
 /// The option names themselves stay in English — they are what the user types
 /// — while every description is a Fluent key, so a Malay user gets Malay
 /// explanations of English flags, which is what every other CLI does too.
+/// Say why the app is stopping: on the console when there is one, and in a
+/// message box when there is not, as in a release build started by a double
+/// click (BUG-0013).
+fn fail(message: &str) {
+    ot_platform::console::report(ot_platform::console::Kind::Error, message);
+}
+
 fn print_help() {
     println!("{}", ot_i18n::text("help-usage"));
     println!();

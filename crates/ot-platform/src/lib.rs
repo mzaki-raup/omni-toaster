@@ -10,6 +10,7 @@
 //! may depend on.
 
 pub mod autostart;
+pub mod console;
 pub mod file_dialog;
 pub mod locale;
 pub mod monitors;

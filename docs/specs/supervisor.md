@@ -79,6 +79,15 @@ flashes a console window. Commands are never resolved by setting the `PATH`
 environment variable from inside the process
 ([.claude/rules/threads-and-scheduling.md](../../.claude/rules/threads-and-scheduling.md)).
 
+The exe itself has no console either. A release build is a Windows GUI-subsystem
+program (`#![windows_subsystem = "windows"]`), so starting it by double click, a
+shortcut or the Run key shows no console window; a debug build stays a console
+program. Text meant for a person goes through `ot_platform::console`: `attach`
+joins the parent's console when the process has no standard output, so `--help`
+and `--version` still print in a terminal, and `report` falls back to a message
+box when there is no console — a data folder that cannot be written, a second
+copy already running — so a failure to start is never silent (BUG-0013).
+
 ## 8. Hardening (Phase 8)
 
 Phase 8 is also the security review pass: the import paths

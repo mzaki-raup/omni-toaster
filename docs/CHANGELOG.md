@@ -51,6 +51,14 @@ Format: [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) · Versioning:
 
 - Phase 5 begun with its spike: the JAKIM e-Solat endpoint verified for SGR01, WLY01 and JHR01 and recorded as ADR-018 — times are `HH:MM:SS`, dates use Malay month abbreviations, "no data" comes inside an HTTP 200, next month is a POST range, and there is no data for a year JAKIM has not published. The prayer spec now describes the verified shape, and Asar is confirmed Shafi'i. The phase is filed as FEAT-0049 to FEAT-0063 (FEAT-0049).
 
+### Fixed
+
+- The release exe opened a console window behind the tray icon for as long as it ran: it is now a Windows GUI program, so no console appears. `--help`, `--version` and `--self-test` still print in a terminal, and a startup failure — a data folder that cannot be written, a copy already running — now shows in a message box instead of vanishing with the console. A debug build keeps its console (BUG-0013).
+
+### Security
+
+- `url` 2.5.8 → 2.5.9, which fixes RUSTSEC-2026-0592 (a stack overflow in `Url::origin()` on nested `blob:` URLs). The app does not reach it: `url` arrives only through `webbrowser`, and nothing here calls `origin()` (BUG-0014).
+
 ## 0.12.0 — 2026-11-20
 
 ### Added
