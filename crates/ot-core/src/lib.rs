@@ -16,6 +16,6 @@ pub use logging::{HostInfo, LogError, LogGuard, RecentLines};
 pub use paths::{DataRoot, PathError};
 pub use pause::{Pause, PauseFor};
 pub use settings::{
-    AZAN_WINDOW_MINUTES, General, LocationSettings, PrayerSettings, Reminders, Settings,
-    SettingsError,
+    AZAN_WINDOW_MINUTES, General, LocationSettings, PRE_PRAYER_MINUTES, PrayerSettings, Reminders,
+    Settings, SettingsError,
 };

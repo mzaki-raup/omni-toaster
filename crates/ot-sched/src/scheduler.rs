@@ -133,6 +133,9 @@ pub enum Command {
     EnablePrayers(Vec<String>),
     /// The catch-up window for a missed prayer, in minutes.
     SetAzanWindow { minutes: u32 },
+    /// Which prayers have a reminder `minutes` ahead of them. The rows are made,
+    /// moved and removed to match, and the queue is rebuilt.
+    EnablePrePrayers { keys: Vec<String>, minutes: u32 },
 }
 
 /// One fire, sent to the UI with what it needs to build the toast, so the UI
@@ -348,6 +351,19 @@ impl Core {
                 self.azan_window = SignedDuration::from_mins(i64::from(minutes));
             }
             Command::PrayerTimes(times) => self.set_prayer_times(times, now),
+            Command::EnablePrePrayers { keys, minutes } => {
+                let keys: Vec<&str> = keys.iter().map(String::as_str).collect();
+                match self.store.sync_pre_prayer_reminders(&keys, minutes) {
+                    Ok(true) => {
+                        tracing::info!(?keys, minutes, "the pre-prayer reminders were changed");
+                        self.rebuild(now);
+                    }
+                    Ok(false) => {}
+                    Err(error) => {
+                        tracing::warn!(%error, "the pre-prayer reminders could not be changed");
+                    }
+                }
+            }
             Command::EnablePrayers(keys) => {
                 let keys: Vec<&str> = keys.iter().map(String::as_str).collect();
                 match self.store.sync_prayer_reminders(&keys) {
@@ -450,6 +466,13 @@ impl Core {
             // A prayer is its own occurrence: there is no run of skipped ones to
             // walk, and its window is the Azan's.
             let prayer = reminder.draft.trigger.is_prayer();
+            // A reminder ahead of a prayer that came due late is moot — the
+            // prayer is here or past — so it is skipped, not listed.
+            if late && kind == Kind::Regular && reminder.draft.trigger.is_pre_prayer() {
+                tracing::debug!(reminder = id, "a late pre-prayer reminder was skipped");
+                self.requeue_after_fire(&reminder, now);
+                continue;
+            }
             let (fire, dropped) = if late && kind == Kind::Regular && !prayer {
                 self.latest_skipped(&reminder, fire, now)
             } else {
@@ -668,6 +691,11 @@ impl Core {
         if let ot_store::reminders::Trigger::Prayer { prayer } = &reminder.draft.trigger {
             return self.prayer_next(reminder, prayer, after);
         }
+        if let ot_store::reminders::Trigger::PrayerBefore { prayer, minutes } =
+            &reminder.draft.trigger
+        {
+            return self.pre_prayer_next(reminder, prayer, *minutes, after);
+        }
         next_fire(
             &reminder.draft.trigger,
             reminder.draft.recurrence.as_ref(),
@@ -737,6 +765,41 @@ impl Core {
             .and_then(|category| self.store.template(category).ok().flatten())
             .is_some_and(|template| template.type_key.as_deref() == Some(ALARM_TYPE));
         if alarm { RANK_ALARM } else { RANK_OTHER }
+    }
+
+    /// The next fire of a reminder `minutes` before a prayer: from the prayer's
+    /// own times, each moved earlier, so it moves when the prayer does. The
+    /// fire's `occurrence` is the prayer and its `offset` the lead, which is how
+    /// the toast says "in 10 minutes".
+    fn pre_prayer_next(
+        &self,
+        reminder: &Reminder,
+        prayer: &str,
+        minutes: u32,
+        after: Timestamp,
+    ) -> Option<Fire> {
+        let lead = SignedDuration::from_mins(i64::from(minutes));
+        let offset = Some(ot_store::reminders::Offset {
+            amount: minutes,
+            unit: ot_store::reminders::OffsetUnit::Minutes,
+        });
+        let given = self
+            .prayer_times
+            .get(prayer)
+            .and_then(|times| times.iter().find(|at| **at - lead > after))
+            .map(|prayer_at| (*prayer_at - lead, *prayer_at));
+        let (at, occurrence) = given.or_else(|| {
+            // Before any times are given, the stored time stands.
+            reminder
+                .next_fire_at
+                .filter(|stored| *stored > after)
+                .map(|stored| (stored, stored + lead))
+        })?;
+        Some(Fire {
+            at,
+            occurrence,
+            offset,
+        })
     }
 
     /// A prayer's next time after `after`: from the times the app gave, which
@@ -2048,6 +2111,121 @@ mod tests {
             fired.len(),
             2,
             "Fajr was due too, inside the hour: {fired:?}"
+        );
+    }
+
+    // ---- pre-prayer reminders (FEAT-0061) ----
+
+    fn pre_core(keys: &[&str], minutes: u32, times: &[(&str, &str)], now: &str) -> Core {
+        let store = Store::open_in_memory().expect("opens");
+        let mut core = Core::new(store, instant(now), TimeZone::UTC);
+        core.apply(
+            Command::PrayerTimes(
+                times
+                    .iter()
+                    .map(|(prayer, time)| ((*prayer).to_owned(), instant(time)))
+                    .collect(),
+            ),
+            instant(now),
+        );
+        core.apply(
+            Command::EnablePrePrayers {
+                keys: keys.iter().map(|k| (*k).to_owned()).collect(),
+                minutes,
+            },
+            instant(now),
+        );
+        core
+    }
+
+    #[test]
+    fn a_pre_prayer_reminder_comes_its_lead_before_the_prayer_and_says_so() {
+        let mut core = pre_core(
+            &["dhuhr"],
+            10,
+            &[("dhuhr", "2026-11-19T05:02:00Z")],
+            "2026-11-19T00:00Z",
+        );
+        let (out, fires) = fire_channel();
+        core.tick(instant("2026-11-19T04:51:59Z"), &out)
+            .expect("connected");
+        assert!(fires.try_iter().next().is_none(), "nothing early");
+        core.tick(instant("2026-11-19T04:52:00Z"), &out)
+            .expect("connected");
+        let fired: Vec<_> = fires.try_iter().collect();
+        assert_eq!(fired.len(), 1);
+        assert_eq!(fired[0].fire.at, instant("2026-11-19T04:52:00Z"));
+        assert_eq!(fired[0].fire.occurrence, instant("2026-11-19T05:02:00Z"));
+        assert_eq!(
+            fired[0].fire.offset,
+            Some(ot_store::reminders::Offset {
+                amount: 10,
+                unit: ot_store::reminders::OffsetUnit::Minutes
+            })
+        );
+        assert!(fired[0].reminder.draft.trigger.is_pre_prayer());
+        // Never done: it stays active for the next day's times.
+        let store = core.into_store();
+        let row = store
+            .reminders()
+            .expect("reads")
+            .into_iter()
+            .find(|r| r.draft.trigger.is_pre_prayer())
+            .expect("the row stays");
+        assert_eq!(row.status, Status::Active);
+    }
+
+    #[test]
+    fn a_pre_prayer_reminder_moves_when_the_prayer_does_and_when_the_lead_changes() {
+        let mut core = pre_core(
+            &["dhuhr"],
+            10,
+            &[("dhuhr", "2026-11-19T05:02:00Z")],
+            "2026-11-19T00:00Z",
+        );
+        let next = |core: &Core| core.next().map(|(_, fire)| fire.at);
+        assert_eq!(next(&core), Some(instant("2026-11-19T04:52:00Z")));
+        // A corrected time for the prayer moves its reminder with it.
+        core.apply(
+            Command::PrayerTimes(vec![("dhuhr".into(), instant("2026-11-19T05:20:00Z"))]),
+            instant("2026-11-19T00:00Z"),
+        );
+        assert_eq!(next(&core), Some(instant("2026-11-19T05:10:00Z")));
+        // A new lead moves it too, in the same row.
+        core.apply(
+            Command::EnablePrePrayers {
+                keys: vec!["dhuhr".into()],
+                minutes: 30,
+            },
+            instant("2026-11-19T00:00Z"),
+        );
+        assert_eq!(next(&core), Some(instant("2026-11-19T04:50:00Z")));
+        // And turning it off removes it.
+        core.apply(
+            Command::EnablePrePrayers {
+                keys: Vec::new(),
+                minutes: 30,
+            },
+            instant("2026-11-19T00:00Z"),
+        );
+        assert_eq!(next(&core), None);
+    }
+
+    #[test]
+    fn a_pre_prayer_reminder_that_comes_due_late_is_skipped_not_listed() {
+        let mut core = pre_core(
+            &["dhuhr"],
+            10,
+            &[("dhuhr", "2026-11-19T05:02:00Z")],
+            "2026-11-19T00:00Z",
+        );
+        let (out, fires) = fire_channel();
+        // The PC slept through it and woke with the prayer already here.
+        core.tick(instant("2026-11-19T05:05:00Z"), &out)
+            .expect("connected");
+        assert!(
+            fires.try_iter().next().is_none(),
+            "neither fired nor listed as missed"
         );
     }
 }

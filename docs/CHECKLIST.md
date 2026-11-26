@@ -172,7 +172,7 @@ Last updated: 2026-11-19
 | Calculated mode with Malaysia preset | In-Progress | Fajr 18.0° (not 20.0°: JAKIM's tables put that ten minutes early), Isha 18.0°, Asar Shafi'i. FEAT-0054: `ot_prayer::calculated` built; every time within three minutes of JAKIM's in SGR01, WLY01 and JHR01; the other presets match the adhan-js reference rows; not yet shown in the app — Settings ▸ Prayer is FEAT-0057 |
 | Per-prayer templates | In-Progress | Audio, title, body, image, accent, style. FEAT-0059: title, message, accent and picture per prayer, with Use Default Text and Preview, seen in the app in English and Malay; the per-prayer style override is not built, and audio is FEAT-0060 |
 | Audio playback | In-Progress | Full Azan or short chime. FEAT-0060: `ot-media` plays through `rodio` (ADR-022) on one thread; a prayer's sound is the chime, the full Azan, an imported clip or none; a clip is checked (size, magic bytes, a bounded decode) before it is copied in. In the app, Subuh's Azan started and stopped with its toast, as the log shows; whether it was heard, and the file dialog's import, were not checked there |
-| Pre-prayer reminders | Pending | |
+| Pre-prayer reminders | In-Progress | FEAT-0061: optional per prayer, a lead of 1 to 120 minutes (10 by default), derived from the prayer's own time by the scheduler, so it moves with it; built-in text in both languages; skipped when late. Seen in the app firing ahead of a planted Asr; the Malay text and its own per-prayer template text were not checked there |
 | Dual prayer names | Pending | "Subuh (Fajr)" in settings |
 
 ## Phase 6 — Weather

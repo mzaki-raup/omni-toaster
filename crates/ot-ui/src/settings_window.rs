@@ -2279,6 +2279,32 @@ impl SettingsWindow {
                 self.record(fired.reminder_id, fired_at, NotificationAction::Missed);
                 continue;
             }
+            // The reminder ahead of a prayer: a plain toast, held back by a pause.
+            if let ot_store::reminders::Trigger::PrayerBefore { prayer, minutes } =
+                &fired.reminder.draft.trigger
+            {
+                let spec = crate::reminder_toast::prayer_before_spec(
+                    &self.prefs,
+                    prayer,
+                    *minutes,
+                    fired.template.as_ref(),
+                    Some(formatted_time(now)),
+                );
+                let persistent = spec.behaviour.persistent;
+                let id = self.toasts.push(spec, Instant::now());
+                tracing::info!(prayer, minutes, toast = ?id, "a pre-prayer reminder became a toast");
+                self.reminder_toasts.insert(
+                    id,
+                    ReminderToast {
+                        reminder_id: fired.reminder_id,
+                        fired_at,
+                        snoozes: 0,
+                        persistent,
+                    },
+                );
+                self.record(fired.reminder_id, fired_at, NotificationAction::Shown);
+                continue;
+            }
             // A prayer is its own toast, ahead of everything, and a pause does
             // not hold it back (`docs/specs/tray-and-settings.md` §4).
             if let Some(prayer) = prayer {

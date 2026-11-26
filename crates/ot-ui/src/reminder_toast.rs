@@ -131,6 +131,36 @@ pub fn prayer_spec(
     spec
 }
 
+/// The reminder ahead of a prayer: the prayer's name and "in 10 minutes", with
+/// the prayer's own picture and accent. A plain toast — it times out, plays no
+/// sound and is held back by a pause, unlike the prayer itself.
+pub fn prayer_before_spec(
+    prefs: &ot_toast::Prefs,
+    prayer: &str,
+    minutes: u32,
+    template: Option<&Template>,
+    timestamp: Option<String>,
+) -> ot_toast::ToastSpec {
+    let name = crate::prayer_pane::prayer_name(prayer);
+    let content = ot_toast::Content {
+        title: name.clone(),
+        body: ot_i18n::text_with_count("prayer-before-body", minutes, &[("prayer", name.into())]),
+        app_name: ot_i18n::text("toast-app-name"),
+        image: template
+            .and_then(|t| t.image.clone())
+            .or_else(|| default_prayer_image(prayer).map(str::to_owned)),
+        accent: template
+            .and_then(|t| t.accent_color.as_deref())
+            .and_then(parse_accent),
+        timestamp,
+        action_labels: action_labels(),
+        ..ot_toast::Content::default()
+    };
+    let mut spec = prefs.spec(content);
+    spec.behaviour.actions = 1;
+    spec
+}
+
 /// The built-in masjid picture a prayer shows until its template chooses one.
 /// Syuruk has none of its own and borrows Dhuha's.
 pub fn default_prayer_image(prayer: &str) -> Option<&'static str> {

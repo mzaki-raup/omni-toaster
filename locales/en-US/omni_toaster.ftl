@@ -843,8 +843,17 @@ prayer-notify-hint = The five daily prayers always have a notification.
 prayer-azan-window-label = Missed Prayer Window (Minutes)
 # The hint under that field.
 prayer-azan-window-hint = A prayer missed while the PC was off is listed if it is no older than this. Older ones are dropped.
+# The label of the field for how many minutes before a prayer its reminder comes.
+prayer-before-label = Remind Before (Minutes)
+# The hint under the per-prayer "remind before" checkboxes.
+prayer-before-hint = Tick a prayer to get a short reminder this many minutes ahead of it. A reminder that would come after its prayer has started is skipped.
 # The body of a prayer's notification. $prayer is the prayer's name with both names, like Fajr (Subuh).
 prayer-toast-body = It is time for { $prayer }.
+# The body of the reminder ahead of a prayer. $prayer is the prayer's name with both names, like Fajr (Subuh). $count is the number of minutes.
+prayer-before-body = { $count ->
+    [one] { $prayer } is in 1 minute.
+   *[other] { $prayer } is in { $count } minutes.
+}
 # The title of the notification shown, at most once a day, when no prayer times could be worked out.
 prayer-toast-unavailable-title = No prayer times available
 # The body of that notification.

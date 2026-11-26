@@ -823,8 +823,14 @@ prayer-notify-hint = Lima waktu solat sehari sentiasa mempunyai pemberitahuan.
 prayer-azan-window-label = Tempoh Solat Terlepas (Minit)
 # Petunjuk di bawah medan itu.
 prayer-azan-window-hint = Solat yang terlepas semasa PC dimatikan disenaraikan jika tidak lebih lama daripada ini. Yang lebih lama digugurkan.
+# Label medan bilangan minit sebelum solat peringatannya datang.
+prayer-before-label = Ingatkan Sebelum (Minit)
+# Petunjuk di bawah kotak semak "ingatkan sebelum" bagi setiap solat.
+prayer-before-hint = Tandakan sesuatu solat untuk mendapat peringatan ringkas sekian minit sebelumnya. Peringatan yang akan datang selepas solat bermula dilangkau.
 # Kandungan pemberitahuan solat. $prayer ialah nama solat dengan kedua-dua nama, seperti Subuh (Fajr).
 prayer-toast-body = Masuk waktu { $prayer }.
+# Kandungan peringatan sebelum solat. $prayer ialah nama solat dengan kedua-dua nama, seperti Subuh (Fajr). $count ialah bilangan minit. Bahasa Melayu tiada bentuk jamak.
+prayer-before-body = { $prayer } dalam { $count } minit.
 # Tajuk pemberitahuan yang dipaparkan, paling banyak sekali sehari, apabila waktu solat tidak dapat dikira.
 prayer-toast-unavailable-title = Tiada waktu solat tersedia
 # Kandungan pemberitahuan itu.

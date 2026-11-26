@@ -1086,6 +1086,37 @@ fn notification_block(
         &ot_i18n::text("prayer-azan-window-hint"),
         tokens.text_dim,
     );
+    ui.add_space(layout::ROW_GAP);
+
+    // A reminder ahead of each prayer that has a notification (spec §9).
+    let mut lead = settings.pre_prayer_lead();
+    layout::labelled_row(ui, columns, &ot_i18n::text("prayer-before-label"), |ui| {
+        ui.add(
+            egui::DragValue::new(&mut lead)
+                .range(ot_core::PRE_PRAYER_MINUTES)
+                .speed(1.0),
+        );
+    });
+    if lead != settings.pre_prayer_lead() {
+        settings.pre_prayer_minutes = lead;
+        outcome.settings_changed = true;
+    }
+    for key in settings.enabled_prayers() {
+        let mut on = settings.pre_prayer.iter().any(|chosen| chosen == key);
+        if wrapped_checkbox(ui, columns.label, &mut on, &prayer_name(key)) {
+            settings.pre_prayer.retain(|chosen| chosen != key);
+            if on {
+                settings.pre_prayer.push(key.to_owned());
+            }
+            outcome.settings_changed = true;
+        }
+    }
+    layout::field_hint(
+        ui,
+        columns,
+        &ot_i18n::text("prayer-before-hint"),
+        tokens.text_dim,
+    );
 }
 
 /// `text` cut to `max` characters with an ellipsis: for a name the user gave,

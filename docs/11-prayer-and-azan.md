@@ -338,6 +338,21 @@ publishes Dhuhr, Asar, Maghrib and Isha one to three minutes after the calculati
 - An optional pre-prayer reminder — 10 minutes before, say.
 - Times are recalculated at midnight, after a location change, after a zone
   change, and after every successful JAKIM fetch.
+- **Pre-prayer reminder** (FEAT-0061). Per prayer, optional and off by default,
+  one reminder so many minutes ahead of it — `[prayer] pre_prayer` lists the
+  prayers and `pre_prayer_minutes` the lead (1 to 120, 10 by default), both
+  controlled in Settings ▸ Prayer ▸ Notifications. It is a managed row
+  (`Trigger::PrayerBefore`, type `prayer_before`) whose time is **derived**: the
+  scheduler fires it at the prayer's time minus the lead, from the same times
+  the prayer itself uses, so it moves when they do. Its toast says "Asr (Asar) is
+  in 10 minutes." from a Fluent plural (`prayer-before-body`) in both languages,
+  with the prayer's own picture and accent but the built-in text — the prayer's
+  own template (custom title and message) is the prayer's, not the reminder's. It
+  is a plain toast: it times out, plays no sound, and a pause holds it back, which
+  a prayer is not. One that came due late (the PC slept through it, or the app
+  started inside the lead) is skipped and never listed as missed, since the prayer
+  is by then here or past. A prayer turned off, or Syuruk while it is off, has no
+  reminder.
 - **Azan takes priority** over time announcements and non-urgent toasts
   ([specs/announcements.md](specs/announcements.md)).
 

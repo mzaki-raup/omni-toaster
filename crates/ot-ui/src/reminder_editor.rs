@@ -102,9 +102,10 @@ impl Editor {
             // Never opened here: fatigue schedules live in their own section
             // and prayers in the Prayer settings, and both are left out of the
             // list. A date of its own keeps the editor sane if one ever were.
-            Trigger::Every { .. } | Trigger::WorkHours { .. } | Trigger::Prayer { .. } => {
-                (DateTime::default(), Vec::new())
-            }
+            Trigger::Every { .. }
+            | Trigger::WorkHours { .. }
+            | Trigger::Prayer { .. }
+            | Trigger::PrayerBefore { .. } => (DateTime::default(), Vec::new()),
         };
         let (repeat, every, weekdays) = match &reminder.draft.recurrence {
             Some(recurrence) => (

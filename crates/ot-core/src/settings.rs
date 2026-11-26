@@ -72,10 +72,18 @@ pub struct PrayerSettings {
     /// How late a prayer missed while the PC was off may be and still be
     /// listed, in minutes, within [`AZAN_WINDOW_MINUTES`].
     pub azan_window_minutes: u32,
+    /// The prayers that also have a reminder ahead of them, by scheduler key.
+    pub pre_prayer: Vec<String>,
+    /// How far ahead that reminder comes, in minutes, within
+    /// [`PRE_PRAYER_MINUTES`].
+    pub pre_prayer_minutes: u32,
 }
 
 /// The catch-up window for a missed prayer, in minutes: one minute to a day.
 pub const AZAN_WINDOW_MINUTES: std::ops::RangeInclusive<u32> = 1..=1440;
+
+/// How far ahead of a prayer its reminder may come, in minutes: one to two hours.
+pub const PRE_PRAYER_MINUTES: std::ops::RangeInclusive<u32> = 1..=120;
 
 impl Default for PrayerSettings {
     fn default() -> Self {
@@ -86,6 +94,8 @@ impl Default for PrayerSettings {
             asr: "shafii".to_string(),
             notify_syuruk: false,
             azan_window_minutes: 60,
+            pre_prayer: Vec::new(),
+            pre_prayer_minutes: 10,
         }
     }
 }
@@ -107,6 +117,21 @@ impl PrayerSettings {
     pub fn azan_window(&self) -> u32 {
         self.azan_window_minutes
             .clamp(*AZAN_WINDOW_MINUTES.start(), *AZAN_WINDOW_MINUTES.end())
+    }
+
+    /// The lead of the pre-prayer reminder brought into range.
+    pub fn pre_prayer_lead(&self) -> u32 {
+        self.pre_prayer_minutes
+            .clamp(*PRE_PRAYER_MINUTES.start(), *PRE_PRAYER_MINUTES.end())
+    }
+
+    /// The prayers that get a reminder ahead of them: those chosen that also
+    /// have a notification, so Syuruk's is dormant while Syuruk is off.
+    pub fn pre_prayer_keys(&self) -> Vec<&'static str> {
+        self.enabled_prayers()
+            .into_iter()
+            .filter(|key| self.pre_prayer.iter().any(|chosen| chosen == key))
+            .collect()
     }
 }
 
@@ -379,6 +404,19 @@ mod tests {
             ["fajr", "syuruk", "dhuhr", "asr", "maghrib", "isha"]
         );
         assert_eq!(on.azan_window(), 1, "a zero window is brought into range");
+        assert_eq!(defaults.pre_prayer_lead(), 10);
+        assert!(defaults.pre_prayer_keys().is_empty());
+        on.pre_prayer = vec!["isha".into(), "syuruk".into(), "bogus".into()];
+        on.pre_prayer_minutes = 0;
+        assert_eq!(on.pre_prayer_keys(), ["syuruk", "isha"]);
+        assert_eq!(on.pre_prayer_lead(), 1, "a zero lead is brought into range");
+        on.notify_syuruk = false;
+        assert_eq!(
+            on.pre_prayer_keys(),
+            ["isha"],
+            "Syuruk's is dormant while it is off"
+        );
+        on.notify_syuruk = true;
         let mut settings = Settings::default();
         settings.prayer.source = "jakim".to_string();
         settings.prayer.zone = Some("SGR01".to_string());

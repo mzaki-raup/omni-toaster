@@ -100,6 +100,7 @@ pub struct Engine {
     /// What the scheduler was last told, so it is told again only on a change.
     sent_enabled: Option<Vec<String>>,
     sent_window: Option<u32>,
+    sent_pre: Option<(Vec<String>, u32)>,
     /// Failures of the fetch in a row, and when to try again.
     failures: u32,
     retry_at: Option<Timestamp>,
@@ -149,6 +150,7 @@ impl Engine {
             cancel,
             sent_enabled: None,
             sent_window: None,
+            sent_pre: None,
             failures: 0,
             retry_at: None,
             detect_retry_at: None,
@@ -202,6 +204,23 @@ impl Engine {
         if self.sent_window != Some(window) {
             self.send(Command::SetAzanWindow { minutes: window });
             self.sent_window = Some(window);
+        }
+        // Which prayers have a reminder ahead of them, and how far ahead.
+        let pre = (
+            settings
+                .prayer
+                .pre_prayer_keys()
+                .iter()
+                .map(|key| (*key).to_owned())
+                .collect::<Vec<String>>(),
+            settings.prayer.pre_prayer_lead(),
+        );
+        if self.sent_pre.as_ref() != Some(&pre) {
+            self.send(Command::EnablePrePrayers {
+                keys: pre.0.clone(),
+                minutes: pre.1,
+            });
+            self.sent_pre = Some(pre);
         }
 
         // The place, looked up again after a day when the user agreed.
@@ -651,6 +670,10 @@ mod tests {
             ))
         );
         assert!(commands.contains(&Command::SetAzanWindow { minutes: 60 }));
+        assert!(commands.contains(&Command::EnablePrePrayers {
+            keys: Vec::new(),
+            minutes: 10
+        }));
         let times = prayer_times(&commands);
         assert_eq!(
             times.len(),
@@ -797,6 +820,28 @@ mod tests {
         declined.place_in_malaysia(Origin::Ip, "2026-10-01T00:00:00Z");
         declined.engine.run(at(NOW));
         assert_eq!(declined.detections.load(Ordering::SeqCst), 0);
+    }
+
+    #[test]
+    fn the_pre_prayer_choice_is_told_to_the_scheduler_and_again_only_when_it_changes() {
+        let mut settings = Settings::default();
+        settings.prayer.pre_prayer = vec!["maghrib".into(), "fajr".into()];
+        settings.prayer.pre_prayer_minutes = 15;
+        let mut rig = rig(&settings, Ok(november()));
+        rig.place_in_malaysia(Origin::Manual, "2026-11-19T00:00:00Z");
+        rig.engine.run(at(NOW));
+        let told = Command::EnablePrePrayers {
+            keys: vec!["fajr".into(), "maghrib".into()],
+            minutes: 15,
+        };
+        assert!(rig.commands().contains(&told));
+        rig.engine.run(at("2026-11-20T01:05:00Z"));
+        assert!(
+            !rig.commands()
+                .iter()
+                .any(|c| matches!(c, Command::EnablePrePrayers { .. })),
+            "an unchanged choice is not sent again"
+        );
     }
 
     #[test]

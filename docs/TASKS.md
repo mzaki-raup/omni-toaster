@@ -298,14 +298,14 @@ disabled; prayer labels match the reference table in both languages.
 - **Notes:** Audio output cannot be confirmed by a test; the App box is the check.
 - **Progress (ot-media, committed):** ADR-022; `ot_media::audio::check` (20 MB before reading, format by magic bytes, a bounded decode of the whole clip up to ten minutes, a Fluent key per refusal) and `ot_media::Player` (one thread, one device opened on the first clip, a new clip replaces the old, a missing device reported not panicked), with the stand-in chime and the two Azan clips embedded; 8 tests. **Not built yet:** the store side of an imported clip (`store_audio`, a sound mode per prayer), the editor controls, playing on a prayer's fire and stopping when it is dismissed, and the app check; every box above stays open.
 ### FEAT-0061 · Pre-prayer reminders
-- **State:** Pending · **Spec:** docs/11-prayer-and-azan.md §9 · **Phase:** 5
+- **State:** In-Progress · **Spec:** docs/11-prayer-and-azan.md §9 · **Phase:** 5
 - **Branch:** feat/phase-5-prayer
 - **Depends on:** FEAT-0058
-- [ ] Optional per prayer: a reminder so many minutes before (10 by default), its own template text in both languages
-- [ ] Test: the reminder's time from the prayer's; it moves when the prayer's time does
-- [ ] Gate: fmt · clippy -D warnings · test --workspace --locked -j 4 · deny check · --self-test
-- [ ] App: `--data-dir ./tmp-data` — turn on a pre-prayer reminder and see it fire ahead of the prayer
-- [ ] Docs: spec · README · CHANGELOG · CHECKLIST · GOTCHAS
+- [x] Optional per prayer: a reminder so many minutes before (10 by default), its own template text in both languages — `Trigger::PrayerBefore`, `[prayer] pre_prayer` + `pre_prayer_minutes`, a checkbox per prayer and a minutes field in Notifications; the text is the built-in `prayer-before-body` in both languages — a custom per-prayer pre-prayer template is not built (the prayer's own template stays the prayer's)
+- [x] Test: the reminder's time from the prayer's; it moves when the prayer's time does — 3 scheduler tests (derived time and the offset it carries; moves with the prayer's time and the lead, and removed when off; a late one skipped, not listed), the settings test, and a service test that the choice is sent once
+- [x] Gate: fmt · clippy -D warnings · test --workspace --locked -j 4 · deny check · --self-test — fmt · clippy · tests · deny · self-test
+- [ ] App: `--data-dir ./tmp-data` — turn on a pre-prayer reminder and see it fire ahead of the prayer. **Made:** with Asr planted four minutes ahead (offline, a manual Kuala Lumpur place, lead 2) the log shows `a pre-prayer reminder became a toast prayer=asr minutes=2` at exactly two minutes before (07:27:00 and again on a second run), then `a prayer became a toast` at Asr itself; Settings > Prayer > Notifications shows the minutes field and a checkbox per prayer, with Asr ticked and 2 read back from the settings file. **Not made:** the toast's pixels (the capture helper only sees the settings window, so what the toast looks like, and its Malay text, were not seen), a pause holding it back in the app, and the Malay pane. Left open for these
+- [x] Docs: spec `11` §9 · CHANGELOG · CHECKLIST · README already lists the pre-prayer reminder; GOTCHAS: nothing new
 ### FEAT-0062 · Dual prayer names
 - **State:** Pending · **Spec:** docs/11-prayer-and-azan.md §10 · docs/10-i18n.md · **Phase:** 5
 - **Branch:** feat/phase-5-prayer

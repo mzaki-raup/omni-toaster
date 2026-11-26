@@ -42,6 +42,10 @@ pub enum Trigger {
     /// rather than computes (`docs/11-prayer-and-azan.md` §9). `prayer` is one
     /// of [`PRAYERS`].
     Prayer { prayer: String },
+    /// A reminder so many minutes **before** a prayer, optional per prayer
+    /// (`docs/11-prayer-and-azan.md` §9). It follows the prayer's time: when the
+    /// prayer moves, so does it.
+    PrayerBefore { prayer: String, minutes: u32 },
 }
 
 /// What the user wrote for a prayer's template; `None` is the built-in.
@@ -74,6 +78,7 @@ impl Trigger {
             Self::Every { .. } => "every",
             Self::WorkHours { .. } => "work_hours",
             Self::Prayer { .. } => "prayer",
+            Self::PrayerBefore { .. } => "prayer_before",
         }
     }
 
@@ -87,7 +92,12 @@ impl Trigger {
     /// Whether this is a prayer's reminder, which the app manages from the
     /// Prayer settings and the list in Settings ▸ Reminders does not show.
     pub fn is_prayer(&self) -> bool {
-        matches!(self, Self::Prayer { .. })
+        matches!(self, Self::Prayer { .. } | Self::PrayerBefore { .. })
+    }
+
+    /// Whether this is a reminder ahead of a prayer rather than the prayer.
+    pub fn is_pre_prayer(&self) -> bool {
+        matches!(self, Self::PrayerBefore { .. })
     }
 }
 
@@ -514,6 +524,61 @@ impl Store {
         Ok(changed)
     }
 
+    /// Keep one reminder `minutes` before each prayer in `enabled`, and none for
+    /// the others. A prayer already there keeps its row; one whose lead changed
+    /// is updated in place. Returns whether anything changed.
+    pub fn sync_pre_prayer_reminders(
+        &self,
+        enabled: &[&str],
+        minutes: u32,
+    ) -> Result<bool, ReminderError> {
+        let mut changed = false;
+        let mut present: Vec<String> = Vec::new();
+        for reminder in self.reminders()? {
+            let Trigger::PrayerBefore {
+                prayer,
+                minutes: have,
+            } = &reminder.draft.trigger
+            else {
+                continue;
+            };
+            if !enabled.contains(&prayer.as_str()) || present.contains(prayer) {
+                self.delete_reminder(reminder.id)?;
+                changed = true;
+                continue;
+            }
+            present.push(prayer.clone());
+            if *have != minutes {
+                let mut draft = reminder.draft.clone();
+                draft.trigger = Trigger::PrayerBefore {
+                    prayer: prayer.clone(),
+                    minutes,
+                };
+                self.update_reminder(reminder.id, &draft)?;
+                changed = true;
+            }
+        }
+        for prayer in enabled.iter().filter(|p| PRAYERS.contains(p)) {
+            if present.iter().any(|have| have == prayer) {
+                continue;
+            }
+            self.create_reminder(&ReminderDraft {
+                category_id: None,
+                title: String::new(),
+                body: None,
+                authored_lang: "en-US".to_owned(),
+                trigger: Trigger::PrayerBefore {
+                    prayer: (*prayer).to_owned(),
+                    minutes,
+                },
+                recurrence: None,
+            })?;
+            changed = true;
+        }
+        self.link_prayer_templates()?;
+        Ok(changed)
+    }
+
     /// Delete a reminder. Its snoozes go with it (`ON DELETE CASCADE`); its
     /// history rows stay, unlinked, until they age out. Returns whether it
     /// existed.
@@ -677,7 +742,7 @@ impl Store {
         self.conn.execute(
             "UPDATE reminder SET category_id = (SELECT c.id FROM category c WHERE c.prayer_key = \
              json_extract(reminder.trigger_json, '$.prayer')) \
-             WHERE trigger_type = 'prayer' AND category_id IS NOT \
+             WHERE trigger_type IN ('prayer', 'prayer_before') AND category_id IS NOT \
              (SELECT c.id FROM category c WHERE c.prayer_key = json_extract(reminder.trigger_json, '$.prayer'))",
             [],
         )?;

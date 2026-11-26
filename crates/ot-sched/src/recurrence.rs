@@ -52,7 +52,10 @@ pub fn next_fire(
         // Counted from the working day, not from a date: `crate::fatigue`.
         // The fatigue schedules count from the working day and a prayer's
         // times are given to the scheduler: neither is a date and a repeat.
-        Trigger::Every { .. } | Trigger::WorkHours { .. } | Trigger::Prayer { .. } => {
+        Trigger::Every { .. }
+        | Trigger::WorkHours { .. }
+        | Trigger::Prayer { .. }
+        | Trigger::PrayerBefore { .. } => {
             return None;
         }
     };
