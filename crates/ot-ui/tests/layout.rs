@@ -167,6 +167,13 @@ fn overflowing(width: f32, scale: f32) -> Vec<String> {
         None,
         Vec::new(),
     );
+    // Settings > Weather (FEAT-0070): everything on, the longest place and text.
+    let mut weather_settings = ot_core::WeatherSettings {
+        enabled: true,
+        rise_enabled: true,
+        ..ot_core::WeatherSettings::default()
+    };
+    let mut weather_state = ot_ui::weather_pane::State::for_layout_test(scratch.path());
     let pictures = vec![ot_ui::prayer_pane::PictureChoice {
         sha256: "abc".to_owned(),
         relative_path: "assets/long-label.png".to_owned(),
@@ -232,6 +239,13 @@ fn overflowing(width: f32, scale: f32) -> Vec<String> {
                 &pictures,
                 ot_ui::Tokens::DARK,
                 now,
+            );
+            let _ = ot_ui::weather_pane::show(
+                ui,
+                &mut weather_state,
+                &mut weather_settings,
+                &pictures,
+                ot_ui::Tokens::DARK,
             );
             let _ = ot_ui::prayer_pane::show(
                 ui,

@@ -169,6 +169,7 @@ pub fn prayer_before_spec(
 pub fn weather_spec(
     prefs: &ot_toast::Prefs,
     change: &ot_weather::detect::Change,
+    template: Option<&Template>,
     timestamp: Option<String>,
 ) -> ot_toast::ToastSpec {
     use ot_weather::detect::{Change, Direction};
@@ -210,11 +211,16 @@ pub fn weather_spec(
             )
         }
     };
+    // The user's own words and picture win, a temperature move has no template.
+    let own = |text: Option<&str>| non_empty(text).map(str::to_owned);
     let content = ot_toast::Content {
-        title,
-        body,
+        title: own(template.and_then(|t| t.custom_title.as_deref())).unwrap_or(title),
+        body: own(template.and_then(|t| t.custom_body.as_deref())).unwrap_or(body),
         app_name: ot_i18n::text("toast-app-name"),
-        image,
+        image: template.and_then(|t| t.image.clone()).or(image),
+        accent: template
+            .and_then(|t| t.accent_color.as_deref())
+            .and_then(parse_accent),
         timestamp,
         action_labels: action_labels(),
         ..ot_toast::Content::default()
@@ -622,35 +628,71 @@ mod tests {
             window: jiff::SignedDuration::from_hours(1),
         };
         in_language(Language::English);
-        let spec = weather_spec(&prefs, &rain, None);
+        let spec = weather_spec(&prefs, &rain, None, None);
         assert_eq!(spec.content.title, "Rain");
         assert_eq!(spec.content.body, "The weather changed from Clear to Rain.");
         let picture = spec.content.image.clone().expect("a picture");
         assert!(ot_store::builtin::find(&picture).is_some(), "{picture}");
         assert_eq!(spec.behaviour.actions, 1, "Dismiss only");
-        let cold = weather_spec(&prefs, &fall, None);
+        let cold = weather_spec(&prefs, &fall, None, None);
         assert_eq!(cold.content.title, "Temperature is falling");
         assert_eq!(
             cold.content.body,
             "It is 6 \u{b0}C colder than 3 hours ago, now 25 \u{b0}C."
         );
         assert_eq!(
-            weather_spec(&prefs, &one_hour, None).content.body,
+            weather_spec(&prefs, &one_hour, None, None).content.body,
             "It is 6 \u{b0}C colder than an hour ago, now 25 \u{b0}C.",
             "the singular"
         );
         in_language(Language::Malay);
-        let spec = weather_spec(&prefs, &rain, None);
+        let spec = weather_spec(&prefs, &rain, None, None);
         assert_eq!(spec.content.title, "Hujan");
         assert_eq!(
             spec.content.body,
             "Cuaca berubah daripada Cerah kepada Hujan."
         );
         assert_eq!(
-            weather_spec(&prefs, &fall, None).content.body,
+            weather_spec(&prefs, &fall, None, None).content.body,
             "Suhu 6 \u{b0}C lebih sejuk berbanding 3 jam lalu, kini 25 \u{b0}C."
         );
         in_language(Language::English);
+    }
+
+    #[test]
+    fn a_condition_template_overrides_the_text_picture_and_accent_and_empty_falls_back() {
+        use ot_weather::condition::Condition;
+        use ot_weather::detect::Change;
+        let _guard = LANGUAGE.lock().unwrap_or_else(|p| p.into_inner());
+        in_language(Language::English);
+        let prefs = ot_toast::Prefs::default();
+        let storm = Change::Condition {
+            from: Condition::Clear,
+            to: Condition::Storm,
+        };
+        let built_in = weather_spec(&prefs, &storm, None, None);
+        let own = Template {
+            weather_key: Some("storm".into()),
+            custom_title: Some("Lightning!".into()),
+            custom_body: Some("Bring the washing in".into()),
+            accent_color: Some("#112233".into()),
+            image: Some("assets/mine.png".into()),
+            ..Template::default()
+        };
+        let spec = weather_spec(&prefs, &storm, Some(&own), None);
+        assert_eq!(spec.content.title, "Lightning!");
+        assert_eq!(spec.content.body, "Bring the washing in");
+        assert_eq!(spec.content.image.as_deref(), Some("assets/mine.png"));
+        assert_eq!(
+            spec.content.accent,
+            Some(ot_toast::Rgba::new(0x11, 0x22, 0x33, 0xff))
+        );
+        // A blank template is the built-in.
+        let blank = Template {
+            custom_title: Some("  ".into()),
+            ..Template::default()
+        };
+        assert_eq!(weather_spec(&prefs, &storm, Some(&blank), None), built_in);
     }
 
     #[test]

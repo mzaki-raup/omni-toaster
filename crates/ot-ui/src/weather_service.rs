@@ -152,10 +152,23 @@ impl Engine {
         thresholds
     }
 
+    /// The template of the condition a change is to, if it is to one.
+    pub fn template_for(&self, change: &Change) -> Option<ot_store::reminders::Template> {
+        let Change::Condition { to, .. } = change else {
+            return None;
+        };
+        let name = to.name()?;
+        Store::open(&self.root)
+            .and_then(|store| store.template_for_weather(name))
+            .ok()
+            .flatten()
+    }
+
     /// One pass. Never panics and never blocks for longer than a fetch's own
     /// timeout; whatever fails is logged and the next pass carries on.
     pub fn run(&mut self, now: Timestamp) -> Report {
-        let settings = self.settings();
+        let mut settings = self.settings();
+        settings.weather = settings.weather.clamped();
         let idle = |next: SignedDuration| Report {
             next_run: now + next,
             changes: Vec::new(),
@@ -300,7 +313,9 @@ enum Msg {
 /// What the service tells the window.
 #[derive(Debug, Clone, PartialEq)]
 pub enum Note {
-    Change(Change),
+    /// A change, with the template of the condition it is to, if it is to one
+    /// (the store is read here, on the service's thread, not the window's).
+    Change(Change, Option<ot_store::reminders::Template>),
 }
 
 /// The thread, and the window's hold on it.
@@ -369,8 +384,9 @@ fn serve(mut engine: Engine, incoming: &Receiver<Msg>, notes: &SyncSender<Note>)
             next = report.next_run;
             due = false;
             for change in report.changes {
+                let template = engine.template_for(&change);
                 // A change must not be lost to a full channel without a word.
-                if notes.try_send(Note::Change(change)).is_err() {
+                if notes.try_send(Note::Change(change, template)).is_err() {
                     tracing::error!("a weather change was dropped: the window is not keeping up");
                 }
             }
@@ -764,6 +780,51 @@ mod tests {
         let report = rig.engine.run(at(T0));
         assert!(report.changes.is_empty() && report.snapshot.is_none());
         assert_eq!(store(&rig).weather().expect("reads"), None);
+    }
+
+    #[test]
+    fn the_template_of_the_condition_a_change_is_to_is_attached_and_a_temperature_move_has_none() {
+        let rig = rig();
+        store(&rig)
+            .set_weather_template(
+                "storm",
+                &ot_store::reminders::PrayerTemplateEdit {
+                    title: Some("Lightning!".into()),
+                    body: None,
+                    accent: None,
+                    image: None,
+                    authored_lang: "en-US",
+                    sound_mode: Some("chime".into()),
+                    sound: None,
+                },
+            )
+            .expect("saved");
+        let storm = Change::Condition {
+            from: Condition::Clear,
+            to: Condition::Storm,
+        };
+        let template = rig.engine.template_for(&storm).expect("storm has one");
+        assert_eq!(template.custom_title.as_deref(), Some("Lightning!"));
+        assert_eq!(template.sound_mode.as_deref(), Some("chime"));
+        let fog = Change::Condition {
+            from: Condition::Clear,
+            to: Condition::Fog,
+        };
+        assert_eq!(
+            rig.engine
+                .template_for(&fog)
+                .expect("fog has one")
+                .custom_title,
+            None
+        );
+        let fall = Change::Temperature {
+            direction: Direction::Fall,
+            delta_c: 6.0,
+            from_c: 31.0,
+            to_c: 25.0,
+            window: SignedDuration::from_hours(3),
+        };
+        assert_eq!(rig.engine.template_for(&fall), None);
     }
 
     #[test]

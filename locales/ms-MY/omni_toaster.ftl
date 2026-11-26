@@ -685,6 +685,8 @@ prayer-source-calculated-fallback = Dikira (sandaran)
 prayer-source-calculated-fallback-approximate = Dikira (sandaran, anggaran)
 # Nama bahagian Solat dalam senarai di sebelah kiri tetingkap tetapan.
 settings-section-prayer = Solat
+# Nama bahagian Cuaca dalam senarai di sebelah kiri tetingkap tetapan.
+settings-section-weather = Cuaca
 # Tajuk kumpulan lokasi dalam Tetapan > Solat.
 prayer-location-heading = Lokasi
 # Soalan dalam kad larian pertama yang bertanya sebelum aplikasi mencari tempat pengguna daripada alamat internetnya.
@@ -915,3 +917,43 @@ weather-toast-fall-body = Suhu { $degrees } °C lebih sejuk berbanding { $count 
 weather-toast-rise-title = Suhu sedang meningkat
 # Kandungan pemberitahuan itu. $degrees ialah bilangan darjah Celsius penuh ia naik, $now suhu sekarang, dan $count bilangan jam ia naik.
 weather-toast-rise-body = Suhu { $degrees } °C lebih panas berbanding { $count } jam lalu, kini { $now } °C.
+# Tajuk Tetapan > Cuaca.
+weather-heading = Pemberitahuan Cuaca
+# Kotak semak yang menghidupkan pemberitahuan cuaca. Dimatikan secara lalai.
+weather-enable = Beritahu saya apabila cuaca berubah
+# Petunjuk di bawah kotak semak itu: apa yang dihantar, dan bahawa apabila dimatikan tiada apa-apa dihantar.
+weather-enable-hint = Menghantar lokasi yang disimpan di bawah Solat, dibundarkan kepada kira-kira satu kilometer, kepada Open-Meteo. Apabila dimatikan, tiada apa-apa dihantar.
+# Label baris yang menamakan lokasi untuk cuaca.
+weather-place-label = Lokasi
+# Dipaparkan apabila belum ada lokasi disimpan.
+weather-place-none = Tiada lokasi ditetapkan. Tetapkan satu di bawah Solat.
+# Petunjuk di bawah lokasi.
+weather-place-hint = Cuaca menggunakan lokasi yang sama dengan waktu solat.
+# Label medan bilangan minit antara setiap semakan cuaca.
+weather-poll-label = Semak Setiap (Minit)
+# Petunjuk di bawah medan itu.
+weather-poll-hint = Perkhidmatan dikemas kini kira-kira setiap 15 minit, jadi bertanya lebih kerap tidak mengubah apa-apa.
+# Tajuk senarai jenis cuaca yang hendak diberitahu.
+weather-notify-heading = Beritahu Saya Apabila Menjadi
+# Petunjuk di bawah senarai itu.
+weather-notify-hint = Perubahan hanya diberitahu setelah cuaca baharu dilihat dua kali berturut-turut, jadi cuaca yang berubah-ubah tidak pernah memberitahu.
+# Tajuk tetapan perubahan suhu mendadak.
+weather-temperature-heading = Perubahan Suhu Mendadak
+# Kotak semak untuk memberitahu suhu jatuh dengan cepat.
+weather-fall-enable = Beritahu saya apabila suhu jatuh dengan cepat
+# Kotak semak untuk memberitahu suhu naik dengan cepat.
+weather-rise-enable = Beritahu saya apabila suhu naik dengan cepat
+# Label medan bilangan darjah Celsius yang mesti berubah.
+weather-delta-label = Sekurang-kurangnya (°C)
+# Label medan bilangan jam perubahan itu mesti berlaku dalamnya.
+weather-window-label = Dalam Masa (Jam)
+# Petunjuk di bawah tetapan suhu.
+weather-temperature-hint = Contohnya 5 °C dalam 3 jam. Ia diberitahu sekali, dan sekali lagi hanya selepas suhu stabil.
+# Tajuk templat cuaca.
+weather-template-heading = Templat Cuaca
+# Label senarai untuk memilih templat keadaan yang hendak disunting.
+weather-template-condition = Keadaan
+# Dinyatakan apabila tetapan cuaca atau templat tidak dapat dibaca atau disimpan. Puncanya ada dalam log.
+weather-error = Tetapan cuaca tidak dapat dibaca atau disimpan.
+# Baris kredit di bahagian bawah Tetapan > Cuaca. Data Open-Meteo dilesenkan CC BY 4.0, yang meminta kredit.
+weather-credit = Data cuaca oleh Open-Meteo.com, dilesenkan CC BY 4.0.

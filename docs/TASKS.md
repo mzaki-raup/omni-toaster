@@ -213,15 +213,15 @@ stale marker in both languages.
 - [x] Docs: spec · README · CHANGELOG · CHECKLIST · GOTCHAS — spec · CHANGELOG · CHECKLIST · GOTCHAS (BUG-0017); README: nothing user-visible until the pane
 
 ### FEAT-0070 · Settings ▸ Weather: the pane and the per-condition templates
-- **State:** Pending · **Spec:** docs/specs/weather.md §6 · §9 · docs/04-ui-design.md · docs/specs/toast.md §8 · **Phase:** 6
+- **State:** In-Progress · **Spec:** docs/specs/weather.md §6 · §9 · docs/04-ui-design.md · docs/specs/toast.md §8 · **Phase:** 6
 - **Branch:** feat/phase-6-weather
 - **Depends on:** FEAT-0066, FEAT-0069
-- [ ] The pane: enable, the place (shared with Prayer), the poll interval, which condition changes notify, the thresholds, and a template per condition (title, message, accent, picture, sound) with Use Default Text and Preview
-- [ ] Every string a Fluent key in both files; Malay laid out at its longest; empty, loading and error states that say something; the checkboxes on one middle line
-- [ ] Test: the layout test with the pane in the Malay and pseudo-locale, the templates saved and read back, the defaults
-- [ ] Gate: fmt · clippy -D warnings · test --workspace --locked -j 4 · deny check · --self-test
-- [ ] App: `--data-dir ./tmp-data` — both languages, all three themes, the narrow window, 100% and 200% scaling; change a template and fire it
-- [ ] Docs: spec · README · CHANGELOG · CHECKLIST · GOTCHAS
+- [x] The pane: enable, the place (shared with Prayer), the poll interval, which condition changes notify, the thresholds, and a template per condition (title, message, accent, picture, sound) with Use Default Text and Preview — `ot_ui::weather_pane`, the seventh section; templates are `category` rows (migration 008, the column from 003); sound is silent or the short chime, and the Prayer's Azan and own-clip import are not offered
+- [x] Every string a Fluent key in both files; Malay laid out at its longest; empty, loading and error states that say something; the checkboxes on one middle line — 21 new keys in both files; the generic template words reuse the Prayer's `prayer-template-*` and `prayer-sound-*`; the layout test now draws the pane with the longest Malay text and passes; the checkboxes use the shared one-middle-line row
+- [x] Test: the layout test with the pane in the Malay and pseudo-locale, the templates saved and read back, the defaults — the layout test, a store test (seeded, saved, cleared, trimmed), two pane tests (the threads read the place and a template; a save reaches the store), a toast test (a template wins, blank falls back), a service test (the template of the condition a change is to), the settings test with the thresholds brought into range
+- [x] Gate: fmt · clippy -D warnings · test --workspace --locked -j 4 · deny check · --self-test — fmt · clippy · tests · deny · self-test
+- [ ] App: `--data-dir ./tmp-data` — both languages, all three themes, the narrow window, 100% and 200% scaling; change a template and fire it. **Made (debug build, scratch folder, 1080p):** the pane in English and Malay, no clipping; the enable checkbox saved `[weather] enabled = true`; a typed title saved to the store with its language; the place shows. Found and fixed: the message hint read "from Clear to Clear". **Not made:** the toast Preview's pixels, a library picture and a colour chosen, the System theme, 150% and 200% scaling, the narrow window by eye (the layout test covers a narrow width), and the Weather pane in the Light theme. Left open for these
+- [x] Docs: spec · README · CHANGELOG · CHECKLIST · GOTCHAS — spec · README and README.ms (the stale "next phases" sentence is corrected) · CHANGELOG · CHECKLIST; screenshots wait for the phase's finish; GOTCHAS: nothing new
 
 ### FEAT-0071 · The offline stale marker
 - **State:** Pending · **Spec:** docs/specs/weather.md §7 · docs/10-i18n.md · **Phase:** 6

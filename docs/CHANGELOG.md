@@ -13,6 +13,8 @@ Format: [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) · Versioning:
 
 ### Added
 
+- Settings ▸ Weather: turn weather notifications on, see the place they use, choose how often to check, which kinds of weather to be told about and how big a sudden temperature fall or rise must be, and write your own title, message, accent colour, picture and sound for each condition, with Use Default Text and a preview. Weather data is credited to Open-Meteo on the pane (FEAT-0070).
+
 - Weather: with `enabled = true` under `[weather]` in the settings file (the Weather pane comes next), the app polls Open-Meteo for your saved place, keeps the last answer so it survives a restart and an offline spell, and shows a toast when the weather changes or the temperature falls quickly. It is off by default, and off means no request is sent (FEAT-0069).
 
 - Weather change detection: a change of weather is reported once, only after two separate readings agree, so weather that flickers between two kinds never notifies; a temperature drop (or rise) beyond a set amount within a window is reported once per spell; the first reading after start and anything from the cache never notify. Nothing in the app uses it yet (FEAT-0068).

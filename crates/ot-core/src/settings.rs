@@ -76,6 +76,12 @@ pub struct WeatherSettings {
 /// change in 15-minute steps, so faster buys nothing (ADR-023).
 pub const WEATHER_POLL_MINUTES: std::ops::RangeInclusive<u32> = 15..=240;
 
+/// How big a sudden temperature move may be asked for, in whole °C.
+pub const WEATHER_DELTA_C: std::ops::RangeInclusive<u32> = 1..=30;
+
+/// Over how many hours: the request asks the service for six past hours.
+pub const WEATHER_WINDOW_HOURS: std::ops::RangeInclusive<u32> = 1..=6;
+
 /// The six classes, by the name the settings file and the service use.
 pub const WEATHER_CLASSES: [&str; 6] = ["clear", "cloudy", "rain", "storm", "snow", "fog"];
 
@@ -101,6 +107,22 @@ impl WeatherSettings {
     pub fn poll_minutes(&self) -> u32 {
         self.poll_minutes
             .clamp(*WEATHER_POLL_MINUTES.start(), *WEATHER_POLL_MINUTES.end())
+    }
+
+    /// The thresholds brought into range, so a hand-edited file cannot ask for
+    /// a window the service's history does not cover.
+    pub fn clamped(&self) -> Self {
+        let delta = |value: u32| value.clamp(*WEATHER_DELTA_C.start(), *WEATHER_DELTA_C.end());
+        let window =
+            |value: u32| value.clamp(*WEATHER_WINDOW_HOURS.start(), *WEATHER_WINDOW_HOURS.end());
+        Self {
+            poll_minutes: self.poll_minutes(),
+            fall_delta_c: delta(self.fall_delta_c),
+            fall_window_hours: window(self.fall_window_hours),
+            rise_delta_c: delta(self.rise_delta_c),
+            rise_window_hours: window(self.rise_window_hours),
+            ..self.clone()
+        }
     }
 
     /// Whether a change to the class named `class` is one to tell about.
@@ -481,6 +503,19 @@ mod tests {
             "five minutes is brought up to the minimum"
         );
         assert!(loaded.notifies("rain") && !loaded.notifies("snow"));
+        let mut wild = loaded.clone();
+        wild.fall_delta_c = 0;
+        wild.fall_window_hours = 99;
+        wild.rise_delta_c = 500;
+        let tamed = wild.clamped();
+        assert_eq!(
+            (
+                tamed.fall_delta_c,
+                tamed.fall_window_hours,
+                tamed.rise_delta_c
+            ),
+            (1, 6, 30)
+        );
         let mut slow = loaded.clone();
         slow.poll_minutes = 100_000;
         assert_eq!(slow.poll_minutes(), 240);

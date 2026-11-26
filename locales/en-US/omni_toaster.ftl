@@ -705,6 +705,8 @@ prayer-source-calculated-fallback = Calculated (fallback)
 prayer-source-calculated-fallback-approximate = Calculated (fallback, approximate)
 # The name of the Prayer section in the settings window's left-hand list.
 settings-section-prayer = Prayer
+# The name of the Weather section in the settings window's left-hand list.
+settings-section-weather = Weather
 # The heading of the location group in Settings > Prayer.
 prayer-location-heading = Location
 # The question in the first-run card that asks before the app looks up the user's place from their internet address.
@@ -944,3 +946,43 @@ weather-toast-rise-body = { $count ->
     [one] It is { $degrees } °C warmer than an hour ago, now { $now } °C.
    *[other] It is { $degrees } °C warmer than { $count } hours ago, now { $now } °C.
 }
+# The heading of Settings > Weather.
+weather-heading = Weather Notifications
+# The checkbox that turns weather notifications on. Off by default.
+weather-enable = Notify me when the weather changes
+# The hint under that checkbox: what is sent, and that off sends nothing.
+weather-enable-hint = Sends the place saved under Prayer, rounded to about a kilometre, to Open-Meteo. Turned off, nothing is sent.
+# The label of the row that names the place the weather is for.
+weather-place-label = Place
+# Shown when no place has been saved yet.
+weather-place-none = No place is set. Set one under Prayer.
+# The hint under the place.
+weather-place-hint = The weather uses the same place as the prayer times.
+# The label of the field for how many minutes pass between looks at the weather.
+weather-poll-label = Check Every (Minutes)
+# The hint under that field.
+weather-poll-hint = The service updates about every 15 minutes, so asking more often changes nothing.
+# The heading of the list of kinds of weather to be told about.
+weather-notify-heading = Tell Me When It Becomes
+# The hint under that list.
+weather-notify-hint = A change is told only once the new weather has been seen twice in a row, so weather that flickers never notifies.
+# The heading of the sudden temperature change settings.
+weather-temperature-heading = Sudden Temperature Changes
+# The checkbox for telling about a quick fall in temperature.
+weather-fall-enable = Tell me when the temperature falls quickly
+# The checkbox for telling about a quick rise in temperature.
+weather-rise-enable = Tell me when the temperature rises quickly
+# The label of the field for how many degrees Celsius the temperature must move.
+weather-delta-label = By at Least (°C)
+# The label of the field for the number of hours the move must happen within.
+weather-window-label = Within (Hours)
+# The hint under the temperature settings.
+weather-temperature-hint = For example 5 °C in 3 hours. It is told once, and again only after the temperature has settled.
+# The heading of the weather templates.
+weather-template-heading = Weather Templates
+# The label of the list for choosing which condition's template to edit.
+weather-template-condition = Condition
+# Said when the weather settings or a template could not be read or saved. The cause is in the log.
+weather-error = The weather settings could not be read or saved.
+# The credit line at the bottom of Settings > Weather. Open-Meteo's data is licensed CC BY 4.0, which asks for credit.
+weather-credit = Weather data by Open-Meteo.com, licensed CC BY 4.0.

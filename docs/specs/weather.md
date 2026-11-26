@@ -172,5 +172,21 @@ cargo run -p omnitoaster -- --data-dir ./tmp-data
   reads a sky that is clear once and then that code, every five seconds, with no
   setting, place or cache, so the toast can be watched without waiting for the
   weather. Not in a release.
+- **Settings ▸ Weather (FEAT-0070).** `ot_ui::weather_pane`: the switch (with what
+  it sends), the saved place read-only (it is set under Prayer), the poll interval,
+  a checkbox for each class a change **to** is told about, the two temperature
+  thresholds (a fall and a rise, each by 1 to 30 whole °C within 1 to 6 hours), and a
+  template for each condition. The settings are `[weather]` in `settings.toml`, brought
+  into range when read. A template is a `category` row with a `weather_key`
+  (migration 008 seeds the six; the column dates from migration 003): a title,
+  message, accent colour and picture, each empty meaning the built-in, and a sound
+  that is **silent by default** (a change of weather is not an Azan) or the short
+  chime — the Azan and a clip of the user's own are the Prayer's. Use Default Text
+  clears the words; Preview Toast shows what a change to that condition would, from
+  the same `weather_spec` the real one uses. A template applies to a change **to**
+  its condition; a temperature move has none and says its built-in text. The pane
+  reads and writes the store on short-lived threads, drained each frame, and credits
+  Open-Meteo at the bottom (CC BY 4.0). The generic words of the template editor are
+  the Prayer's keys (`prayer-template-*`, `prayer-sound-*`).
 - **A licence point the owner must settle** (ADR-023): the free API is
   non-commercial and wants attribution.
