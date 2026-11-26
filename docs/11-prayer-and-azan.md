@@ -175,8 +175,9 @@ Schema: `jakim_prayer_cache` in
 `"api"` or `"bundled"`.
 
 The fetch runs on a worker thread with blocking `ureq`
-([ADR-002](08-decisions.md), [ADR-019](08-decisions.md)) and is cancellable —
-cancel must actually stop the work, not merely hide it.
+([ADR-002](08-decisions.md), [ADR-019](08-decisions.md)) and is cancellable.
+Blocking `ureq` cannot interrupt a read in progress, so cancel stops the work
+as far as that allows and bounds the rest (below).
 
 As built (FEAT-0052), in `ot_prayer::fetch`:
 

@@ -637,7 +637,7 @@ itself, because e-Solat's 500 says JSON and sends HTML), and a body limit of
 `jakim::MAX_BODY` applied as the body is read. Gzip stays off: the answers are
 small.
 
-**Why Windows TLS.** The owner chose it on 2026-11-26. There is no second
+**Why Windows TLS.** The owner chose it when FEAT-0052 began. There is no second
 crypto library in the exe, no C or assembly build step for one (`ring`,
 `aws-lc`), and certificates are checked against the store Windows keeps up to
 date and the user's organisation may extend, rather than a root list frozen into

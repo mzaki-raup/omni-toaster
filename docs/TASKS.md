@@ -177,9 +177,9 @@ disabled; prayer labels match the reference table in both languages.
 - [x] `tests/fixtures/jakim_sample.json` built from the spike's captures, plus the malformed cases — four good days and eight broken ones, one per rule
 - [x] Test: the three zones' fixtures parse to the expected times; `Ogos` and `Dis` dates; a missing field, a malformed time and an unknown extra field; `NO_RECORD!`; the HTML body with a JSON content type; the size cap; times read as UTC+8 with the PC in another zone — 9 tests in `jakim.rs`; the UTC+8 test checks the instant against UTC, so the PC's zone cannot enter it, but the PC's zone was not actually changed (a system setting)
 - [x] Gate: fmt · clippy -D warnings · test --workspace --locked -j 4 · deny check · --self-test — 371 passed
-- [ ] App: `--data-dir ./tmp-data` — not applicable on its own — exercised through the fetch (FEAT-0052) in the app
+- [ ] App: `--data-dir ./tmp-data` — not applicable on its own — exercised through the fetch running in the app (FEAT-0058)
 - [x] Docs: spec · README · CHANGELOG · CHECKLIST · GOTCHAS — README unchanged (nothing visible yet); no new gotcha
-- **Notes:** This item carries the exit criterion "the parser passes the fixtures for three zones" — met. Spec addition in this commit: a day whose times are out of order is set aside, as is an impossible date. In-Progress until FEAT-0052's app check.
+- **Notes:** This item carries the exit criterion "the parser passes the fixtures for three zones" — met. Spec addition in this commit: a day whose times are out of order is set aside, as is an impossible date. In-Progress until the fetch runs in the app (FEAT-0058).
 
 ### FEAT-0052 · The JAKIM client
 - **State:** In-Progress · **Spec:** docs/11-prayer-and-azan.md §4 · ADR-002 · ADR-018 · ADR-019 · **Phase:** 5
@@ -191,9 +191,9 @@ disabled; prayer labels match the reference table in both languages.
 - [x] Cancellable: closing Settings mid-fetch stops the work, not only its result — bounded, not instant: stopped before it sends and its result dropped before delivery, the 10 s timeout bounding the rest, and the worker has no path to the cache (ADR-019, spec §4)
 - [x] Test: the request built from a zone and a date range; the backoff sequence; cancel stopping a fetch; the year-end range; a live fetch for three zones, not run when e-Solat is unreachable — 12 tests in `fetch.rs` against a local server (request, user-agent, 500, HTML, `NO_RECORD!`, wrong zone, closed port, size cap, plain HTTP refused, cancel before and in flight); the live test is `#[ignore]` and passed for SGR01, WLY01 and JHR01 in 0.46 s with `-- --ignored`
 - [x] Gate: fmt · clippy -D warnings · test --workspace --locked -j 4 · deny check · --self-test — `deny` needed `cargo update -p url` (RUSTSEC-2026-0592, not reached; same bump as BUG-0014 on `main`)
-- [ ] App: `--data-dir ./tmp-data` — choose a zone and see times arrive, and the log's fetch line; with the network off, see the retry schedule in the log — not made: nothing in the app calls the client yet. There is no zone setting (FEAT-0057) and no scheduler hook (FEAT-0059), and a debug flag only for this check was not added. The live test above exercised the real service over the real TLS stack, not the app
+- [ ] App: `--data-dir ./tmp-data` — choose a zone and see times arrive, and the log's fetch line; with the network off, see the retry schedule in the log — not made: nothing in the app calls the client yet. There is no zone setting (FEAT-0057) and no fetch loop yet, and a debug flag only for this check was not added. The check moves to FEAT-0058, which now carries it. The live test above exercised the real service over the real TLS stack, not the app
 - [x] Docs: spec · README · CHANGELOG · CHECKLIST · GOTCHAS — ADR-019 written; README unchanged (nothing visible yet); three GOTCHAS entries under "Weather and HTTP"; `deny.toml`'s `openssl-sys` reason reworded
-- **Notes:** The live test is `#[ignore = "needs e-Solat"]`, run explicitly, so an unreachable e-Solat is a failure you chose to run, never a silent pass. A Linux build of the workspace is not supported by ADR-019: `native-tls` would pull in `openssl-sys` there, and `deny` and CI check only Windows. In-Progress until the App box is made through FEAT-0059.
+- **Notes:** The live test is `#[ignore = "needs e-Solat"]`, run explicitly, so an unreachable e-Solat is a failure you chose to run, never a silent pass. A Linux build of the workspace is not supported by ADR-019: `native-tls` would pull in `openssl-sys` there, and `deny` and CI check only Windows. In-Progress until FEAT-0058 makes the App check.
 ### FEAT-0053 · The prayer cache and migration 004
 - **State:** Pending · **Spec:** docs/11-prayer-and-azan.md §4 · docs/05-data-model-and-storage.md · **Phase:** 5
 - **Branch:** feat/phase-5-prayer
@@ -252,13 +252,14 @@ disabled; prayer labels match the reference table in both languages.
 - **State:** Pending · **Spec:** docs/11-prayer-and-azan.md §9 · docs/specs/reminders.md §6 · §8 · **Phase:** 5
 - **Branch:** feat/phase-5-prayer
 - **Depends on:** FEAT-0055
+- [ ] The fetch loop (FEAT-0052's client): a worker runs `ot_prayer::fetch` weekly, on a zone change and when the cache lacks today, and waits as `next_after_success` and `next_after_failure` say — 1, 5 and 15 minutes, then the next check, daily across the year's end — with no polling loop and a cancel when Settings closes; each attempt's outcome is logged
 - [ ] Each day's times become fires, converted from `Asia/Kuala_Lumpur` whatever the PC's zone; rebuilt at midnight, after a fetch, a zone or a location change
 - [ ] Azan before Alarm before everything else; never suppressed by a pause (tray-and-settings §4) or quiet hours; persistent up to the 10-minute cap
 - [ ] The 1-hour catch-up window for a missed Azan, configurable — the part of FEAT-0045 that waited for Azan
 - [ ] Five prayers, plus Syuruk and Jumu'ah optional; Imsak and Dhuha hidden until enabled
 - [ ] Test: fires at the fetched times with the PC in another zone; the rebuild triggers; Azan first in the queue; a pause not suppressing it; a missed Azan inside and outside the hour
 - [ ] Gate: fmt · clippy -D warnings · test --workspace --locked -j 4 · deny check · --self-test
-- [ ] App: `--data-dir ./tmp-data` — with a zone chosen, see the next prayer fire on time (or a near time from a planted day), during a pause too
+- [ ] App: `--data-dir ./tmp-data` — with a zone chosen, see the day's times arrive and the log's fetch line, the next prayer fire on time (or a near time from a planted day), during a pause too; with the network off, see the retry schedule (1, 5, 15 minutes) in the log — the check FEAT-0051 and FEAT-0052 are waiting on
 - [ ] Docs: spec · README · CHANGELOG · CHECKLIST · GOTCHAS
 - **Notes:** Closing this also closes FEAT-0045's open box.
 ### FEAT-0059 · Per-prayer templates and their toasts
