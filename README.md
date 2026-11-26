@@ -296,8 +296,19 @@ below:
 
 ![Settings ▸ Reminders with a weekly reminder open in the editor](docs/screenshots/settings-reminders.png)
 
-In Bahasa Melayu: [settings-reminders-ms.png](docs/screenshots/settings-reminders-ms.png). The rest
-are **not captured yet** — the screens do not exist. The places are reserved
+In Bahasa Melayu: [settings-reminders-ms.png](docs/screenshots/settings-reminders-ms.png).
+
+Settings ▸ Prayer: the place, the source and zone, the notifications (with the
+reminder ahead of each prayer), a template for each prayer, and today's times
+with where they came from:
+
+![Settings ▸ Prayer with a place set by hand, the detected zone and today's JAKIM times](docs/screenshots/settings-prayer.png)
+
+In Bahasa Melayu, with no network and nothing cached, so the times are
+calculated and the label says so:
+[settings-prayer-ms.png](docs/screenshots/settings-prayer-ms.png).
+
+The rest are **not captured yet** — the screens do not exist. The places are reserved
 and the capture procedure is written down in
 [docs/screenshots/README.md](docs/screenshots/README.md); each image below is
 taken as its phase lands:
@@ -305,7 +316,6 @@ taken as its phase lands:
 | Image | Shows | Lands in |
 |---|---|---|
 | `docs/screenshots/tray-menu.png` | The tray icon and its menu | Phase 1 |
-| `docs/screenshots/settings-prayer.png` | Settings → Prayer, zone confirmation and source label | Phase 5 |
 | `docs/screenshots/flow-reminder.gif` | Creating a reminder and seeing it fire | Phase 4 |
 
 Each screenshot is taken in both English and Malay before Phase 9 ships.

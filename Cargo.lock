@@ -2784,6 +2784,7 @@ dependencies = [
  "jiff",
  "ot-core",
  "ot-i18n",
+ "ot-media",
  "ot-platform",
  "ot-prayer",
  "ot-sched",

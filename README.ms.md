@@ -322,8 +322,19 @@ bawahnya:
 
 ![Tetapan ▸ Peringatan dengan peringatan mingguan terbuka dalam penyunting](docs/screenshots/settings-reminders.png)
 
-Dalam bahasa Melayu: [settings-reminders-ms.png](docs/screenshots/settings-reminders-ms.png). Yang
-selebihnya **belum ditangkap** — skrinnya belum wujud. Tempatnya telah dikhaskan
+Dalam bahasa Melayu: [settings-reminders-ms.png](docs/screenshots/settings-reminders-ms.png).
+
+Tetapan ▸ Solat: lokasi, sumber dan zon, pemberitahuan (dengan peringatan
+sebelum setiap solat), templat bagi setiap solat, serta waktu hari ini dengan
+sumbernya:
+
+![Tetapan ▸ Solat dengan lokasi yang ditetapkan sendiri, zon yang dikesan dan waktu JAKIM hari ini](docs/screenshots/settings-prayer.png)
+
+Dalam bahasa Melayu, tanpa rangkaian dan tanpa cache, jadi waktunya dikira dan
+labelnya menyatakan demikian:
+[settings-prayer-ms.png](docs/screenshots/settings-prayer-ms.png).
+
+Yang selebihnya **belum ditangkap** — skrinnya belum wujud. Tempatnya telah dikhaskan
 dan prosedur tangkapannya ditulis dalam
 [docs/screenshots/README.md](docs/screenshots/README.md); setiap imej di bawah
 diambil apabila fasanya siap:
@@ -331,7 +342,6 @@ diambil apabila fasanya siap:
 | Imej | Menunjukkan | Dalam fasa |
 |---|---|---|
 | `docs/screenshots/tray-menu.png` | Ikon dulang dan menunya | Fasa 1 |
-| `docs/screenshots/settings-prayer.png` | Tetapan → Solat, pengesahan zon dan label sumber | Fasa 5 |
 | `docs/screenshots/flow-reminder.gif` | Mencipta peringatan dan melihatnya dipaparkan | Fasa 4 |
 
 Setiap tangkapan skrin diambil dalam bahasa Inggeris dan bahasa Melayu sebelum

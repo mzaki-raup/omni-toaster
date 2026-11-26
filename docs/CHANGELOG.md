@@ -23,6 +23,8 @@ Format: [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) · Versioning:
 
 - The user's location: an IP lookup that asks first — nothing is sent until the user agrees, the answer is looked up again at most once a day, and the IP address in it is dropped — plus city search and typed coordinates, every place rounded to about a kilometre, and the saved place kept in the database so one chosen by hand is never overwritten by a detection. The services are ipapi.co and Open-Meteo's geocoding (ADR-021) (FEAT-0056).
 
+- Screenshots of Settings > Prayer in English (times fetched live) and Bahasa Melayu (offline, so calculated) are in the README and the Malay README (Phase 5).
+
 - Prayer times: a reference table of Selangor, Kuala Lumpur and Johor times for five November dates, read by hand from the official e-Solat page, is now checked against what the app reads — from the captured responses on every test run, and from the live service when asked (FEAT-0063).
 
 - Prayer names: Settings and the notifications name each prayer in the active language with the other language's name in brackets — "Subuh (Fajr)", "Zohor (Dhuhr)", "Asar (Asr)", "Isyak (Isha)", "Syuruk (Sunrise)" — and a test checks every label against the reference table in the i18n document, in both languages (FEAT-0062).
