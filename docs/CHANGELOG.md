@@ -7,13 +7,17 @@ Format: [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) · Versioning:
 
 ## Unreleased
 
+- (nothing yet)
+
+## 0.12.1 — 2026-11-26
+
 ### Fixed
 
-- The release exe opened a console window behind the tray icon for as long as it ran: it is now a Windows GUI program, so no console appears. `--help`, `--version` and `--self-test` still print in a terminal, and a startup failure — a data folder that cannot be written, a copy already running — now shows in a message box instead of vanishing with the console. A debug build keeps its console (BUG-0013).
+- No console window behind a release exe (557be578)
 
 ### Security
 
-- `url` 2.5.8 → 2.5.9, which fixes RUSTSEC-2026-0592 (a stack overflow in `Url::origin()` on nested `blob:` URLs). The app does not reach it: `url` arrives only through `webbrowser`, and nothing here calls `origin()` (BUG-0014).
+- Url 2.5.9, which fixes RUSTSEC-2026-0592 (5a4354af)
 
 ## 0.12.0 — 2026-11-20
 
