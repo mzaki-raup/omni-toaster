@@ -126,10 +126,98 @@ Refs: BUG-0003
 
 ```
 Version : v0.5.1
-Features : FEAT-0065
+Features : FEAT-0072
 Bugs : BUG-0017
 Change Request : CR-0008
 ```
+
+---
+
+## v0.6.0 — Pending
+
+Phase 6, Weather, on `feat/phase-6-weather` (`docs/07-roadmap.md`,
+`docs/specs/weather.md`). Like Phase 5, it starts by looking at the service:
+Open-Meteo is verified before anything is built on its shape. The exit criteria:
+a condition change triggers a toast in simulation, and offline mode shows the
+stale marker in both languages.
+
+### FEAT-0065 · The Open-Meteo verification spike and its client
+- **State:** Pending · **Spec:** docs/specs/weather.md §3 · ADR-009 · ADR-011 · **Phase:** 6
+- **Branch:** feat/phase-6-weather
+- [ ] The request and the response verified live for a few places and the fields the app needs (current weather code, temperature, the hourly series for a threshold), the raw responses kept as fixtures with a note of how each was captured
+- [ ] Recorded as an ADR, and `docs/specs/weather.md` §3 and §12 updated to the verified shape
+- [ ] `ot-weather`: one blocking `ureq` attempt on a worker thread, HTTPS only, ten-second timeout, a response size cap, coordinates rounded before they are sent, cancellable, never a panic on a truncated, empty or malformed body
+- [ ] Test: the parser against the fixtures and against broken bodies; the rounding; cancel stops the work; a live fetch, not run when Open-Meteo is unreachable
+- [ ] Gate: fmt · clippy -D warnings · test --workspace --locked -j 4 · deny check · --self-test
+- [ ] App: `--data-dir ./tmp-data` — not applicable on its own — exercised through the service (FEAT-0069)
+- [ ] Docs: spec · README · CHANGELOG · CHECKLIST · GOTCHAS
+
+### FEAT-0066 · Weather codes, condition classes and their Fluent keys
+- **State:** Pending · **Spec:** docs/specs/weather.md §4 · §5 · docs/10-i18n.md · **Phase:** 6
+- **Branch:** feat/phase-6-weather
+- **Depends on:** FEAT-0065
+- [ ] Every documented Open-Meteo code maps to one of the six classes: clear · cloudy · rain · storm · snow · fog; an unknown code maps to the generic class and is logged
+- [ ] A Fluent key for each class and the generic one under `weather-`, in both files, with the name in both languages; no API text is ever displayed
+- [ ] Test: every documented code maps; an unknown one maps to the generic class and logs; the keys exist in both locale files
+- [ ] Gate: fmt · clippy -D warnings · test --workspace --locked -j 4 · deny check · --self-test
+- [ ] App: `--data-dir ./tmp-data` — the names appear in the Weather pane (FEAT-0070), in both languages
+- [ ] Docs: spec · README · CHANGELOG · CHECKLIST · GOTCHAS
+
+### FEAT-0067 · The weather cache and migration 008
+- **State:** Pending · **Spec:** docs/specs/weather.md §7 · §8 · docs/05-data-model-and-storage.md · **Phase:** 6
+- **Branch:** feat/phase-6-weather
+- **Depends on:** FEAT-0065
+- [ ] Migration 008: `weather_cache (location_id, fetched_at, payload_json)`; the store writes and reads the last response and says how old it is
+- [ ] A TTL after which cached data counts as stale; deleting the cache costs a refetch, never correctness
+- [ ] Test: a round trip, a TTL expiry, migrations on a fresh and an existing database, the file landing where it should
+- [ ] Gate: fmt · clippy -D warnings · test --workspace --locked -j 4 · deny check · --self-test
+- [ ] App: `--data-dir ./tmp-data` — the cached weather survives a restart with the network off (FEAT-0069)
+- [ ] Docs: spec · README · CHANGELOG · CHECKLIST · GOTCHAS
+
+### FEAT-0068 · Change detection: condition changes and temperature thresholds
+- **State:** Pending · **Spec:** docs/specs/weather.md §4 · §12 · **Phase:** 6
+- **Branch:** feat/phase-6-weather
+- **Depends on:** FEAT-0066
+- [ ] A class change fires once, and only when it persists across two consecutive polls; the last notified class is what is compared against, not the last observed
+- [ ] A temperature move beyond a set delta in a window — a drop of 5 °C within 3 hours, by default — fires at the boundary and not inside it
+- [ ] Stale data never produces a change; a change is only ever derived from a fresh response
+- [ ] Test: one toast for a change, none for flapping between two classes, the threshold at and just inside its boundary, stale data silent. Open question 1 (two polls or a time-in-class) answered or left, and said so
+- [ ] Gate: fmt · clippy -D warnings · test --workspace --locked -j 4 · deny check · --self-test
+- [ ] App: `--data-dir ./tmp-data` — a simulated change produces exactly one toast (FEAT-0069)
+- [ ] Docs: spec · README · CHANGELOG · CHECKLIST · GOTCHAS
+
+### FEAT-0069 · The weather service: polling, the toast and the simulation
+- **State:** Pending · **Spec:** docs/specs/weather.md §3 · §4 · §7 · docs/03-architecture.md · **Phase:** 6
+- **Branch:** feat/phase-6-weather
+- **Depends on:** FEAT-0065, FEAT-0067, FEAT-0068
+- [ ] A worker thread polls every 30 minutes (configurable, 15 at least), with the retry backoff, no tighter loop; weather off stops all outbound requests; cancel really stops it
+- [ ] A change becomes a toast built from a `ToastSpec` by the one function the preview uses, with the condition's template (FEAT-0070) or the built-in text
+- [ ] A way to simulate a condition change without waiting for the weather (a developer-only argument or setting), because that is the exit criterion
+- [ ] Test: the service against a stubbed fetch — a change fires once, stale and failed fetches fire nothing and keep the last data, weather off makes no request
+- [ ] Gate: fmt · clippy -D warnings · test --workspace --locked -j 4 · deny check · --self-test
+- [ ] App: `--data-dir ./tmp-data` — simulate a condition change and watch the toast appear; turn the network off and see it keep the last data and not notify
+- [ ] Docs: spec · README · CHANGELOG · CHECKLIST · GOTCHAS
+
+### FEAT-0070 · Settings ▸ Weather: the pane and the per-condition templates
+- **State:** Pending · **Spec:** docs/specs/weather.md §6 · §9 · docs/04-ui-design.md · docs/specs/toast.md §8 · **Phase:** 6
+- **Branch:** feat/phase-6-weather
+- **Depends on:** FEAT-0066, FEAT-0069
+- [ ] The pane: enable, the place (shared with Prayer), the poll interval, which condition changes notify, the thresholds, and a template per condition (title, message, accent, picture, sound) with Use Default Text and Preview
+- [ ] Every string a Fluent key in both files; Malay laid out at its longest; empty, loading and error states that say something; the checkboxes on one middle line
+- [ ] Test: the layout test with the pane in the Malay and pseudo-locale, the templates saved and read back, the defaults
+- [ ] Gate: fmt · clippy -D warnings · test --workspace --locked -j 4 · deny check · --self-test
+- [ ] App: `--data-dir ./tmp-data` — both languages, all three themes, the narrow window, 100% and 200% scaling; change a template and fire it
+- [ ] Docs: spec · README · CHANGELOG · CHECKLIST · GOTCHAS
+
+### FEAT-0071 · The offline stale marker
+- **State:** Pending · **Spec:** docs/specs/weather.md §7 · docs/10-i18n.md · **Phase:** 6
+- **Branch:** feat/phase-6-weather
+- **Depends on:** FEAT-0067, FEAT-0070
+- [ ] Offline, the cached data is shown marked stale, with how old it is, in both languages; fresh data carries no marker
+- [ ] Test: the stale message in both catalogues with its age; stale data does not notify
+- [ ] Gate: fmt · clippy -D warnings · test --workspace --locked -j 4 · deny check · --self-test
+- [ ] App: `--data-dir ./tmp-data` — disconnect the network and see the marker in English and Malay — Phase 6's second exit criterion
+- [ ] Docs: spec · README · CHANGELOG · CHECKLIST · GOTCHAS
 
 ---
 
