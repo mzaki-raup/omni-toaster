@@ -127,7 +127,7 @@ Refs: BUG-0003
 ```
 Version : v0.5.1
 Features : FEAT-0064
-Bugs : BUG-0016
+Bugs : BUG-0017
 Change Request : CR-0008
 ```
 
@@ -342,6 +342,19 @@ disabled; prayer labels match the reference table in both languages.
 - [x] App: Prayer pane, English, with Sunrise and Asr ticked
 - [x] Docs: CHANGELOG · TASKS
 - **Notes:** A multi-line Malay label centres the box on its first line only. Not checked: Malay and 150% scaling after the fix.
+
+### BUG-0016 · `the_worker_is_not_blocked_by_the_supervisor` fails now and then
+- **State:** Completed · **Spec:** docs/specs/supervisor.md §3
+- **Branch:** fix/bug-0016-single-instance-flake
+- **Source:** the release workflow for the Phase 5 merge failed its Tests step on this test (`got Err(AlreadyRunning)`), though the same code had passed CI on the branch
+- **Verified:** 3 failed runs in 60 of `cargo test -p ot-platform --lib single_instance` before; 0 in 100 after
+- [x] Establish the cause: two tests claim the supervisor's name at the same moment on different test threads, and the claim is process-wide, so one's claim lands inside the other's. Not a defect of the claim itself
+- [x] Test: the existing tests, repeated until it fails (3 in 60), then until it does not (0 in 100)
+- [x] Fix: the two tests that claim a role take one lock first (test code only)
+- [x] Gate: fmt · clippy -D warnings · test --workspace --locked -j 4 · deny check · --self-test
+- [x] App: not applicable — test code only
+- [x] Docs: CHANGELOG · GOTCHAS · TASKS
+- **Notes:** The Phase 5 merge's release (ef29e58) failed on this and published nothing; the next push to `main` releases it.
 
 ## v0.4.1 — In-Progress
 

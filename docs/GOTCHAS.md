@@ -187,6 +187,7 @@ have.
 - **A clip is checked by decoding all of it, not by its header.** A WAV header can claim any length, and an MP3 with no length at all has none to read, so the bounded decode counts every sample up to ten minutes and refuses what goes past; the 602-second test clip is 9.6 MB and passes the size rule (FEAT-0060).
 
 ## Tray, Startup and Supervisor
+- **Tests that claim a process-wide name must take turns.** `InstanceGuard::acquire` is a name for the whole process, and `cargo test` runs tests on threads, so two tests that both claim `Role::Supervisor` collide about one run in twenty: one gets `AlreadyRunning` from the other's claim. It passed on the branch and failed in the release workflow on the merge (BUG-0016). Serialise the tests that claim a role; do not retry the run.
 Nothing recorded yet.
 - **Broadcast messages never reach a message-only window.** `WM_TIMECHANGE` and `WM_POWERBROADCAST` are sent to top-level windows, and an `HWND_MESSAGE` window is not one, so a watcher built that way waits for ever without an error. `ot_platform::system_events` creates a hidden, zero-sized `WS_POPUP` top-level window on its own thread instead. Its test posts the messages to that window, which proves the dispatch but not the broadcast; the broadcast itself is the owner's check.
 - **The daily log is `logs/app.<date>`, with no extension.** A script that filtered for `*.log` found nothing and looked like a scheduler that never fired. Match `app.*`.
