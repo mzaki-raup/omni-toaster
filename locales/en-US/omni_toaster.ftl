@@ -928,3 +928,19 @@ weather-snow = Snow
 weather-fog = Fog
 # The name shown when the weather service sends a condition this app does not know. Never an English word from the service.
 weather-unknown = Unclear conditions
+# The body of the notification when the weather changes. $from and $to are condition names (weather-rain and so on).
+weather-toast-condition-body = The weather changed from { $from } to { $to }.
+# The title of the notification when the temperature falls quickly.
+weather-toast-fall-title = Temperature is falling
+# The body of that notification. $degrees is how many whole degrees Celsius it fell, $now the temperature now, and $count the number of hours it fell over.
+weather-toast-fall-body = { $count ->
+    [one] It is { $degrees } °C colder than an hour ago, now { $now } °C.
+   *[other] It is { $degrees } °C colder than { $count } hours ago, now { $now } °C.
+}
+# The title of the notification when the temperature rises quickly.
+weather-toast-rise-title = Temperature is rising
+# The body of that notification. $degrees is how many whole degrees Celsius it rose, $now the temperature now, and $count the number of hours it rose over.
+weather-toast-rise-body = { $count ->
+    [one] It is { $degrees } °C warmer than an hour ago, now { $now } °C.
+   *[other] It is { $degrees } °C warmer than { $count } hours ago, now { $now } °C.
+}

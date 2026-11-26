@@ -183,7 +183,7 @@ Last updated: 2026-11-19
 
 | Item | State | Notes |
 |---|---|---|
-| Open-Meteo service | In-Progress | No API key. FEAT-0065: the service verified live for three cities and recorded as ADR-023; `ot-weather` has the client and the strict reader, tested against captured answers and live; not yet running in the app (FEAT-0069). The free tier is non-commercial and wants attribution — the owner's call |
+| Open-Meteo service | In-Progress | No API key. FEAT-0065: the service verified live for three cities and recorded as ADR-023; `ot-weather` has the client and the strict reader, tested against captured answers and live; running in the app since FEAT-0069: polling, the cache, backoff and a toast on a change, seen with a simulated storm and against the live service. The free tier is non-commercial and wants attribution — the owner's call |
 | Caching | In-Progress | TTL-based. FEAT-0067: `ot_store::weather` keeps the last answer for the saved place with its fetch time, a two-hour TTL, emptied when the place moves; no migration was needed (the table is migration 001's). Not yet used by the app — the service is FEAT-0069, which carries the restart-offline check |
 | Condition change detection | In-Progress | Condition change or temperature threshold. FEAT-0068: `ot_weather::detect` — two distinct readings, against the last class notified, a silent baseline, thresholds that fire at the boundary and once per spell, stale data never compared; tested, not yet in the app (FEAT-0069) |
 | Per-condition templates | Pending | |

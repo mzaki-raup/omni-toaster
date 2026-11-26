@@ -2790,6 +2790,7 @@ dependencies = [
  "ot-sched",
  "ot-store",
  "ot-toast",
+ "ot-weather",
  "raw-window-handle",
  "tempfile",
  "thiserror 2.0.21",

@@ -31,6 +31,27 @@ impl Condition {
         Condition::Fog,
     ];
 
+    /// The short name the settings file keeps a class under, `rain` and so on;
+    /// `None` for [`Condition::Unknown`], which is never kept or chosen.
+    pub fn name(self) -> Option<&'static str> {
+        Some(match self {
+            Condition::Clear => "clear",
+            Condition::Cloudy => "cloudy",
+            Condition::Rain => "rain",
+            Condition::Storm => "storm",
+            Condition::Snow => "snow",
+            Condition::Fog => "fog",
+            Condition::Unknown => return None,
+        })
+    }
+
+    /// The class a [`name`](Self::name) names.
+    pub fn from_name(name: &str) -> Option<Condition> {
+        Condition::ALL
+            .into_iter()
+            .find(|condition| condition.name() == Some(name))
+    }
+
     /// The Fluent key of its name, which is also what a template for it is stored
     /// under (never renamed: `.claude/rules/i18n.md`).
     pub fn key(self) -> &'static str {
@@ -110,6 +131,17 @@ mod tests {
         for (code, expected) in DOCUMENTED {
             assert_eq!(classify(code), expected, "code {code}");
         }
+    }
+
+    #[test]
+    fn a_class_round_trips_through_its_short_name_and_unknown_has_none() {
+        for condition in Condition::ALL {
+            let name = condition.name().expect("a name");
+            assert_eq!(Condition::from_name(name), Some(condition));
+        }
+        assert_eq!(Condition::Unknown.name(), None);
+        assert_eq!(Condition::from_name("hail"), None);
+        assert_eq!(Condition::from_name("unknown"), None);
     }
 
     #[test]

@@ -198,7 +198,15 @@ fn strip_verbatim_prefix(path: PathBuf) -> PathBuf {
 /// assumed. Checking permissions instead would still be wrong on a full disk
 /// or a read-only mount.
 fn probe_writable(root: &Path) -> Result<(), PathError> {
-    let probe = root.join(".omnitoaster-write-probe");
+    // A name of its own for every call: the window and the services each
+    // resolve the same folder, often in the same instant, and a shared name
+    // made one's write the other's "Access is denied" (BUG-0017).
+    static NEXT: std::sync::atomic::AtomicU64 = std::sync::atomic::AtomicU64::new(0);
+    let probe = root.join(format!(
+        ".omnitoaster-write-probe-{}-{}",
+        std::process::id(),
+        NEXT.fetch_add(1, std::sync::atomic::Ordering::Relaxed)
+    ));
     let outcome = fs::write(&probe, b"omnitoaster").and_then(|()| fs::remove_file(&probe));
     outcome.map_err(|source| PathError::NotWritable {
         path: root.to_path_buf(),
@@ -258,6 +266,36 @@ mod tests {
         assert!(
             leftovers.is_empty(),
             "probe file left behind: {leftovers:?}"
+        );
+    }
+
+    #[test]
+    fn many_threads_resolving_at_once_do_not_trip_over_each_others_probe() {
+        // Two services and the window each resolve the same folder at start-up
+        // (BUG-0017): one's probe file was the other's "Access is denied".
+        let temp = temp_root();
+        let data = temp.path().join("data");
+        let failures: Vec<String> = std::thread::scope(|scope| {
+            let handles: Vec<_> = (0..8)
+                .map(|_| {
+                    scope.spawn(|| {
+                        (0..200)
+                            .filter_map(|_| DataRoot::resolve(Some(&data)).err())
+                            .map(|error| error.to_string())
+                            .collect::<Vec<_>>()
+                    })
+                })
+                .collect();
+            handles
+                .into_iter()
+                .flat_map(|handle| handle.join().expect("no panic"))
+                .collect()
+        });
+        assert!(
+            failures.is_empty(),
+            "{} failed, first: {:?}",
+            failures.len(),
+            failures.first()
         );
     }
 

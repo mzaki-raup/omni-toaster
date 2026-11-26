@@ -337,6 +337,9 @@ pub struct SettingsWindow {
     /// The service that keeps the day's times current while Settings is closed;
     /// `None` until `run` starts it, and in the layout tests (FEAT-0058).
     prayer_service: Option<crate::prayer_service::Service>,
+    /// The service that polls the weather and says when it changes; `None` until
+    /// `run` starts it, and in the layout tests (FEAT-0069).
+    weather_service: Option<crate::weather_service::Service>,
     /// Where today's prayer times came from, for the label on a prayer's toast.
     prayer_source: Option<ot_prayer::chain::Source>,
     /// The audio thread: opens no device until something plays (ADR-022).
@@ -484,6 +487,7 @@ impl SettingsWindow {
             book: None,
             prayer: crate::prayer_pane::State::new(&root_path),
             prayer_service: None,
+            weather_service: None,
             prayer_source: None,
             audio: ot_media::Player::start(),
             sounding: std::collections::HashSet::new(),
@@ -1381,6 +1385,10 @@ impl SettingsWindow {
             && let Some(service) = &self.prayer_service
         {
             service.changed();
+            // A new place is new weather, and the weather settings are here too.
+            if let Some(weather) = &self.weather_service {
+                weather.changed();
+            }
         }
     }
 
@@ -2390,6 +2398,28 @@ impl SettingsWindow {
         }
     }
 
+    /// Take what the weather service has to say: each change of weather, as a
+    /// toast, unless the notifications are paused.
+    fn drain_weather_notes(&mut self) {
+        let Some(service) = &self.weather_service else {
+            return;
+        };
+        for note in service.drain() {
+            let crate::weather_service::Note::Change(change) = note;
+            if self.pause.is_active(jiff::Timestamp::now()) {
+                tracing::info!("a weather change came during a pause and was not shown");
+                continue;
+            }
+            let spec = crate::reminder_toast::weather_spec(
+                &self.prefs,
+                &change,
+                Some(formatted_time(jiff::Timestamp::now())),
+            );
+            let id = self.toasts.push(spec, Instant::now());
+            tracing::info!(?change, toast = ?id, "a weather change became a toast");
+        }
+    }
+
     /// Take what the prayer service has to say: that no times could be worked
     /// out, once a day, as a toast.
     fn drain_prayer_notes(&mut self) {
@@ -2567,6 +2597,7 @@ impl eframe::App for SettingsWindow {
         self.window = frame.window_handle().ok().map(|handle| handle.as_raw());
         self.drain_fires();
         self.drain_prayer_notes();
+        self.drain_weather_notes();
         self.drain_book();
         self.handle_tray(ctx);
         self.drain_images(ctx);
@@ -2920,6 +2951,9 @@ pub struct DevOptions {
     /// An alarm's toast closes after this many seconds instead of the
     /// ten-minute cap, so the cap can be watched.
     pub alarm_cap_secs: Option<f32>,
+    /// A weather code to simulate: the weather service reads a sky that is clear
+    /// once and then this code, every few seconds, whatever the settings say.
+    pub simulate_weather: Option<u8>,
 }
 
 pub fn run(
@@ -2942,6 +2976,10 @@ pub fn run(
     window.prayer_service = Some(crate::prayer_service::Service::start(
         &book_root,
         scheduler.clone(),
+    ));
+    window.weather_service = Some(crate::weather_service::Service::start(
+        &book_root,
+        dev.simulate_weather,
     ));
     window.scheduler = Some(scheduler);
     if dev.test_toast {

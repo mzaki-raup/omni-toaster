@@ -58,12 +58,13 @@ pub enum Change {
     /// The class changed from the last one notified.
     Condition { from: Condition, to: Condition },
     /// The temperature moved by `delta_c` (always positive) in `direction`,
-    /// from `from_c` to `to_c`, within the threshold's window.
+    /// from `from_c` to `to_c`, within `window`.
     Temperature {
         direction: Direction,
         delta_c: f64,
         from_c: f64,
         to_c: f64,
+        window: SignedDuration,
     },
 }
 
@@ -186,6 +187,7 @@ impl Detector {
             delta_c: moved,
             from_c,
             to_c: reading.temperature_c,
+            window: threshold.window,
         })
     }
 }
@@ -362,7 +364,8 @@ mod tests {
                 direction: Direction::Fall,
                 delta_c: 5.0,
                 from_c: 35.0,
-                to_c: 30.0
+                to_c: 30.0,
+                window: SignedDuration::from_hours(3)
             }]
         );
         // 4.9 is inside the boundary.

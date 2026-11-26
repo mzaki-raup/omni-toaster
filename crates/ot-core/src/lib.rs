@@ -17,5 +17,5 @@ pub use paths::{DataRoot, PathError};
 pub use pause::{Pause, PauseFor};
 pub use settings::{
     AZAN_WINDOW_MINUTES, General, LocationSettings, PRE_PRAYER_MINUTES, PrayerSettings, Reminders,
-    Settings, SettingsError,
+    Settings, SettingsError, WEATHER_CLASSES, WEATHER_POLL_MINUTES, WeatherSettings,
 };

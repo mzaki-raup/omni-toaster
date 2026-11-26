@@ -151,6 +151,18 @@ impl Client {
         longitude: f64,
         cancel: &Cancel,
     ) -> Result<Observation, FetchError> {
+        self.fetch_with_body(latitude, longitude, cancel)
+            .map(|(observation, _)| observation)
+    }
+
+    /// One attempt, giving the body as well as what it says, for the cache: the
+    /// body is what was read and checked, so what is cached is what parsed.
+    pub fn fetch_with_body(
+        &self,
+        latitude: f64,
+        longitude: f64,
+        cancel: &Cancel,
+    ) -> Result<(Observation, String), FetchError> {
         let url = request_url(&self.base, latitude, longitude)?;
         if cancel.is_cancelled() {
             return Err(FetchError::Cancelled);
@@ -159,7 +171,9 @@ impl Client {
         if cancel.is_cancelled() {
             return Err(FetchError::Cancelled);
         }
-        Ok(parse(&body)?)
+        let observation = parse(&body)?;
+        // `parse` read it as JSON, so it is text.
+        Ok((observation, String::from_utf8_lossy(&body).into_owned()))
     }
 
     fn send(&self, url: &str) -> Result<Vec<u8>, FetchError> {

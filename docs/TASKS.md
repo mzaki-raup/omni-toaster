@@ -127,7 +127,7 @@ Refs: BUG-0003
 ```
 Version : v0.5.1
 Features : FEAT-0072
-Bugs : BUG-0017
+Bugs : BUG-0018
 Change Request : CR-0008
 ```
 
@@ -140,6 +140,19 @@ Phase 6, Weather, on `feat/phase-6-weather` (`docs/07-roadmap.md`,
 Open-Meteo is verified before anything is built on its shape. The exit criteria:
 a condition change triggers a toast in simulation, and offline mode shows the
 stale marker in both languages.
+
+### BUG-0017 · "The data folder is not writable" when two threads resolve it at once
+- **State:** Completed · **Spec:** docs/06-security-and-privacy.md (writability check)
+- **Branch:** feat/phase-6-weather
+- **Source:** found running FEAT-0069: with the weather service started beside the prayer service, the app logged "the settings could not be read … is not writable: Access is denied" and fell back to the defaults
+- **Verified:** the new test failed on the old code (about 840 of 1,600 resolves from eight threads) and passes on the fix, 10 runs in 10; the app then read its settings and polled
+- [x] Establish the cause: `probe_writable` wrote and deleted one fixed file, `.omnitoaster-write-probe`, so concurrent callers collided
+- [x] Test: `many_threads_resolving_at_once_do_not_trip_over_each_others_probe`, written first and seen to fail
+- [x] Fix: a probe name unique per call (process id and a counter)
+- [x] Gate: fmt · clippy -D warnings · test --workspace --locked -j 4 · deny check · --self-test
+- [x] App: the real weather mode and the simulation both read their settings
+- [x] Docs: CHANGELOG · GOTCHAS · TASKS
+- **Notes:** This may also explain the one unexplained failure of `ot-ui`'s `prayer::tests::the_controller_saves_and_reads_a_place_and_resolves_off_the_calling_thread` noted under FEAT-0065, whose controller threads resolve the same folder; that is a likely cause, not a proven one.
 
 ### FEAT-0065 · The Open-Meteo verification spike and its client
 - **State:** Completed · **Spec:** docs/specs/weather.md §3 · ADR-009 · ADR-011 · **Phase:** 6
@@ -188,16 +201,16 @@ stale marker in both languages.
 - [x] Docs: spec §12 answered and "What is implemented" · CHANGELOG · CHECKLIST; README and GOTCHAS: nothing yet
 
 ### FEAT-0069 · The weather service: polling, the toast and the simulation
-- **State:** Pending · **Spec:** docs/specs/weather.md §3 · §4 · §7 · docs/03-architecture.md · **Phase:** 6
+- **State:** Completed · **Spec:** docs/specs/weather.md §3 · §4 · §7 · docs/03-architecture.md · **Phase:** 6
 - **Branch:** feat/phase-6-weather
 - **Depends on:** FEAT-0065, FEAT-0067, FEAT-0068
-- [ ] A worker thread polls every 30 minutes (configurable, 15 at least), with the retry backoff, no tighter loop; weather off stops all outbound requests; cancel really stops it
-- [ ] A change becomes a toast built from a `ToastSpec` by the one function the preview uses, with the condition's template (FEAT-0070) or the built-in text
-- [ ] A way to simulate a condition change without waiting for the weather (a developer-only argument or setting), because that is the exit criterion
-- [ ] Test: the service against a stubbed fetch — a change fires once, stale and failed fetches fire nothing and keep the last data, weather off makes no request
-- [ ] Gate: fmt · clippy -D warnings · test --workspace --locked -j 4 · deny check · --self-test
-- [ ] App: `--data-dir ./tmp-data` — simulate a condition change and watch the toast appear; turn the network off and see it keep the last data and not notify
-- [ ] Docs: spec · README · CHANGELOG · CHECKLIST · GOTCHAS
+- [x] A worker thread polls every 30 minutes (configurable, 15 at least), with the retry backoff, no tighter loop; weather off stops all outbound requests; cancel really stops it — `weather_service::{Engine, Service}`; `[weather]` settings (`enabled` off by default, `poll_minutes` 15 to 240, thresholds, `notify_classes`); retry 1, 5, 15 minutes; cancel on drop; the last class told is kept in the store
+- [x] A change becomes a toast built from a `ToastSpec` by the one function the preview uses, with the condition's template (FEAT-0070) or the built-in text — `reminder_toast::weather_spec` from the `Change`, built-in text in both languages and the condition's picture; the per-condition template is FEAT-0070's
+- [x] A way to simulate a condition change without waiting for the weather (a developer-only argument or setting), because that is the exit criterion — debug-only `--simulate-weather <code>`
+- [x] Test: the service against a stubbed fetch — a change fires once, stale and failed fetches fire nothing and keep the last data, weather off makes no request — 13 engine tests (off and no-place fetch nothing, a baseline, the interval, a change once, a class not chosen, a threshold, backoff, stale judged by age, stale never fed, a restart, cancel, the simulation) plus 3 toast tests and the settings test
+- [x] Gate: fmt · clippy -D warnings · test --workspace --locked -j 4 · deny check · --self-test — fmt · clippy · tests · deny · self-test
+- [x] App: `--data-dir ./tmp-data` — simulate a condition change and watch the toast appear; turn the network off and see it keep the last data and not notify. **Made (debug build, scratch folder):** with `--simulate-weather 95` the log shows clear, then two storms, and exactly one `a weather change became a toast change=Condition { from: Clear, to: Storm }` on the third look, none after; with weather on against the live service for a hand-set place, the answer was fetched, cached (the row is in the database) and `weather.notified` kept; restarted offline with a fresh cache, nothing was asked; with the cache made old, the offline poll failed and logged "keeping the last answer". **Not made:** the toast's pixels (the capture helper cannot see a toast), a pause holding it back, and the Malay text on screen (the strings are tested)
+- [x] Docs: spec · README · CHANGELOG · CHECKLIST · GOTCHAS — spec · CHANGELOG · CHECKLIST · GOTCHAS (BUG-0017); README: nothing user-visible until the pane
 
 ### FEAT-0070 · Settings ▸ Weather: the pane and the per-condition templates
 - **State:** Pending · **Spec:** docs/specs/weather.md §6 · §9 · docs/04-ui-design.md · docs/specs/toast.md §8 · **Phase:** 6

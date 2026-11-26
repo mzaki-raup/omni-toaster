@@ -153,5 +153,24 @@ cargo run -p omnitoaster -- --data-dir ./tmp-data
   toast; `Threshold::default_fall()` is 5 °C in 3 hours. A reading that is not fresh
   changes nothing, and nothing is stored: the service keeps `notified()` across a
   restart (FEAT-0069).
+- **The service (FEAT-0069).** `ot_ui::weather_service`: an `Engine` of one testable
+  pass and a thread, started with the window, like the prayer service. **Off by
+  default** (`[weather] enabled`; the Weather pane is FEAT-0070), and off means no
+  outbound request at all. It polls for the saved place every `poll_minutes` (30; 15
+  to 240), keeps each answer in the cache, and feeds each fresh one to the detector with
+  the thresholds the settings ask for (`fall_*`, `rise_*`), keeping only changes **to**
+  a class listed in `notify_classes`. The last class told is kept in the store
+  (`weather.notified`), so a restart is not a first reading. A failed fetch keeps the
+  cache, backs off 1, 5 and 15 minutes, and tells nothing; cached data is judged stale
+  after the TTL (two hours, or two polls if longer) and is never compared. Cancel
+  stops the work in flight. The window shows a change as an ordinary toast — the
+  condition's name and "changed from … to …", or the temperature's move — with the
+  condition's built-in picture, held back by a pause. Temperatures are whole degrees,
+  because `ot-i18n` has no number formatter yet. The per-condition templates and the
+  stale marker are FEAT-0070 and FEAT-0071.
+- **Simulation.** A debug build takes `--simulate-weather <code>`: the service then
+  reads a sky that is clear once and then that code, every five seconds, with no
+  setting, place or cache, so the toast can be watched without waiting for the
+  weather. Not in a release.
 - **A licence point the owner must settle** (ADR-023): the free API is
   non-commercial and wants attribution.

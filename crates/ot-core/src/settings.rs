@@ -46,6 +46,67 @@ pub struct Settings {
     pub location: LocationSettings,
     /// Settings ▸ Prayer: the source, the zone and the calculation.
     pub prayer: PrayerSettings,
+    /// Settings ▸ Weather (`docs/specs/weather.md` §9).
+    pub weather: WeatherSettings,
+}
+
+/// Settings ▸ Weather. Off by default: turning it on sends the saved place,
+/// rounded, to Open-Meteo, and turning it off stops every weather request.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(default, deny_unknown_fields)]
+pub struct WeatherSettings {
+    pub enabled: bool,
+    /// Minutes between polls, within [`WEATHER_POLL_MINUTES`].
+    pub poll_minutes: u32,
+    /// The condition classes a change **to** notifies about: any of `clear`,
+    /// `cloudy`, `rain`, `storm`, `snow` and `fog`.
+    pub notify_classes: Vec<String>,
+    /// Tell about a fall in temperature of `fall_delta_c` whole degrees (°C)
+    /// or more within `fall_window_hours`.
+    pub fall_enabled: bool,
+    pub fall_delta_c: u32,
+    pub fall_window_hours: u32,
+    /// The same for a rise.
+    pub rise_enabled: bool,
+    pub rise_delta_c: u32,
+    pub rise_window_hours: u32,
+}
+
+/// How often the weather may be polled, in minutes: the service's own values
+/// change in 15-minute steps, so faster buys nothing (ADR-023).
+pub const WEATHER_POLL_MINUTES: std::ops::RangeInclusive<u32> = 15..=240;
+
+/// The six classes, by the name the settings file and the service use.
+pub const WEATHER_CLASSES: [&str; 6] = ["clear", "cloudy", "rain", "storm", "snow", "fog"];
+
+impl Default for WeatherSettings {
+    fn default() -> Self {
+        Self {
+            enabled: false,
+            poll_minutes: 30,
+            notify_classes: WEATHER_CLASSES.map(str::to_owned).to_vec(),
+            fall_enabled: true,
+            fall_delta_c: 5,
+            fall_window_hours: 3,
+            rise_enabled: false,
+            rise_delta_c: 8,
+            rise_window_hours: 3,
+        }
+    }
+}
+
+impl WeatherSettings {
+    /// The poll interval brought into range, so a hand-edited file cannot make
+    /// the app poll every second.
+    pub fn poll_minutes(&self) -> u32 {
+        self.poll_minutes
+            .clamp(*WEATHER_POLL_MINUTES.start(), *WEATHER_POLL_MINUTES.end())
+    }
+
+    /// Whether a change to the class named `class` is one to tell about.
+    pub fn notifies(&self, class: &str) -> bool {
+        self.notify_classes.iter().any(|chosen| chosen == class)
+    }
 }
 
 /// Settings ▸ Prayer (`docs/11-prayer-and-azan.md` §1, §3, §8). Strings, not
@@ -383,6 +444,46 @@ mod tests {
         Settings::default().save(&root).expect("the save succeeds");
         let text = std::fs::read_to_string(Settings::path_in(&root)).expect("the file");
         assert!(!text.contains("ip_consent"), "{text}");
+    }
+
+    #[test]
+    fn the_weather_settings_default_to_off_and_survive_a_save_and_are_brought_into_range() {
+        let (_dir, root) = scratch();
+        let defaults = Settings::default().weather;
+        assert!(
+            !defaults.enabled,
+            "weather sends the place out, so it is off until asked for"
+        );
+        assert_eq!(
+            (
+                defaults.poll_minutes(),
+                defaults.fall_delta_c,
+                defaults.fall_window_hours
+            ),
+            (30, 5, 3)
+        );
+        assert!(defaults.fall_enabled && !defaults.rise_enabled);
+        for class in WEATHER_CLASSES {
+            assert!(defaults.notifies(class), "{class}");
+        }
+        assert!(!defaults.notifies("hail"));
+
+        let mut settings = Settings::default();
+        settings.weather.enabled = true;
+        settings.weather.poll_minutes = 5;
+        settings.weather.notify_classes = vec!["rain".into(), "storm".into()];
+        settings.save(&root).expect("saved");
+        let loaded = Settings::load(&root).expect("loads").weather;
+        assert_eq!(loaded, settings.weather);
+        assert_eq!(
+            loaded.poll_minutes(),
+            15,
+            "five minutes is brought up to the minimum"
+        );
+        assert!(loaded.notifies("rain") && !loaded.notifies("snow"));
+        let mut slow = loaded.clone();
+        slow.poll_minutes = 100_000;
+        assert_eq!(slow.poll_minutes(), 240);
     }
 
     #[test]

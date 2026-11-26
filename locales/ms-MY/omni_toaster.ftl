@@ -905,3 +905,13 @@ weather-snow = Salji
 weather-fog = Kabus
 # Nama yang dipaparkan apabila perkhidmatan cuaca menghantar keadaan yang tidak dikenali aplikasi ini. Tidak pernah perkataan Inggeris daripada perkhidmatan itu.
 weather-unknown = Keadaan tidak jelas
+# Kandungan pemberitahuan apabila cuaca berubah. $from dan $to ialah nama keadaan (weather-rain dan seterusnya).
+weather-toast-condition-body = Cuaca berubah daripada { $from } kepada { $to }.
+# Tajuk pemberitahuan apabila suhu jatuh dengan cepat.
+weather-toast-fall-title = Suhu sedang menurun
+# Kandungan pemberitahuan itu. $degrees ialah bilangan darjah Celsius penuh ia jatuh, $now suhu sekarang, dan $count bilangan jam ia jatuh. Bahasa Melayu tiada bentuk jamak.
+weather-toast-fall-body = Suhu { $degrees } °C lebih sejuk berbanding { $count } jam lalu, kini { $now } °C.
+# Tajuk pemberitahuan apabila suhu naik dengan cepat.
+weather-toast-rise-title = Suhu sedang meningkat
+# Kandungan pemberitahuan itu. $degrees ialah bilangan darjah Celsius penuh ia naik, $now suhu sekarang, dan $count bilangan jam ia naik.
+weather-toast-rise-body = Suhu { $degrees } °C lebih panas berbanding { $count } jam lalu, kini { $now } °C.

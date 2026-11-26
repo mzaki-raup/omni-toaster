@@ -13,6 +13,8 @@ Format: [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) · Versioning:
 
 ### Added
 
+- Weather: with `enabled = true` under `[weather]` in the settings file (the Weather pane comes next), the app polls Open-Meteo for your saved place, keeps the last answer so it survives a restart and an offline spell, and shows a toast when the weather changes or the temperature falls quickly. It is off by default, and off means no request is sent (FEAT-0069).
+
 - Weather change detection: a change of weather is reported once, only after two separate readings agree, so weather that flickers between two kinds never notifies; a temperature drop (or rise) beyond a set amount within a window is reported once per spell; the first reading after start and anything from the cache never notify. Nothing in the app uses it yet (FEAT-0068).
 
 - Weather cache: the last weather answer is kept for the saved place, with when it was fetched, so it survives a restart and can be shown marked as old when there is no network. Choosing a different place empties it (FEAT-0067).
@@ -47,6 +49,8 @@ Format: [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) · Versioning:
 - The JAKIM zone table (17d2edbb)
 
 ### Fixed
+
+- Starting the app could report "the data folder is not writable" when two parts of it checked the folder at the same moment, because they shared one test file; each check now uses its own (BUG-0017).
 
 - The single-instance tests take turns (472c3039)
 - Checkboxes in Settings > Prayer level with their labels (0cb083c2)

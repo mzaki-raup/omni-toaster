@@ -161,6 +161,82 @@ pub fn prayer_before_spec(
     spec
 }
 
+/// The toast for a change of weather (FEAT-0069): the new condition's name and
+/// "changed from … to …", or the temperature's move and by how much. Built-in text
+/// in the active language and the condition's own picture; the per-condition
+/// templates (FEAT-0070) come later. A plain toast: it times out, and a pause
+/// holds it back.
+pub fn weather_spec(
+    prefs: &ot_toast::Prefs,
+    change: &ot_weather::detect::Change,
+    timestamp: Option<String>,
+) -> ot_toast::ToastSpec {
+    use ot_weather::detect::{Change, Direction};
+    let (title, body, image) = match change {
+        Change::Condition { from, to } => (
+            ot_i18n::text(to.key()),
+            ot_i18n::text_with(
+                "weather-toast-condition-body",
+                &[
+                    ("from", ot_i18n::text(from.key()).into()),
+                    ("to", ot_i18n::text(to.key()).into()),
+                ],
+            ),
+            weather_image(*to).map(str::to_owned),
+        ),
+        Change::Temperature {
+            direction,
+            delta_c,
+            to_c,
+            window,
+            ..
+        } => {
+            let (title_key, body_key) = match direction {
+                Direction::Fall => ("weather-toast-fall-title", "weather-toast-fall-body"),
+                Direction::Rise => ("weather-toast-rise-title", "weather-toast-rise-body"),
+            };
+            let hours = u32::try_from(window.as_hours().max(1)).unwrap_or(1);
+            (
+                ot_i18n::text(title_key),
+                ot_i18n::text_with_count(
+                    body_key,
+                    hours,
+                    &[
+                        ("degrees", format!("{}", delta_c.round() as i64).into()),
+                        ("now", format!("{}", to_c.round() as i64).into()),
+                    ],
+                ),
+                None,
+            )
+        }
+    };
+    let content = ot_toast::Content {
+        title,
+        body,
+        app_name: ot_i18n::text("toast-app-name"),
+        image,
+        timestamp,
+        action_labels: action_labels(),
+        ..ot_toast::Content::default()
+    };
+    let mut spec = prefs.spec(content);
+    spec.behaviour.actions = 1;
+    spec
+}
+
+/// The built-in picture a condition shows. Snow has none yet.
+pub fn weather_image(condition: ot_weather::condition::Condition) -> Option<&'static str> {
+    use ot_weather::condition::Condition;
+    Some(match condition {
+        Condition::Clear => "@builtin/sunny",
+        Condition::Cloudy => "@builtin/cloudy",
+        Condition::Rain => "@builtin/downpour",
+        Condition::Storm => "@builtin/thunderstorm",
+        Condition::Fog => "@builtin/fog",
+        Condition::Snow | Condition::Unknown => return None,
+    })
+}
+
 /// The built-in masjid picture a prayer shows until its template chooses one.
 /// Syuruk has none of its own and borrows Dhuha's.
 pub fn default_prayer_image(prayer: &str) -> Option<&'static str> {
@@ -515,6 +591,89 @@ mod tests {
                 "prayer-toast-body",
                 "prayer-toast-unavailable-title",
                 "prayer-toast-unavailable-body",
+            ] {
+                assert!(keys.contains(key), "{key} missing from {tag}");
+            }
+        }
+    }
+
+    #[test]
+    fn a_weather_toast_says_what_changed_in_both_languages_with_the_conditions_picture() {
+        use ot_weather::condition::Condition;
+        use ot_weather::detect::{Change, Direction};
+        let _guard = LANGUAGE.lock().unwrap_or_else(|p| p.into_inner());
+        let prefs = ot_toast::Prefs::default();
+        let rain = Change::Condition {
+            from: Condition::Clear,
+            to: Condition::Rain,
+        };
+        let fall = Change::Temperature {
+            direction: Direction::Fall,
+            delta_c: 6.4,
+            from_c: 31.0,
+            to_c: 24.6,
+            window: jiff::SignedDuration::from_hours(3),
+        };
+        let one_hour = Change::Temperature {
+            direction: Direction::Fall,
+            delta_c: 6.4,
+            from_c: 31.0,
+            to_c: 24.6,
+            window: jiff::SignedDuration::from_hours(1),
+        };
+        in_language(Language::English);
+        let spec = weather_spec(&prefs, &rain, None);
+        assert_eq!(spec.content.title, "Rain");
+        assert_eq!(spec.content.body, "The weather changed from Clear to Rain.");
+        let picture = spec.content.image.clone().expect("a picture");
+        assert!(ot_store::builtin::find(&picture).is_some(), "{picture}");
+        assert_eq!(spec.behaviour.actions, 1, "Dismiss only");
+        let cold = weather_spec(&prefs, &fall, None);
+        assert_eq!(cold.content.title, "Temperature is falling");
+        assert_eq!(
+            cold.content.body,
+            "It is 6 \u{b0}C colder than 3 hours ago, now 25 \u{b0}C."
+        );
+        assert_eq!(
+            weather_spec(&prefs, &one_hour, None).content.body,
+            "It is 6 \u{b0}C colder than an hour ago, now 25 \u{b0}C.",
+            "the singular"
+        );
+        in_language(Language::Malay);
+        let spec = weather_spec(&prefs, &rain, None);
+        assert_eq!(spec.content.title, "Hujan");
+        assert_eq!(
+            spec.content.body,
+            "Cuaca berubah daripada Cerah kepada Hujan."
+        );
+        assert_eq!(
+            weather_spec(&prefs, &fall, None).content.body,
+            "Suhu 6 \u{b0}C lebih sejuk berbanding 3 jam lalu, kini 25 \u{b0}C."
+        );
+        in_language(Language::English);
+    }
+
+    #[test]
+    fn every_condition_has_a_picture_that_exists_except_snow_which_has_none_yet() {
+        use ot_weather::condition::Condition;
+        for condition in Condition::ALL {
+            match weather_image(condition) {
+                Some(key) => assert!(ot_store::builtin::find(key).is_some(), "{key}"),
+                None => assert_eq!(condition, Condition::Snow),
+            }
+        }
+    }
+
+    #[test]
+    fn the_weather_toast_strings_exist_in_both_catalogues() {
+        for tag in ["en-US", "ms-MY"] {
+            let keys = ot_i18n::message_keys(tag).expect("parses");
+            for key in [
+                "weather-toast-condition-body",
+                "weather-toast-fall-title",
+                "weather-toast-fall-body",
+                "weather-toast-rise-title",
+                "weather-toast-rise-body",
             ] {
                 assert!(keys.contains(key), "{key} missing from {tag}");
             }
