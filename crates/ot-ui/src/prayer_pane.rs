@@ -151,8 +151,8 @@ struct TemplateEdit {
 /// Which sound a prayer plays.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
 enum SoundMode {
-    #[default]
     Chime,
+    #[default]
     Azan,
     File,
     Silent,
@@ -170,11 +170,15 @@ impl SoundMode {
         }
     }
 
-    fn parse(text: Option<&str>) -> Self {
+    /// The mode a template stores, for `prayer`: nothing stored is the prayer's
+    /// default ([`prayer::default_sound`]), and a mode this build does not know is
+    /// the quiet chime.
+    fn parse(text: Option<&str>, prayer: &str) -> Self {
+        let text = text.unwrap_or_else(|| prayer::default_sound(prayer));
         Self::ALL
             .into_iter()
-            .find(|mode| Some(mode.as_str()) == text)
-            .unwrap_or_default()
+            .find(|mode| mode.as_str() == text)
+            .unwrap_or(Self::Chime)
     }
 
     fn key(self) -> &'static str {
@@ -427,7 +431,7 @@ impl State {
                             .and_then(parse_hex)
                             .unwrap_or(egui::Color32::from_rgb(0x3b, 0x9e, 0xff)),
                         picture: template.image,
-                        sound_mode: SoundMode::parse(template.sound_mode.as_deref()),
+                        sound_mode: SoundMode::parse(template.sound_mode.as_deref(), &prayer),
                         sound_file: template.sound,
                     };
                 }
@@ -1304,8 +1308,8 @@ fn template_block(
     );
     ui.add_space(layout::ROW_GAP);
 
-    // The sound: the chime by default, the full Azan, a clip of the user's own,
-    // or none.
+    // The sound: the full Azan by default (Subuh's own for Fajr; the chime for
+    // Syuruk), the short chime, a clip of the user's own, or none.
     let mut mode = state.edit.sound_mode;
     layout::labelled_row(ui, columns, &ot_i18n::text("prayer-sound-label"), |ui| {
         egui::ComboBox::from_id_salt("prayer-sound")
@@ -1377,7 +1381,9 @@ fn template_block(
                 accent: saved.accent_color,
                 image: sha,
                 authored_lang: language,
-                sound_mode: (state.edit.sound_mode != SoundMode::Chime)
+                // The prayer's default is stored as nothing, so it follows the
+                // default if that ever changes again.
+                sound_mode: (state.edit.sound_mode != SoundMode::parse(None, prayer))
                     .then(|| state.edit.sound_mode.as_str().to_owned()),
                 // The clip's name is its hash: `assets/<sha256>.<ext>`.
                 sound: state
@@ -1597,5 +1603,21 @@ mod tests {
             error_key(&LookupError::Shape("x".into())),
             "prayer-error-answer"
         );
+    }
+
+    #[test]
+    fn a_template_that_chose_no_sound_shows_the_prayers_default_and_a_choice_is_kept() {
+        // CR-0008: the Azan for the called prayers, the chime for Syuruk.
+        for prayer in ["fajr", "dhuhr", "jumuah", "asr", "maghrib", "isha"] {
+            assert_eq!(SoundMode::parse(None, prayer), SoundMode::Azan, "{prayer}");
+        }
+        assert_eq!(SoundMode::parse(None, "syuruk"), SoundMode::Chime);
+        // What was chosen shows as chosen, whatever the default.
+        assert_eq!(SoundMode::parse(Some("chime"), "fajr"), SoundMode::Chime);
+        assert_eq!(SoundMode::parse(Some("none"), "isha"), SoundMode::Silent);
+        assert_eq!(SoundMode::parse(Some("azan"), "syuruk"), SoundMode::Azan);
+        assert_eq!(SoundMode::parse(Some("file"), "asr"), SoundMode::File);
+        // A mode this build does not know is the quiet chime, as `clip_for` plays.
+        assert_eq!(SoundMode::parse(Some("garbage"), "asr"), SoundMode::Chime);
     }
 }

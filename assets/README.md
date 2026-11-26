@@ -60,9 +60,11 @@ fails if a picture is not a WebP, is bigger than 256 px, or takes the total past
 MP3, 128 kbps stereo, 44.1 kHz. **`notification.mp3`, `azan.mp3` and
 `azan-subuh.mp3` are embedded in the exe** since FEAT-0060, which is when something
 could play them (`ot_media::player`, ADR-022): about five megabytes. `alarm.mp3` is
-not embedded yet — the Alarm reminders' sound is a later item. A prayer plays the
-short chime by default; the full Azan is the user's choice, so a release does not
-play a clip whose licence is unsettled unasked.
+not embedded yet — the Alarm reminders' sound is a later item. **Since CR-0008 a
+prayer plays the full Azan by default** — `azan.mp3`, and `azan-subuh.mp3` for
+Fajr — and Syuruk the short chime. That means a release plays these clips
+**without their licence being settled** (Phase 9's terms check, ADR-022); the owner
+chose that on 2026-11-26. The chime remains a choice per prayer.
 
 | File | For | Length |
 |---|---|---|

@@ -229,6 +229,8 @@ Format: [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) · Versioning:
 
 ### Changed
 
+- Every prayer now plays the full Azan by default — Subuh's own for Fajr, the same Azan for the rest — instead of the short chime. Syuruk, the sunrise, keeps the chime because it is not a call to prayer. Each prayer's sound can still be changed in Settings ▸ Prayer. A prayer whose template had the chime chosen before this change now follows the new default, and you can choose the chime again (CR-0008).
+
 - Update Documentations (291717e0)
 - Update License (bc81fbdf)
 - Proposal phase (03889588)

@@ -274,9 +274,17 @@ pub enum Reply {
     Failed(String),
 }
 
-/// Which clip a prayer plays: the short chime unless the template says
-/// otherwise, the full Azan (Subuh's own for Fajr), the user's imported clip, or
-/// none. A `file` with no clip falls back to the chime rather than silence.
+/// The sound a prayer plays when its template never chose one: the full Azan
+/// (Subuh's own for Fajr) for the prayers that are called, and the short chime for
+/// Syuruk, the sunrise, which has no call to prayer (CR-0008).
+pub fn default_sound(prayer: &str) -> &'static str {
+    if prayer == "syuruk" { "chime" } else { "azan" }
+}
+
+/// Which clip a prayer plays: what its template chose — the short chime, the full
+/// Azan (Subuh's own for Fajr), the user's imported clip, or none — and, when it
+/// chose nothing, [`default_sound`]. A `file` with no clip falls back to the chime
+/// rather than silence.
 pub fn clip_for(
     prayer: &str,
     mode: Option<&str>,
@@ -284,7 +292,7 @@ pub fn clip_for(
     root: &Path,
 ) -> Option<ot_media::Clip> {
     use ot_media::Clip;
-    match mode.unwrap_or("chime") {
+    match mode.unwrap_or_else(|| default_sound(prayer)) {
         "none" => None,
         "azan" if prayer == "fajr" => Some(Clip::AzanSubuh),
         "azan" => Some(Clip::Azan),
@@ -590,13 +598,32 @@ mod tests {
     }
 
     #[test]
-    fn a_prayer_plays_the_chime_unless_its_template_says_otherwise() {
+    fn a_prayer_plays_the_azan_unless_its_template_says_otherwise() {
         use ot_media::Clip;
         let root = Path::new("D:/data");
-        assert_eq!(clip_for("dhuhr", None, None, root), Some(Clip::Chime));
+        // Nothing chosen: the full Azan, Subuh's own for Fajr, for every called
+        // prayer, Jumu'ah included; the chime for Syuruk, which is not a call.
+        for prayer in ["dhuhr", "jumuah", "asr", "maghrib", "isha"] {
+            assert_eq!(
+                clip_for(prayer, None, None, root),
+                Some(Clip::Azan),
+                "{prayer}"
+            );
+        }
+        assert_eq!(clip_for("fajr", None, None, root), Some(Clip::AzanSubuh));
+        assert_eq!(clip_for("syuruk", None, None, root), Some(Clip::Chime));
+        // What a template chose still wins, whatever the default.
         assert_eq!(
             clip_for("dhuhr", Some("chime"), None, root),
             Some(Clip::Chime)
+        );
+        assert_eq!(
+            clip_for("fajr", Some("chime"), None, root),
+            Some(Clip::Chime)
+        );
+        assert_eq!(
+            clip_for("syuruk", Some("azan"), None, root),
+            Some(Clip::Azan)
         );
         assert_eq!(
             clip_for("dhuhr", Some("azan"), None, root),
