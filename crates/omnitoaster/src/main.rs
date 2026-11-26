@@ -323,6 +323,13 @@ fn main() -> ExitCode {
         }
     };
 
+    // The managed prayer reminders exist before the scheduler reads the store,
+    // so a prayer that came due while the app was off is found and found missed
+    // (docs/11-prayer-and-azan.md §9).
+    if let Err(error) = store.sync_prayer_reminders(&settings.prayer.enabled_prayers()) {
+        tracing::warn!(%error, "the prayer reminders could not be set up");
+    }
+
     // The scheduler takes the store: from here on only its thread writes fire
     // times (docs/specs/reminders.md §12).
     let (fire_out, fires) = ot_sched::scheduler::fire_channel();

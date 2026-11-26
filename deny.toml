@@ -63,8 +63,9 @@ multiple-versions = "warn"
 # every path dependency would be two places to forget.
 wildcards = "deny"
 allow-wildcard-paths = true
-# Prefer pure Rust and rustls over C-bound and OpenSSL alternatives (ADR-012).
-deny = [{ crate = "openssl-sys", reason = "use rustls; a C-bound TLS stack breaks the static portable build" }]
+# TLS is Windows' own SChannel through native-tls (ADR-019); OpenSSL, a
+# C-bound stack, stays out.
+deny = [{ crate = "openssl-sys", reason = "TLS is SChannel (ADR-019); a C-bound OpenSSL breaks the static portable build" }]
 skip = []
 skip-tree = []
 

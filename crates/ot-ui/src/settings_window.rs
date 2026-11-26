@@ -57,6 +57,9 @@ pub enum Section {
     /// What Snooze does now; the reminder list and editor with FEAT-0046
     /// (Phase 4, `docs/specs/reminders.md` §10).
     Reminders,
+    /// The prayer source, zone and location, and today's times (Phase 5,
+    /// `docs/11-prayer-and-azan.md`).
+    Prayer,
 }
 
 impl Section {
@@ -68,16 +71,18 @@ impl Section {
             Self::Pictures => "settings-section-pictures",
             Self::Animation => "settings-section-animation",
             Self::Reminders => "settings-section-reminders",
+            Self::Prayer => "settings-section-prayer",
         }
     }
 
-    pub fn all() -> [Self; 5] {
+    pub fn all() -> [Self; 6] {
         [
             Self::General,
             Self::Appearance,
             Self::Animation,
             Self::Pictures,
             Self::Reminders,
+            Self::Prayer,
         ]
     }
 }
@@ -327,6 +332,17 @@ pub struct SettingsWindow {
     /// The reminders' own thread; `None` until `run` starts it with the
     /// scheduler's sender, and in the layout tests.
     book: Option<crate::reminder_book::Book>,
+    /// The Prayer pane's own state and its threads' controller (FEAT-0057).
+    prayer: crate::prayer_pane::State,
+    /// The service that keeps the day's times current while Settings is closed;
+    /// `None` until `run` starts it, and in the layout tests (FEAT-0058).
+    prayer_service: Option<crate::prayer_service::Service>,
+    /// Where today's prayer times came from, for the label on a prayer's toast.
+    prayer_source: Option<ot_prayer::chain::Source>,
+    /// The audio thread: opens no device until something plays (ADR-022).
+    audio: ot_media::Player,
+    /// The prayer toasts whose sound is playing, so it stops with the toast.
+    sounding: std::collections::HashSet<ot_toast::ToastId>,
     /// The list's rows, built when a list arrives, never per frame.
     reminder_rows: Option<Vec<crate::reminders::ListRow>>,
     /// The reminder being edited, if any.
@@ -466,6 +482,11 @@ impl SettingsWindow {
             missed: Vec::new(),
             missed_toast: None,
             book: None,
+            prayer: crate::prayer_pane::State::new(&root_path),
+            prayer_service: None,
+            prayer_source: None,
+            audio: ot_media::Player::start(),
+            sounding: std::collections::HashSet::new(),
             reminder_rows: None,
             editor: None,
             reminder_history: Vec::new(),
@@ -895,6 +916,10 @@ impl SettingsWindow {
             // left until egui notices a frame without it.
             ctx.send_viewport_cmd_to(id.viewport_id(), egui::ViewportCommand::Close);
             ot_platform::toast_window::forget(&id.window_title());
+            // A prayer's sound stops with its toast, dismissed or timed out.
+            if self.sounding.remove(&id) {
+                self.audio.stop();
+            }
             if self.missed_toast == Some(id) {
                 self.missed_toast = None;
             }
@@ -1275,6 +1300,90 @@ impl SettingsWindow {
     }
 
     /// Settings ▸ Reminders: for now, the Snooze section.
+    fn prayer_pane(&mut self, ui: &mut egui::Ui) {
+        let tokens = self.theme.tokens();
+        let now = jiff::Timestamp::now();
+        let consent = ot_prayer::location::Consent::from(self.settings.location.ip_consent);
+        self.prayer.tick(&self.settings.prayer, consent, now);
+        // Replies arrive off the UI thread and egui only repaints on an event,
+        // so while work is pending the pane asks to be drawn again soon.
+        if self.prayer.busy() {
+            ui.ctx().request_repaint_after(Duration::from_millis(100));
+        }
+        // The library's pictures, as the template editor's picker lists them.
+        let pictures: Vec<crate::prayer_pane::PictureChoice> = self
+            .library
+            .pictures()
+            .unwrap_or_default()
+            .iter()
+            .map(|entry| crate::prayer_pane::PictureChoice {
+                sha256: entry.picture.sha256.clone(),
+                relative_path: entry.picture.relative_path.clone(),
+                label: entry.picture.label.clone(),
+            })
+            .collect();
+        let mut outcome = crate::prayer_pane::Outcome::default();
+        egui::ScrollArea::vertical()
+            .auto_shrink([false, false])
+            .show(ui, |ui| {
+                outcome = crate::prayer_pane::show(
+                    ui,
+                    &mut self.prayer,
+                    &mut self.settings.prayer,
+                    &mut self.settings.location,
+                    &pictures,
+                    tokens,
+                    now,
+                );
+            });
+        if outcome.settings_changed {
+            self.save();
+        }
+        // The editor's Preview: the toast a fire would show, from the same
+        // function, to the front.
+        if let Some(play) = outcome.play_sound.take()
+            && let Some(clip) = crate::prayer::clip_for(
+                &play.prayer,
+                play.template.sound_mode.as_deref(),
+                play.template.sound.as_deref(),
+                self.root.path(),
+            )
+        {
+            self.audio.play(clip);
+        }
+        if outcome.stop_sound {
+            self.audio.stop();
+        }
+        if let Some(preview) = outcome.preview.take() {
+            let note = self.prayer_source.map(crate::prayer_pane::source_label);
+            let spec = crate::reminder_toast::prayer_spec(
+                &self.prefs,
+                &preview.prayer,
+                Some(&preview.template),
+                Some(formatted_time(now)),
+                note,
+            );
+            let id = self.toasts.push_first(spec, Instant::now());
+            // The preview is a fire as far as the sound goes: it plays what a
+            // fire would, and stops when the toast is dismissed.
+            if let Some(clip) = crate::prayer::clip_for(
+                &preview.prayer,
+                preview.template.sound_mode.as_deref(),
+                preview.template.sound.as_deref(),
+                self.root.path(),
+            ) {
+                self.audio.play(clip);
+                self.sounding.insert(id);
+            }
+        }
+        // A changed setting or place is a new day to work out, now.
+        if (outcome.settings_changed | self.prayer.take_changed())
+            && let Some(service) = &self.prayer_service
+        {
+            service.changed();
+        }
+    }
+
     fn reminders_pane(&mut self, ui: &mut egui::Ui) {
         let tokens = self.theme.tokens();
         let rows: Vec<crate::reminders::MissedRow> =
@@ -1436,6 +1545,7 @@ impl SettingsWindow {
     /// editor's repeat summary. They are built once, not per frame, so a
     /// change has to rebuild them (FEAT-0047).
     fn reformat(&mut self) {
+        self.prayer.reformat();
         if let Some(book) = &self.book
             && let Some(listing) = book.listing()
         {
@@ -1562,6 +1672,9 @@ impl SettingsWindow {
     /// and without frames nothing drains the tray's clicks or drives a toast.
     /// Hiding is only the fallback where parking is not possible.
     fn hide_window(&mut self, ctx: &egui::Context) {
+        // Closing Settings stops the prayer work in flight, so a fetch does not
+        // run on for a window nobody is looking at (FEAT-0052, FEAT-0057).
+        self.prayer.cancel();
         if self.parked.is_some() {
             return;
         }
@@ -2154,12 +2267,80 @@ impl SettingsWindow {
                 any_missed = true;
                 continue;
             }
-            if self.pause.is_active(now) {
+            let prayer = match &fired.reminder.draft.trigger {
+                ot_store::reminders::Trigger::Prayer { prayer } => Some(prayer.clone()),
+                _ => None,
+            };
+            if pause_suppresses(self.pause.is_active(now), prayer.is_some()) {
                 tracing::info!(
                     reminder = fired.reminder_id,
                     "a reminder fired during a pause"
                 );
                 self.record(fired.reminder_id, fired_at, NotificationAction::Missed);
+                continue;
+            }
+            // The reminder ahead of a prayer: a plain toast, held back by a pause.
+            if let ot_store::reminders::Trigger::PrayerBefore { prayer, minutes } =
+                &fired.reminder.draft.trigger
+            {
+                let spec = crate::reminder_toast::prayer_before_spec(
+                    &self.prefs,
+                    prayer,
+                    *minutes,
+                    fired.template.as_ref(),
+                    Some(formatted_time(now)),
+                );
+                let persistent = spec.behaviour.persistent;
+                let id = self.toasts.push(spec, Instant::now());
+                tracing::info!(prayer, minutes, toast = ?id, "a pre-prayer reminder became a toast");
+                self.reminder_toasts.insert(
+                    id,
+                    ReminderToast {
+                        reminder_id: fired.reminder_id,
+                        fired_at,
+                        snoozes: 0,
+                        persistent,
+                    },
+                );
+                self.record(fired.reminder_id, fired_at, NotificationAction::Shown);
+                continue;
+            }
+            // A prayer is its own toast, ahead of everything, and a pause does
+            // not hold it back (`docs/specs/tray-and-settings.md` §4).
+            if let Some(prayer) = prayer {
+                let note = self.prayer_source.map(crate::prayer_pane::source_label);
+                let spec = crate::reminder_toast::prayer_spec(
+                    &self.prefs,
+                    &prayer,
+                    fired.template.as_ref(),
+                    Some(formatted_time(now)),
+                    note,
+                );
+                let persistent = spec.behaviour.persistent;
+                let id = self.toasts.push_first(spec, Instant::now());
+                tracing::info!(prayer, toast = ?id, "a prayer became a toast");
+                if let Some(clip) = crate::prayer::clip_for(
+                    &prayer,
+                    fired
+                        .template
+                        .as_ref()
+                        .and_then(|t| t.sound_mode.as_deref()),
+                    fired.template.as_ref().and_then(|t| t.sound.as_deref()),
+                    self.root.path(),
+                ) {
+                    self.audio.play(clip);
+                    self.sounding.insert(id);
+                }
+                self.reminder_toasts.insert(
+                    id,
+                    ReminderToast {
+                        reminder_id: fired.reminder_id,
+                        fired_at,
+                        snoozes: 0,
+                        persistent,
+                    },
+                );
+                self.record(fired.reminder_id, fired_at, NotificationAction::Shown);
                 continue;
             }
             let template = fired.template.as_ref();
@@ -2209,6 +2390,35 @@ impl SettingsWindow {
         }
     }
 
+    /// Take what the prayer service has to say: that no times could be worked
+    /// out, once a day, as a toast.
+    fn drain_prayer_notes(&mut self) {
+        let Some(service) = &self.prayer_service else {
+            return;
+        };
+        for note in service.drain() {
+            match note {
+                crate::prayer_service::Note::Source(source) => self.prayer_source = Some(source),
+                crate::prayer_service::Note::Unavailable => {
+                    if self.pause.is_active(jiff::Timestamp::now()) {
+                        continue;
+                    }
+                    let mut spec = self.prefs.spec(ot_toast::Content {
+                        title: ot_i18n::text("prayer-toast-unavailable-title"),
+                        body: ot_i18n::text("prayer-toast-unavailable-body"),
+                        app_name: ot_i18n::text("toast-app-name"),
+                        timestamp: Some(formatted_time(jiff::Timestamp::now())),
+                        action_labels: crate::reminder_toast::action_labels(),
+                        ..ot_toast::Content::default()
+                    });
+                    spec.behaviour.actions = 1;
+                    self.toasts.push(spec, Instant::now());
+                    tracing::info!("the no-prayer-times toast was shown");
+                }
+            }
+        }
+    }
+
     /// The one toast that says reminders were missed, unless it is already
     /// up or notifications are paused. Built by the same function as every
     /// toast; it has nothing to snooze.
@@ -2242,9 +2452,9 @@ impl SettingsWindow {
     /// Tell the scheduler something; it holds the store.
     fn send(&self, command: ot_sched::scheduler::Command) {
         if let Some(scheduler) = &self.scheduler
-            && scheduler.send(command).is_err()
+            && let Err(error) = scheduler.send(command)
         {
-            tracing::warn!(?command, "the scheduler has stopped; a command was lost");
+            tracing::warn!(command = ?error.0, "the scheduler has stopped; a command was lost");
         }
     }
 
@@ -2356,6 +2566,7 @@ impl eframe::App for SettingsWindow {
         ctx.request_repaint_after(TRAY_POLL);
         self.window = frame.window_handle().ok().map(|handle| handle.as_raw());
         self.drain_fires();
+        self.drain_prayer_notes();
         self.drain_book();
         self.handle_tray(ctx);
         self.drain_images(ctx);
@@ -2416,6 +2627,7 @@ impl eframe::App for SettingsWindow {
                 Section::Pictures => self.pictures_pane(ui),
                 Section::Animation => self.animation_pane(ui),
                 Section::Reminders => self.reminders_pane(ui),
+                Section::Prayer => self.prayer_pane(ui),
             });
 
         if self.confirming_quit {
@@ -2488,8 +2700,11 @@ fn reminder_rows(listing: &crate::reminder_book::Listing) -> Vec<crate::reminder
     listing
         .reminders
         .iter()
-        // Fatigue schedules have their own section.
-        .filter(|reminder| !reminder.draft.trigger.is_fatigue())
+        // Fatigue schedules have their own section, and the prayers are managed
+        // from the Prayer settings.
+        .filter(|reminder| {
+            !reminder.draft.trigger.is_fatigue() && !reminder.draft.trigger.is_prayer()
+        })
         .map(|reminder| {
             let type_key = listing
                 .type_of(reminder.draft.category_id)
@@ -2552,13 +2767,24 @@ fn missed_row(
     limit: u32,
 ) -> crate::reminders::MissedRow {
     crate::reminders::MissedRow {
-        title: crate::reminder_toast::content(reminder, template, None).title,
+        title: match &reminder.draft.trigger {
+            ot_store::reminders::Trigger::Prayer { prayer } => {
+                crate::prayer_pane::prayer_name(prayer)
+            }
+            _ => crate::reminder_toast::content(reminder, template, None).title,
+        },
         due: ot_i18n::text_with(
             "settings-missed-due",
             &[("time", formatted_datetime(fired_at).into())],
         ),
         can_snooze: snoozes < limit,
     }
+}
+
+/// Whether a pause holds a fire back: it holds every reminder, and never a
+/// prayer (`docs/specs/tray-and-settings.md` §4).
+fn pause_suppresses(paused: bool, is_prayer: bool) -> bool {
+    paused && !is_prayer
 }
 
 /// The fatigue section's rows: each kind from its managed reminder if it has
@@ -2712,6 +2938,10 @@ pub fn run(
     window.book = Some(crate::reminder_book::Book::new(
         &book_root,
         Some(scheduler.clone()),
+    ));
+    window.prayer_service = Some(crate::prayer_service::Service::start(
+        &book_root,
+        scheduler.clone(),
     ));
     window.scheduler = Some(scheduler);
     if dev.test_toast {
@@ -3036,6 +3266,14 @@ mod tests {
             pause_window(PauseWindow::UntilResumed),
             PauseFor::UntilResumed
         );
+    }
+
+    #[test]
+    fn a_pause_holds_back_every_reminder_and_never_a_prayer() {
+        assert!(pause_suppresses(true, false));
+        assert!(!pause_suppresses(true, true), "an Azan is never paused");
+        assert!(!pause_suppresses(false, false));
+        assert!(!pause_suppresses(false, true));
     }
 
     #[test]

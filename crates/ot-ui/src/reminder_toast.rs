@@ -86,6 +86,95 @@ pub fn spec(
     spec
 }
 
+/// A prayer's toast: the template's own title and message if it has them,
+/// else the prayer's name with both names and "It is time for …"; its own
+/// picture and accent, else the built-in masjid picture and the global accent;
+/// the day's source label as the note. Dismiss only, persistent up to the
+/// ten-minute cap, drawn from the same `ToastSpec` as every other toast
+/// (`docs/11-prayer-and-azan.md` §9). The fire and the editor's preview both
+/// come through here, so they cannot disagree. `prayer` is the scheduler's key.
+pub fn prayer_spec(
+    prefs: &ot_toast::Prefs,
+    prayer: &str,
+    template: Option<&Template>,
+    timestamp: Option<String>,
+    note: Option<String>,
+) -> ot_toast::ToastSpec {
+    let name = crate::prayer_pane::prayer_name(prayer);
+    let title = non_empty(template.and_then(|t| t.custom_title.as_deref()))
+        .map_or_else(|| name.clone(), str::to_owned);
+    let body = non_empty(template.and_then(|t| t.custom_body.as_deref())).map_or_else(
+        || ot_i18n::text_with("prayer-toast-body", &[("prayer", name.clone().into())]),
+        str::to_owned,
+    );
+    let image = template
+        .and_then(|t| t.image.clone())
+        .or_else(|| default_prayer_image(prayer).map(str::to_owned));
+    let content = ot_toast::Content {
+        title,
+        body,
+        app_name: ot_i18n::text("toast-app-name"),
+        image,
+        accent: template
+            .and_then(|t| t.accent_color.as_deref())
+            .and_then(parse_accent),
+        timestamp,
+        note,
+        action_labels: action_labels(),
+        ..ot_toast::Content::default()
+    };
+    let mut spec = prefs.spec(content);
+    // Dismiss only: an Azan is not put off.
+    spec.behaviour.actions = 1;
+    spec.behaviour.persistent = true;
+    spec.behaviour.duration_secs = ot_toast::spec::PERSISTENT_CAP_SECS;
+    spec
+}
+
+/// The reminder ahead of a prayer: the prayer's name and "in 10 minutes", with
+/// the prayer's own picture and accent. A plain toast — it times out, plays no
+/// sound and is held back by a pause, unlike the prayer itself.
+pub fn prayer_before_spec(
+    prefs: &ot_toast::Prefs,
+    prayer: &str,
+    minutes: u32,
+    template: Option<&Template>,
+    timestamp: Option<String>,
+) -> ot_toast::ToastSpec {
+    let name = crate::prayer_pane::prayer_name(prayer);
+    let content = ot_toast::Content {
+        title: name.clone(),
+        body: ot_i18n::text_with_count("prayer-before-body", minutes, &[("prayer", name.into())]),
+        app_name: ot_i18n::text("toast-app-name"),
+        image: template
+            .and_then(|t| t.image.clone())
+            .or_else(|| default_prayer_image(prayer).map(str::to_owned)),
+        accent: template
+            .and_then(|t| t.accent_color.as_deref())
+            .and_then(parse_accent),
+        timestamp,
+        action_labels: action_labels(),
+        ..ot_toast::Content::default()
+    };
+    let mut spec = prefs.spec(content);
+    spec.behaviour.actions = 1;
+    spec
+}
+
+/// The built-in masjid picture a prayer shows until its template chooses one.
+/// Syuruk has none of its own and borrows Dhuha's.
+pub fn default_prayer_image(prayer: &str) -> Option<&'static str> {
+    Some(match prayer {
+        "fajr" => "@builtin/masjid-subuh",
+        "syuruk" => "@builtin/masjid-dhuha",
+        "dhuhr" => "@builtin/masjid-zohor",
+        "asr" => "@builtin/masjid-asar",
+        "maghrib" => "@builtin/masjid-maghrib",
+        "isha" => "@builtin/masjid-isyak",
+        _ => return None,
+    })
+}
+
 /// Whether a reminder of this template jumps the toast queue.
 pub fn is_urgent(template: Option<&Template>) -> bool {
     type_key(template) == URGENT_TYPE
@@ -304,6 +393,131 @@ mod tests {
             );
             assert_eq!(at.actions(), &[ot_toast::Action::Dismiss]);
             assert_eq!(at.content.note.as_deref(), Some(line));
+        }
+    }
+
+    #[test]
+    fn a_prayers_toast_is_persistent_dismiss_only_and_carries_both_names() {
+        let _turn = LANGUAGE.lock().unwrap_or_else(|e| e.into_inner());
+        for (language, names) in [
+            (Language::English, ("Fajr", "Subuh")),
+            (Language::Malay, ("Subuh", "Fajr")),
+        ] {
+            in_language(language);
+            let spec = prayer_spec(
+                &ot_toast::Prefs::default(),
+                "fajr",
+                None,
+                Some("5:49 am".into()),
+                None,
+            );
+            assert!(spec.behaviour.persistent, "{language:?}");
+            assert_eq!(
+                spec.behaviour.duration_secs,
+                ot_toast::spec::PERSISTENT_CAP_SECS
+            );
+            assert_eq!(spec.behaviour.actions, 1, "Dismiss, and nothing to snooze");
+            assert!(spec.content.title.contains(names.0) && spec.content.title.contains(names.1));
+            assert!(
+                spec.content.body.contains(&spec.content.title),
+                "the body names the prayer: {}",
+                spec.content.body
+            );
+            assert_eq!(spec.clone().clamped(), spec, "the cap survives clamping");
+        }
+        // A key nobody knows shows as itself rather than as nothing.
+        assert!(!crate::prayer_pane::prayer_name("fajr").is_empty());
+        assert_eq!(crate::prayer_pane::prayer_name("imsak"), "imsak");
+    }
+
+    fn prayer_template(title: Option<&str>, body: Option<&str>, accent: Option<&str>) -> Template {
+        Template {
+            id: 21,
+            prayer_key: Some("fajr".to_owned()),
+            custom_title: title.map(str::to_owned),
+            custom_body: body.map(str::to_owned),
+            accent_color: accent.map(str::to_owned),
+            ..Template::default()
+        }
+    }
+
+    #[test]
+    fn a_prayer_templates_own_text_wins_and_empty_fields_fall_back_in_the_active_language() {
+        let _turn = LANGUAGE.lock().unwrap_or_else(|e| e.into_inner());
+        let prefs = ot_toast::Prefs::default();
+        let written = prayer_template(
+            Some("Bangun, Subuh dah masuk"),
+            Some("Jangan lewat."),
+            Some("#3b9eff"),
+        );
+        for language in [Language::English, Language::Malay] {
+            in_language(language);
+            let own = prayer_spec(&prefs, "fajr", Some(&written), None, None);
+            assert_eq!(own.content.title, "Bangun, Subuh dah masuk", "{language:?}");
+            assert_eq!(own.content.body, "Jangan lewat.");
+            assert!(own.content.accent.is_some(), "the template's accent");
+
+            // Nothing written: the built-in text, in the language in force.
+            let blank = prayer_template(None, None, None);
+            let built_in = prayer_spec(&prefs, "fajr", Some(&blank), None, None);
+            let name = crate::prayer_pane::prayer_name("fajr");
+            assert_eq!(built_in.content.title, name);
+            assert!(built_in.content.body.contains(&name));
+            assert!(
+                built_in.content.accent.is_none(),
+                "the global accent applies"
+            );
+            // No template at all is the same as an empty one.
+            assert_eq!(prayer_spec(&prefs, "fajr", None, None, None), built_in);
+        }
+    }
+
+    #[test]
+    fn the_fire_and_the_preview_build_the_same_toast_and_it_carries_the_source_label() {
+        let prefs = ot_toast::Prefs::default();
+        let template = prayer_template(Some("Subuh"), None, None);
+        let label = Some("Source: JAKIM e-Solat".to_owned());
+        let fire = prayer_spec(
+            &prefs,
+            "fajr",
+            Some(&template),
+            Some("5:49 am".into()),
+            label.clone(),
+        );
+        let preview = prayer_spec(
+            &prefs,
+            "fajr",
+            Some(&template),
+            Some("5:49 am".into()),
+            label.clone(),
+        );
+        assert_eq!(fire, preview, "one function, so one toast");
+        assert_eq!(fire.content.note, label, "the source label is on it");
+    }
+
+    #[test]
+    fn every_prayer_has_a_built_in_picture_that_exists() {
+        for prayer in ot_store::reminders::PRAYERS {
+            let key = default_prayer_image(prayer).unwrap_or_else(|| panic!("{prayer}"));
+            assert!(
+                ot_store::builtin::find(key).is_some(),
+                "{key} is not built in"
+            );
+        }
+        assert_eq!(default_prayer_image("imsak"), None);
+    }
+
+    #[test]
+    fn the_prayer_toast_strings_exist_in_both_catalogues() {
+        for tag in ["en-US", "ms-MY"] {
+            let keys = ot_i18n::message_keys(tag).expect("parses");
+            for key in [
+                "prayer-toast-body",
+                "prayer-toast-unavailable-title",
+                "prayer-toast-unavailable-body",
+            ] {
+                assert!(keys.contains(key), "{key} missing from {tag}");
+            }
         }
     }
 

@@ -1,5 +1,5 @@
 
-# Omni TOaster
+# Omni Toaster
 
 I want to develop rust desktop apps in windows where it resemble Windows Toast Notification.
 Please help me to do proposal based on these requirements.

@@ -669,3 +669,221 @@ error-reminder-title-empty = Beri peringatan ini tajuk.
 error-reminder-time-passed = Masa ini telah berlalu dan peringatan ini tidak berulang, jadi ia tidak akan muncul.
 # Baris status apabila peringatan tidak dapat dibaca atau disimpan. $reason ialah puncanya.
 settings-status-reminders-failed = Peringatan anda tidak dapat dibaca atau disimpan: { $reason }
+# Label sumber waktu solat, sentiasa dipaparkan di sebelah waktu hari ini (Tetapan > Solat, tip alat dulang). Waktu diambil daripada JAKIM e-Solat. $time ialah masa ia diambil, diformat oleh pemformat kongsi.
+prayer-source-jakim = Sumber: JAKIM e-Solat, diambil { $time }
+# Label yang sama apabila waktu datang daripada salinan tersimpan kerana pengambilan tidak dapat atau tidak perlu dibuat. $time ialah masa salinan itu diambil.
+prayer-source-jakim-cached = Sumber: JAKIM e-Solat (salinan tersimpan), diambil { $time }
+# Label sumber waktu solat apabila waktu datang daripada set data yang disertakan dalam aplikasi.
+prayer-source-bundled = Data luar talian
+# Label sumber waktu solat apabila waktu dikira kerana pengguna memilihnya, atau lokasi berada di luar Malaysia.
+prayer-source-calculated = Dikira
+# Label yang sama apabila lokasi berada di dalam Malaysia, tempat waktu JAKIM sendiri boleh berbeza beberapa minit.
+prayer-source-calculated-approximate = Dikira (anggaran)
+# Label sumber waktu solat apabila waktu JAKIM dikehendaki tetapi tidak dapat diperoleh, maka aplikasi mengiranya.
+prayer-source-calculated-fallback = Dikira (sandaran)
+# Label sandaran yang sama apabila lokasi berada di dalam Malaysia, tempat pengiraan boleh berbeza daripada JAKIM beberapa minit.
+prayer-source-calculated-fallback-approximate = Dikira (sandaran, anggaran)
+# Nama bahagian Solat dalam senarai di sebelah kiri tetingkap tetapan.
+settings-section-prayer = Solat
+# Tajuk kumpulan lokasi dalam Tetapan > Solat.
+prayer-location-heading = Lokasi
+# Soalan dalam kad larian pertama yang bertanya sebelum aplikasi mencari tempat pengguna daripada alamat internetnya.
+prayer-consent-title = Kesan lokasi anda daripada alamat internet anda?
+# Penerangan di bawah soalan itu. ipapi.co ialah nama perkhidmatan carian dan kekal seperti ditulis.
+prayer-consent-body = OmniToaster boleh mencari di mana anda berada sekali sehari, untuk memilih zon solat anda. Alamat internet anda dihantar kepada ipapi.co dan tidak disimpan. Anda boleh menaip tempat sebagai ganti.
+# Butang yang bersetuju dengan carian itu.
+prayer-consent-allow = Benarkan
+# Butang yang menolak carian itu buat masa ini; pengguna masih boleh mengubah fikiran kemudian.
+prayer-consent-decline = Bukan Sekarang
+# Kotak semak yang menghidupkan atau mematikan carian harian selepas jawapan pertama.
+prayer-detect-checkbox = Kesan lokasi saya daripada alamat internet saya
+# Petunjuk di bawah kotak semak itu.
+prayer-detect-hint = Sekali sehari, dengan kebenaran anda sahaja. Tempat yang anda tetapkan sendiri tidak akan diganti.
+# Dipaparkan semasa carian sedang berjalan.
+prayer-location-looking = Sedang mencari lokasi anda…
+# Dipaparkan apabila perkhidmatan carian lokasi tidak dapat dihubungi.
+prayer-error-network = Perkhidmatan lokasi tidak dapat dihubungi. Semak sambungan anda, atau taip tempat sebagai ganti.
+# Dipaparkan apabila perkhidmatan lokasi menolak permintaan, contohnya kerana ditanya terlalu kerap.
+prayer-error-service = Perkhidmatan lokasi tidak memberi jawapan. Cuba lagi kemudian, atau taip tempat sebagai ganti.
+# Dipaparkan apabila perkhidmatan lokasi menjawab sesuatu yang tidak dapat digunakan.
+prayer-error-answer = Perkhidmatan lokasi memberi jawapan yang tidak dapat digunakan. Taip tempat sebagai ganti.
+# Tempat tersimpan apabila ia dijumpai daripada alamat internet. $place ialah bandar dan wilayah.
+prayer-location-detected = Lokasi: { $place } (dikesan daripada alamat internet anda)
+# Tempat tersimpan apabila pengguna memilihnya. $place ialah bandar dan wilayah, atau koordinat.
+prayer-location-manual = Lokasi: { $place } (ditetapkan oleh anda)
+# Dipaparkan apabila belum ada tempat tersimpan.
+prayer-location-none = Belum ada lokasi ditetapkan. Cari bandar atau taip koordinat.
+# Butang yang membuka kawalan memasukkan tempat.
+prayer-location-change = Tukar Lokasi
+# Butang yang menutup kawalan memasukkan tempat.
+prayer-close = Tutup
+# Label medan carian bandar.
+prayer-search-label = Bandar
+# Petunjuk kelabu dalam medan carian bandar yang kosong.
+prayer-search-placeholder = Cari bandar
+# Butang yang menjalankan carian bandar.
+prayer-search-button = Cari
+# Dipaparkan semasa carian bandar sedang berjalan.
+prayer-search-loading = Sedang mencari…
+# Dipaparkan apabila carian bandar tidak menemui apa-apa.
+prayer-search-empty = Tiada bandar sepadan dengan carian itu.
+# Satu hasil carian bandar. $place ialah bandar dan wilayah; $zone ialah nama zon waktunya.
+prayer-search-result = { $place } ({ $zone })
+# Label medan koordinat.
+prayer-coords-label = Koordinat
+# Petunjuk kelabu dalam medan koordinat yang kosong.
+prayer-coords-placeholder = Latitud, longitud, contohnya 3.14, 101.69
+# Butang yang menggunakan koordinat yang ditaip.
+prayer-coords-use = Guna Koordinat
+# Dipaparkan apabila koordinat yang ditaip bukan dua nombor.
+prayer-coords-error-format = Taip latitud dan longitud, seperti 3.14, 101.69.
+# Dipaparkan apabila koordinat yang ditaip berada di luar julat Bumi.
+prayer-coords-error-range = Latitud ialah dari -90 hingga 90 dan longitud dari -180 hingga 180.
+# Dipaparkan apabila zon waktu PC ini tidak dapat dibaca untuk koordinat di luar Malaysia.
+prayer-coords-error-zone = Zon waktu PC ini tidak dapat dibaca. Cari bandar sebagai ganti.
+# Dipaparkan selepas koordinat di luar Malaysia digunakan. $zone ialah zon waktu PC ini, yang diandaikan.
+prayer-coords-zone-note = Zon waktu: { $zone }, diambil daripada PC ini. Semak sama ada ia betul untuk tempat ini, atau cari bandar sebagai ganti.
+# Label senarai juntai sumber.
+prayer-source-label = Sumber
+# Pilihan pertama dalam senarai juntai sumber: JAKIM di dalam Malaysia dan dikira di tempat lain.
+prayer-choice-auto = Automatik
+# Pilihan kedua dalam senarai juntai sumber.
+prayer-choice-jakim = JAKIM e-Solat
+# Pilihan ketiga dalam senarai juntai sumber.
+prayer-choice-calculated = Dikira
+# Petunjuk di bawah senarai juntai sumber.
+prayer-source-hint = Automatik menggunakan JAKIM e-Solat di dalam Malaysia dan mengira di tempat lain.
+# Amaran yang dipaparkan apabila JAKIM dipilih tetapi tiada zon untuk ditanya.
+prayer-warning-needs-zone = JAKIM memerlukan zon. Pilih satu di bawah, atau gunakan Automatik.
+# Amaran yang dipaparkan apabila JAKIM dipilih untuk tempat di luar Malaysia.
+prayer-warning-abroad = Tempat ini di luar Malaysia. Waktu JAKIM mengikut zon yang anda pilih dan mungkin berbeza daripada amalan tempatan.
+# Label baris zon.
+prayer-zone-label = Zon
+# Zon yang dijumpai daripada tempat tersimpan. $code ialah kod zon JAKIM seperti SGR01; $areas ialah senarai kawasan; $state ialah negeri.
+prayer-zone-detected = Zon dikesan: { $code } · { $areas } · { $state }
+# Zon yang dipilih pengguna. Pemegang tempat yang sama seperti zon yang dikesan.
+prayer-zone-chosen = Zon: { $code } · { $areas } · { $state }
+# Dipaparkan apabila belum ada zon.
+prayer-zone-none = Belum ada zon. Tetapkan lokasi di Malaysia, atau pilih zon.
+# Butang yang membuka senarai zon.
+prayer-zone-change = Tukar Zon
+# Butang yang kembali kepada zon yang dijumpai daripada tempat.
+prayer-zone-use-detected = Guna Zon Dikesan
+# Petunjuk kelabu dalam medan carian zon yang kosong.
+prayer-zone-search-placeholder = Cari mengikut kod, negeri atau kawasan
+# Dipaparkan apabila carian zon tidak menemui apa-apa.
+prayer-zone-no-match = Tiada zon sepadan dengan carian itu.
+# Satu baris senarai zon. $code ialah kod zon, $state ialah negeri, $areas ialah senarai kawasan.
+prayer-zone-row = { $code } · { $state } · { $areas }
+# Label senarai juntai kaedah pengiraan.
+prayer-method-label = Kaedah
+# Satu kaedah pengiraan.
+prayer-preset-mwl = Liga Dunia Islam (Muslim World League)
+# Satu kaedah pengiraan.
+prayer-preset-isna = ISNA
+# Satu kaedah pengiraan.
+prayer-preset-umm-al-qura = Umm al-Qura
+# Satu kaedah pengiraan yang mengikut sudut JAKIM tetapi bukan waktu JAKIM sendiri.
+prayer-preset-malaysia = Malaysia (Sudut JAKIM, Anggaran)
+# Label senarai juntai mazhab Asar. Asar ialah solat waktu petang.
+prayer-asr-label = Mazhab Asar
+# Satu mazhab Asar; yang diikuti JAKIM.
+prayer-asr-shafii = Syafie
+# Satu mazhab Asar.
+prayer-asr-hanafi = Hanafi
+# Petunjuk di bawah senarai juntai mazhab Asar.
+prayer-asr-hint = Syafie ialah ikutan JAKIM. Hanafi meletakkan Asar kira-kira sejam lebih lewat.
+# Tajuk senarai waktu solat hari ini.
+prayer-today-heading = Waktu Solat Hari Ini
+# Dipaparkan semasa waktu hari ini sedang dikira.
+prayer-today-loading = Sedang mengira waktu hari ini…
+# Dipaparkan apabila tiada sumber dapat memberi waktu hari ini.
+prayer-today-nothing = Tiada waktu solat tersedia. Tetapkan lokasi, atau semak sambungan anda dan cuba lagi.
+# Dipaparkan sebelum ada lokasi untuk dijadikan asas.
+prayer-today-none-yet = Pilih lokasi untuk melihat waktu hari ini.
+# Satu solat dalam senarai hari itu: kedua-dua nama, supaya pembaca mana-mana nama dapat mencarinya. Subuh ialah solat waktu fajar.
+prayer-name-fajr = Subuh (Fajr)
+# Syuruk, yang menamatkan waktu solat Subuh.
+prayer-name-syuruk = Syuruk (Sunrise)
+# Solat waktu tengah hari.
+prayer-name-dhuhr = Zohor (Dhuhr)
+# Solat waktu petang.
+prayer-name-asr = Asar (Asr)
+# Solat waktu matahari terbenam.
+prayer-name-maghrib = Maghrib
+# Solat waktu malam.
+prayer-name-isha = Isyak (Isha)
+# Tajuk kumpulan tetapan pemberitahuan dalam Tetapan > Solat.
+prayer-notify-heading = Pemberitahuan
+# Kotak semak yang memberi Syuruk (matahari terbit) pemberitahuan tersendiri. Lima waktu solat sehari sentiasa ada satu.
+prayer-notify-syuruk = Beritahu pada Syuruk (Sunrise)
+# Petunjuk di bawah kotak semak Syuruk.
+prayer-notify-hint = Lima waktu solat sehari sentiasa mempunyai pemberitahuan.
+# Label medan nombor bagi berapa lama solat yang terlepas boleh disenaraikan.
+prayer-azan-window-label = Tempoh Solat Terlepas (Minit)
+# Petunjuk di bawah medan itu.
+prayer-azan-window-hint = Solat yang terlepas semasa PC dimatikan disenaraikan jika tidak lebih lama daripada ini. Yang lebih lama digugurkan.
+# Label medan bilangan minit sebelum solat peringatannya datang.
+prayer-before-label = Ingatkan Sebelum (Minit)
+# Petunjuk di bawah kotak semak "ingatkan sebelum" bagi setiap solat.
+prayer-before-hint = Tandakan sesuatu solat untuk mendapat peringatan ringkas sekian minit sebelumnya. Peringatan yang akan datang selepas solat bermula dilangkau.
+# Kandungan pemberitahuan solat. $prayer ialah nama solat dengan kedua-dua nama, seperti Subuh (Fajr).
+prayer-toast-body = Masuk waktu { $prayer }.
+# Kandungan peringatan sebelum solat. $prayer ialah nama solat dengan kedua-dua nama, seperti Subuh (Fajr). $count ialah bilangan minit. Bahasa Melayu tiada bentuk jamak.
+prayer-before-body = { $prayer } dalam { $count } minit.
+# Tajuk pemberitahuan yang dipaparkan, paling banyak sekali sehari, apabila waktu solat tidak dapat dikira.
+prayer-toast-unavailable-title = Tiada waktu solat tersedia
+# Kandungan pemberitahuan itu.
+prayer-toast-unavailable-body = OmniToaster tidak dapat mengira waktu solat hari ini. Buka Tetapan dan pilih lokasi.
+# Tajuk kumpulan tempat pemberitahuan setiap solat boleh diubah.
+prayer-template-heading = Templat Solat
+# Label senarai juntai yang memilih templat solat mana yang disunting.
+prayer-template-prayer = Solat
+# Label medan tajuk pemberitahuan solat.
+prayer-template-title = Tajuk
+# Label medan mesej pemberitahuan solat.
+prayer-template-message = Mesej
+# Kotak semak yang memberi pemberitahuan solat warna aksen tersendiri.
+prayer-template-accent-use = Guna warna aksen tersuai
+# Label senarai juntai gambar pemberitahuan solat.
+prayer-template-picture = Gambar
+# Pilihan pertama dalam senarai itu: gambar yang disertakan dengan aplikasi untuk solat ini.
+prayer-template-picture-builtin = Gambar terbina dalam
+# Petunjuk di bawah medan templat.
+prayer-template-hint = Biarkan medan kosong untuk menggunakan teks terbina dalam dalam bahasa semasa. Teks yang anda tulis disimpan seperti yang ditaip dan tidak pernah diterjemah.
+# Butang yang menyimpan templat.
+prayer-template-save = Simpan Templat
+# Butang yang mengosongkan tajuk dan mesej supaya teks terbina dalam digunakan semula.
+prayer-template-default = Guna Teks Lalai
+# Butang yang menunjukkan pemberitahuan seperti rupanya nanti.
+prayer-template-preview = Pratonton Pemberitahuan
+# Dipaparkan selepas templat disimpan.
+prayer-template-saved = Templat disimpan.
+# Label senarai juntai yang memilih apa yang dimainkan oleh sesuatu solat apabila tiba waktunya.
+prayer-sound-label = Bunyi
+# Pilihan bunyi: loceng pendek yang disertakan dengan aplikasi. Yang lalai.
+prayer-sound-chime = Loceng Pendek
+# Pilihan bunyi: azan penuh yang disertakan dengan aplikasi.
+prayer-sound-azan = Azan Penuh
+# Pilihan bunyi: klip audio yang dipilih pengguna daripada failnya sendiri.
+prayer-sound-file = Fail Audio Saya
+# Pilihan bunyi: tiada bunyi langsung.
+prayer-sound-none = Senyap
+# Butang yang membuka dialog untuk memilih klip audio.
+prayer-sound-choose = Pilih Fail Audio
+# Dipaparkan selagi belum ada klip audio dipilih.
+prayer-sound-none-chosen = Belum ada fail dipilih.
+# Butang yang memainkan bunyi solat itu sekarang, untuk didengar.
+prayer-sound-play = Main Bunyi
+# Butang yang menghentikan bunyi.
+prayer-sound-stop = Henti
+# Tajuk dialog untuk memilih klip audio.
+prayer-sound-dialog-title = Pilih klip audio
+# Nama penapis jenis fail dalam dialog itu.
+prayer-sound-filter = Audio (WAV, MP3, Ogg)
+# Dinyatakan apabila klip audio melebihi had saiz.
+error-import-audio-too-large = Klip itu melebihi 20 MB.
+# Dinyatakan apabila fail yang dipilih bukan fail audio jenis yang dimainkan aplikasi, apa jua namanya.
+error-import-not-audio = Fail itu bukan klip WAV, MP3 atau Ogg Vorbis, apa jua namanya.
+# Dinyatakan apabila klip audio berjalan lebih daripada sepuluh minit.
+error-import-audio-too-long = Klip itu berjalan lebih daripada sepuluh minit.

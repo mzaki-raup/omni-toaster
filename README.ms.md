@@ -48,7 +48,7 @@ bahasa:
 
 | Jenis | Fungsinya |
 |---|---|
-| **Azan** | Lima waktu solat harian, serta Syuruk dan Jumaat secara pilihan, dengan audio bagi setiap waktu dan peringatan sebelum waktu secara pilihan |
+| **Azan** | Lima waktu solat harian, serta Syuruk dan Jumaat secara pilihan, dengan tajuk, mesej, warna aksen dan gambar tersendiri bagi setiap waktu, audio bagi setiap waktu dan peringatan sebelum waktu secara pilihan |
 | **Perubahan cuaca** | Dipaparkan apabila keadaan berubah (cerah, berawan, hujan, ribut, salji, kabus) atau suhu melepasi had |
 | **Acara** | Peringatan sekali atau berulang, seperti dalam kalendar |
 | **Tugasan** | Tugasan dengan pencetus sebelum masanya |
@@ -143,15 +143,17 @@ Windows, jadi hampir setiap aspeknya boleh ditetapkan:
 
 Di dalam Malaysia, sumber lalai ialah **JAKIM e-Solat**, mengikut kod zon
 (kira-kira 60 zon), supaya waktunya sepadan dengan masjid, sekolah dan pejabat
-kerajaan yang diikuti pengguna. Aplikasi mengesan lokasi, mencadangkan zon
-terdekat dan meminta pengguna mengesahkannya. Waktu solat diambil untuk bulan
+kerajaan yang diikuti pengguna. Dengan kebenaran pengguna, aplikasi mengesan
+lokasi daripada alamat IP (sekali sehari), mencadangkan zon terdekat dan meminta
+pengguna mengesahkannya; lokasi juga boleh dicari mengikut bandar atau ditaip
+sebagai koordinat. Waktu solat diambil untuk bulan
 semasa dan bulan berikutnya, disimpan dalam cache, dan dikemas kini setiap
 minggu.
 
 Di luar Malaysia — atau semasa luar talian, atau apabila e-Solat tidak dapat
 dicapai — waktu solat **dikira** dengan crate `adhan`. Pratetap kaedah ialah
 Muslim World League, ISNA, Umm al-Qura dan "Malaysia (sudut JAKIM, anggaran)"
-dengan Subuh 20.0° dan Isyak 18.0°. Asar mengikut mazhab Syafie secara lalai.
+dengan Subuh 18.0° dan Isyak 18.0°. Asar mengikut mazhab Syafie secara lalai.
 Waktu yang dikira di dalam Malaysia dilabel sebagai anggaran. Sumber yang
 digunakan, dan masa pengambilan terakhir, sentiasa dipaparkan pada skrin.
 
@@ -320,8 +322,19 @@ bawahnya:
 
 ![Tetapan ▸ Peringatan dengan peringatan mingguan terbuka dalam penyunting](docs/screenshots/settings-reminders.png)
 
-Dalam bahasa Melayu: [settings-reminders-ms.png](docs/screenshots/settings-reminders-ms.png). Yang
-selebihnya **belum ditangkap** — skrinnya belum wujud. Tempatnya telah dikhaskan
+Dalam bahasa Melayu: [settings-reminders-ms.png](docs/screenshots/settings-reminders-ms.png).
+
+Tetapan ▸ Solat: lokasi, sumber dan zon, pemberitahuan (dengan peringatan
+sebelum setiap solat), templat bagi setiap solat, serta waktu hari ini dengan
+sumbernya:
+
+![Tetapan ▸ Solat dengan lokasi yang ditetapkan sendiri, zon yang dikesan dan waktu JAKIM hari ini](docs/screenshots/settings-prayer.png)
+
+Dalam bahasa Melayu, tanpa rangkaian dan tanpa cache, jadi waktunya dikira dan
+labelnya menyatakan demikian:
+[settings-prayer-ms.png](docs/screenshots/settings-prayer-ms.png).
+
+Yang selebihnya **belum ditangkap** — skrinnya belum wujud. Tempatnya telah dikhaskan
 dan prosedur tangkapannya ditulis dalam
 [docs/screenshots/README.md](docs/screenshots/README.md); setiap imej di bawah
 diambil apabila fasanya siap:
@@ -329,7 +342,6 @@ diambil apabila fasanya siap:
 | Imej | Menunjukkan | Dalam fasa |
 |---|---|---|
 | `docs/screenshots/tray-menu.png` | Ikon dulang dan menunya | Fasa 1 |
-| `docs/screenshots/settings-prayer.png` | Tetapan → Solat, pengesahan zon dan label sumber | Fasa 5 |
 | `docs/screenshots/flow-reminder.gif` | Mencipta peringatan dan melihatnya dipaparkan | Fasa 4 |
 
 Setiap tangkapan skrin diambil dalam bahasa Inggeris dan bahasa Melayu sebelum
@@ -348,6 +360,11 @@ oleh JAKIM. Apabila waktu dipaparkan daripada sumber itu, aplikasi melabelnya
 dilabel sebagai dikira. Sama ada set data JAKIM boleh disertakan bersama
 keluaran akan diputuskan oleh semakan terma dalam Fasa 9 — sehingga itu, data
 diambil atau dimuat turun oleh pengguna.
+
+Koordinat tempat dalam jadual zon datang daripada
+[GeoNames](https://www.geonames.org/), dilesenkan di bawah
+[CC BY 4.0](https://creativecommons.org/licenses/by/4.0/); kod dan nama zon
+ialah milik JAKIM ([data/README.md](data/README.md)).
 
 Data cuaca datang daripada [Open-Meteo](https://open-meteo.com/) di bawah
 termanya sendiri. Pengiraan waktu solat menggunakan crate

@@ -26,7 +26,7 @@ omni-toaster/
 │   └── ot-media/               # audio playback (rodio), speech (SpeechSynthesizer)
 ├── locales/{en-US,ms-MY}/omni_toaster.ftl
 ├── assets/
-├── data/jakim_zones.csv
+├── data/jakim_zones.csv, jakim_zone_points.csv
 ├── tests/fixtures/
 ├── docs/
 └── scripts/
@@ -71,6 +71,16 @@ would have moved that policy into `main` for no gain. The rule that matters is
 unchanged: **Windows code lives in `ot-platform`**, behind an interface named
 for the capability, and `ot-ui` calls it rather than reaching for `windows` or
 `winreg` itself.
+
+**`ot-ui` also depends on `ot-store`, `ot-sched` and `ot-prayer`.** The drawing
+never showed it, but the Reminders pane reads and writes the store and tells the
+scheduler, and the Prayer pane (FEAT-0057) runs `ot-prayer`'s fallback chain over
+`ot-store`'s prayer cache. The window is the one place that has the data root and
+the user's settings, and the service crates cannot depend on each other, so the
+glue lives here: `ot_ui::prayer` implements `ot_prayer::chain::Cache` over the
+store (a newtype, since both are foreign to `ot-ui`) and runs each blocking call
+on a short-lived thread of its own. The rule above still holds — **no service
+crate depends on another** — because `ot-ui` is not one.
 
 ## Runtime shape
 

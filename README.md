@@ -44,7 +44,7 @@ image, accent colour, sound and style overrides — in both languages:
 
 | Type | What it does |
 |---|---|
-| **Azan prayer** | The five daily prayers, plus optional Syuruk and Jumu'ah, with per-prayer audio and an optional pre-prayer reminder |
+| **Azan prayer** | The five daily prayers, plus optional Syuruk and Jumu'ah, with a title, message, accent and picture of their own for each prayer, per-prayer audio and an optional pre-prayer reminder |
 | **Weather change** | Fires on a condition change (clear, cloudy, rain, storm, snow, fog) or a temperature threshold |
 | **Event** | A one-off or recurring calendar-style reminder |
 | **Task** | A to-do with an offset-before trigger |
@@ -129,13 +129,14 @@ everything about them is a setting:
 
 Inside Malaysia the default source is **JAKIM e-Solat**, by zone code (about 60
 zones), so times match the mosques, schools and government offices users follow.
-The app detects the location, proposes the nearest zone and asks the user to
-confirm it. Times are fetched for the current and next month, cached, and
+With the user's permission the app detects the location from the IP address
+(once a day), proposes the nearest zone and asks the user to confirm it; the
+location can also be searched by city or typed as coordinates. Times are fetched for the current and next month, cached, and
 refreshed weekly.
 
 Outside Malaysia — or offline, or when e-Solat is unavailable — times are
 **calculated** with the `adhan` crate. Method presets are Muslim World League,
-ISNA, Umm al-Qura and "Malaysia (JAKIM angles, approximate)" at Fajr 20.0° and
+ISNA, Umm al-Qura and "Malaysia (JAKIM angles, approximate)" at Fajr 18.0° and
 Isha 18.0°. Asar follows Shafi'i by default. Calculated times inside Malaysia
 are labelled approximate. The source in use, and the time of the last fetch, are
 always on screen.
@@ -295,8 +296,19 @@ below:
 
 ![Settings ▸ Reminders with a weekly reminder open in the editor](docs/screenshots/settings-reminders.png)
 
-In Bahasa Melayu: [settings-reminders-ms.png](docs/screenshots/settings-reminders-ms.png). The rest
-are **not captured yet** — the screens do not exist. The places are reserved
+In Bahasa Melayu: [settings-reminders-ms.png](docs/screenshots/settings-reminders-ms.png).
+
+Settings ▸ Prayer: the place, the source and zone, the notifications (with the
+reminder ahead of each prayer), a template for each prayer, and today's times
+with where they came from:
+
+![Settings ▸ Prayer with a place set by hand, the detected zone and today's JAKIM times](docs/screenshots/settings-prayer.png)
+
+In Bahasa Melayu, with no network and nothing cached, so the times are
+calculated and the label says so:
+[settings-prayer-ms.png](docs/screenshots/settings-prayer-ms.png).
+
+The rest are **not captured yet** — the screens do not exist. The places are reserved
 and the capture procedure is written down in
 [docs/screenshots/README.md](docs/screenshots/README.md); each image below is
 taken as its phase lands:
@@ -304,7 +316,6 @@ taken as its phase lands:
 | Image | Shows | Lands in |
 |---|---|---|
 | `docs/screenshots/tray-menu.png` | The tray icon and its menu | Phase 1 |
-| `docs/screenshots/settings-prayer.png` | Settings → Prayer, zone confirmation and source label | Phase 5 |
 | `docs/screenshots/flow-reminder.gif` | Creating a reminder and seeing it fire | Phase 4 |
 
 Each screenshot is taken in both English and Malay before Phase 9 ships.
@@ -322,6 +333,11 @@ JAKIM e-Solat" with the time of the last fetch; calculated times are labelled as
 calculated. Whether the JAKIM dataset may be bundled with a release is settled
 by the terms check in Phase 9 — until then the data is fetched or downloaded by
 the user.
+
+The zone table's place coordinates come from
+[GeoNames](https://www.geonames.org/), licensed under
+[CC BY 4.0](https://creativecommons.org/licenses/by/4.0/); the zone codes and
+names are JAKIM's ([data/README.md](data/README.md)).
 
 Weather data comes from [Open-Meteo](https://open-meteo.com/) under its own
 terms. Prayer calculation uses the [`adhan`](https://crates.io/crates/adhan)

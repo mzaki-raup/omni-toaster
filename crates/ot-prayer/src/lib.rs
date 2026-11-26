@@ -5,3 +5,13 @@
 //!
 //! See `docs/03-architecture.md` for where this crate sits and which crates it
 //! may depend on.
+
+pub mod calculated;
+pub mod chain;
+pub mod fetch;
+pub mod jakim;
+pub mod location;
+pub mod zones;
+
+#[cfg(test)]
+mod testserver;

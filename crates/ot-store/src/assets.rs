@@ -197,6 +197,44 @@ pub fn import(root: &Path, source: &Path) -> Result<Asset, ImportError> {
     })
 }
 
+/// An audio clip copied into `assets/`, as the database sees it.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct StoredAudio {
+    /// The content hash, which is also the file's name.
+    pub sha256: String,
+    /// **Relative** to the data folder.
+    pub relative_path: String,
+    pub bytes: u64,
+}
+
+/// Copy an audio clip, already checked by `ot_media::audio::check`, into
+/// `<root>/assets/` under its content hash, proving the destination is inside
+/// the data folder first. The same clip stored twice is stored once. This crate
+/// does not decode: the size, the format and the bounded decode are the
+/// caller's, before the copy, so a bad file never reaches the folder.
+pub fn store_audio(root: &Path, bytes: &[u8], extension: &str) -> Result<StoredAudio, ImportError> {
+    let sha256 = hex(&Sha256::digest(bytes));
+    let name = format!("{sha256}.{extension}");
+    let folder = root.join(ASSETS_DIR);
+    fs::create_dir_all(&folder).map_err(|error| ImportError::Unwritable {
+        path: folder.clone(),
+        error,
+    })?;
+    let destination = folder.join(&name);
+    guard_inside(root, &destination)?;
+    if !destination.exists() {
+        fs::write(&destination, bytes).map_err(|error| ImportError::Unwritable {
+            path: destination.clone(),
+            error,
+        })?;
+    }
+    Ok(StoredAudio {
+        sha256,
+        relative_path: format!("{ASSETS_DIR}/{name}"),
+        bytes: bytes.len() as u64,
+    })
+}
+
 /// A decoded, shrunken copy of an imported image, ready to draw.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct Thumbnail {

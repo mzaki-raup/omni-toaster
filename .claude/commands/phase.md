@@ -38,6 +38,9 @@ roadmap table:
    (`git log --oneline main..HEAD`), the row's state in `docs/CHECKLIST.md`,
    and anything uncommitted.
 
+Before the plan is final, consult the advisor with this plan and the phase's
+exit criteria — see [workflow.md](../rules/workflow.md#the-opus-advisor).
+
 Phase 5 begins with a **spike**, not with code: verify the e-Solat endpoint and
 its response shape for three zones and record the result as an ADR in
 `docs/08-decisions.md` before anything is built on it.
@@ -68,6 +71,10 @@ number.
   `README.ms.md` (with screenshots where a screen changed),
   `docs/CHANGELOG.md`, the `docs/CHECKLIST.md` row and `docs/GOTCHAS.md`. Then
   the branch flow in [rules/git.md](../rules/git.md).
+
+Before `finish` calls the phase done, consult the advisor with the diff and the
+gate/app results — or use `/review`'s `rust-reviewer` pass if you ran it. See
+[workflow.md](../rules/workflow.md#the-opus-advisor).
 
 `docs/CHECKLIST.md` moves only when the exit criteria are met — not when the
 code compiles and not when the tests pass. Say, criterion by criterion, which

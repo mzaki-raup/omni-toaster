@@ -57,10 +57,12 @@ fails if a picture is not a WebP, is bigger than 256 px, or takes the total past
 
 ## `sound/` — 4 clips, **not yet embedded**
 
-MP3, 128 kbps stereo, 44.1 kHz. Nothing plays them yet: the audio engine is
-`ot-media`, which arrives with the phases that need it, and the clips are
-embedded then, not before — five megabytes of dead weight in the exe until
-something can play them would help nobody.
+MP3, 128 kbps stereo, 44.1 kHz. **`notification.mp3`, `azan.mp3` and
+`azan-subuh.mp3` are embedded in the exe** since FEAT-0060, which is when something
+could play them (`ot_media::player`, ADR-022): about five megabytes. `alarm.mp3` is
+not embedded yet — the Alarm reminders' sound is a later item. A prayer plays the
+short chime by default; the full Azan is the user's choice, so a release does not
+play a clip whose licence is unsettled unasked.
 
 | File | For | Length |
 |---|---|---|

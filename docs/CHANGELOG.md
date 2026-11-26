@@ -7,7 +7,53 @@ Format: [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) · Versioning:
 
 ## Unreleased
 
-- (nothing yet)
+### Added
+
+- The JAKIM zone table: all 60 zones, with their states and areas exactly as JAKIM's e-Solat portal lists them (read 2026-11-20) and in English, and 208 places from GeoNames (MY extract of 2026-11-20, CC BY 4.0) that locate each zone's areas; the nearest area gives a location's zone, and a location outside Malaysia is offered none. Sources and the few places that could not be located are in `data/README.md` (FEAT-0050).
+
+- The JAKIM e-Solat parser: it reads the shape the spike verified — Malay and English month names, `HH:MM:SS` and `HH:MM` times taken as Malaysian time whatever the PC's zone — treats "no record" as no data rather than a failure, refuses an oversized body or an HTML error page, and sets aside whole any day with a missing, malformed or out-of-order time, tested against the three zones' captures and a hand-built sample of broken days (FEAT-0051).
+
+- The e-Solat client: one blocking attempt on a worker thread over Windows' own TLS (ADR-019), HTTPS only, ten-second timeout, `User-Agent: OmniToaster/<version>`, one POST for today to the end of next month, the body capped as it is read, and a cancel that stops the attempt before it sends and drops its result before it is delivered. When to look again is pure code the scheduler will call — weekly, daily while the answer stops short at the year's end, and 1, 5 and 15 minutes after a failure. Tested against a local server, and live for SGR01, WLY01 and JHR01 (FEAT-0052).
+
+- The prayer-times cache: migration 004 adds `jakim_prayer_cache`, and the store writes a fetched range in one transaction, replacing a day that was corrected, reads a zone's day with its source and when it was fetched, and says whether the cache can serve today — it has the day and wrote it under 30 days ago. Tested on a fresh database, on a version 3 database as v0.12.0 left it, round trip, at the 30-day edge and with a damaged row (FEAT-0053).
+
+- Calculated prayer times: Muslim World League, ISNA, Umm al-Qura and "Malaysia (JAKIM angles, approximate)", with Asar Shafi'i (the default) or Hanafi, from the `adhan` crate (ADR-020). Each time is an instant, and one the sun does not reach — inside the polar circles — is absent rather than invented. The Malaysia preset is within three minutes of JAKIM's published times in SGR01, WLY01 and JHR01; the other three match the adhan-js reference on 60 rows, including places east and west of Greenwich (FEAT-0054).
+
+- The prayer fallback chain and the source label: a fresh cache, then a live fetch, then a cached day past its age, then the offline data, then a calculation, then nothing — in one function, tested with the network down, an HTTP 500, bad JSON, an oversized answer, "no record", an empty cache and the offline data present and absent, each ending at its expected label. The label reads "Source: JAKIM e-Solat" with when it was fetched, "Offline data", or "Calculated", with "(fallback)" when JAKIM could not be had and "(approximate)" in Malaysia, in English and Malay (FEAT-0055).
+
+- The user's location: an IP lookup that asks first — nothing is sent until the user agrees, the answer is looked up again at most once a day, and the IP address in it is dropped — plus city search and typed coordinates, every place rounded to about a kilometre, and the saved place kept in the database so one chosen by hand is never overwritten by a detection. The services are ipapi.co and Open-Meteo's geocoding (ADR-021) (FEAT-0056).
+
+- Screenshots of Settings > Prayer in English (times fetched live) and Bahasa Melayu (offline, so calculated) are in the README and the Malay README (Phase 5).
+
+- Prayer times: a reference table of Selangor, Kuala Lumpur and Johor times for five November dates, read by hand from the official e-Solat page, is now checked against what the app reads — from the captured responses on every test run, and from the live service when asked (FEAT-0063).
+
+- Prayer names: Settings and the notifications name each prayer in the active language with the other language's name in brackets — "Subuh (Fajr)", "Zohor (Dhuhr)", "Asar (Asr)", "Isyak (Isha)", "Syuruk (Sunrise)" — and a test checks every label against the reference table in the i18n document, in both languages (FEAT-0062).
+
+- Pre-prayer reminders: each prayer can also give a short reminder ahead of it — "Asr (Asar) is in 10 minutes." — a number of minutes you choose (10 by default, up to 120), set in Settings > Prayer > Notifications. The reminder moves with the prayer's time, is skipped if the PC was asleep through it, and is held back by a pause, as any ordinary reminder is (FEAT-0061).
+
+- Prayer sounds: each prayer can play the short chime (the default), the full Azan that ships with the app (Subuh's own for Fajr), an audio clip of your own, or nothing. A chosen WAV, MP3 or Ogg clip is checked first — at most 20 MB and ten minutes, and what is inside must really be that kind of audio, not just named like it — and kept inside the data folder. The sound starts with the notification and stops when it is dismissed, and Play Sound lets you hear it in Settings (FEAT-0060).
+
+- Prayer templates: each prayer's notification can have a title, message, accent colour and picture of its own, edited in Settings ▸ Prayer ▸ Prayer Templates with a Preview Toast button and a Use Default Text button that brings back the built-in text in the language in force. What you write is kept as typed and never translated; the built-in picture is the masjid of that prayer. A prayer's notification carries the source of the day's times (FEAT-0059).
+
+- Prayer notifications: a background service keeps the day's times current while Settings is closed — it fetches from e-Solat weekly (daily while the year's end leaves a gap), when the zone changes and when the saved times lack today, tries again after 1, 5 and 15 minutes when that fails, looks the place up again once a day if you agreed, and tells you once a day if no times can be had. A prayer's notification stays until dismissed, up to ten minutes, comes ahead of everything else, and is not held back by a pause. Settings ▸ Prayer gains Notifications: Sunrise (Syuruk) can have one of its own, and the window in which a prayer missed while the PC was off is still listed can be changed (FEAT-0058).
+
+- The scheduler's side of the prayers: each enabled prayer is a managed reminder that fires at the times the app gives it, as instants, so the PC's own time zone never matters; it is never marked done, only waits for the next day's times; two fires due together come in the order Azan, Alarm, the rest; and a prayer missed while the PC was off is listed if it is within an hour, and dropped with a `missed` row if not. The one-hour window can be changed. These prayers do not show in the reminders list (FEAT-0058).
+
+- Settings ▸ Prayer: a new section of the settings window, in English and Malay. It asks before looking up the user's place from their internet address, and offers city search and typed coordinates instead; shows the saved place and the JAKIM zone found for it, with a searchable list of all 60 zones to choose another; chooses the source (Auto, JAKIM e-Solat or Calculated), the calculation method and the Asar school; and lists today's six prayers, each with both names, beside the source label and when it was fetched. The label and the times follow a change of language or clock at once (FEAT-0057).
+
+- Settings ▸ Prayer's data side: a `[prayer]` section in `settings.toml` (source, zone, method, Asar school — a value nobody recognises falls back to the default), a search over the 60 zones by code, state or area in either language, the prayer cache behind the fallback chain, and the work — a store read, an IP lookup, a city search, a day's times — each on a thread of its own, so a slow e-Solat fetch never holds a search behind it, and a reply that a newer request has replaced is dropped (FEAT-0057).
+
+### Changed
+
+- The Malaysia preset's Fajr angle is 18.0°, not the 20.0° the spec gave: JAKIM's own November tables put 20.0° ten minutes early, and the data fit about 17.5°. The spec, `PROPOSAL.md` and both READMEs say 18.0° (FEAT-0054).
+
+- `deny.toml`'s reason for banning `openssl-sys` no longer says "use rustls": the prayer fetch uses Windows' SChannel through `native-tls` (ADR-019), and the ban on OpenSSL stands (FEAT-0052).
+
+- Phase 5 begun with its spike: the JAKIM e-Solat endpoint verified for SGR01, WLY01 and JHR01 and recorded as ADR-018 — times are `HH:MM:SS`, dates use Malay month abbreviations, "no data" comes inside an HTTP 200, next month is a POST range, and there is no data for a year JAKIM has not published. The prayer spec now describes the verified shape, and Asar is confirmed Shafi'i. The phase is filed as FEAT-0049 to FEAT-0063 (FEAT-0049).
+
+### Fixed
+
+- Settings ▸ Prayer: the checkboxes in Notifications and the template's accent option now sit level with their labels instead of a little below them (BUG-0015)
 
 ## 0.12.1 — 2026-11-26
 

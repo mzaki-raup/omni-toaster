@@ -531,3 +531,289 @@ holds a `jiff::Timestamp` and is shown in the system zone. Crash-report and
 log-file timestamps use `jiff`'s `strftime`, which they are allowed to:
 they are diagnostics, not user-visible text, so `ot-i18n`'s formatter rule does
 not cover them. The executable grows by the bundled zone database.
+
+---
+
+## ADR-018 · The e-Solat endpoint, as the Phase 5 spike found it
+
+**Status:** Accepted 2026-11-20 · **Phase:** 5 · **Settles:** ADR-008's
+unverified endpoint; `docs/11-prayer-and-azan.md` §12 questions 1 and 2
+
+**Context.** ADR-008 made JAKIM e-Solat the default prayer source in Malaysia
+before anyone had looked at the endpoint, which is not a documented public
+API. Phase 5 starts by verifying it against three zones — SGR01, WLY01 and
+JHR01 — before anything is built on it. The raw responses are kept in
+`crates/ot-prayer/tests/fixtures/esolat-2026-11-20/`, captured 2026-11-20.
+
+**What the endpoint is.**
+
+- `https://www.e-solat.gov.my/index.php?r=esolatApi/takwimsolat&zone=<ZONE>&period=<P>`,
+  HTTPS, no key, no account, answered from CloudFront in Singapore in under
+  half a second. A lowercase zone is accepted.
+- `period=today` (one day), `week` (today and seven more), `month` (the
+  calendar month), `year` (the calendar year, 365 days, 77 KB).
+- `period=duration` takes `datestart` and `dateend` (`yyyy-mm-dd`) **in a POST
+  body**; the same values as query parameters give HTTP 500. A range may span
+  months, but **only within a published year**: today, January 2027 has no
+  data, and a December-to-January range stops at 31 December.
+
+**What it answers.**
+
+```json
+{
+  "prayerTime": [
+    { "hijri": "1448-06-10", "date": "20-Nov-2026", "day": "Friday",
+      "imsak": "05:39:00", "fajr": "05:49:00", "syuruk": "06:58:00",
+      "dhuha": "07:23:00", "dhuhr": "13:02:00", "asr": "16:24:00",
+      "maghrib": "18:59:00", "isha": "20:12:00" }
+  ],
+  "status": "OK!", "serverTime": "2026-11-20 09:58:09", "periodType": "month",
+  "lang": "ms_my", "zone": "SGR01", "bearing": "291&#176; 7&#8242; 23&#8243;"
+}
+```
+
+- Times are `HH:MM:SS` (seconds always `00`), not the `HH:MM` the spec
+  guessed. All 365 days of the year's response had eight well-formed times.
+- `date` is `DD-Mon-YYYY` with **Malay month abbreviations**: `Jan Feb Mac Apr
+  Mei Jun Jul Ogos Sep Okt Nov Dis` — August is four letters. `day` is in
+  English. `serverTime` is Malaysian local time.
+- No data — an unknown zone, or a year not yet published — is **HTTP 200**
+  with `status: "NO_RECORD!"` and `prayerTime` an **object**
+  (`{"data": ["No data available …"]}`), not an array.
+- A malformed request is HTML: a missing zone is HTTP 400 `text/html`; the
+  duration-as-GET mistake is HTTP 500 with `Content-Type: application/json`
+  and an HTML body. The content type cannot be trusted.
+
+**Asar is Shafi'i.** On 20 November, standard solar formulas give Shafi'i Asar
+(shadow 1) at 16:23 for Shah Alam, 16:22 for Kuala Lumpur and 16:11 for Pulau
+Aur, and Hanafi (shadow 2) at 17:19, 17:18 and 17:08. JAKIM publishes 16:24,
+16:24 and 16:12: Shafi'i, a minute or two later — the same precaution its
+Dhuhr shows against solar noon (13:02 against 12:59.9 for SGR01).
+
+**Decision.**
+
+- The parser reads the shape above: `status` must be `OK!` and `prayerTime` an
+  array, or the response is "no data" (not an error to retry); dates parse with
+  both the Malay and the English month abbreviations; times accept `HH:MM:SS`
+  and `HH:MM`; a missing or malformed field invalidates its whole day, and
+  unknown fields are ignored. The body is capped before parsing (a year is 77
+  KB; 256 KB is the cap) and must parse as JSON whatever its content type.
+- The weekly fetch asks for **today to the end of next month** with one POST
+  `period=duration` request — or to 31 December, when next month is in a year
+  JAKIM has not published. From mid-December the chain's later links (bundled
+  data, then Calculated) cover the gap, and a fetch is retried daily until the
+  new year appears.
+- Calculated mode keeps Shafi'i as its default Asar, now confirmed.
+
+**Consequences.** The fixtures are real responses, never edited; a format
+change means a new dated capture beside them and a `GOTCHAS.md` entry. The
+year boundary is a known, yearly gap the fallback chain must handle and the UI
+must label, not an outage. The endpoint stays undocumented — nothing here
+promises it will keep this shape.
+
+---
+
+## ADR-019 · `ureq` with the Windows TLS stack, for the prayer fetch
+
+**Status:** Accepted 2026-11-26 · **Phase:** 5 · **Builds on:** ADR-002 (blocking
+`ureq` on worker threads)
+
+**Context.** ADR-002 chose blocking `ureq` without saying which TLS stack it
+would use, and `ureq` 3 builds for `rustls` unless told otherwise. FEAT-0052 is
+the first HTTP in the app, and the weather fetch, the geolocation lookup and
+the update check will reuse the choice. `deny.toml` bans `openssl-sys`, and the
+exe is one static file that runs from a folder.
+
+**Options.** `rustls` with its bundled root list (what `ureq` ships by
+default) · `rustls` with the platform verifier · `native-tls`, which on Windows
+is SChannel and the Windows certificate store.
+
+**Decision.** `ureq` 3.5.2 with `default-features = false` and
+`native-tls-no-default`. The agent is configured **explicitly**:
+`TlsProvider::NativeTls` and `RootCerts::PlatformVerifier`, plus
+`https_only(true)`, a ten-second global timeout, `User-Agent:
+OmniToaster/<version>`, `http_status_as_error(false)` (the client names a 500
+itself, because e-Solat's 500 says JSON and sends HTML), and a body limit of
+`jakim::MAX_BODY` applied as the body is read. Gzip stays off: the answers are
+small.
+
+**Why Windows TLS.** The owner chose it when FEAT-0052 began. There is no second
+crypto library in the exe, no C or assembly build step for one (`ring`,
+`aws-lc`), and certificates are checked against the store Windows keeps up to
+date and the user's organisation may extend, rather than a root list frozen into
+a release. The cost is that the exe is not self-contained about TLS: it is as
+current as the Windows it runs on.
+
+**Consequences.**
+
+- **The configuration is not optional.** `ureq` never picks the provider up by
+  itself, and with `native-tls-no-default` its default root list
+  (`RootCerts::WebPki`) is compiled out and panics at runtime when used. A
+  build that compiles proves nothing, so the live three-zone test
+  (`cargo test -p ot-prayer -- --ignored`) is the check, and the client is
+  built in one place, `ot_prayer::fetch::Client`.
+- **`openssl-sys` stays banned**, and the reason in `deny.toml` is reworded: it
+  said "use rustls", which this decision contradicts. `deny.toml` checks the
+  Windows target only, where `native-tls` uses SChannel and no OpenSSL. On
+  Linux `native-tls` would pull in `openssl-sys`; nothing in CI builds there,
+  and a Linux build of the workspace is not supported by this decision.
+- **Cancel is bounded, not instant.** Blocking `ureq` cannot interrupt a read in
+  progress. A cancelled fetch is stopped before it sends and its result is
+  dropped before it is delivered, and the ten-second timeout bounds the time in
+  between. The worker has no path to the cache, so a late answer cannot be
+  written (docs/11-prayer-and-azan.md §4).
+- **Accepted by the owner (2026-11-26):** the bounded cancel, as the working of
+  `threads-and-scheduling.md`'s "cancel must actually stop the work" with blocking
+  `ureq`, and a Windows-only workspace, as the working of `rust.md`'s "clippy must
+  pass on Linux".
+- **Note, 2026-11-26 (FEAT-0057): the basis of the owner's acceptance changed.**
+  "The worker has no path to the cache" was true when the owner accepted a bounded
+  cancel. The Prayer pane's resolve thread now writes the cache through the chain.
+  `Chain::resolve` checks the cancel flag before every store and a test holds it
+  (a `Fetch` that cancels mid-call and still answers stores nothing). A cancel
+  landing between the check and the write can still leave one complete range in
+  the cache. The owner is told, and the acceptance stands unless they say otherwise.
+- Later HTTP callers (weather, geolocation, updates) build their agent the same
+  way and cite this ADR.
+
+---
+
+## ADR-020 · `adhan` for calculated prayer times, and a Malaysia preset at 18°
+
+**Status:** Accepted 2026-11-26 · **Phase:** 5 · **Builds on:** ADR-008 (calculated
+times as the last resort), ADR-017 (`jiff`, not `chrono`)
+
+**Context.** Calculated mode is the offline and overseas source and the last link
+of the fallback chain. ADR-008 named the `adhan` crate before anyone had looked at
+one, and the spec fixed the Malaysia preset at Fajr 20.0° and Isha 18.0°.
+
+**Options.** The `adhan` crate (0.2.0) · `salah`, the older port · our own
+implementation of Meeus's astronomical algorithms.
+
+**Decision.** `adhan` 0.2.0. It has **no dependencies**, forbids `unsafe`, is
+Apache-2.0 (already allowed by `deny.toml`), and reports its own checking against
+the adhan-js reference library, the implementation most prayer apps use. `salah`
+depends on `chrono`, which ADR-017 rules out. Writing the astronomy ourselves would
+be the one place in the app where a quiet error moves a prayer, and a published,
+reference-checked implementation is the better thing to lean on.
+
+**What we checked ourselves, because the crate is young** (a 0.2 from a small
+organisation, not a long-established one):
+
+- **The three non-Malaysian presets** against 60 rows of adhan-js output the crate
+  ships as test fixtures (`tests/fixtures/adhan_js_presets.tsv`): five places east
+  and west of Greenwich, two dates, both Asar schools. This checks our wiring, not
+  the crate's astronomy against an independent timetable.
+- **The Malaysia preset against JAKIM itself**: the spike's three zones, 30 days
+  each. This is the independent check, and it changed the preset.
+
+**The Malaysia preset is Fajr 18.0° and Isha 18.0°, not 20.0° and 18.0°.** At a
+Fajr of 20.0° every calculated Fajr is 10 to 12 minutes earlier than JAKIM's in all
+three zones; the data fit about 17.5°, and 18.0° keeps every time within three
+minutes. Isha at 18.0° was right. The owner chose 18.0° on 2026-11-26 over 17.5°
+(a value fitted to one month of data, not a published figure, under a name that
+says "JAKIM angles") and over keeping 20.0°. The spec, `PROPOSAL.md` and both
+READMEs say 18.0°.
+
+**Consequences.**
+
+- JAKIM publishes Dhuhr, Asar, Maghrib and Isha one to three minutes after the
+  calculation and Syuruk within three minutes either way. **No offsets are added**:
+  they are a fitted guess, and the label "approximate" stays true.
+- `adhan` gives a time as a UTC clock reading with the day taken off, so
+  `calculated::place_on_day` puts it on the neighbouring UTC day nearest the
+  place's solar noon.
+- Inside the polar circles a time can be absent. It is `None`, never a made-up
+  number, and the fallback chain (FEAT-0055) must treat a day with a missing time
+  as a gap.
+- Imsak and Dhuha are JAKIM's own and are not calculated.
+
+---
+
+## ADR-022 · Audio with `rodio`, on a thread of its own
+
+**Status:** Accepted 2026-11-27 · **Phase:** 5 · **Builds on:** ADR-002 (threads, no
+async), `docs/specs/announcements.md` §7
+
+**Context.** The Azan, the chime and later the spoken announcements need sound,
+and the spec named `rodio` before anyone looked. A clip the user imports is a
+file from outside, so it follows the rules a picture does.
+
+**Decision.** `rodio` 0.23 with `default-features = false` and `playback`, `wav`,
+`mp3` and `vorbis`: WASAPI through `cpal`, and WAV, MP3 and Ogg Vorbis through
+`symphonia`. No recording, dithering, FLAC or MP4. `cargo deny` admits the tree
+as it stands.
+
+- **One thread owns the one output device** (`ot_media::Player`), opened on the
+  first clip so a machine with no speakers costs nothing until something plays. A
+  new clip replaces the one playing: an Azan is never mixed. A device that cannot
+  be opened is logged, reported by `has_no_device`, and silent — never a panic.
+- **Imports follow the picture rules** (`ot_media::audio::check`): at most 20 MB
+  before a byte is read; the format from the bytes (RIFF/WAVE, an ID3 tag or an
+  MPEG frame sync, `OggS`), never the name; and a **bounded decode** of the whole
+  clip up to ten minutes — the persistent-toast cap — so a corrupt file or one
+  that never ends is refused with a message. The copy under a hashed name is the
+  store's job and never leaves `assets/`. Decoding in the worker process is the
+  Phase 8 hardening.
+- **The clips that ship** are embedded: the stand-in chime, the Azan and the Azan
+  for Subuh, from `assets/sound/`. They are the owner's, with no licence
+  established (`assets/README.md`); **Phase 9's terms check decides whether they
+  may ship**, and the default for a prayer is the short chime so the full Azan is
+  a choice, not something a release plays unasked.
+
+**Consequences.** The exe grows by the clips (about five megabytes) and by the
+decoders. Playback cannot be proved by a test: the player's tests show it starts
+and stops, or that the machine has no output and says so, and the audible check
+is the app's.
+
+---
+
+## ADR-021 · How the app learns where the user is
+
+**Status:** Accepted 2026-11-26 · **Phase:** 5 · **Builds on:** ADR-019 (HTTP),
+`docs/06-security-and-privacy.md`
+
+**Context.** Prayer times, the zone and later the weather all need a place. A
+place is personal data, and an IP lookup shows the user's address to a third
+party, so the app asks before it looks, and it has to work for someone who says no.
+
+**Probed 2026-11-26** (shapes only; the answers were the developer's own place):
+`https://ipapi.co/json/` and `https://ipwho.is/` both answer over HTTPS with no
+key, with coordinates, city, region, country code and an IANA zone; Open-Meteo's
+`geocoding-api.open-meteo.com/v1/search` answers a city name with up to ten
+places, each with coordinates and an IANA zone, and with no `results` key at all
+when nothing matches.
+
+**Decision.**
+
+- **IP lookup: ipapi.co**, chosen by the owner over `ipwho.is`: better known, and
+  its free allowance is far above one lookup a day. Only after the user consents,
+  and at most once a day. Its terms for a free desktop app are to be re-read at
+  the Phase 9 terms check.
+- **City search: Open-Meteo geocoding.** It is already an allowed outbound service
+  (the weather), it returns the zone, and it is queried only when the user
+  searches, with only the text typed.
+- **Coordinates typed by hand:** inside Malaysia the zone is `Asia/Kuala_Lumpur`
+  (all of Malaysia is UTC+8). Elsewhere there is no free offline
+  coordinate-to-zone lookup, so the zone is the PC's own and is shown for the
+  user to confirm. The owner accepted this on 2026-11-26.
+- **Consent** is `[location] ip_consent` in `settings.toml` — absent until asked.
+  `Lookup::detect` refuses without it and sends nothing, so the guarantee does not
+  depend on the UI calling it correctly.
+- **Rounding:** every place is rounded to two decimals (about 1.1 km) on arrival,
+  by whichever route, before it is stored or sent.
+- **No IP is kept:** the IP answer carries one, and `Located` has no field for it.
+- **The saved `location` row is the daily cache.** A place the user chose is
+  `manual` and a detection never overwrites it; withdrawing consent keeps the
+  saved place and stops looking.
+
+**Consequences.**
+
+- Typed coordinates abroad can be in the wrong zone if the PC's zone is not the
+  place's; the confirmation step is the guard, and the user can search by city
+  instead, which carries the right zone.
+- Declining the lookup costs nothing but typing a city: city search sends the
+  typed text and the IP address to Open-Meteo, as the weather will, and that is
+  not covered by the IP-lookup consent. `docs/06` lists it as its own row.
+- Two third parties now see an IP address at the user's request: ipapi.co once a
+  day with consent, Open-Meteo when searching.

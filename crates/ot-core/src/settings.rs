@@ -42,6 +42,107 @@ pub struct Settings {
     pub toast: toml::Table,
     /// Settings ▸ Reminders.
     pub reminders: Reminders,
+    /// Settings ▸ Prayer ▸ Location (`docs/11-prayer-and-azan.md` §6).
+    pub location: LocationSettings,
+    /// Settings ▸ Prayer: the source, the zone and the calculation.
+    pub prayer: PrayerSettings,
+}
+
+/// Settings ▸ Prayer (`docs/11-prayer-and-azan.md` §1, §3, §8). Strings, not
+/// the prayer crate's enums, because `ot-core` depends on nothing else in the
+/// workspace; `ot_prayer` parses them and an unknown value there falls back to
+/// the default, so a hand-edited file cannot break the pane.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(default, deny_unknown_fields)]
+pub struct PrayerSettings {
+    /// `auto`, `jakim` or `calculated`.
+    pub source: String,
+    /// A JAKIM zone code the user chose, which overrides the detected zone.
+    /// Absent follows the saved location.
+    pub zone: Option<String>,
+    /// `muslim-world-league`, `isna`, `umm-al-qura` or `malaysia`. Absent picks
+    /// by location: `malaysia` inside Malaysia, `muslim-world-league` outside.
+    pub preset: Option<String>,
+    /// `shafii` or `hanafi`.
+    pub asr: String,
+    /// Whether Syuruk (sunrise) has a notification of its own. The five daily
+    /// prayers always do; Imsak and Dhuha stay hidden until they can be
+    /// switched on.
+    pub notify_syuruk: bool,
+    /// How late a prayer missed while the PC was off may be and still be
+    /// listed, in minutes, within [`AZAN_WINDOW_MINUTES`].
+    pub azan_window_minutes: u32,
+    /// The prayers that also have a reminder ahead of them, by scheduler key.
+    pub pre_prayer: Vec<String>,
+    /// How far ahead that reminder comes, in minutes, within
+    /// [`PRE_PRAYER_MINUTES`].
+    pub pre_prayer_minutes: u32,
+}
+
+/// The catch-up window for a missed prayer, in minutes: one minute to a day.
+pub const AZAN_WINDOW_MINUTES: std::ops::RangeInclusive<u32> = 1..=1440;
+
+/// How far ahead of a prayer its reminder may come, in minutes: one to two hours.
+pub const PRE_PRAYER_MINUTES: std::ops::RangeInclusive<u32> = 1..=120;
+
+impl Default for PrayerSettings {
+    fn default() -> Self {
+        Self {
+            source: "auto".to_string(),
+            zone: None,
+            preset: None,
+            asr: "shafii".to_string(),
+            notify_syuruk: false,
+            azan_window_minutes: 60,
+            pre_prayer: Vec::new(),
+            pre_prayer_minutes: 10,
+        }
+    }
+}
+
+impl PrayerSettings {
+    /// The prayers that have a notification, by the key the scheduler knows
+    /// them by: the five daily prayers, and Syuruk if it is switched on.
+    pub fn enabled_prayers(&self) -> Vec<&'static str> {
+        let mut keys = vec!["fajr"];
+        if self.notify_syuruk {
+            keys.push("syuruk");
+        }
+        keys.extend(["dhuhr", "asr", "maghrib", "isha"]);
+        keys
+    }
+
+    /// The Azan window brought into range, so a hand-edited file cannot make a
+    /// missed prayer list for no time or for ever.
+    pub fn azan_window(&self) -> u32 {
+        self.azan_window_minutes
+            .clamp(*AZAN_WINDOW_MINUTES.start(), *AZAN_WINDOW_MINUTES.end())
+    }
+
+    /// The lead of the pre-prayer reminder brought into range.
+    pub fn pre_prayer_lead(&self) -> u32 {
+        self.pre_prayer_minutes
+            .clamp(*PRE_PRAYER_MINUTES.start(), *PRE_PRAYER_MINUTES.end())
+    }
+
+    /// The prayers that get a reminder ahead of them: those chosen that also
+    /// have a notification, so Syuruk's is dormant while Syuruk is off.
+    pub fn pre_prayer_keys(&self) -> Vec<&'static str> {
+        self.enabled_prayers()
+            .into_iter()
+            .filter(|key| self.pre_prayer.iter().any(|chosen| chosen == key))
+            .collect()
+    }
+}
+
+/// Whether the app may look up the PC's place from its IP address. Nothing is
+/// sent to the geolocation service until this is `Some(true)`.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default, Serialize, Deserialize)]
+#[serde(default, deny_unknown_fields)]
+pub struct LocationSettings {
+    /// `None` until the user has been asked; then their answer. Written as
+    /// `ip_consent = true` or `false`, and absent while unasked.
+    pub ip_consent: Option<bool>,
 }
 
 /// Settings ▸ General.
@@ -256,6 +357,75 @@ mod tests {
         assert!(
             !Settings::path_in(&root).exists(),
             "loading must not create the file; only a save writes it"
+        );
+    }
+
+    #[test]
+    fn the_ip_lookup_consent_is_unasked_until_answered_and_survives_a_save() {
+        let (_dir, root) = scratch();
+        assert_eq!(Settings::default().location.ip_consent, None, "unasked");
+        for answer in [true, false] {
+            let mut settings = Settings::default();
+            settings.location.ip_consent = Some(answer);
+            settings.save(&root).expect("the save succeeds");
+            let loaded = Settings::load(&root).expect("loads");
+            assert_eq!(loaded.location.ip_consent, Some(answer));
+        }
+        // Unasked writes nothing, so a first run leaves no stray key.
+        Settings::default().save(&root).expect("the save succeeds");
+        let text = std::fs::read_to_string(Settings::path_in(&root)).expect("the file");
+        assert!(!text.contains("ip_consent"), "{text}");
+    }
+
+    #[test]
+    fn the_prayer_settings_default_to_auto_and_shafii_and_survive_a_save() {
+        let (_dir, root) = scratch();
+        let defaults = Settings::default().prayer;
+        assert_eq!(
+            (
+                defaults.source.as_str(),
+                defaults.zone.as_deref(),
+                defaults.preset.as_deref(),
+                defaults.asr.as_str()
+            ),
+            ("auto", None, None, "shafii")
+        );
+        assert!(!defaults.notify_syuruk);
+        assert_eq!(defaults.azan_window(), 60);
+        assert_eq!(
+            defaults.enabled_prayers(),
+            ["fajr", "dhuhr", "asr", "maghrib", "isha"]
+        );
+        let mut on = defaults.clone();
+        on.notify_syuruk = true;
+        on.azan_window_minutes = 0;
+        assert_eq!(
+            on.enabled_prayers(),
+            ["fajr", "syuruk", "dhuhr", "asr", "maghrib", "isha"]
+        );
+        assert_eq!(on.azan_window(), 1, "a zero window is brought into range");
+        assert_eq!(defaults.pre_prayer_lead(), 10);
+        assert!(defaults.pre_prayer_keys().is_empty());
+        on.pre_prayer = vec!["isha".into(), "syuruk".into(), "bogus".into()];
+        on.pre_prayer_minutes = 0;
+        assert_eq!(on.pre_prayer_keys(), ["syuruk", "isha"]);
+        assert_eq!(on.pre_prayer_lead(), 1, "a zero lead is brought into range");
+        on.notify_syuruk = false;
+        assert_eq!(
+            on.pre_prayer_keys(),
+            ["isha"],
+            "Syuruk's is dormant while it is off"
+        );
+        on.notify_syuruk = true;
+        let mut settings = Settings::default();
+        settings.prayer.source = "jakim".to_string();
+        settings.prayer.zone = Some("SGR01".to_string());
+        settings.prayer.preset = Some("isna".to_string());
+        settings.prayer.asr = "hanafi".to_string();
+        settings.save(&root).expect("the save succeeds");
+        assert_eq!(
+            Settings::load(&root).expect("loads").prayer,
+            settings.prayer
         );
     }
 

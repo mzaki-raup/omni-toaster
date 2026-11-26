@@ -118,3 +118,9 @@ The four that bite hardest if you skip them:
 - **Every visible string is a Fluent key** present in both
   `locales/en-US/omni_toaster.ftl` and `locales/ms-MY/omni_toaster.ftl`, edited
   with the Edit tool and never a heredoc.
+
+**Model split:** the session runs on Sonnet with Opus on call as advisor
+(`claude --model sonnet --advisor opus`). Consult the advisor only before a
+plan locks, when the same error appears twice, and before calling it done —
+[.claude/rules/workflow.md](.claude/rules/workflow.md#the-opus-advisor).
+Repository search goes to Haiku subagents; code edits stay in the session.

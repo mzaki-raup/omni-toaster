@@ -126,6 +126,7 @@ omni-toaster/
 │   └── ms-MY/omni_toaster.ftl
 ├── assets/prayer/jakim/            # Bundled JAKIM dataset (if licensing allows; Phase 9 terms check, §13)
 ├── data/jakim_zones.csv            # Zone table (reviewed commits only)
+├── data/jakim_zone_points.csv      # A point per zone area, from GeoNames (CC BY 4.0)
 ├── tests/
 │   ├── fixtures/jakim_sample.json
 │   └── fixtures/jakim_reference.csv
@@ -318,7 +319,7 @@ The e-Solat portal (`e-solat.gov.my`) publishes times by zone code. Malaysia has
 |---|---|---|
 | **A. e-Solat JSON endpoint** (primary) | Monthly or weekly JSON for one zone | Live fetch and monthly cache |
 | **B. Official export** (fallback) | Monthly or yearly tables bundled as JSON | Offline fallback, only if terms allow (Phase 9 terms check, §13) |
-| **C. Calculated** (last resort) | `adhan` with Fajr 20.0° and Isha 18.0°, plus JAKIM precautionary offsets if confirmed | When A and B fail |
+| **C. Calculated** (last resort) | `adhan` with Fajr 18.0° and Isha 18.0° (the spike showed 20.0° is ten minutes early); JAKIM's one-to-three-minute precautions are not added, so it is labelled approximate | When A and B fail |
 
 > **Important:** The e-Solat JSON endpoint is not a formally documented public API. Its path and response format may change without notice. Phase 5 begins with a verification spike (§13). The implementation treats the endpoint as unstable: every field is validated, missing keys are handled, and a format change never crashes the app.
 
@@ -355,7 +356,7 @@ The e-Solat portal (`e-solat.gov.my`) publishes times by zone code. Malaysia has
 
 1. Detect location (IP lookup or manual entry, §8.7).
 2. Check that the coordinates are inside Malaysia (bounding box plus the country code from the geolocation result).
-3. Find the nearest zone from `data/jakim_zones.csv` (zone code, state and area names in both languages, representative coordinates).
+3. Find the nearest zone from `data/jakim_zones.csv` (zone code, state and area names in both languages) and `data/jakim_zone_points.csv` (a point per area, from GeoNames): the nearest area decides.
 4. Show the result on the setup screen: "Detected zone: SGR01 · Gombak, Hulu Langat, Sepang, Petaling · Selangor. Change zone?"
 5. The user confirms or picks another zone from a searchable list.
 
@@ -364,11 +365,11 @@ The e-Solat portal (`e-solat.gov.my`) publishes times by zone code. Malaysia has
 - The app stores the zone code as the source key for JAKIM times, not coordinates.
 - The zone table changes only through a reviewed commit with its source noted in `CHANGELOG.md`.
 
-**Zone table schema:**
+**Zone table:** embedded data, not a database table (FEAT-0050):
 
 ```
-jakim_zones (zone_code TEXT PK, state_en TEXT, state_ms TEXT,
-             area_en TEXT, area_ms TEXT, lat REAL, lon REAL)
+data/jakim_zones.csv        code, state_ms, state_en, areas_ms, areas_en
+data/jakim_zone_points.csv  code, place, latitude, longitude, geonameid
 ```
 
 ### 7.4 Caching and Fetch Schedule
@@ -402,12 +403,12 @@ Times are stored as local clock values and converted to absolute timestamps in `
 1. Fresh JAKIM cache for zone and date   -> use it          (source: api)
 2. Live fetch succeeds                   -> update cache    (source: api)
 3. Bundled JAKIM dataset has the date    -> use it          (source: bundled)
-4. Calculated (adhan, Fajr 20°, Isha 18°) -> use it, label "Calculated (fallback)"
+4. Calculated (adhan, Fajr 18°, Isha 18°) -> use it, label "Calculated (fallback)"
 5. Nothing available                     -> one error toast per day, keep last known times
 ```
 
 ### 7.7 Calculated Mode
-- Method presets: Muslim World League (default outside Malaysia), ISNA, Umm al-Qura, and **"Malaysia (JAKIM angles, approximate)"** with Fajr 20.0° and Isha 18.0°.
+- Method presets: Muslim World League (default outside Malaysia), ISNA, Umm al-Qura, and **"Malaysia (JAKIM angles, approximate)"** with Fajr 18.0° and Isha 18.0°.
 - Asar method (Shafi'i or Hanafi) is a user setting. The default follows the JAKIM published convention, to be confirmed in the spike.
 - When the zone is in Malaysia and the source is not JAKIM, times are labelled "approximate".
 
@@ -523,7 +524,6 @@ snooze_log        (id, reminder_id, snoozed_until, count)
 notification_log  (id, reminder_id, fired_at, action, source)
 asset             (id, sha256 PK, kind, relative_path, bytes, created_at)
 weather_cache     (location_id, fetched_at, payload_json)
-jakim_zones       (zone_code PK, state_en, state_ms, area_en, area_ms, lat, lon)
 jakim_prayer_cache (zone_code, date, hijri, imsak, fajr, syuruk, dhuha,
                     dhuhr, asr, maghrib, isha, fetched_at, source,
                     PRIMARY KEY (zone_code, date))

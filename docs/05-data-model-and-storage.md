@@ -100,11 +100,24 @@ notification_log  (id, reminder_id, fired_at, action, source)
 asset             (id, sha256 PK, kind, relative_path, bytes, created_at,
                    label)                                   -- the name the user gave it in the image library
 weather_cache     (location_id, fetched_at, payload_json)
-jakim_zones       (zone_code PK, state_en, state_ms, area_en, area_ms, lat, lon)
 jakim_prayer_cache (zone_code, date, hijri, imsak, fajr, syuruk, dhuha,
                     dhuhr, asr, maghrib, isha, fetched_at, source,
                     PRIMARY KEY (zone_code, date))
 ```
+
+`location` as built (FEAT-0056, `ot_store::location`): one row, `id = 1`. `source`
+is `ip` or `manual`; `lat` and `lon` are already rounded to two decimals; `tz` is
+an IANA zone name; `updated_at` is when it was found, which makes the row the
+cache of the daily IP lookup. A manual place replaces any detected one, and a
+detection never replaces a manual one. Whether the user agreed to the lookup is
+`[location] ip_consent` in `settings.toml`, not in the database.
+
+`jakim_prayer_cache` as built (FEAT-0053, `ot_store::prayer`): `zone_code` is
+upper case; `date` is `YYYY-MM-DD`; the eight times are `HH:MM:SS` Malaysian
+clock values; `fetched_at` is the UTC instant the row was last written; `source`
+is `api` or `bundled`, enforced by the table. A fetch **replaces** a day it
+already holds. A cached day is *fresh* while it has a row for today and that row
+was written under 30 days before now (a clock set back counts as fresh).
 
 ## Migrations
 
@@ -116,7 +129,7 @@ edited once it has shipped; a correction is a new migration.
 | `001_init.sql` | 0 | `settings`, `location`, `category`, `reminder`, `snooze_log`, `notification_log`, `asset`, `weather_cache` |
 | `002_asset_label.sql` | 2 | `asset.label`, the name a picture has in the image library |
 | `003_locale_keys.sql` | 4 | the `category` key columns (one template per key), `authored_lang` on `category` and `reminder`, and a template row for each built-in reminder type key |
-| `004_jakim.sql` | 5 | `jakim_zones`, `jakim_prayer_cache` |
+| `004_jakim.sql` | 5 | `jakim_prayer_cache`. The zone table is embedded data — `data/jakim_zones.csv` and `data/jakim_zone_points.csv` — not a database table (FEAT-0050) |
 
 Every migration is tested on both a fresh database and an existing one
 ([.claude/rules/testing.md](../.claude/rules/testing.md)).

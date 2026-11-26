@@ -125,13 +125,223 @@ Refs: BUG-0003
 ### Latest Vacant/Free Task
 
 ```
-Version : v0.4.2
-Features : FEAT-0049
-Bugs : BUG-0015
+Version : v0.5.1
+Features : FEAT-0064
+Bugs : BUG-0016
 Change Request : CR-0008
 ```
 
 ---
+
+## v0.5.0 — In-Progress
+
+Phase 5, Location, Prayer and Azan, on `feat/phase-5-prayer`
+(`docs/07-roadmap.md`). The spike ran first (FEAT-0049, ADR-018); everything
+after it is built on the shape it found. The exit criteria: the parser passes
+the fixtures for three zones; live JAKIM times match the official portal on the
+same dates for at least three zones; the fallback chain passes with the network
+disabled; prayer labels match the reference table in both languages.
+
+### FEAT-0049 · The e-Solat verification spike
+- **State:** Completed · **Spec:** docs/11-prayer-and-azan.md §2 · §12 · **Phase:** 5
+- **Branch:** feat/phase-5-prayer
+- **Verified:** live requests to e-Solat on 2026-11-20, the responses kept as fixtures, ADR-018
+- [x] The endpoint and its response for three zones — SGR01, WLY01, JHR01, `period=month`, all 200 `OK!`
+- [x] Every period, the next-month request and the failure cases — `today`, `week`, `month`, `year`; `duration` as a POST, only within a published year; `NO_RECORD!` as 200 with an object; HTML errors for malformed requests, one labelled `application/json`
+- [x] Asar's madhab re-confirmed — Shafi'i in all three zones, a minute or two after the calculation, ~55 minutes before Hanafi
+- [x] The raw responses kept, unedited, in `crates/ot-prayer/tests/fixtures/esolat-2026-11-20/` with a note of how each was captured
+- [x] Recorded as ADR-018; `docs/11-prayer-and-azan.md` §2, §4, §8 and §12 updated to the verified shape
+- [x] Docs: spec · CHANGELOG · CHECKLIST (README: nothing user-visible)
+- **Notes:** A spike writes no code, so there is no Test, Gate or App box; its record is the ADR and the fixtures. Surprises the spec had not guessed: `HH:MM:SS` times, Malay month abbreviations (`Ogos` is four letters), a status field that says "no data" inside an HTTP 200, and no data at all for a year JAKIM has not published — a gap every December.
+
+### FEAT-0050 · The JAKIM zone table
+- **State:** Completed · **Spec:** docs/11-prayer-and-azan.md §3 · docs/05-data-model-and-storage.md · **Phase:** 5
+- **Branch:** feat/phase-5-prayer
+- **Depends on:** FEAT-0049
+- [x] `data/jakim_zones.csv`: every zone code, its state, its areas in both languages, a representative latitude and longitude — with its source noted in `docs/CHANGELOG.md` — 60 zones as JAKIM's portal lists them, with English forms; the coordinates are a point per area in `data/jakim_zone_points.csv` (208, from GeoNames), not one per zone
+- [x] Nearest-zone lookup from coordinates, and the Malaysia check (a bounding box and the geolocation result's country code); outside Malaysia is refused for JAKIM — `ot_prayer::zones::{nearest, in_malaysia, detect}`
+- [x] Embedded in the exe; changed only through a reviewed commit — `include_str!`, parsed once
+- [x] Test: every row parses and every code is unique; each state capital maps to its expected zone family; coordinates outside Malaysia are refused; every code the spike used is present — 8 tests in `zones.rs`, the 16 state and territory capitals and three neighbouring Selangor towns among them
+- [x] Gate: fmt · clippy -D warnings · test --workspace --locked -j 4 (362 passed) · deny check · --self-test
+- [x] App: `--data-dir ./tmp-data` — not applicable on its own — exercised through the zone picker (FEAT-0057) — Phase-5 finish check, 2026-11-26, debug build, scratch `--data-dir`: a place typed by hand (3.14, 101.69) gave the detected zone WLY01 · Kuala Lumpur, Putrajaya in the Prayer pane
+- [x] Docs: spec · README · CHANGELOG · CHECKLIST · GOTCHAS
+- **Notes:** The owner chose (2026-11-20) GeoNames for the coordinates (CC BY 4.0, credited in both READMEs; the app's own credit comes with Settings ▸ Prayer, FEAT-0057) and English names that translate only the joining words. Design change, in the spec, `05-data-model`, `PROPOSAL.md` and `03-architecture` in this commit: the zone table is embedded data, not a `jakim_zones` database table, and has a point per area rather than one per zone — one centre per zone would put Petaling Jaya in Kuala Lumpur. Not placed, for want of a GeoNames entry: Lojing, Belum, Temanggong, Terusan, Balong, Meludam and SWK09's Kampung Patarikan — SWK09 is chosen, never detected. Boundary errors remain (Cyberjaya, in Sepang, is nearer Putrajaya); the confirmation step is the guard. The Malay names are JAKIM's own; the English forms want the native speaker's review with the rest of the translations before Phase 9. In-Progress until FEAT-0057's app check.
+
+### FEAT-0051 · The JAKIM parser, against the fixtures
+- **State:** Completed · **Spec:** docs/11-prayer-and-azan.md §2 · ADR-018 · **Phase:** 5
+- **Branch:** feat/phase-5-prayer
+- **Depends on:** FEAT-0049
+- [x] `ot-prayer` parses the verified shape: `status` `OK!` with a `prayerTime` array; `NO_RECORD!` as "no data"; anything else an error — `ot_prayer::jakim::parse` → `Response::{Days, NoRecord}` or `ParseError::{TooLarge, NotJson, Status, Shape}`
+- [x] Dates with Malay and English month abbreviations; times `HH:MM:SS` and `HH:MM`, read as `Asia/Kuala_Lumpur`; a missing or malformed field invalidates its whole day; unknown fields ignored — plus an impossible date and times out of order, added to the spec
+- [x] A 256 KB cap before parsing; JSON whatever the content type says; no `unwrap`
+- [x] `tests/fixtures/jakim_sample.json` built from the spike's captures, plus the malformed cases — four good days and eight broken ones, one per rule
+- [x] Test: the three zones' fixtures parse to the expected times; `Ogos` and `Dis` dates; a missing field, a malformed time and an unknown extra field; `NO_RECORD!`; the HTML body with a JSON content type; the size cap; times read as UTC+8 with the PC in another zone — 9 tests in `jakim.rs`; the UTC+8 test checks the instant against UTC, so the PC's zone cannot enter it, but the PC's zone was not actually changed (a system setting)
+- [x] Gate: fmt · clippy -D warnings · test --workspace --locked -j 4 · deny check · --self-test — 371 passed
+- [x] App: `--data-dir ./tmp-data` — not applicable on its own — exercised through the fetch running in the app (FEAT-0058) — Phase-5 finish check, 2026-11-26, debug build, scratch `--data-dir`: WLY01's times fetched live and shown in the pane — 5:51 am, 7:01 am, 1:03 pm, 4:26 pm, 7:01 pm, 8:14 pm — the same as the portal's table for 26 November
+- [x] Docs: spec · README · CHANGELOG · CHECKLIST · GOTCHAS — README unchanged (nothing visible yet); no new gotcha
+- **Notes:** This item carries the exit criterion "the parser passes the fixtures for three zones" — met. Spec addition in this commit: a day whose times are out of order is set aside, as is an impossible date. In-Progress until the fetch runs in the app (FEAT-0058).
+
+### FEAT-0052 · The JAKIM client
+- **State:** Completed · **Spec:** docs/11-prayer-and-azan.md §4 · ADR-002 · ADR-018 · ADR-019 · **Phase:** 5
+- **Branch:** feat/phase-5-prayer
+- **Depends on:** FEAT-0051
+- [x] Blocking `ureq` on a worker thread, HTTPS only, 10-second timeout, `User-Agent: OmniToaster/<version>` — the dependency recorded in an ADR and admitted by `cargo deny` — ADR-019: `ureq` 3.5.2 over Windows TLS (`native-tls-no-default`, provider and platform root store set explicitly); `deny check` ok
+- [x] One POST `period=duration` from today to the end of next month, stopping at 31 December when next year is unpublished — the client asks for the whole range and e-Solat stops it at 31 December itself (probed 2026-11-26); `Fetched::cut_short` shows it, so nothing predicts which year is published. Spec §4 changed to say so
+- [x] Weekly, on a zone change and when the cache lacks today; retry 1, 5 and 15 minutes, then the next scheduled check; daily while the year's end leaves a gap; no polling loop — the schedule is `next_after_success` and `next_after_failure`, pure functions the scheduler calls; "on a zone change" and "cache lacks today" are the scheduler's and the cache's triggers (FEAT-0053, FEAT-0059)
+- [x] Cancellable: closing Settings mid-fetch stops the work, not only its result — bounded, not instant: stopped before it sends and its result dropped before delivery, the 10 s timeout bounding the rest, and the worker has no path to the cache (ADR-019, spec §4)
+- [x] Test: the request built from a zone and a date range; the backoff sequence; cancel stopping a fetch; the year-end range; a live fetch for three zones, not run when e-Solat is unreachable — 12 tests in `fetch.rs` against a local server (request, user-agent, 500, HTML, `NO_RECORD!`, wrong zone, closed port, size cap, plain HTTP refused, cancel before and in flight); the live test is `#[ignore]` and passed for SGR01, WLY01 and JHR01 in 0.46 s with `-- --ignored`
+- [x] Gate: fmt · clippy -D warnings · test --workspace --locked -j 4 · deny check · --self-test — `deny` needed `cargo update -p url` (RUSTSEC-2026-0592, not reached; same bump as BUG-0014 on `main`)
+- [x] App: `--data-dir ./tmp-data` — choose a zone and see times arrive, and the log's fetch line; with the network off, see the retry schedule in the log — not made: nothing in the app calls the client yet. There is no zone setting (FEAT-0057) and no fetch loop yet, and a debug flag only for this check was not added. The check moves to FEAT-0058, which now carries it. The live test above exercised the real service over the real TLS stack, not the app — Phase-5 finish check, 2026-11-26, debug build, scratch `--data-dir`: the live fetch read 36 days for WLY01 and the log has the fetch line; with the network off the first retry (`retry_in_secs=60`) is logged; the 5- and 15-minute steps are tested, not waited for
+- [x] Docs: spec · README · CHANGELOG · CHECKLIST · GOTCHAS — ADR-019 written; README unchanged (nothing visible yet); three GOTCHAS entries under "Weather and HTTP"; `deny.toml`'s `openssl-sys` reason reworded
+- **Notes:** The live test is `#[ignore = "needs e-Solat"]`, run explicitly, so an unreachable e-Solat is a failure you chose to run, never a silent pass. A Linux build of the workspace is not supported by ADR-019: `native-tls` would pull in `openssl-sys` there, and `deny` and CI check only Windows. In-Progress until FEAT-0058 makes the App check.
+### FEAT-0053 · The prayer cache and migration 004
+- **State:** Completed · **Spec:** docs/11-prayer-and-azan.md §4 · docs/05-data-model-and-storage.md · **Phase:** 5
+- **Branch:** feat/phase-5-prayer
+- **Depends on:** FEAT-0051
+- [x] `004_jakim.sql`: `jakim_prayer_cache` (zone, date, the eight times, source `api` or `bundled`, fetched at) — **no `jakim_zones` table**: the zone table is embedded data since FEAT-0050, and the spec already says so
+- [x] Write a fetched range, read a zone's day, and tell whether the cache is fresh (under 30 days, and has today) — `Store::{write_prayer_days, prayer_day, prayer_freshness}` in `ot_store::prayer`, over plain `CachedDay` values the binary converts to and from `ot_prayer`'s, since service crates do not depend on each other
+- [x] Test: the migration on a fresh and on a version 3 database; a range round trip; freshness at its edges; a re-fetch replacing a corrected day — 6 tests in `prayer.rs` and the version 3 upgrade test; 29 days 23 hours fresh, exactly 30 days stale, a clock set back fresh, a damaged row an error; the five version pins in `lib.rs` moved from 3 to 4
+- [x] Gate: fmt · clippy -D warnings · test --workspace --locked -j 4 (390 passed) · deny check · --self-test
+- [x] App: `--data-dir ./tmp-data` — the fetched times survive a restart with the network off — not made: nothing in the app writes the cache yet. The check moves to FEAT-0058 with the fetch loop — Phase-5 finish check, 2026-11-26, debug build, scratch `--data-dir`: after the live fetch, the app was stopped and started again with the network off; the log says `fresh cache` and nothing was fetched
+- [x] Docs: spec · README · CHANGELOG · CHECKLIST · GOTCHAS — `05-data-model` says how the table is used; README unchanged (nothing visible); no new gotcha
+- **Notes:** Not built, because nothing asks for it yet: a range read for the scheduler (FEAT-0058 adds it when it needs one) and pruning of old months (the spec keeps "the current and next month"; at about 365 rows a zone a year it is not urgent). In-Progress until FEAT-0058's app check.
+### FEAT-0054 · Calculated mode and its presets
+- **State:** Completed · **Spec:** docs/11-prayer-and-azan.md §8 · ADR-008 · ADR-020 · **Phase:** 5
+- **Branch:** feat/phase-5-prayer
+- **Depends on:** FEAT-0049
+- [x] Local calculation with presets: Muslim World League (the default outside Malaysia), ISNA, Umm al-Qura, and "Malaysia (JAKIM angles, approximate)" — the library chosen in an ADR — ADR-020: `adhan` 0.2.0. **The Malaysia preset is Fajr 18.0° and Isha 18.0°, not the 20.0° and 18.0° this item first said:** JAKIM's own tables put 20.0° ten minutes early. The owner chose 18.0° on 2026-11-26; spec §8, `PROPOSAL.md` and both READMEs changed in this commit
+- [x] Asar: Shafi'i (default) or Hanafi, a visible setting — `Asr::{Shafii, Hanafi}`, Shafi'i the default; the setting's control is Settings ▸ Prayer (FEAT-0057)
+- [x] Labelled "approximate" when the zone is in Malaysia and the source is not JAKIM — `is_approximate(preset, in_malaysia)`, true for the Malaysia preset anywhere and any preset in Malaysia; the visible label and its Fluent keys come with the source label (FEAT-0055)
+- [x] Test: each preset against published reference times within a minute or two; the Malaysia preset against the spike's three zones; Shafi'i against Hanafi — 6 tests in `calculated.rs`: the three zones × 30 days × 6 times all within 3 minutes of JAKIM; 60 reference rows for the other three presets (UTC readings exact to the minute) in both Asar schools, east and west of Greenwich; Hanafi 50–60 minutes after Shafi'i with only Asar moving; a polar day with no sunrise. The reference rows are **adhan-js output**, not an independent timetable, so they check our wiring and not the crate's astronomy; two mutations (no day placement, Fajr at 20°) each fail the tests
+- [x] Gate: fmt · clippy -D warnings · test --workspace --locked -j 4 (396 passed) · deny check · --self-test
+- [x] App: `--data-dir ./tmp-data` — switch the source to Calculated and see the times and the label change, in both languages — not made: there is no source setting or prayer pane yet (FEAT-0057), and nothing calls calculated mode. The check moves to FEAT-0057 — Phase-5 finish check, 2026-11-26, debug build, scratch `--data-dir`: with the network off and the cache emptied the times are calculated (05:48, 07:02, 13:00, 16:24, 18:59, 20:13 against the portal's 05:51 … 20:14) and the Malay pane labels them "Dikira (sandaran, anggaran)"; the Method and Asar controls are in the pane in both languages
+- [x] Docs: spec · README · CHANGELOG · CHECKLIST · GOTCHAS — spec §8 as built, ADR-020, two GOTCHAS entries, both READMEs' angle
+- **Notes:** Not built: Imsak and Dhuha (JAKIM's own), JAKIM's one-to-three-minute precautions (a fitted guess; "approximate" stays true), and the chosen place and time zone for an overseas location (FEAT-0056 gives the place). In-Progress until FEAT-0057's app check.
+### FEAT-0055 · The fallback chain and the source label
+- **State:** In-Progress · **Spec:** docs/11-prayer-and-azan.md §7 · **Phase:** 5
+- **Branch:** feat/phase-5-prayer
+- **Depends on:** FEAT-0052, FEAT-0053, FEAT-0054
+- [x] Fresh cache → live fetch → bundled (only if FEAT-0063's terms check allows, else skipped) → Calculated, labelled "Calculated (fallback)" → nothing: one error toast a day and the last known times — `ot_prayer::chain::Chain::resolve`; one step added to the spec's order, a cache row past its 30 days used before the bundled data, with its fetch time shown (spec §7, 2b); the toast rule is `should_toast`, the toast itself is FEAT-0058's
+- [x] Each step logged; the source label always visible, in both languages, with "Source: JAKIM e-Solat" and the last fetch time — each step logs through `tracing`; `Source` and seven Fluent keys in both files; "visible" is the UI's, in Settings ▸ Prayer (FEAT-0057) and the toast (FEAT-0059)
+- [x] Test: the chain with the network disabled, HTTP 500, bad JSON, an empty cache, `NO_RECORD!` at the year's end, bundled present and absent — each with its expected label — 14 tests in `chain.rs` against stub cache, fetch and bundled data: each failure (network, 500, bad JSON, too large, `NO_RECORD!`) with an empty cache ends at "Calculated (fallback)"; bundled present, missing the date and absent; a stale cache row; Auto abroad and Calculated by choice are not fallbacks; a polar day is nothing; both locale files hold every label key. Two mutations (Auto inverted, the fresh-cache step off) each fail it
+- [x] Gate: fmt · clippy -D warnings · test --workspace --locked -j 4 (410 passed) · deny check · --self-test
+- [ ] App: `--data-dir ./tmp-data` — with the network off, see the label fall back and say so; back on, see JAKIM return — not made: the chain is not wired into the app (the `Cache` adapter over the store and the fetch loop are FEAT-0058). The failures were stubbed, not a real disconnected network. Phase-5 finish check, 2026-11-26, debug build, scratch `--data-dir`. **Made:** the network off with nothing cached, the log shows the live failure and `calculated fallback=true`, and the Malay pane says so; offline with a fresh cache, the label is the cached one. **Not made:** JAKIM returning when the network comes back. Left open for this
+- [x] Docs: spec · README · CHANGELOG · CHECKLIST · GOTCHAS — spec §7 as built and its added step; README unchanged (nothing visible yet); no new gotcha
+- **Notes:** This item carries the exit criterion "the fallback chain passes with the network disabled" — met with stubs for the chain's logic; the real-network-off check is FEAT-0058's App box. The Malay label text wants the native speaker's review with the rest (docs/10-i18n.md). In-Progress until FEAT-0058.
+### FEAT-0056 · Location: detection with consent, and manual entry
+- **State:** In-Progress · **Spec:** docs/11-prayer-and-azan.md §6 · docs/06-security-and-privacy.md · ADR-021 · **Phase:** 5
+- **Branch:** feat/phase-5-prayer
+- **Depends on:** FEAT-0050
+- [x] A consent prompt on first use before any IP lookup; the lookup once a day, cached; the service recorded in an ADR, HTTPS, rounded coordinates only — ADR-021: ipapi.co, chosen by the owner on 2026-11-26. The consent is `[location] ip_consent` in `settings.toml`, and `Lookup::detect` makes no request without it; the saved `location` row is the daily cache. **The prompt itself is UI and moves to FEAT-0057**
+- [x] Manual entry by city or coordinates; the detected place always shown for confirmation — `Lookup::search` (Open-Meteo geocoding) and `from_coordinates`; inside Malaysia the zone is `Asia/Kuala_Lumpur`, elsewhere the PC's own, for the user to confirm (accepted by the owner). The entry controls and the confirmation are FEAT-0057's
+- [x] Stored locally; sent only to the prayer, weather and geolocation services — `ot_store::location` and `ot-core`'s setting; `docs/06` lists what each service receives
+- [x] Test: no lookup without consent; the daily cache; the rounding; a manual location overriding the detected one — 9 tests in `location.rs` (a local server sees no request without consent; the rule at 23:59 and at 24 hours; a manual place stands whatever its age; rounding; the IP is not kept; bad, oversized and refused answers; the search text encoded; coordinates in and out of Malaysia), 5 in `ot-store`, 1 in `ot-core`; two mutations (the consent guard off, unset consent looking up) each fail. The live lookup and search, `-- --ignored`, passed over Windows TLS and printed nothing: the answer is the owner's own place
+- [x] Gate: fmt · clippy -D warnings · test --workspace --locked -j 4 (425 passed) · deny check · --self-test
+- [ ] App: `--data-dir ./tmp-data` — first run: the consent prompt in both languages; decline and enter a city; accept and see the detected place to confirm — not made: there is no Prayer pane or prompt yet; FEAT-0057 carries it. Phase-5 finish check, 2026-11-26, debug build, scratch `--data-dir`. **Made:** on a fresh folder the English pane asks whether to look the place up from the internet address, naming ipapi.co; Not Now opens the city and coordinates fields; typing coordinates sets the place and the zone. **Not made:** the prompt in Malay, Allow (it needs the network, which the check ran without), and a city search. Left open for these
+- [x] Docs: spec · README · CHANGELOG · CHECKLIST · GOTCHAS — spec §6 as built, ADR-021, `05` and `06`, both READMEs; no new gotcha
+- **Notes:** Not built: an offline city search (the embedded Malaysian places could serve one), and a coordinate-to-zone lookup abroad. The saved place is not yet read by anything: the zone, the chain and the scheduler use it from FEAT-0057 and FEAT-0058. In-Progress until FEAT-0057's app check.
+### FEAT-0057 · Settings ▸ Prayer: source and zone
+- **State:** In-Progress · **Spec:** docs/11-prayer-and-azan.md §1 · §3 · §6 · docs/04-ui-design.md · **Phase:** 5
+- **Branch:** feat/phase-5-prayer
+- **Depends on:** FEAT-0050, FEAT-0055, FEAT-0056
+- [x] The location (FEAT-0056): the first-run consent prompt before any IP lookup, in both languages, with Allow and Not Now; the detected place shown for confirmation with the zone; city search results and a coordinates field; the PC's zone shown for confirmation when the coordinates are outside Malaysia; the answer saved as `[location] ip_consent` — inline in the pane, not a popup (spec §6). Seen in the app: the card, Not Now, a city search and picking a result, and Allow, which found a place and proposed its zone. The coordinates field and the PC-zone note were laid out by the layout test but not used in the app
+- [x] Source: Auto · JAKIM · Calculated; JAKIM abroad allowed with a chosen zone and a warning — Auto and Calculated seen in the app, with the zone block and the method controls showing and hiding. The two JAKIM warnings are tested in `plan` and laid out by the layout test, not seen in the app
+- [x] "Detected zone: SGR01 · Gombak, Hulu Langat, Sepang, Petaling · Selangor. Change zone?" and a searchable zone list showing the code and both languages' names — seen in the app in English and Malay, with a search for "kuala" and the long Sabah areas wrapping
+- [x] The day's times with the source label and the last fetch time; empty, loading and error states that each say something — the times for SGR01 from a live JAKIM fetch, then calculated, in both languages; the label and the times follow a language switch at once (the clock too, 24-hour in Malay); the saved copy served after a restart. The loading and "no prayer times" states exist but were not seen in the app
+- [x] Test: the layout test in English, Malay and the pseudo-locale at 100–200%, with the longest zone names; the zone search — the pane, with a place abroad, the longest zone text, long results, every error and the consent card, in `tests/layout.rs` at 348 and 668 px; shown to fail on the checkbox bug it found (98 overflows) and pass with the fix; `zones::search` has its own test; and a test that every key the pane uses is in both locale files
+- [x] Gate: fmt · clippy -D warnings · test --workspace --locked -j 4 (442 passed) · deny check · --self-test
+- [ ] App: `--data-dir ./tmp-data` — pick a zone, change it, see the times follow — both languages, all three themes, the narrow window; first run: the consent prompt, decline and enter a city, accept and see the detected place to confirm; and switch the source to Calculated, choose each preset and Asar school, and see the times and the "approximate" label change — the check FEAT-0054 is waiting on. **Made:** the consent card, Not Now and a city, Allow and the detected place; typed coordinates abroad, with the note that the zone was taken from this PC; the zone list, its search and picking a zone, with JAKIM chosen abroad (both warnings) and then the live times; Auto and Calculated with the label and the times; Hanafi and the Malaysia method; English and Malay; the dark and light themes; 100%, 200% (`--ui-scale 2`) and a 580 px window. **Not made:** the System theme with Windows' setting toggled (a system setting); 150% in the app (the layout test has it); choosing ISNA or Umm al-Qura (the list was seen, not those two chosen); an e-Solat failure with the network really off (FEAT-0058). Left open for the owner's own check. Phase-5 finish check: the consent prompt, Not Now, the typed coordinates and the zone were seen (FEAT-0056's note), and the whole pane in English and Malay. **Still not made:** the System theme with Windows' setting toggled and 150% scaling, both of which mean changing a Windows setting; and the e-Solat failure was seen offline, not with the portal itself failing
+- [ ] Docs: spec · README · CHANGELOG · CHECKLIST · GOTCHAS — spec §6 and `04`, CHANGELOG, CHECKLIST and four GOTCHAS entries done; **the README screenshots of this pane were taken at the phase's finish (`settings-prayer.png`, `settings-prayer-ms.png`; no GIF)** (docs-and-release rule 3), taken with a manual city, never a detected one
+- **After the advisor's review:** Auto with an old chosen zone and a place abroad no longer asks JAKIM — the place decides whether it is Malaysia, and a chosen zone counts only with no place (a test failed first); `Chain::resolve` checks the cancel flag before it writes the cache (ADR-019 note, spec §4); the zone rows are formatted once per query and language; and a test shows that closing the window cancels and the next draw resolves again.
+- **Notes:** Fixed on the way, each by looking at the app: a button squeezed to a letter a line, a checkbox label that ran past the pane in Malay at 200%, a zone list that shrank near the bottom of the pane, a time-zone note that was stored and never drawn, and a Method dropdown that hid its fourth entry. The pane shows six prayers with both names in each language — "Fajr (Subuh)" in English and "Subuh (Fajr)" in Malay; FEAT-0062 keeps the rest of the dual-name work, and Imsak and Dhuha stay hidden until they can be switched on. The `StoreCache` adapter that FEAT-0058 had is here. Nothing outside the pane reads the saved place or the chosen zone yet: the scheduler and the tray tooltip are FEAT-0058.
+### FEAT-0058 · Prayer times in the scheduler
+- **State:** In-Progress · **Spec:** docs/11-prayer-and-azan.md §9 · docs/specs/reminders.md §6 · §8 · **Phase:** 5
+- **Branch:** feat/phase-5-prayer
+- **Depends on:** FEAT-0055
+- [x] The fetch loop (FEAT-0052's client): a worker runs `ot_prayer::fetch` weekly, on a zone change and when the cache lacks today, and waits as `next_after_success` and `next_after_failure` say — 1, 5 and 15 minutes, then the next check, daily across the year's end — with no polling loop and a cancel when Settings closes; each attempt's outcome is logged — `ot_ui::prayer_service`: a fetch when the cache lacks today or the stored next check has come, 1/5/15-minute retries, daily across the year's end, no polling, cancelled when the window closes; seen in the app: `fetched prayer times … next_in_hours=168`, and with the process's HTTPS proxy dead, failures at 06:39:52, 06:40:52 and 06:45:52 with `retry_in_secs` 60, 300 and 900, then JAKIM back at the next start
+- [x] The binary's side of the chain (FEAT-0055): the error toast shown when `Resolution::Nothing` and `should_toast` allows, and the last known times kept (the `Cache` over the store is `ot_ui::prayer::StoreCache`, built in FEAT-0057) — the error toast once a day (`should_toast`, remembered across restarts; seen in the log on a first run with no place), and the last times kept when a pass finds nothing (tested)
+- [x] The location and the day, in the background: re-detect the place once a day when the user has consented (spec §6 — the pane only does it while Settings ▸ Prayer is open), and resolve the day without the pane being open, so the cache and the tray tooltip stay current — the service re-detects a day-old detected place with consent and never a manual one (tested; not seen in the app), and resolves the day with no pane open (seen)
+- [x] Each day's times become fires, converted from `Asia/Kuala_Lumpur` whatever the PC's zone; rebuilt at midnight, after a fetch, a zone or a location change — tested with the PC in New York, after new times, midnight and a zone change; seen: a planted Maghrib fired 2 ms after its target and became a toast
+- [x] Azan before Alarm before everything else; never suppressed by a pause (tray-and-settings §4) or quiet hours; persistent up to the 10-minute cap — tested: the queue order and the one-hour window; the toast is persistent to the cap, Dismiss only, at the front; `pause_suppresses` is tested. Quiet hours do not exist yet. The pause was not tried in the app
+- [x] The 1-hour catch-up window for a missed Azan, configurable — the part of FEAT-0045 that waited for Azan — tested at both edges and configurable; seen: at a restart a prayer 30 minutes late was listed missed and one 90 minutes late dropped with its log line. Closes FEAT-0045's box
+- [ ] Five prayers, plus Syuruk and Jumu'ah optional; Imsak and Dhuha hidden until enabled — Syuruk is optional (`notify_syuruk`, a checkbox in Notifications) and Imsak and Dhuha are not offered; **Jumu'ah is not built**, so this box stays open
+- [x] Test: fires at the fetched times with the PC in another zone; the rebuild triggers; Azan first in the queue; a pause not suppressing it; a missed Azan inside and outside the hour — 7 scheduler tests, 1 store test, 9 service tests, 3 window tests; mutations of the rank, never-done and the retry wait each fail a test
+- [x] Gate: fmt · clippy -D warnings · test --workspace --locked -j 4 · deny check · --self-test — fmt · clippy · 466 tests · deny · self-test, re-run on the committed state
+- [ ] App: `--data-dir ./tmp-data` — with a zone chosen, see the day's times arrive and the log's fetch line, the next prayer fire on time (or a near time from a planted day), during a pause too; with the network off, see the retry schedule (1, 5, 15 minutes) in the log, and the cached times still there after a restart, and the source label fall back and say so, then JAKIM return when the network is back — the check FEAT-0051, FEAT-0052 and FEAT-0053 are waiting on. **Made, on scratch folders:** the day's times arriving with the log's fetch line; a planted prayer firing on time; the retry schedule 60, 300 and 900 s with the proxy dead; the pane's "Calculated (fallback, approximate)" label meanwhile; JAKIM back at the next start; a missed prayer listed and an older one dropped at a restart. **Not made:** the pause in the app (a tray menu click), and the cached times surviving a restart with the network off after a successful fetch (the planted cache stood in)
+- [x] Docs: spec · README · CHANGELOG · CHECKLIST · GOTCHAS — spec §9 as built, CHANGELOG, CHECKLIST, two GOTCHAS entries and one on `HTTPS_PROXY`; README unchanged (the Prayer section already describes notifications)
+- **Notes:** Closing this also closes FEAT-0045's open box.
+- **Progress (scheduler layer, committed):** `Trigger::Prayer` and `Store::sync_prayer_reminders` (one managed row per enabled prayer, hidden from the reminders list); in `ot_sched`, `Command::{PrayerTimes, EnablePrayers, SetAzanWindow}` (so `Command` is no longer `Copy`), prayer times held in the core and queued, a prayer never done, the Azan > Alarm > rest tie-break, and the one-hour Azan window; 7 scheduler tests and 1 store test, with two mutations (the rank, never-done) failing them. **Not built yet:** the background service (fetch loop, resolve, daily re-detect), sending the times to the scheduler, the prayer toast and the pause exemption, the error toast, the Syuruk and Azan-window settings, and the app check; every box above stays open.
+- **Progress (service and window, committed):** `ot_ui::prayer_service` (an engine of one testable pass plus a thread: fetch when the cache lacks today or the stored next check has come, 1/5/15-minute retries then the next check, daily across the year's end, the daily re-detect with consent, the day's and tomorrow's times to the scheduler, the error toast once a day), `[prayer] notify_syuruk` and `azan_window_minutes` with controls in a new Notifications block, the prayer toast (persistent, Dismiss only, to the front), the pause exemption, the missed list naming the prayer, rows synced at startup. 9 service tests, 3 window tests; the gate was green at 466 tests before a one-line clippy fix, and clippy was re-run clean. **Seen in the app on a scratch folder:** the log's `fetched prayer times zone=SGR01 … next_in_hours=168`, `prayer times received prayers=5 times=10`; a planted Maghrib fired at its target, 2 ms late, and became a toast; with the HTTPS proxy of that one process pointed at a dead port, `failures=1 retry_in_secs=60` and the pane reading "Calculated (fallback, approximate)". **Not yet seen:** the 5- and 15-minute retries in the log (a monitor was still running), JAKIM returning when the network is back, the pause exemption in the app, a missed prayer at a restart, and the full gate re-run after the last edits. No boxes are ticked. Not built: the tray tooltip's next prayer, Jumu'ah.
+- **Left:** Jumu'ah, the tray tooltip's next prayer, and the pause check in the app; the box with them stays open and so does the item.
+### FEAT-0059 · Per-prayer templates and their toasts
+- **State:** In-Progress · **Spec:** docs/11-prayer-and-azan.md §9 · docs/specs/toast.md §8 · **Phase:** 5
+- **Branch:** feat/phase-5-prayer
+- **Depends on:** FEAT-0058
+- [x] A template per prayer, seeded with its `prayer_key`: title, body, image, accent and style, with defaults in both languages — migration 005; title, message, accent and picture; the built-in text and the masjid picture of that prayer are the defaults, in both languages; the per-prayer **style** override is not built
+- [x] The toast built by the shared function; the source label on it — `reminder_toast::prayer_spec`, with the day's source label as the note; the label appears once the service has a source, so a preview with no place has none
+- [x] Test: every prayer key in both catalogues; a template's own text winning over the default; the toast built the same for preview and fire — 3 store tests, 3 builder tests (a template's own text winning in both languages, the same toast for fire and preview, every prayer's built-in picture), the key test and the layout test with the editor at its fullest; the layout test found a dropdown that grew to its label and was fixed
+- [x] Gate: fmt · clippy -D warnings · test --workspace --locked -j 4 · deny check · --self-test — fmt · clippy · tests · deny · self-test, run on the final state
+- [ ] App: `--data-dir ./tmp-data` — edit a prayer's template, fire it, see the toast follow, in both languages. **Made:** a title and message typed, saved and previewed, the toast showing them with the Subuh masjid picture and Dismiss only; then in Malay, my English text unchanged in the fields and, after Guna Teks Lalai, the built-in Malay toast "Subuh (Fajr)" / "Masuk waktu Subuh (Fajr)." with "Tutup" and the 24-hour clock. **Not made:** a custom accent or a library picture chosen, a long typed title clipped (the layout test cannot see it), and a real fire with a template (the planted-time path, built by the same function). Left open for these
+- [x] Docs: spec toast.md §8 as built · README and README.ms · CHANGELOG · CHECKLIST · GOTCHAS (two entries) — screenshots wait for the phase's finish
+- **Progress (store and builder, committed):** migration 005 seeds a template per prayer (`prayer_key`, nothing of the user's in it); `Store::{template_for_prayer, set_prayer_template, link_prayer_templates}` (saving nothing is "Use Default Text"); each prayer's managed reminder carries its template; `reminder_toast::prayer_spec` builds the toast from the template (own title, message, picture and accent, each falling back to the built-in text, the masjid picture for the prayer and the global accent) with the day's source label as its note, and the fire uses it. 3 store tests, 3 builder tests; gate green at 472. **Not built yet:** the editor in Settings ▸ Prayer (title, message, accent, picture, Use Default Text, Preview), its strings, the layout test for it, per-prayer style, and the app check; every box above stays open.
+### FEAT-0060 · Audio playback: the Azan and the chime
+- **State:** In-Progress · **Spec:** docs/11-prayer-and-azan.md §9 · docs/06-security-and-privacy.md · **Phase:** 5
+- **Branch:** feat/phase-5-prayer
+- **Depends on:** FEAT-0059
+- [x] `ot-media` plays audio through `rodio` (an ADR); full Azan or a short chime per prayer; stop with the toast — ADR-022; `ot_media::Player`; the sound is chosen per prayer in the template editor; it stops with the toast (`drive_toasts`)
+- [x] Importing an audio file goes through the import rules: size, magic bytes, a hashed copy, a bounded decode — `ot_media::audio::check` then `ot_store::assets::store_audio`; refused files never reach the folder (tested)
+- [x] The default Azan only where its licence allows (`assets/README.md`) — the Azan clips are embedded but the default for a prayer is the short chime, so the full Azan is a choice; the licence is Phase 9's terms check (`assets/README.md`)
+- [x] Test: the format check by magic bytes; the size limit; a corrupt file refused with a message; playback started and stopped — 8 `ot-media` tests, 1 store test, 2 controller tests (the clip a prayer plays; a chosen clip checked and copied, a fake refused) and the key test; the player test plays the chime or reports no device
+- [x] Gate: fmt · clippy -D warnings · test --workspace --locked -j 4 · deny check · --self-test — fmt · clippy · 483 tests · deny · self-test
+- [ ] App: `--data-dir ./tmp-data` — an Azan toast plays its audio and stops when dismissed; import a clip; both languages. **Made:** Full Azan chosen for Fajr, saved and previewed: the log shows `playing a clip clip=AzanSubuh` with no device error, and `the clip was stopped` eleven seconds later when the toast was dismissed. **Not made:** hearing it (only the owner can), the file dialog and an import through it (a Windows dialog the harness does not drive; the import is tested with a real clip), and Malay. Left open for these
+- [x] Docs: spec `11` §9 · `assets/README.md` · CHANGELOG · CHECKLIST · GOTCHAS (three entries); README already lists per-prayer audio
+- **Notes:** Audio output cannot be confirmed by a test; the App box is the check.
+- **Progress (ot-media, committed):** ADR-022; `ot_media::audio::check` (20 MB before reading, format by magic bytes, a bounded decode of the whole clip up to ten minutes, a Fluent key per refusal) and `ot_media::Player` (one thread, one device opened on the first clip, a new clip replaces the old, a missing device reported not panicked), with the stand-in chime and the two Azan clips embedded; 8 tests. **Not built yet:** the store side of an imported clip (`store_audio`, a sound mode per prayer), the editor controls, playing on a prayer's fire and stopping when it is dismissed, and the app check; every box above stays open.
+### FEAT-0061 · Pre-prayer reminders
+- **State:** In-Progress · **Spec:** docs/11-prayer-and-azan.md §9 · **Phase:** 5
+- **Branch:** feat/phase-5-prayer
+- **Depends on:** FEAT-0058
+- [x] Optional per prayer: a reminder so many minutes before (10 by default), its own template text in both languages — `Trigger::PrayerBefore`, `[prayer] pre_prayer` + `pre_prayer_minutes`, a checkbox per prayer and a minutes field in Notifications; the text is the built-in `prayer-before-body` in both languages — a custom per-prayer pre-prayer template is not built (the prayer's own template stays the prayer's)
+- [x] Test: the reminder's time from the prayer's; it moves when the prayer's time does — 3 scheduler tests (derived time and the offset it carries; moves with the prayer's time and the lead, and removed when off; a late one skipped, not listed), the settings test, and a service test that the choice is sent once
+- [x] Gate: fmt · clippy -D warnings · test --workspace --locked -j 4 · deny check · --self-test — fmt · clippy · tests · deny · self-test
+- [ ] App: `--data-dir ./tmp-data` — turn on a pre-prayer reminder and see it fire ahead of the prayer. **Made:** with Asr planted four minutes ahead (offline, a manual Kuala Lumpur place, lead 2) the log shows `a pre-prayer reminder became a toast prayer=asr minutes=2` at exactly two minutes before (07:27:00 and again on a second run), then `a prayer became a toast` at Asr itself; Settings > Prayer > Notifications shows the minutes field and a checkbox per prayer, with Asr ticked and 2 read back from the settings file. **Not made:** the toast's pixels (the capture helper only sees the settings window, so what the toast looks like, and its Malay text, were not seen), a pause holding it back in the app, and the Malay pane. Left open for these
+- [x] Docs: spec `11` §9 · CHANGELOG · CHECKLIST · README already lists the pre-prayer reminder; GOTCHAS: nothing new
+### FEAT-0062 · Dual prayer names
+- **State:** In-Progress · **Spec:** docs/11-prayer-and-azan.md §10 · docs/10-i18n.md · **Phase:** 5
+- **Branch:** feat/phase-5-prayer
+- **Depends on:** FEAT-0059
+- [x] Settings shows both names — "Subuh (Fajr)", "Zohor (Dhuhr)", "Asar (Asr)", "Isyak (Isha)", "Syuruk (Sunrise)", "Jumaat (Jumu'ah)" — in both languages; the identifiers never change — already built with FEAT-0057 (`prayer-name-*` keys); Jumaat (Jumu'ah) is not listed because Jumu'ah is not built, so that name is unchecked
+- [x] The reference table in `docs/10-i18n.md` is the one the test reads — `docs/10-i18n.md` now has the table with the real keys; the test reads it
+- [x] Test: every prayer's label against the reference table in both languages — `crates/ot-i18n/tests/prayer_names.rs`, six rows in both languages; a wrong cell in the table fails it (mutation-checked)
+- [x] Gate: fmt · clippy -D warnings · test --workspace --locked -j 4 · deny check · --self-test — fmt · clippy · tests · deny · self-test
+- [x] App: `--data-dir ./tmp-data` — the prayer rows in English and Malay — Prayer pane in Malay: the notification checkboxes read Subuh (Fajr), Syuruk (Sunrise), Zohor (Dhuhr), Asar (Asr), Maghrib, Isyak (Isha); in English earlier: Fajr (Subuh), Dhuhr (Zohor), Asr (Asar), Maghrib, Isha (Isyak). The Malay pre-prayer controls (FEAT-0061) fit too
+- [x] Docs: spec · README · CHANGELOG · CHECKLIST · GOTCHAS — `docs/10-i18n.md` table · CHANGELOG · CHECKLIST; README already says prayer names show in both languages
+- **Notes:** This item carries the exit criterion "prayer labels match the reference table in both languages". Left open: Jumaat (Jumu'ah) once Jumu'ah is built.
+### FEAT-0063 · The live reference check against the portal
+- **State:** Completed · **Spec:** docs/11-prayer-and-azan.md §11 · **Phase:** 5
+- **Branch:** feat/phase-5-prayer
+- **Depends on:** FEAT-0051, FEAT-0052
+- [x] `tests/fixtures/jakim_reference.csv`: SGR01, WLY01 and JHR01 × five dates, captured by hand from the official portal's page with the capture date recorded — at `crates/ot-prayer/tests/fixtures/`; read in the built-in browser from the portal's page, captured 2026-11-26
+- [x] A test comparing a live fetch against it, not run when e-Solat is unreachable — `a_live_fetch_matches_the_portal_for_three_zones`, `#[ignore]` as the other live test is; it passed when run with `--ignored`
+- [x] The bundled-dataset question (spec §5) answered or left to the Phase 9 terms check, and said so — left to the Phase 9 terms check; spec §5 says so
+- [x] Test: the parsed fixtures and a live fetch against the captured table, three zones × five dates — `tests/reference.rs`: the captured responses (every run) and a live fetch against the table, 3 zones × 5 dates; a changed cell fails both (mutation-checked)
+- [x] Gate: fmt · clippy -D warnings · test --workspace --locked -j 4 · deny check · --self-test — fmt · clippy · tests · deny · self-test
+- [x] App: `--data-dir ./tmp-data` — not applicable — the reference test is the check — not applicable, as the item says; the reference test is the check
+- [x] Docs: spec · README · CHANGELOG · CHECKLIST · GOTCHAS — spec §5 and §11 · CHANGELOG · CHECKLIST; README needs nothing; no GOTCHAS entry
+- **Notes:** This item carries the exit criterion "live JAKIM times match the official portal on the same dates for at least three zones". The portal page must be read by hand or in a browser the owner approves.
+
+### BUG-0015 · Checkboxes in Settings ▸ Prayer sit lower than their labels
+- **State:** Completed · **Spec:** docs/04-ui-design.md · `.claude/rules/ui.md` (one middle line)
+- **Branch:** feat/phase-5-prayer
+- **Source:** the owner: "some of the checkbox and label not vertical middle align"
+- **Verified:** in the running app the Notifications checkboxes (Sunrise, the five Remind Before rows) and Use a Custom Accent Colour now sit on their labels' middle line; the other panes' checkboxes (Reminders' fatigue rows, Appearance, Animation, General) were looked at and already did
+- [x] Establish the cause: `wrapped_checkbox` used `horizontal_top`, and an earlier `labelled_row` had raised the pane's `interact_size.y` to a field's height, so the box was that tall while the label hung from the top
+- [x] Fix: the row opens as tall as a field, centred (`prayer_pane.rs`)
+- [ ] Test: none — the layout test measures overflow, not alignment; found and checked by looking at the app
+- [x] Gate: fmt · clippy -D warnings · test --workspace --locked -j 4 · deny check · --self-test
+- [x] App: Prayer pane, English, with Sunrise and Asr ticked
+- [x] Docs: CHANGELOG · TASKS
+- **Notes:** A multi-line Malay label centres the box on its first line only. Not checked: Malay and 150% scaling after the fix.
 
 ## v0.4.1 — In-Progress
 
@@ -164,6 +374,8 @@ A patch off `main` while Phase 5 is open, on `fix/bug-0013-console`.
 - **Notes:** No release shipped exposed to this in a way that mattered.
 
 ## v0.4.0 — In-Progress
+
+> **Shipped in:** app v0.12.0, 2026-11-20 — all but FEAT-0045's Azan window, which FEAT-0058 closes
 
 Phase 4, Scheduler and Reminders, on `feat/phase-4-scheduler`
 (`docs/07-roadmap.md`). CR-0007 runs first, so the scheduler is built on the
@@ -265,17 +477,17 @@ date library it will keep.
 - **Notes:** App, 2026-11-19 at 18:35 local time, debug worker with the new debug-only `--alarm-cap 30` and an 8 s display duration: an Alarm ("Wake up") and a Task fired together, 12 ms late; at 28 s only the Alarm was on screen, at 42 s still, and it closed 30.7 s after appearing (the cap plus its animations), logging "an alarm closed at its cap"; the history read Wake up shown, Water the plants shown, Wake up missed. Hover pausing an alarm's countdown is the same code as every toast's (Phase 2) and was not looked at again. GOTCHAS: nothing new went wrong. The Duration row of the CHECKLIST is mostly Phase 2's (FEAT-0026) and BUG-0009's; this item adds the alarm exception.
 
 ### FEAT-0045 · Missed reminders
-- **State:** In-Progress · **Spec:** docs/specs/reminders.md §6 · **Phase:** 4
+- **State:** Completed · **Spec:** docs/specs/reminders.md §6 · **Phase:** 4
 - **Branch:** feat/phase-4-scheduler
 - **Depends on:** FEAT-0041
 - [x] At start, reminders whose time passed while the PC was off or asleep are listed — not fired all at once — with Dismiss and Snooze — a fire more than a minute late is missed; one toast says so and its Open lands on Settings ▸ Reminders' Missed Reminders, each row with Snooze and Dismiss; a recurring reminder is listed once, at its latest occurrence
-- [ ] Catch-up windows: 1 hour for Azan, 24 hours for everything else, both configurable; older ones dropped with a log line and a `missed` row — the 24-hour window is done and configurable (Catch-Up Window (Hours), 1 to 168); Azan's one-hour window waits for Azan (Phase 5), since nothing fires an Azan before then
+- [x] Catch-up windows: 1 hour for Azan, 24 hours for everything else, both configurable; older ones dropped with a log line and a `missed` row — the 24-hour window is done and configurable (Catch-Up Window (Hours), 1 to 168); Azan's one-hour window waits for Azan (Phase 5), since nothing fires an Azan before then
 - [x] Test: inside the window listed, outside dropped and logged, at both window edges; the list after a simulated resume — seven scheduler tests: a reminder due while the app was off listed at the next start, the one-minute edge both sides, the window edge both sides (24 h listed, 24 h + 1 ms dropped with its row), a shorter window, a resume listing two, and a clock jumped three days listing the latest and dropping the rest as one row; the missed list in the layout test with a long Malay title
 - [x] Gate: fmt · clippy -D warnings · test --workspace --locked -j 4 (329 passed) · deny check · --self-test
 - [x] App: `--data-dir ./tmp-data` — quit the app, let a reminder's time pass, start it again: the list shows it; dismiss and snooze from the list, in both languages
 - [x] Docs: spec · README · CHANGELOG · CHECKLIST · GOTCHAS
 - **Notes:** App, 2026-11-19 from 22:06 local time, debug worker on scratch folders, with a 1-minute snooze. Each language: a first run stored next fire times for two reminders and quit before either; a third reminder was planted with a stored time 30 hours old; the second run started over a minute after both times. English Dark: the 30-hour one was dropped ("missed fires older than the catch-up window were dropped", a `missed` row); one "Missed Reminders" toast came up with Snooze greyed; its Open showed Settings ▸ Reminders with both listed and "Due 19/11/2026 at 10:07 pm"; Dismiss on one wrote `dismissed`, Snooze on the other wrote `snoozed` and it came back as a toast a minute later, 14 ms late. Malay Light: the same, with "Peringatan Terlepas", "Tunda" and "Tutup", ending on "Tiada peringatan yang terlepas."; the Malay due line read "Sepatutnya pada … pada 22:15" and became "Sepatutnya { $time }". The first row layout centred the due text in a layout that took the whole scroll height — caught on screen, not by the layout test (GOTCHAS); the due text now has its own row. The pane was looked at again in English Dark, Malay Dark and Malay at 560 px; the README screenshots were retaken. In-Progress only for Azan's window.
-
+- **Closed by FEAT-0058:** Azan's one-hour window is in the scheduler (`azan_window`, `Command::SetAzanWindow`, `[prayer] azan_window_minutes`), tested at both edges and seen in the app.
 ### FEAT-0046 · Settings ▸ Reminders
 - **State:** Completed · **Spec:** docs/04-ui-design.md · docs/specs/reminders.md §10 · **Phase:** 4
 - **Branch:** feat/phase-4-scheduler

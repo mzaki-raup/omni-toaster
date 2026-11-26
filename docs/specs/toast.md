@@ -422,6 +422,18 @@ appear. The two pictures mean different things and are never interchangeable:
 | **Image** | Inside the content, beside the body text, with an optional border | No image; the body takes the full width |
 | **Accent** | The bar on the side facing the screen edge (§4.1) | The default from Settings ▸ Appearance |
 
+As built for the prayers (FEAT-0059): migration 005 seeds one template per prayer
+(`fajr`, `syuruk`, `dhuhr`, `asr`, `maghrib`, `isha`), empty, so the built-in text
+and picture show until the user writes their own. Settings ▸ Prayer ▸ Prayer
+Templates edits a prayer's **title**, **message**, **accent** and **picture** (from
+the image library); an empty field is the built-in, and "Use Default Text" clears
+the title and message so the built-in text in the active language shows again.
+What is typed is stored as typed with the language it was written in, and never
+translated. The built-in picture is the masjid picture of that prayer (Syuruk
+borrows Dhuha's). The fire and the editor's **Preview Toast** both come through
+`reminder_toast::prayer_spec`, so they cannot disagree, and the toast carries the
+day's source label as its note. A per-prayer **style** override is not built.
+
 ### 8.1 The image library
 
 Pictures are uploaded **once** into a library and then **reused** by any

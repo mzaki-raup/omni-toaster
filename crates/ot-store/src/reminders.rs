@@ -38,7 +38,36 @@ pub enum Trigger {
     /// The work-hour limit: once, so many minutes after the working day
     /// began.
     WorkHours { minutes: u32 },
+    /// A prayer: at each day's time for it, which the scheduler is given
+    /// rather than computes (`docs/11-prayer-and-azan.md` §9). `prayer` is one
+    /// of [`PRAYERS`].
+    Prayer { prayer: String },
+    /// A reminder so many minutes **before** a prayer, optional per prayer
+    /// (`docs/11-prayer-and-azan.md` §9). It follows the prayer's time: when the
+    /// prayer moves, so does it.
+    PrayerBefore { prayer: String, minutes: u32 },
 }
+
+/// What the user wrote for a prayer's template; `None` is the built-in.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct PrayerTemplateEdit {
+    pub title: Option<String>,
+    pub body: Option<String>,
+    /// `#rrggbb`.
+    pub accent: Option<String>,
+    /// A library picture's `sha256`.
+    pub image: Option<String>,
+    /// `en-US` or `ms-MY`: the language the text was typed in.
+    pub authored_lang: &'static str,
+    /// `chime`, `azan`, `file` or `none`; `None` is the chime.
+    pub sound_mode: Option<String>,
+    /// An imported clip's `sha256`, for `file`.
+    pub sound: Option<String>,
+}
+
+/// The prayers a managed reminder can be for, by the key the scheduler is
+/// given their times under, in the order of the day.
+pub const PRAYERS: [&str; 6] = ["fajr", "syuruk", "dhuhr", "asr", "maghrib", "isha"];
 
 impl Trigger {
     /// The `trigger_type` column's value.
@@ -48,6 +77,8 @@ impl Trigger {
             Self::OffsetBefore { .. } => "offset_before",
             Self::Every { .. } => "every",
             Self::WorkHours { .. } => "work_hours",
+            Self::Prayer { .. } => "prayer",
+            Self::PrayerBefore { .. } => "prayer_before",
         }
     }
 
@@ -56,6 +87,17 @@ impl Trigger {
     /// Reminders' Fatigue Reminders rather than in the editor.
     pub fn is_fatigue(&self) -> bool {
         matches!(self, Self::Every { .. } | Self::WorkHours { .. })
+    }
+
+    /// Whether this is a prayer's reminder, which the app manages from the
+    /// Prayer settings and the list in Settings ▸ Reminders does not show.
+    pub fn is_prayer(&self) -> bool {
+        matches!(self, Self::Prayer { .. } | Self::PrayerBefore { .. })
+    }
+
+    /// Whether this is a reminder ahead of a prayer rather than the prayer.
+    pub fn is_pre_prayer(&self) -> bool {
+        matches!(self, Self::PrayerBefore { .. })
     }
 }
 
@@ -265,12 +307,20 @@ pub struct Template {
     /// The built-in reminder type, `reminder-event` and so on; `None` for a
     /// template that is not a reminder type's.
     pub type_key: Option<String>,
+    /// The prayer this template is for, one of [`PRAYERS`]; `None` for any
+    /// other template.
+    pub prayer_key: Option<String>,
     pub custom_title: Option<String>,
     pub custom_body: Option<String>,
     /// `#rrggbb`, as the editor stores it.
     pub accent_color: Option<String>,
     /// The template's picture, as a relative path under the data folder.
     pub image: Option<String>,
+    /// A prayer's sound: `chime` (the default, also `None`), `azan`, `file` or
+    /// `none`.
+    pub sound_mode: Option<String>,
+    /// The imported clip for `file`, as a relative path under the data folder.
+    pub sound: Option<String>,
 }
 
 /// An instant as the database stores it.
@@ -433,6 +483,102 @@ impl Store {
         Ok(changed == 1)
     }
 
+    /// Keep one managed reminder for each prayer in `enabled` — keys from
+    /// [`PRAYERS`] — and none for the others. A prayer already there is left
+    /// alone, so its stored next time and its history survive a restart.
+    /// Returns whether anything was created or deleted.
+    pub fn sync_prayer_reminders(&self, enabled: &[&str]) -> Result<bool, ReminderError> {
+        let mut changed = false;
+        let mut present = Vec::new();
+        for reminder in self.reminders()? {
+            let Trigger::Prayer { prayer } = &reminder.draft.trigger else {
+                continue;
+            };
+            if enabled.contains(&prayer.as_str()) && !present.contains(prayer) {
+                present.push(prayer.clone());
+            } else {
+                // Not enabled, or a duplicate: gone.
+                self.delete_reminder(reminder.id)?;
+                changed = true;
+            }
+        }
+        for prayer in enabled.iter().filter(|p| PRAYERS.contains(p)) {
+            if present.iter().any(|have| have == prayer) {
+                continue;
+            }
+            self.create_reminder(&ReminderDraft {
+                category_id: None,
+                // The name is resolved from the key when the toast is built,
+                // in the language then in force, never stored.
+                title: String::new(),
+                body: None,
+                authored_lang: "en-US".to_owned(),
+                trigger: Trigger::Prayer {
+                    prayer: (*prayer).to_owned(),
+                },
+                recurrence: None,
+            })?;
+            changed = true;
+        }
+        self.link_prayer_templates()?;
+        Ok(changed)
+    }
+
+    /// Keep one reminder `minutes` before each prayer in `enabled`, and none for
+    /// the others. A prayer already there keeps its row; one whose lead changed
+    /// is updated in place. Returns whether anything changed.
+    pub fn sync_pre_prayer_reminders(
+        &self,
+        enabled: &[&str],
+        minutes: u32,
+    ) -> Result<bool, ReminderError> {
+        let mut changed = false;
+        let mut present: Vec<String> = Vec::new();
+        for reminder in self.reminders()? {
+            let Trigger::PrayerBefore {
+                prayer,
+                minutes: have,
+            } = &reminder.draft.trigger
+            else {
+                continue;
+            };
+            if !enabled.contains(&prayer.as_str()) || present.contains(prayer) {
+                self.delete_reminder(reminder.id)?;
+                changed = true;
+                continue;
+            }
+            present.push(prayer.clone());
+            if *have != minutes {
+                let mut draft = reminder.draft.clone();
+                draft.trigger = Trigger::PrayerBefore {
+                    prayer: prayer.clone(),
+                    minutes,
+                };
+                self.update_reminder(reminder.id, &draft)?;
+                changed = true;
+            }
+        }
+        for prayer in enabled.iter().filter(|p| PRAYERS.contains(p)) {
+            if present.iter().any(|have| have == prayer) {
+                continue;
+            }
+            self.create_reminder(&ReminderDraft {
+                category_id: None,
+                title: String::new(),
+                body: None,
+                authored_lang: "en-US".to_owned(),
+                trigger: Trigger::PrayerBefore {
+                    prayer: (*prayer).to_owned(),
+                    minutes,
+                },
+                recurrence: None,
+            })?;
+            changed = true;
+        }
+        self.link_prayer_templates()?;
+        Ok(changed)
+    }
+
     /// Delete a reminder. Its snoozes go with it (`ON DELETE CASCADE`); its
     /// history rows stay, unlinked, until they age out. Returns whether it
     /// existed.
@@ -505,7 +651,7 @@ impl Store {
         Ok(self
             .conn
             .query_row(
-                "SELECT c.id, c.type_key, c.custom_title, c.custom_body, c.accent_color,                  a.relative_path FROM category c LEFT JOIN asset a ON a.sha256 = c.image_id                  WHERE c.id = ?1",
+                "SELECT c.id, c.type_key, c.custom_title, c.custom_body, c.accent_color,                  a.relative_path, c.prayer_key, c.sound_mode, s.relative_path FROM category c LEFT JOIN asset a ON a.sha256 = c.image_id                  LEFT JOIN asset s ON s.sha256 = c.sound_id WHERE c.id = ?1",
                 params![id],
                 |row| {
                     Ok(Template {
@@ -515,6 +661,9 @@ impl Store {
                         custom_body: row.get(3)?,
                         accent_color: row.get(4)?,
                         image: row.get(5)?,
+                        prayer_key: row.get(6)?,
+                        sound_mode: row.get(7)?,
+                        sound: row.get(8)?,
                     })
                 },
             )
@@ -522,6 +671,84 @@ impl Store {
     }
 
     /// The template of a built-in reminder type, by its key.
+    /// A prayer's template, seeded by migration 005.
+    pub fn template_for_prayer(&self, prayer: &str) -> Result<Option<Template>, StoreError> {
+        let id: Option<i64> = self
+            .conn
+            .query_row(
+                "SELECT id FROM category WHERE prayer_key = ?1",
+                params![prayer],
+                |row| row.get(0),
+            )
+            .optional()?;
+        id.map_or(Ok(None), |id| self.template(id))
+    }
+
+    /// Save what the user wrote for a prayer's template. `None` and empty text
+    /// mean "the built-in text in the active language", so "Use Default Text"
+    /// is saving `None`. `accent` is `#rrggbb` or `None`; `image` is the
+    /// library picture's `sha256` or `None` for the built-in one.
+    /// `authored_lang` is the language the text was typed in.
+    pub fn set_prayer_template(
+        &self,
+        prayer: &str,
+        edit: &PrayerTemplateEdit,
+    ) -> Result<bool, StoreError> {
+        let text = |value: &Option<String>| {
+            value
+                .as_deref()
+                .map(str::trim)
+                .filter(|t| !t.is_empty())
+                .map(str::to_owned)
+        };
+        let (title, body) = (text(&edit.title), text(&edit.body));
+        let lang = (title.is_some() || body.is_some()).then_some(edit.authored_lang);
+        let changed = self.conn.execute(
+            "UPDATE category SET custom_title = ?2, custom_body = ?3, accent_color = ?4, \
+             image_id = ?5, authored_lang = ?6, sound_mode = ?7, sound_id = ?8 \
+             WHERE prayer_key = ?1",
+            params![
+                prayer,
+                title,
+                body,
+                edit.accent,
+                edit.image,
+                lang,
+                edit.sound_mode,
+                edit.sound
+            ],
+        )?;
+        Ok(changed == 1)
+    }
+
+    /// Record an audio clip that was copied into `assets/`, so a template can
+    /// name it. The same clip recorded twice is recorded once.
+    pub fn add_audio_asset(&self, clip: &crate::assets::StoredAudio) -> Result<(), StoreError> {
+        self.conn.execute(
+            "INSERT OR IGNORE INTO asset (sha256, kind, relative_path, bytes, created_at) \
+             VALUES (?1, 'audio', ?2, ?3, strftime('%Y-%m-%dT%H:%M:%fZ', 'now'))",
+            params![
+                clip.sha256,
+                clip.relative_path,
+                i64::try_from(clip.bytes).unwrap_or(i64::MAX)
+            ],
+        )?;
+        Ok(())
+    }
+
+    /// Point each prayer's managed reminder at its template, so a fire carries
+    /// it. Only the link changes: the stored next time is left alone.
+    pub fn link_prayer_templates(&self) -> Result<(), StoreError> {
+        self.conn.execute(
+            "UPDATE reminder SET category_id = (SELECT c.id FROM category c WHERE c.prayer_key = \
+             json_extract(reminder.trigger_json, '$.prayer')) \
+             WHERE trigger_type IN ('prayer', 'prayer_before') AND category_id IS NOT \
+             (SELECT c.id FROM category c WHERE c.prayer_key = json_extract(reminder.trigger_json, '$.prayer'))",
+            [],
+        )?;
+        Ok(())
+    }
+
     pub fn template_for_type(&self, type_key: &str) -> Result<Option<Template>, StoreError> {
         let id: Option<i64> = self
             .conn
@@ -957,5 +1184,254 @@ mod tests {
         assert_eq!(stamp(when), "2026-11-19T00:00:00.000Z");
         assert_eq!(stamp(when).parse::<Timestamp>().expect("parses"), when);
         assert!(stamp(when) < stamp(when + SignedDuration::from_millis(1)));
+    }
+
+    #[test]
+    fn the_managed_prayer_reminders_follow_what_is_enabled_and_keep_their_rows() {
+        let store = Store::open_in_memory().expect("opens");
+        let prayers = |store: &Store| -> Vec<(i64, String)> {
+            store
+                .reminders()
+                .expect("reads")
+                .into_iter()
+                .filter_map(|r| match r.draft.trigger {
+                    Trigger::Prayer { prayer } => Some((r.id, prayer)),
+                    _ => None,
+                })
+                .collect()
+        };
+
+        assert!(
+            store
+                .sync_prayer_reminders(&["fajr", "dhuhr"])
+                .expect("synced")
+        );
+        let first = prayers(&store);
+        assert_eq!(
+            first.iter().map(|(_, p)| p.as_str()).collect::<Vec<_>>(),
+            ["fajr", "dhuhr"]
+        );
+
+        // The same set again changes nothing and keeps the ids, which carry the
+        // stored next time and the history.
+        assert!(
+            !store
+                .sync_prayer_reminders(&["fajr", "dhuhr"])
+                .expect("synced")
+        );
+        assert_eq!(prayers(&store), first);
+
+        // Syuruk on, Dhuhr off.
+        assert!(
+            store
+                .sync_prayer_reminders(&["fajr", "syuruk"])
+                .expect("synced")
+        );
+        let second = prayers(&store);
+        assert_eq!(
+            second.iter().map(|(_, p)| p.as_str()).collect::<Vec<_>>(),
+            ["fajr", "syuruk"]
+        );
+        assert_eq!(second[0], first[0], "Fajr's row is the same row");
+
+        // A key nobody knows is not made, and an empty set clears them all.
+        store
+            .sync_prayer_reminders(&["imsak", "fajr"])
+            .expect("synced");
+        assert_eq!(prayers(&store).len(), 1);
+        store.sync_prayer_reminders(&[]).expect("synced");
+        assert!(prayers(&store).is_empty());
+        assert!(
+            Trigger::Prayer {
+                prayer: "fajr".into()
+            }
+            .is_prayer()
+        );
+        assert!(
+            !Trigger::Prayer {
+                prayer: "fajr".into()
+            }
+            .is_fatigue()
+        );
+    }
+
+    #[test]
+    fn every_prayer_has_a_seeded_template_with_nothing_of_the_users_in_it() {
+        let store = Store::open_in_memory().expect("opens");
+        for prayer in PRAYERS {
+            let template = store
+                .template_for_prayer(prayer)
+                .expect("reads")
+                .unwrap_or_else(|| panic!("{prayer} has no template"));
+            assert_eq!(template.prayer_key.as_deref(), Some(prayer));
+            assert_eq!(
+                (
+                    template.custom_title,
+                    template.custom_body,
+                    template.accent_color,
+                    template.image
+                ),
+                (None, None, None, None),
+                "the built-in text and picture until the user writes some"
+            );
+        }
+        assert!(store.template_for_prayer("imsak").expect("reads").is_none());
+    }
+
+    #[test]
+    fn a_prayers_template_keeps_what_was_written_and_default_text_clears_it() {
+        let store = Store::open_in_memory().expect("opens");
+        let written = PrayerTemplateEdit {
+            title: Some("  Masuk Subuh  ".to_owned()),
+            body: Some("Bangun dan solat.".to_owned()),
+            accent: Some("#3b9eff".to_owned()),
+            image: None,
+            authored_lang: "ms-MY",
+            sound_mode: None,
+            sound: None,
+        };
+        assert!(store.set_prayer_template("fajr", &written).expect("saved"));
+        let fajr = store
+            .template_for_prayer("fajr")
+            .expect("reads")
+            .expect("there");
+        assert_eq!(fajr.custom_title.as_deref(), Some("Masuk Subuh"), "trimmed");
+        assert_eq!(fajr.custom_body.as_deref(), Some("Bangun dan solat."));
+        assert_eq!(fajr.accent_color.as_deref(), Some("#3b9eff"));
+        // Another prayer is untouched.
+        let dhuhr = store
+            .template_for_prayer("dhuhr")
+            .expect("reads")
+            .expect("there");
+        assert_eq!(dhuhr.custom_title, None);
+
+        // "Use Default Text": saving nothing restores the built-in.
+        let cleared = PrayerTemplateEdit {
+            title: Some("   ".to_owned()),
+            body: None,
+            accent: None,
+            image: None,
+            authored_lang: "en-US",
+            sound_mode: None,
+            sound: None,
+        };
+        store.set_prayer_template("fajr", &cleared).expect("saved");
+        let fajr = store
+            .template_for_prayer("fajr")
+            .expect("reads")
+            .expect("there");
+        assert_eq!(
+            (fajr.custom_title, fajr.custom_body, fajr.accent_color),
+            (None, None, None)
+        );
+        assert!(
+            !store
+                .set_prayer_template("imsak", &written)
+                .expect("no such prayer")
+        );
+    }
+
+    #[test]
+    fn each_prayer_reminder_carries_its_template_after_a_sync() {
+        let store = Store::open_in_memory().expect("opens");
+        store
+            .sync_prayer_reminders(&["fajr", "isha"])
+            .expect("synced");
+        for reminder in store.reminders().expect("reads") {
+            let Trigger::Prayer { prayer } = &reminder.draft.trigger else {
+                continue;
+            };
+            let template = store
+                .template_for_prayer(prayer)
+                .expect("reads")
+                .expect("seeded");
+            assert_eq!(reminder.draft.category_id, Some(template.id), "{prayer}");
+        }
+        // The link is repaired, not only made: a row with none gets it back,
+        // and its stored next time is left alone.
+        let id = store.reminders().expect("reads")[0].id;
+        store
+            .set_next_fire_at(id, Some("2026-11-19T05:00:00Z".parse().expect("instant")))
+            .expect("stored");
+        store
+            .connection()
+            .execute("UPDATE reminder SET category_id = NULL", [])
+            .expect("unlinked");
+        store
+            .sync_prayer_reminders(&["fajr", "isha"])
+            .expect("synced");
+        let again = store.reminder(id).expect("reads").expect("there");
+        assert!(again.draft.category_id.is_some(), "the link is back");
+        assert_eq!(
+            again.next_fire_at,
+            Some("2026-11-19T05:00:00Z".parse().expect("instant"))
+        );
+    }
+    #[test]
+    fn a_prayers_sound_is_the_chime_until_chosen_and_an_imported_clip_is_named_by_its_asset() {
+        let dir = tempfile::tempdir().expect("a scratch folder");
+        let store = Store::open_in_memory().expect("opens");
+        let fajr = store
+            .template_for_prayer("fajr")
+            .expect("reads")
+            .expect("there");
+        assert_eq!(
+            (fajr.sound_mode.as_deref(), fajr.sound.as_deref()),
+            (None, None),
+            "the chime"
+        );
+
+        // A clip, copied in under its hash and recorded; storing it twice is one file.
+        let clip =
+            crate::assets::store_audio(dir.path(), b"RIFFxxxxWAVEdata", "wav").expect("stored");
+        assert_eq!(clip.relative_path, format!("assets/{}.wav", clip.sha256));
+        assert!(
+            dir.path().join(&clip.relative_path).is_file(),
+            "it landed where the path says"
+        );
+        assert_eq!(
+            crate::assets::store_audio(dir.path(), b"RIFFxxxxWAVEdata", "wav").expect("again"),
+            clip
+        );
+        store.add_audio_asset(&clip).expect("recorded");
+        store.add_audio_asset(&clip).expect("recorded again");
+
+        let edit = |mode: &str, sound: Option<String>| PrayerTemplateEdit {
+            title: None,
+            body: None,
+            accent: None,
+            image: None,
+            authored_lang: "en-US",
+            sound_mode: Some(mode.to_owned()),
+            sound,
+        };
+        store
+            .set_prayer_template("fajr", &edit("file", Some(clip.sha256.clone())))
+            .expect("saved");
+        let fajr = store
+            .template_for_prayer("fajr")
+            .expect("reads")
+            .expect("there");
+        assert_eq!(fajr.sound_mode.as_deref(), Some("file"));
+        assert_eq!(fajr.sound.as_deref(), Some(clip.relative_path.as_str()));
+
+        store
+            .set_prayer_template("fajr", &edit("none", None))
+            .expect("saved");
+        assert_eq!(
+            store
+                .template_for_prayer("fajr")
+                .expect("reads")
+                .expect("there")
+                .sound_mode
+                .as_deref(),
+            Some("none")
+        );
+        // A mode nobody knows is refused by the table, not stored.
+        assert!(
+            store
+                .set_prayer_template("fajr", &edit("loud", None))
+                .is_err()
+        );
     }
 }
