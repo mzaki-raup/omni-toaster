@@ -127,5 +127,14 @@ cargo run -p omnitoaster -- --data-dir ./tmp-data
   a `weather-` key (`weather-clear`, `-cloudy`, `-rain`, `-storm`, `-snow`, `-fog`,
   and `weather-unknown` for the generic one) in both locale files. Nothing shows
   them yet: the pane is FEAT-0070.
+- **The cache (FEAT-0067).** `weather_cache` was already in migration 001, so there
+  is no migration 008. `ot_store::weather` keeps one row for the one saved place: the
+  response body as the service sent it, and when it was fetched. The store never
+  reads the payload; `ot-weather`'s parser does, so a damaged row is a failed parse
+  and a refetch. `CachedWeather::age` and `is_stale(now, ttl)` say how old it is,
+  with `DEFAULT_TTL` of two hours (four polls at the default interval); exactly the
+  TTL is still fresh. Saving a place with other coordinates empties the cache,
+  because another place's weather is not this place's; saving the same place again
+  (the daily lookup) keeps it.
 - **A licence point the owner must settle** (ADR-023): the free API is
   non-commercial and wants attribution.

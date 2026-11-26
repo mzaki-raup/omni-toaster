@@ -14,6 +14,7 @@ pub mod library;
 pub mod location;
 pub mod prayer;
 pub mod reminders;
+pub mod weather;
 
 use std::path::{Path, PathBuf};
 

@@ -184,7 +184,7 @@ Last updated: 2026-11-19
 | Item | State | Notes |
 |---|---|---|
 | Open-Meteo service | In-Progress | No API key. FEAT-0065: the service verified live for three cities and recorded as ADR-023; `ot-weather` has the client and the strict reader, tested against captured answers and live; not yet running in the app (FEAT-0069). The free tier is non-commercial and wants attribution — the owner's call |
-| Caching | Pending | TTL-based |
+| Caching | In-Progress | TTL-based. FEAT-0067: `ot_store::weather` keeps the last answer for the saved place with its fetch time, a two-hour TTL, emptied when the place moves; no migration was needed (the table is migration 001's). Not yet used by the app — the service is FEAT-0069, which carries the restart-offline check |
 | Condition change detection | Pending | Condition change or temperature threshold |
 | Per-condition templates | Pending | |
 | Weather code to Fluent key mapping | In-Progress | No API text displayed. FEAT-0066: `ot_weather::condition` maps all 29 documented codes to six classes and a generic one, with a `weather-` key each in both locale files; not yet shown anywhere (FEAT-0070) |

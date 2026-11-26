@@ -165,15 +165,15 @@ stale marker in both languages.
 - [x] Docs: spec · README · CHANGELOG · CHECKLIST · GOTCHAS — spec "What is implemented" · CHANGELOG · CHECKLIST; README and GOTCHAS: nothing yet
 
 ### FEAT-0067 · The weather cache and migration 008
-- **State:** Pending · **Spec:** docs/specs/weather.md §7 · §8 · docs/05-data-model-and-storage.md · **Phase:** 6
+- **State:** In-Progress · **Spec:** docs/specs/weather.md §7 · §8 · docs/05-data-model-and-storage.md · **Phase:** 6
 - **Branch:** feat/phase-6-weather
 - **Depends on:** FEAT-0065
-- [ ] Migration 008: `weather_cache (location_id, fetched_at, payload_json)`; the store writes and reads the last response and says how old it is
-- [ ] A TTL after which cached data counts as stale; deleting the cache costs a refetch, never correctness
-- [ ] Test: a round trip, a TTL expiry, migrations on a fresh and an existing database, the file landing where it should
-- [ ] Gate: fmt · clippy -D warnings · test --workspace --locked -j 4 · deny check · --self-test
-- [ ] App: `--data-dir ./tmp-data` — the cached weather survives a restart with the network off (FEAT-0069)
-- [ ] Docs: spec · README · CHANGELOG · CHECKLIST · GOTCHAS
+- [x] Migration 008: `weather_cache (location_id, fetched_at, payload_json)`; the store writes and reads the last response and says how old it is — **no migration was needed:** `weather_cache` has been in migration 001 since Phase 0, with exactly these columns; `Store::write_weather`, `weather` and `clear_weather` and `CachedWeather::age` are new, in `ot-store/src/weather.rs`
+- [x] A TTL after which cached data counts as stale; deleting the cache costs a refetch, never correctness — `DEFAULT_TTL` of two hours and `is_stale(now, ttl)`; emptied when the saved place's coordinates change
+- [x] Test: a round trip, a TTL expiry, migrations on a fresh and an existing database, the file landing where it should — 7 tests: a round trip and replacement, age and the TTL boundary exactly, a clock that went back, it needs a saved place, emptying, moving the place empties it and saving the same place again does not (mutation-checked), a damaged time reads as no cache, and a restart with the file in the data folder and nothing beside it. Migrations on a fresh and an existing database: nothing changed, the existing tests stand
+- [x] Gate: fmt · clippy -D warnings · test --workspace --locked -j 4 · deny check · --self-test — fmt · clippy · tests · deny · self-test
+- [ ] App: `--data-dir ./tmp-data` — the cached weather survives a restart with the network off (FEAT-0069). Not made: nothing in the app writes the cache until the service (FEAT-0069), which carries this check
+- [x] Docs: spec · README · CHANGELOG · CHECKLIST · GOTCHAS — spec "What is implemented" · `05` · CHANGELOG · CHECKLIST; README and GOTCHAS: nothing yet
 
 ### FEAT-0068 · Change detection: condition changes and temperature thresholds
 - **State:** Pending · **Spec:** docs/specs/weather.md §4 · §12 · **Phase:** 6

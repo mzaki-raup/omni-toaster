@@ -13,6 +13,8 @@ Format: [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) · Versioning:
 
 ### Added
 
+- Weather cache: the last weather answer is kept for the saved place, with when it was fetched, so it survives a restart and can be shown marked as old when there is no network. Choosing a different place empties it (FEAT-0067).
+
 - Weather conditions: the weather service's numeric codes are grouped into clear, cloudy, rain, thunderstorm, snow and fog, each named in English and Bahasa Melayu; a code the app does not know gets a generic name and a log line. Nothing displays them yet (FEAT-0066).
 
 - Weather groundwork: a client that asks Open-Meteo for the current temperature and weather code and the last few hours, over Windows' own TLS, sending coordinates rounded to two decimals, and reads the answer strictly. It is checked against captured answers for three cities and, on request, the live service; nothing in the app uses it yet (FEAT-0065).
