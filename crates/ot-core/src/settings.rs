@@ -65,7 +65,17 @@ pub struct PrayerSettings {
     pub preset: Option<String>,
     /// `shafii` or `hanafi`.
     pub asr: String,
+    /// Whether Syuruk (sunrise) has a notification of its own. The five daily
+    /// prayers always do; Imsak and Dhuha stay hidden until they can be
+    /// switched on.
+    pub notify_syuruk: bool,
+    /// How late a prayer missed while the PC was off may be and still be
+    /// listed, in minutes, within [`AZAN_WINDOW_MINUTES`].
+    pub azan_window_minutes: u32,
 }
+
+/// The catch-up window for a missed prayer, in minutes: one minute to a day.
+pub const AZAN_WINDOW_MINUTES: std::ops::RangeInclusive<u32> = 1..=1440;
 
 impl Default for PrayerSettings {
     fn default() -> Self {
@@ -74,7 +84,29 @@ impl Default for PrayerSettings {
             zone: None,
             preset: None,
             asr: "shafii".to_string(),
+            notify_syuruk: false,
+            azan_window_minutes: 60,
         }
+    }
+}
+
+impl PrayerSettings {
+    /// The prayers that have a notification, by the key the scheduler knows
+    /// them by: the five daily prayers, and Syuruk if it is switched on.
+    pub fn enabled_prayers(&self) -> Vec<&'static str> {
+        let mut keys = vec!["fajr"];
+        if self.notify_syuruk {
+            keys.push("syuruk");
+        }
+        keys.extend(["dhuhr", "asr", "maghrib", "isha"]);
+        keys
+    }
+
+    /// The Azan window brought into range, so a hand-edited file cannot make a
+    /// missed prayer list for no time or for ever.
+    pub fn azan_window(&self) -> u32 {
+        self.azan_window_minutes
+            .clamp(*AZAN_WINDOW_MINUTES.start(), *AZAN_WINDOW_MINUTES.end())
     }
 }
 
@@ -333,6 +365,20 @@ mod tests {
             ),
             ("auto", None, None, "shafii")
         );
+        assert!(!defaults.notify_syuruk);
+        assert_eq!(defaults.azan_window(), 60);
+        assert_eq!(
+            defaults.enabled_prayers(),
+            ["fajr", "dhuhr", "asr", "maghrib", "isha"]
+        );
+        let mut on = defaults.clone();
+        on.notify_syuruk = true;
+        on.azan_window_minutes = 0;
+        assert_eq!(
+            on.enabled_prayers(),
+            ["fajr", "syuruk", "dhuhr", "asr", "maghrib", "isha"]
+        );
+        assert_eq!(on.azan_window(), 1, "a zero window is brought into range");
         let mut settings = Settings::default();
         settings.prayer.source = "jakim".to_string();
         settings.prayer.zone = Some("SGR01".to_string());

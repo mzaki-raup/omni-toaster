@@ -833,3 +833,19 @@ prayer-name-asr = Asr (Asar)
 prayer-name-maghrib = Maghrib
 # The night prayer.
 prayer-name-isha = Isha (Isyak)
+# The heading of the group of notification settings in Settings > Prayer.
+prayer-notify-heading = Notifications
+# The checkbox that gives Syuruk (sunrise) its own notification. The five daily prayers always have one.
+prayer-notify-syuruk = Notify at Sunrise (Syuruk)
+# The hint under the Syuruk checkbox.
+prayer-notify-hint = The five daily prayers always have a notification.
+# The label of the number field for how old a missed prayer may be and still be listed.
+prayer-azan-window-label = Missed Prayer Window (Minutes)
+# The hint under that field.
+prayer-azan-window-hint = A prayer missed while the PC was off is listed if it is no older than this. Older ones are dropped.
+# The body of a prayer's notification. $prayer is the prayer's name with both names, like Fajr (Subuh).
+prayer-toast-body = It is time for { $prayer }.
+# The title of the notification shown, at most once a day, when no prayer times could be worked out.
+prayer-toast-unavailable-title = No prayer times available
+# The body of that notification.
+prayer-toast-unavailable-body = OmniToaster could not work out today's prayer times. Open Settings and choose a location.

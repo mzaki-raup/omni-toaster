@@ -15,6 +15,7 @@ pub mod library;
 pub mod phrases;
 pub mod prayer;
 pub mod prayer_pane;
+pub mod prayer_service;
 pub mod reminder_book;
 pub mod reminder_editor;
 pub mod reminder_toast;

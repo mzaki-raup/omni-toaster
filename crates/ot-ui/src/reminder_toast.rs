@@ -86,6 +86,32 @@ pub fn spec(
     spec
 }
 
+/// A prayer's toast: its name with both names, "It is time for …", Dismiss and
+/// nothing to snooze, persistent up to the ten-minute cap, drawn from the same
+/// `ToastSpec` as every other toast (`docs/11-prayer-and-azan.md` §9). `prayer`
+/// is the scheduler's key.
+pub fn prayer_spec(
+    prefs: &ot_toast::Prefs,
+    prayer: &str,
+    timestamp: Option<String>,
+) -> ot_toast::ToastSpec {
+    let name = crate::prayer_pane::prayer_name(prayer);
+    let content = ot_toast::Content {
+        title: name.clone(),
+        body: ot_i18n::text_with("prayer-toast-body", &[("prayer", name.into())]),
+        app_name: ot_i18n::text("toast-app-name"),
+        timestamp,
+        action_labels: action_labels(),
+        ..ot_toast::Content::default()
+    };
+    let mut spec = prefs.spec(content);
+    // Dismiss only: an Azan is not put off.
+    spec.behaviour.actions = 1;
+    spec.behaviour.persistent = true;
+    spec.behaviour.duration_secs = ot_toast::spec::PERSISTENT_CAP_SECS;
+    spec
+}
+
 /// Whether a reminder of this template jumps the toast queue.
 pub fn is_urgent(template: Option<&Template>) -> bool {
     type_key(template) == URGENT_TYPE
@@ -304,6 +330,48 @@ mod tests {
             );
             assert_eq!(at.actions(), &[ot_toast::Action::Dismiss]);
             assert_eq!(at.content.note.as_deref(), Some(line));
+        }
+    }
+
+    #[test]
+    fn a_prayers_toast_is_persistent_dismiss_only_and_carries_both_names() {
+        let _turn = LANGUAGE.lock().unwrap_or_else(|e| e.into_inner());
+        for (language, names) in [
+            (Language::English, ("Fajr", "Subuh")),
+            (Language::Malay, ("Subuh", "Fajr")),
+        ] {
+            in_language(language);
+            let spec = prayer_spec(&ot_toast::Prefs::default(), "fajr", Some("5:49 am".into()));
+            assert!(spec.behaviour.persistent, "{language:?}");
+            assert_eq!(
+                spec.behaviour.duration_secs,
+                ot_toast::spec::PERSISTENT_CAP_SECS
+            );
+            assert_eq!(spec.behaviour.actions, 1, "Dismiss, and nothing to snooze");
+            assert!(spec.content.title.contains(names.0) && spec.content.title.contains(names.1));
+            assert!(
+                spec.content.body.contains(&spec.content.title),
+                "the body names the prayer: {}",
+                spec.content.body
+            );
+            assert_eq!(spec.clone().clamped(), spec, "the cap survives clamping");
+        }
+        // A key nobody knows shows as itself rather than as nothing.
+        assert!(!crate::prayer_pane::prayer_name("fajr").is_empty());
+        assert_eq!(crate::prayer_pane::prayer_name("imsak"), "imsak");
+    }
+
+    #[test]
+    fn the_prayer_toast_strings_exist_in_both_catalogues() {
+        for tag in ["en-US", "ms-MY"] {
+            let keys = ot_i18n::message_keys(tag).expect("parses");
+            for key in [
+                "prayer-toast-body",
+                "prayer-toast-unavailable-title",
+                "prayer-toast-unavailable-body",
+            ] {
+                assert!(keys.contains(key), "{key} missing from {tag}");
+            }
         }
     }
 

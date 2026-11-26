@@ -813,3 +813,19 @@ prayer-name-asr = Asar (Asr)
 prayer-name-maghrib = Maghrib
 # Solat waktu malam.
 prayer-name-isha = Isyak (Isha)
+# Tajuk kumpulan tetapan pemberitahuan dalam Tetapan > Solat.
+prayer-notify-heading = Pemberitahuan
+# Kotak semak yang memberi Syuruk (matahari terbit) pemberitahuan tersendiri. Lima waktu solat sehari sentiasa ada satu.
+prayer-notify-syuruk = Beritahu pada Syuruk (Sunrise)
+# Petunjuk di bawah kotak semak Syuruk.
+prayer-notify-hint = Lima waktu solat sehari sentiasa mempunyai pemberitahuan.
+# Label medan nombor bagi berapa lama solat yang terlepas boleh disenaraikan.
+prayer-azan-window-label = Tempoh Solat Terlepas (Minit)
+# Petunjuk di bawah medan itu.
+prayer-azan-window-hint = Solat yang terlepas semasa PC dimatikan disenaraikan jika tidak lebih lama daripada ini. Yang lebih lama digugurkan.
+# Kandungan pemberitahuan solat. $prayer ialah nama solat dengan kedua-dua nama, seperti Subuh (Fajr).
+prayer-toast-body = Masuk waktu { $prayer }.
+# Tajuk pemberitahuan yang dipaparkan, paling banyak sekali sehari, apabila waktu solat tidak dapat dikira.
+prayer-toast-unavailable-title = Tiada waktu solat tersedia
+# Kandungan pemberitahuan itu.
+prayer-toast-unavailable-body = OmniToaster tidak dapat mengira waktu solat hari ini. Buka Tetapan dan pilih lokasi.

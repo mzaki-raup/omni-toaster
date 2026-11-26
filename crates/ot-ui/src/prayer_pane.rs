@@ -34,6 +34,15 @@ const LISTED: [(Prayer, &str); 6] = [
     (Prayer::Isha, "prayer-name-isha"),
 ];
 
+/// A prayer's name in both languages, from the scheduler's key.
+pub fn prayer_name(key: &str) -> String {
+    LISTED
+        .iter()
+        .zip(ot_store::reminders::PRAYERS)
+        .find(|(_, scheduler_key)| *scheduler_key == key)
+        .map_or_else(|| key.to_owned(), |((_, fluent), _)| ot_i18n::text(fluent))
+}
+
 /// Where a city search stands.
 #[derive(Debug)]
 enum Search {
@@ -83,6 +92,8 @@ pub struct State {
     /// The query and language `zone_rows` was built for.
     zone_rows_for: Option<(String, bool)>,
     system_tz: String,
+    /// The saved place changed: the prayer service is told once.
+    changed: bool,
 }
 
 impl State {
@@ -122,6 +133,7 @@ impl State {
                 .iana_name()
                 .unwrap_or_default()
                 .to_string(),
+            changed: false,
         }
     }
 
@@ -161,6 +173,12 @@ impl State {
             &[("time", "26/11/2026 at 11:26 am".into())],
         );
         state
+    }
+
+    /// Whether the saved place changed since last asked, so the prayer service
+    /// can be told. Reading it clears it.
+    pub fn take_changed(&mut self) -> bool {
+        std::mem::take(&mut self.changed)
     }
 
     /// The settings changed (or the place did): work out the plan again.
@@ -240,6 +258,7 @@ impl State {
     fn apply(&mut self, reply: Reply) {
         match reply {
             Reply::Location(place) => {
+                self.changed |= self.loaded && self.saved != place;
                 self.saved = place;
                 self.loaded = true;
                 self.detecting = false;
@@ -372,6 +391,22 @@ fn button(ui: &mut egui::Ui, text: String) -> egui::Response {
     ui.add(egui::Button::new(text).min_size(egui::vec2(0.0, layout::field_height(ui))))
 }
 
+/// A box and a label that wraps: a long Malay sentence must not run past the
+/// pane, and clicking the words toggles the box. Returns whether it changed.
+fn wrapped_checkbox(ui: &mut egui::Ui, indent: f32, on: &mut bool, text: &str) -> bool {
+    let mut toggled = false;
+    ui.horizontal_top(|ui| {
+        ui.add_space(indent);
+        toggled |= ui.checkbox(on, "").changed();
+        let words = ui.add(egui::Label::new(text).wrap().sense(egui::Sense::click()));
+        if words.clicked() {
+            *on = !*on;
+            toggled = true;
+        }
+    });
+    toggled
+}
+
 fn subheading(ui: &mut egui::Ui, key: &str) {
     ui.label(egui::RichText::new(ot_i18n::text(key)).strong());
     ui.add_space(layout::ROW_GAP);
@@ -421,6 +456,8 @@ pub fn show(
     );
     rule(ui);
     source_block(ui, columns, state, prayer_settings, tokens, &mut outcome);
+    rule(ui);
+    notification_block(ui, columns, prayer_settings, tokens, &mut outcome);
     rule(ui);
     today_block(ui, state, tokens);
     outcome
@@ -511,23 +548,12 @@ fn location_block(
 
         // The consent can be changed after the first answer.
         let mut agreed = consent == Consent::Granted;
-        let mut toggled = false;
-        // A box and a label that wraps: the long Malay sentence must not run
-        // past the pane, and clicking the words toggles the box.
-        ui.horizontal_top(|ui| {
-            ui.add_space(columns.label);
-            toggled |= ui.checkbox(&mut agreed, "").changed();
-            let words = ui.add(
-                egui::Label::new(ot_i18n::text("prayer-detect-checkbox"))
-                    .wrap()
-                    .sense(egui::Sense::click()),
-            );
-            if words.clicked() {
-                agreed = !agreed;
-                toggled = true;
-            }
-        });
-        if toggled {
+        if wrapped_checkbox(
+            ui,
+            columns.label,
+            &mut agreed,
+            &ot_i18n::text("prayer-detect-checkbox"),
+        ) {
             settings.ip_consent = Some(agreed);
             outcome.settings_changed = true;
             state.detect_attempted = false;
@@ -852,6 +878,59 @@ fn calculation_block(
         ui,
         columns,
         &ot_i18n::text("prayer-asr-hint"),
+        tokens.text_dim,
+    );
+}
+
+/// Which prayers announce themselves, and how late a missed one may be and
+/// still be listed (spec §9, `docs/specs/reminders.md` §6).
+fn notification_block(
+    ui: &mut egui::Ui,
+    columns: Columns,
+    settings: &mut PrayerSettings,
+    tokens: Tokens,
+    outcome: &mut Outcome,
+) {
+    subheading(ui, "prayer-notify-heading");
+    let mut syuruk = settings.notify_syuruk;
+    if wrapped_checkbox(
+        ui,
+        columns.label,
+        &mut syuruk,
+        &ot_i18n::text("prayer-notify-syuruk"),
+    ) {
+        settings.notify_syuruk = syuruk;
+        outcome.settings_changed = true;
+    }
+    layout::field_hint(
+        ui,
+        columns,
+        &ot_i18n::text("prayer-notify-hint"),
+        tokens.text_dim,
+    );
+    ui.add_space(layout::ROW_GAP);
+
+    let mut minutes = settings.azan_window();
+    layout::labelled_row(
+        ui,
+        columns,
+        &ot_i18n::text("prayer-azan-window-label"),
+        |ui| {
+            ui.add(
+                egui::DragValue::new(&mut minutes)
+                    .range(ot_core::AZAN_WINDOW_MINUTES)
+                    .speed(1.0),
+            );
+        },
+    );
+    if minutes != settings.azan_window() {
+        settings.azan_window_minutes = minutes;
+        outcome.settings_changed = true;
+    }
+    layout::field_hint(
+        ui,
+        columns,
+        &ot_i18n::text("prayer-azan-window-hint"),
         tokens.text_dim,
     );
 }

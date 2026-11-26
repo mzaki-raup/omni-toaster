@@ -334,6 +334,9 @@ pub struct SettingsWindow {
     book: Option<crate::reminder_book::Book>,
     /// The Prayer pane's own state and its threads' controller (FEAT-0057).
     prayer: crate::prayer_pane::State,
+    /// The service that keeps the day's times current while Settings is closed;
+    /// `None` until `run` starts it, and in the layout tests (FEAT-0058).
+    prayer_service: Option<crate::prayer_service::Service>,
     /// The list's rows, built when a list arrives, never per frame.
     reminder_rows: Option<Vec<crate::reminders::ListRow>>,
     /// The reminder being edited, if any.
@@ -474,6 +477,7 @@ impl SettingsWindow {
             missed_toast: None,
             book: None,
             prayer: crate::prayer_pane::State::new(&root_path),
+            prayer_service: None,
             reminder_rows: None,
             editor: None,
             reminder_history: Vec::new(),
@@ -1308,6 +1312,12 @@ impl SettingsWindow {
             });
         if outcome.settings_changed {
             self.save();
+        }
+        // A changed setting or place is a new day to work out, now.
+        if (outcome.settings_changed | self.prayer.take_changed())
+            && let Some(service) = &self.prayer_service
+        {
+            service.changed();
         }
     }
 
@@ -2194,12 +2204,39 @@ impl SettingsWindow {
                 any_missed = true;
                 continue;
             }
-            if self.pause.is_active(now) {
+            let prayer = match &fired.reminder.draft.trigger {
+                ot_store::reminders::Trigger::Prayer { prayer } => Some(prayer.clone()),
+                _ => None,
+            };
+            if pause_suppresses(self.pause.is_active(now), prayer.is_some()) {
                 tracing::info!(
                     reminder = fired.reminder_id,
                     "a reminder fired during a pause"
                 );
                 self.record(fired.reminder_id, fired_at, NotificationAction::Missed);
+                continue;
+            }
+            // A prayer is its own toast, ahead of everything, and a pause does
+            // not hold it back (`docs/specs/tray-and-settings.md` §4).
+            if let Some(prayer) = prayer {
+                let spec = crate::reminder_toast::prayer_spec(
+                    &self.prefs,
+                    &prayer,
+                    Some(formatted_time(now)),
+                );
+                let persistent = spec.behaviour.persistent;
+                let id = self.toasts.push_first(spec, Instant::now());
+                tracing::info!(prayer, toast = ?id, "a prayer became a toast");
+                self.reminder_toasts.insert(
+                    id,
+                    ReminderToast {
+                        reminder_id: fired.reminder_id,
+                        fired_at,
+                        snoozes: 0,
+                        persistent,
+                    },
+                );
+                self.record(fired.reminder_id, fired_at, NotificationAction::Shown);
                 continue;
             }
             let template = fired.template.as_ref();
@@ -2246,6 +2283,34 @@ impl SettingsWindow {
         }
         if any_missed {
             self.announce_missed();
+        }
+    }
+
+    /// Take what the prayer service has to say: that no times could be worked
+    /// out, once a day, as a toast.
+    fn drain_prayer_notes(&mut self) {
+        let Some(service) = &self.prayer_service else {
+            return;
+        };
+        for note in service.drain() {
+            match note {
+                crate::prayer_service::Note::Unavailable => {
+                    if self.pause.is_active(jiff::Timestamp::now()) {
+                        continue;
+                    }
+                    let mut spec = self.prefs.spec(ot_toast::Content {
+                        title: ot_i18n::text("prayer-toast-unavailable-title"),
+                        body: ot_i18n::text("prayer-toast-unavailable-body"),
+                        app_name: ot_i18n::text("toast-app-name"),
+                        timestamp: Some(formatted_time(jiff::Timestamp::now())),
+                        action_labels: crate::reminder_toast::action_labels(),
+                        ..ot_toast::Content::default()
+                    });
+                    spec.behaviour.actions = 1;
+                    self.toasts.push(spec, Instant::now());
+                    tracing::info!("the no-prayer-times toast was shown");
+                }
+            }
         }
     }
 
@@ -2396,6 +2461,7 @@ impl eframe::App for SettingsWindow {
         ctx.request_repaint_after(TRAY_POLL);
         self.window = frame.window_handle().ok().map(|handle| handle.as_raw());
         self.drain_fires();
+        self.drain_prayer_notes();
         self.drain_book();
         self.handle_tray(ctx);
         self.drain_images(ctx);
@@ -2596,13 +2662,24 @@ fn missed_row(
     limit: u32,
 ) -> crate::reminders::MissedRow {
     crate::reminders::MissedRow {
-        title: crate::reminder_toast::content(reminder, template, None).title,
+        title: match &reminder.draft.trigger {
+            ot_store::reminders::Trigger::Prayer { prayer } => {
+                crate::prayer_pane::prayer_name(prayer)
+            }
+            _ => crate::reminder_toast::content(reminder, template, None).title,
+        },
         due: ot_i18n::text_with(
             "settings-missed-due",
             &[("time", formatted_datetime(fired_at).into())],
         ),
         can_snooze: snoozes < limit,
     }
+}
+
+/// Whether a pause holds a fire back: it holds every reminder, and never a
+/// prayer (`docs/specs/tray-and-settings.md` §4).
+fn pause_suppresses(paused: bool, is_prayer: bool) -> bool {
+    paused && !is_prayer
 }
 
 /// The fatigue section's rows: each kind from its managed reminder if it has
@@ -2756,6 +2833,10 @@ pub fn run(
     window.book = Some(crate::reminder_book::Book::new(
         &book_root,
         Some(scheduler.clone()),
+    ));
+    window.prayer_service = Some(crate::prayer_service::Service::start(
+        &book_root,
+        scheduler.clone(),
     ));
     window.scheduler = Some(scheduler);
     if dev.test_toast {
@@ -3080,6 +3161,14 @@ mod tests {
             pause_window(PauseWindow::UntilResumed),
             PauseFor::UntilResumed
         );
+    }
+
+    #[test]
+    fn a_pause_holds_back_every_reminder_and_never_a_prayer() {
+        assert!(pause_suppresses(true, false));
+        assert!(!pause_suppresses(true, true), "an Azan is never paused");
+        assert!(!pause_suppresses(false, false));
+        assert!(!pause_suppresses(false, true));
     }
 
     #[test]
