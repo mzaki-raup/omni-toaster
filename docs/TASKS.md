@@ -127,7 +127,7 @@ Refs: BUG-0003
 ```
 Version : v0.5.1
 Features : FEAT-0064
-Bugs : BUG-0015
+Bugs : BUG-0016
 Change Request : CR-0008
 ```
 
@@ -329,6 +329,19 @@ disabled; prayer labels match the reference table in both languages.
 - [x] App: `--data-dir ./tmp-data` — not applicable — the reference test is the check — not applicable, as the item says; the reference test is the check
 - [x] Docs: spec · README · CHANGELOG · CHECKLIST · GOTCHAS — spec §5 and §11 · CHANGELOG · CHECKLIST; README needs nothing; no GOTCHAS entry
 - **Notes:** This item carries the exit criterion "live JAKIM times match the official portal on the same dates for at least three zones". The portal page must be read by hand or in a browser the owner approves.
+
+### BUG-0015 · Checkboxes in Settings ▸ Prayer sit lower than their labels
+- **State:** Completed · **Spec:** docs/04-ui-design.md · `.claude/rules/ui.md` (one middle line)
+- **Branch:** feat/phase-5-prayer
+- **Source:** the owner: "some of the checkbox and label not vertical middle align"
+- **Verified:** in the running app the Notifications checkboxes (Sunrise, the five Remind Before rows) and Use a Custom Accent Colour now sit on their labels' middle line; the other panes' checkboxes (Reminders' fatigue rows, Appearance, Animation, General) were looked at and already did
+- [x] Establish the cause: `wrapped_checkbox` used `horizontal_top`, and an earlier `labelled_row` had raised the pane's `interact_size.y` to a field's height, so the box was that tall while the label hung from the top
+- [x] Fix: the row opens as tall as a field, centred (`prayer_pane.rs`)
+- [ ] Test: none — the layout test measures overflow, not alignment; found and checked by looking at the app
+- [x] Gate: fmt · clippy -D warnings · test --workspace --locked -j 4 · deny check · --self-test
+- [x] App: Prayer pane, English, with Sunrise and Asr ticked
+- [x] Docs: CHANGELOG · TASKS
+- **Notes:** A multi-line Malay label centres the box on its first line only. Not checked: Malay and 150% scaling after the fix.
 
 ## v0.4.1 — In-Progress
 

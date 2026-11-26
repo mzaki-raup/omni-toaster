@@ -539,7 +539,13 @@ fn button(ui: &mut egui::Ui, text: String) -> egui::Response {
 /// pane, and clicking the words toggles the box. Returns whether it changed.
 fn wrapped_checkbox(ui: &mut egui::Ui, indent: f32, on: &mut bool, text: &str) -> bool {
     let mut toggled = false;
-    ui.horizontal_top(|ui| {
+    // On one middle line with the label: the row opens as tall as a field, and
+    // the box is made that tall too, so the words are centred on it. Raising
+    // the height inside the closure would leave the row on its old height.
+    let height = layout::field_height(ui);
+    ui.spacing_mut().interact_size.y = height;
+    ui.horizontal(|ui| {
+        ui.set_min_height(height);
         ui.add_space(indent);
         toggled |= ui.checkbox(on, "").changed();
         let words = ui.add(egui::Label::new(text).wrap().sense(egui::Sense::click()));

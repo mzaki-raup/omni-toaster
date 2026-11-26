@@ -53,6 +53,8 @@ Format: [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) · Versioning:
 
 ### Fixed
 
+- Settings ▸ Prayer: the checkboxes in Notifications and the template's accent option now sit level with their labels instead of a little below them (BUG-0015)
+
 - The release exe opened a console window behind the tray icon for as long as it ran: it is now a Windows GUI program, so no console appears. `--help`, `--version` and `--self-test` still print in a terminal, and a startup failure — a data folder that cannot be written, a copy already running — now shows in a message box instead of vanishing with the console. A debug build keeps its console (BUG-0013).
 
 ### Security
