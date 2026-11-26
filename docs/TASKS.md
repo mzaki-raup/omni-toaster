@@ -126,10 +126,99 @@ Refs: BUG-0003
 
 ```
 Version : v0.5.1
-Features : FEAT-0072
+Features : FEAT-0077
 Bugs : BUG-0018
-Change Request : CR-0008
+Change Request : CR-0009
 ```
+
+---
+
+## v0.6.1 — Planned
+
+Requests from the owner on 2026-11-26, while Phase 6 was being built. They are
+separate pieces of work and are filed apart so each can be taken, reviewed and
+shipped on its own.
+
+### FEAT-0072 · The weather has its own place, searched and chosen in the Weather pane
+- **State:** Pending · **Spec:** docs/specs/weather.md §9 · docs/11-prayer-and-azan.md §6
+- **Branch:** to be cut from `main` once Phase 6 is merged
+- **Depends on:** FEAT-0056, FEAT-0070
+- **Source:** the owner: "Allow weather location to be choose/search/select by user"; chose **its own place**, not a shared one
+- [ ] A weather place of its own, stored apart from the prayer place (a new row or table, with a migration); it starts as a copy of the prayer place and is then independent
+- [ ] The Weather pane's place row becomes the Prayer pane's controls: search by city (Open-Meteo geocoding, as FEAT-0056), typed coordinates, and the result list, with the consent the search already has
+- [ ] The service and the cache use the weather place; changing it empties the cache and re-baselines the detector, as FEAT-0067 does for the prayer place
+- [ ] Test: a weather place saved and read back apart from the prayer place; the service asks for the weather place's coordinates; changing it empties the cache; the layout test with the new controls in Malay
+- [ ] Gate: fmt · clippy -D warnings · test --workspace --locked -j 4 · deny check · --self-test
+- [ ] App: `--data-dir ./tmp-data` — search a city in Settings ▸ Weather, choose it, see the current weather for it while Prayer keeps its own place
+- [ ] Docs: spec · README · CHANGELOG · CHECKLIST · GOTCHAS
+- **Notes:** The city search sends the typed text and the IP address to Open-Meteo (ADR-021); `docs/06` already lists it.
+
+### FEAT-0073 · Settings ▸ Reminders as two columns: the list, and the details
+- **State:** Pending · **Spec:** docs/specs/tray-and-settings.md · docs/specs/reminders.md · docs/04-ui-design.md
+- **Branch:** to be cut from `main` once Phase 6 is merged
+- **Depends on:** FEAT-0043, FEAT-0046
+- **Source:** the owner: "revamp the reminder list and config. Make a 2 column. Left column is the Reminder Title Lists, while the right column is the reminder setting details. New reminder reuse the empty form of reminder setting details"
+- [ ] The reminder titles in a column on the left, the chosen one's editor on the right; choosing a title opens its details
+- [ ] New Reminder selects an empty form in the same right-hand editor (one form, reused), rather than a separate one
+- [ ] The missed list, history, fatigue section and snooze settings keep their place and still work
+- [ ] Narrow window: the columns stack or the list collapses, nothing overlaps (`.claude/rules/ui.md`); both languages at the longest Malay title
+- [ ] Test: the layout test and the reminders-pane tests for the new arrangement, including choosing, creating and deleting from the list
+- [ ] Gate: fmt · clippy -D warnings · test --workspace --locked -j 4 · deny check · --self-test
+- [ ] App: `--data-dir ./tmp-data` — create, choose, edit and delete reminders in the two columns, in both languages and all three themes, narrow and wide
+- [ ] Docs: spec · README · CHANGELOG · CHECKLIST · GOTCHAS
+- **Notes:** A UI rework of a pane that already has tests and a layout test; the editor itself (FEAT-0045, FEAT-0046) should be reused, not rewritten.
+
+### FEAT-0074 · Hazy weather, from an air-quality or visibility reading
+- **State:** Pending · **Spec:** docs/specs/weather.md §4 · §5 · ADR-023
+- **Branch:** to be cut from `main` once Phase 6 is merged
+- **Depends on:** FEAT-0065, FEAT-0066
+- **Source:** the owner: "Add hazy weather to notify user too"; chose an **air-quality or visibility reading** as the source
+- [ ] Verify the source first, as FEAT-0065 did: Open-Meteo has no haze weather code, so check its air-quality service (and visibility) live for a few places, keep the answers as fixtures, and record the choice and the haze threshold as an ADR
+- [ ] A seventh condition, Hazy, with its `weather-hazy` key in both languages, its template row (a migration), its pane checkbox and its built-in picture (the `hazy` one exists)
+- [ ] The service asks for the extra reading, and the detector treats haze like any condition: two readings, never from stale data; fog still wins when it is fog
+- [ ] Test: haze classified from the reading at and either side of the threshold, fog preferred, the keys in both catalogues, a change to Hazy told once
+- [ ] Gate: fmt · clippy -D warnings · test --workspace --locked -j 4 · deny check · --self-test
+- [ ] App: `--data-dir ./tmp-data` — simulate a hazy reading and see exactly one toast; the Weather pane lists Hazy
+- [ ] Docs: spec · README · CHANGELOG · CHECKLIST · GOTCHAS
+- **Notes:** A second request per poll (still far inside the free tier's 10,000 a day) and a new threshold the owner may want to tune.
+
+### FEAT-0075 · The weather toast names the place
+- **State:** Pending · **Spec:** docs/specs/weather.md §4 · docs/specs/toast.md
+- **Branch:** to be cut from `main` once Phase 6 is merged
+- **Depends on:** FEAT-0069
+- **Source:** the owner: "In weather toast, display also the location of the weather"
+- [ ] The toast shows the weather place's name (the note line, or in the body), in both languages, for a condition change and a temperature move
+- [ ] Test: the spec for a change carries the place's name; a long place name is cut with an ellipsis, not the toast's own text
+- [ ] Gate: fmt · clippy -D warnings · test --workspace --locked -j 4 · deny check · --self-test
+- [ ] App: `--data-dir ./tmp-data` — a simulated change shows the place on the toast
+- [ ] Docs: spec · README · CHANGELOG · CHECKLIST · GOTCHAS
+- **Notes:** After FEAT-0072 it is the weather place's name; until then, the saved place's.
+
+### FEAT-0076 · The prayer toast names the place
+- **State:** Pending · **Spec:** docs/11-prayer-and-azan.md §9 · docs/specs/toast.md §8
+- **Branch:** to be cut from `main` once Phase 6 is merged
+- **Depends on:** FEAT-0059
+- **Source:** the owner: "In prayer toast, display also the location of the time prayer"
+- [ ] A prayer's toast, and the pre-prayer reminder's, show the place the times are for (its name, and the JAKIM zone when there is one), beside the source label
+- [ ] Test: the prayer spec carries the place; a long name is cut with an ellipsis; the preview and the real toast stay the same function's output
+- [ ] Gate: fmt · clippy -D warnings · test --workspace --locked -j 4 · deny check · --self-test
+- [ ] App: `--data-dir ./tmp-data` — fire a prayer from a planted time and see the place on it
+- [ ] Docs: spec · README · CHANGELOG · CHECKLIST · GOTCHAS
+- **Notes:** The prayer toast already carries the source label as its note; the place goes beside it.
+
+### CR-0008 · The Azan is the default sound for every prayer, Subuh's for Fajr
+- **State:** Pending · **Spec:** docs/11-prayer-and-azan.md §9 · ADR-022 · assets/README.md
+- **Branch:** to be cut from `main` once Phase 6 is merged
+- **Depends on:** FEAT-0060
+- **Source:** the owner: "All Prayer call is same using azan wav/mp3, except subuh/fajr, use azan subuh wav/mp3"; chose to do it **now**
+- [ ] A prayer with no sound of its own plays the full Azan — `azan.mp3` for every prayer but Fajr, and `azan-subuh.mp3` for Fajr — instead of the short chime; the chime stays a choice
+- [ ] Existing templates are not rewritten: a template that never chose a sound (a NULL sound mode) follows the new default; one that chose the chime or silence keeps it
+- [ ] Test: `clip_for` for each prayer with no template and with a NULL sound; a chosen sound still wins
+- [ ] The licence of the Azan clips is still unsettled (Phase 9's terms check): record that this default ships them, in `assets/README.md` and the ADR, and decide before a release that this should stand
+- [ ] Gate: fmt · clippy -D warnings · test --workspace --locked -j 4 · deny check · --self-test
+- [ ] App: `--data-dir ./tmp-data` — a prayer fires and plays the Azan (Subuh's for Fajr), and stops on dismiss
+- [ ] Docs: spec · README · CHANGELOG · CHECKLIST · GOTCHAS
+- **Notes:** A change of a documented default (ADR-022 chose the chime so that a release would not play an unsettled-licence clip unasked): the owner chose to proceed, which this item records.
 
 ---
 
