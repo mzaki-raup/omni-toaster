@@ -21,6 +21,8 @@ Format: [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) · Versioning:
 
 - The prayer fallback chain and the source label: a fresh cache, then a live fetch, then a cached day past its age, then the offline data, then a calculation, then nothing — in one function, tested with the network down, an HTTP 500, bad JSON, an oversized answer, "no record", an empty cache and the offline data present and absent, each ending at its expected label. The label reads "Source: JAKIM e-Solat" with when it was fetched, "Offline data", or "Calculated", with "(fallback)" when JAKIM could not be had and "(approximate)" in Malaysia, in English and Malay (FEAT-0055).
 
+- The user's location: an IP lookup that asks first — nothing is sent until the user agrees, the answer is looked up again at most once a day, and the IP address in it is dropped — plus city search and typed coordinates, every place rounded to about a kilometre, and the saved place kept in the database so one chosen by hand is never overwritten by a detection. The services are ipapi.co and Open-Meteo's geocoding (ADR-021) (FEAT-0056).
+
 ### Changed
 
 - The Malaysia preset's Fajr angle is 18.0°, not the 20.0° the spec gave: JAKIM's own November tables put 20.0° ten minutes early, and the data fit about 17.5°. The spec, `PROPOSAL.md` and both READMEs say 18.0° (FEAT-0054).

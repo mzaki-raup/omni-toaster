@@ -42,6 +42,18 @@ pub struct Settings {
     pub toast: toml::Table,
     /// Settings ▸ Reminders.
     pub reminders: Reminders,
+    /// Settings ▸ Prayer ▸ Location (`docs/11-prayer-and-azan.md` §6).
+    pub location: LocationSettings,
+}
+
+/// Whether the app may look up the PC's place from its IP address. Nothing is
+/// sent to the geolocation service until this is `Some(true)`.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default, Serialize, Deserialize)]
+#[serde(default, deny_unknown_fields)]
+pub struct LocationSettings {
+    /// `None` until the user has been asked; then their answer. Written as
+    /// `ip_consent = true` or `false`, and absent while unasked.
+    pub ip_consent: Option<bool>,
 }
 
 /// Settings ▸ General.
@@ -257,6 +269,23 @@ mod tests {
             !Settings::path_in(&root).exists(),
             "loading must not create the file; only a save writes it"
         );
+    }
+
+    #[test]
+    fn the_ip_lookup_consent_is_unasked_until_answered_and_survives_a_save() {
+        let (_dir, root) = scratch();
+        assert_eq!(Settings::default().location.ip_consent, None, "unasked");
+        for answer in [true, false] {
+            let mut settings = Settings::default();
+            settings.location.ip_consent = Some(answer);
+            settings.save(&root).expect("the save succeeds");
+            let loaded = Settings::load(&root).expect("loads");
+            assert_eq!(loaded.location.ip_consent, Some(answer));
+        }
+        // Unasked writes nothing, so a first run leaves no stray key.
+        Settings::default().save(&root).expect("the save succeeds");
+        let text = std::fs::read_to_string(Settings::path_in(&root)).expect("the file");
+        assert!(!text.contains("ip_consent"), "{text}");
     }
 
     #[test]

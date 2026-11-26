@@ -10,4 +10,8 @@ pub mod calculated;
 pub mod chain;
 pub mod fetch;
 pub mod jakim;
+pub mod location;
 pub mod zones;
+
+#[cfg(test)]
+mod testserver;

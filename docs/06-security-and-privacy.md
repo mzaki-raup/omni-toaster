@@ -47,7 +47,8 @@ The only outbound requests are:
 |---|---|---|---|
 | JAKIM e-Solat | Official prayer times | yes (calculated mode) | the zone code |
 | Open-Meteo | Weather | yes | rounded coordinates |
-| The IP geolocation service | First-run location guess | yes (manual location) | nothing but the request itself |
+| ipapi.co | First-run location guess | yes (manual location) | nothing but the request itself — which reveals the IP address. Only after the user consents, and at most once a day |
+| Open-Meteo geocoding | City search in Settings | yes (type coordinates instead) | the text the user typed, only when they search |
 | The release host | The update check | yes | the current version and channel |
 
 All HTTPS. No telemetry, no analytics, no crash upload, no account.

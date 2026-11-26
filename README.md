@@ -129,8 +129,9 @@ everything about them is a setting:
 
 Inside Malaysia the default source is **JAKIM e-Solat**, by zone code (about 60
 zones), so times match the mosques, schools and government offices users follow.
-The app detects the location, proposes the nearest zone and asks the user to
-confirm it. Times are fetched for the current and next month, cached, and
+With the user's permission the app detects the location from the IP address
+(once a day), proposes the nearest zone and asks the user to confirm it; the
+location can also be searched by city or typed as coordinates. Times are fetched for the current and next month, cached, and
 refreshed weekly.
 
 Outside Malaysia — or offline, or when e-Solat is unavailable — times are

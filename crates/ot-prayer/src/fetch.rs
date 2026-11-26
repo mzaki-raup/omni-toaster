@@ -176,6 +176,30 @@ pub fn next_after_failure(error: &FetchError, failures: u32) -> Option<Duration>
     }
 }
 
+/// The HTTP agent every service call uses: ten seconds, `OmniToaster/<version>`,
+/// Windows TLS with the Windows root store (ADR-019), and status codes left to
+/// the caller. `https_only` is off only for the tests' local server.
+pub(crate) fn build_agent(https_only: bool) -> ureq::Agent {
+    ureq::Agent::config_builder()
+        .https_only(https_only)
+        .timeout_global(Some(TIMEOUT))
+        .user_agent(format!("OmniToaster/{}", env!("CARGO_PKG_VERSION")))
+        // Status codes are read here, so a 500 with a JSON content type
+        // and an HTML body is ours to name, not an opaque error.
+        .http_status_as_error(false)
+        // ureq 3 never picks these up by itself: its default is rustls,
+        // which is not built, and with native-tls it panics on the default
+        // root list rather than falling back to the Windows store.
+        .tls_config(
+            TlsConfig::builder()
+                .provider(TlsProvider::NativeTls)
+                .root_certs(RootCerts::PlatformVerifier)
+                .build(),
+        )
+        .build()
+        .into()
+}
+
 /// The HTTP client: one agent, reused.
 #[derive(Clone)]
 pub struct Client {
@@ -190,26 +214,8 @@ impl Client {
     }
 
     fn with(base: &str, https_only: bool) -> Self {
-        let agent: ureq::Agent = ureq::Agent::config_builder()
-            .https_only(https_only)
-            .timeout_global(Some(TIMEOUT))
-            .user_agent(format!("OmniToaster/{}", env!("CARGO_PKG_VERSION")))
-            // Status codes are read here, so a 500 with a JSON content type
-            // and an HTML body is ours to name, not an opaque error.
-            .http_status_as_error(false)
-            // ureq 3 never picks these up by itself: its default is rustls,
-            // which is not built, and with native-tls it panics on the default
-            // root list rather than falling back to the Windows store.
-            .tls_config(
-                TlsConfig::builder()
-                    .provider(TlsProvider::NativeTls)
-                    .root_certs(RootCerts::PlatformVerifier)
-                    .build(),
-            )
-            .build()
-            .into();
         Self {
-            agent,
+            agent: build_agent(https_only),
             base: base.to_string(),
         }
     }
@@ -315,7 +321,7 @@ pub fn spawn(
 #[cfg(test)]
 mod tests {
     use super::*;
-    use std::io::{Read, Write};
+    use crate::testserver::serve;
     use std::net::TcpListener;
 
     const SAMPLE: &str = include_str!("../tests/fixtures/esolat-2026-11-20/SGR01-month.json");
@@ -326,67 +332,6 @@ mod tests {
 
     fn span(start: Date, end: Date) -> Range {
         Range { start, end }
-    }
-
-    /// Whether `raw` holds a request's headers and as many body bytes as its
-    /// `Content-Length` promised.
-    fn request_is_whole(raw: &[u8]) -> bool {
-        let text = String::from_utf8_lossy(raw);
-        let Some((head, body)) = text.split_once("\r\n\r\n") else {
-            return false;
-        };
-        let promised = head
-            .lines()
-            .find_map(|line| {
-                let (name, value) = line.split_once(':')?;
-                name.eq_ignore_ascii_case("content-length")
-                    .then(|| value.trim().parse::<usize>().ok())?
-            })
-            .unwrap_or(0);
-        body.len() >= promised
-    }
-
-    /// A one-connection HTTP server on localhost: it waits `delay`, answers
-    /// with `status` and `body`, and sends the raw request it read to the
-    /// returned receiver. Plain HTTP, so only a test client (HTTPS not forced)
-    /// can reach it.
-    fn serve(
-        status: &'static str,
-        body: Vec<u8>,
-        delay: Duration,
-    ) -> (String, mpsc::Receiver<String>) {
-        let listener = TcpListener::bind("127.0.0.1:0").expect("bind");
-        let base = format!("http://{}/index.php", listener.local_addr().expect("addr"));
-        let (seen, requests) = mpsc::channel();
-        std::thread::spawn(move || {
-            let Ok((mut stream, _)) = listener.accept() else {
-                return;
-            };
-            let mut raw = Vec::new();
-            let mut chunk = [0u8; 1024];
-            // Read until the headers and the whole form body are in: closing
-            // a socket with unread bytes resets the connection.
-            while !request_is_whole(&raw) {
-                match stream.read(&mut chunk) {
-                    Ok(0) | Err(_) => break,
-                    Ok(n) => raw.extend_from_slice(&chunk[..n]),
-                }
-            }
-            let _ = seen.send(String::from_utf8_lossy(&raw).into_owned());
-            std::thread::sleep(delay);
-            let head = format!(
-                "HTTP/1.1 {status}\r\nContent-Type: application/json\r\nContent-Length: {}\r\nConnection: close\r\n\r\n",
-                body.len()
-            );
-            let mut answer = head.into_bytes();
-            answer.extend_from_slice(&body);
-            let _ = stream.write_all(&answer);
-            // Stay open until the client closes: closing first, or shutting
-            // down the write side, resets the connection under it on Windows.
-            let _ = stream.set_read_timeout(Some(Duration::from_millis(500)));
-            while matches!(stream.read(&mut chunk), Ok(n) if n > 0) {}
-        });
-        (base, requests)
     }
 
     fn local(base: &str) -> Client {

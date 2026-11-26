@@ -229,26 +229,28 @@ disabled; prayer labels match the reference table in both languages.
 - [x] Docs: spec · README · CHANGELOG · CHECKLIST · GOTCHAS — spec §7 as built and its added step; README unchanged (nothing visible yet); no new gotcha
 - **Notes:** This item carries the exit criterion "the fallback chain passes with the network disabled" — met with stubs for the chain's logic; the real-network-off check is FEAT-0058's App box. The Malay label text wants the native speaker's review with the rest (docs/10-i18n.md). In-Progress until FEAT-0058.
 ### FEAT-0056 · Location: detection with consent, and manual entry
-- **State:** Pending · **Spec:** docs/11-prayer-and-azan.md §6 · docs/06-security-and-privacy.md · **Phase:** 5
+- **State:** In-Progress · **Spec:** docs/11-prayer-and-azan.md §6 · docs/06-security-and-privacy.md · ADR-021 · **Phase:** 5
 - **Branch:** feat/phase-5-prayer
 - **Depends on:** FEAT-0050
-- [ ] A consent prompt on first use before any IP lookup; the lookup once a day, cached; the service recorded in an ADR, HTTPS, rounded coordinates only
-- [ ] Manual entry by city or coordinates; the detected place always shown for confirmation
-- [ ] Stored locally; sent only to the prayer, weather and geolocation services
-- [ ] Test: no lookup without consent; the daily cache; the rounding; a manual location overriding the detected one
-- [ ] Gate: fmt · clippy -D warnings · test --workspace --locked -j 4 · deny check · --self-test
-- [ ] App: `--data-dir ./tmp-data` — first run: the consent prompt in both languages; decline and enter a city; accept and see the detected place to confirm
-- [ ] Docs: spec · README · CHANGELOG · CHECKLIST · GOTCHAS
+- [x] A consent prompt on first use before any IP lookup; the lookup once a day, cached; the service recorded in an ADR, HTTPS, rounded coordinates only — ADR-021: ipapi.co, chosen by the owner on 2026-11-26. The consent is `[location] ip_consent` in `settings.toml`, and `Lookup::detect` makes no request without it; the saved `location` row is the daily cache. **The prompt itself is UI and moves to FEAT-0057**
+- [x] Manual entry by city or coordinates; the detected place always shown for confirmation — `Lookup::search` (Open-Meteo geocoding) and `from_coordinates`; inside Malaysia the zone is `Asia/Kuala_Lumpur`, elsewhere the PC's own, for the user to confirm (accepted by the owner). The entry controls and the confirmation are FEAT-0057's
+- [x] Stored locally; sent only to the prayer, weather and geolocation services — `ot_store::location` and `ot-core`'s setting; `docs/06` lists what each service receives
+- [x] Test: no lookup without consent; the daily cache; the rounding; a manual location overriding the detected one — 9 tests in `location.rs` (a local server sees no request without consent; the rule at 23:59 and at 24 hours; a manual place stands whatever its age; rounding; the IP is not kept; bad, oversized and refused answers; the search text encoded; coordinates in and out of Malaysia), 5 in `ot-store`, 1 in `ot-core`; two mutations (the consent guard off, unset consent looking up) each fail. The live lookup and search, `-- --ignored`, passed over Windows TLS and printed nothing: the answer is the owner's own place
+- [x] Gate: fmt · clippy -D warnings · test --workspace --locked -j 4 (425 passed) · deny check · --self-test
+- [ ] App: `--data-dir ./tmp-data` — first run: the consent prompt in both languages; decline and enter a city; accept and see the detected place to confirm — not made: there is no Prayer pane or prompt yet; FEAT-0057 carries it
+- [x] Docs: spec · README · CHANGELOG · CHECKLIST · GOTCHAS — spec §6 as built, ADR-021, `05` and `06`, both READMEs; no new gotcha
+- **Notes:** Not built: an offline city search (the embedded Malaysian places could serve one), and a coordinate-to-zone lookup abroad. The saved place is not yet read by anything: the zone, the chain and the scheduler use it from FEAT-0057 and FEAT-0058. In-Progress until FEAT-0057's app check.
 ### FEAT-0057 · Settings ▸ Prayer: source and zone
 - **State:** Pending · **Spec:** docs/11-prayer-and-azan.md §1 · §3 · docs/04-ui-design.md · **Phase:** 5
 - **Branch:** feat/phase-5-prayer
 - **Depends on:** FEAT-0050, FEAT-0055, FEAT-0056
+- [ ] The location (FEAT-0056): the first-run consent prompt before any IP lookup, in both languages, with Allow and Not Now; the detected place shown for confirmation with the zone; city search results and a coordinates field; the PC's zone shown for confirmation when the coordinates are outside Malaysia; the answer saved as `[location] ip_consent`
 - [ ] Source: Auto · JAKIM · Calculated; JAKIM abroad allowed with a chosen zone and a warning
 - [ ] "Detected zone: SGR01 · Gombak, Hulu Langat, Sepang, Petaling · Selangor. Change zone?" and a searchable zone list showing the code and both languages' names
 - [ ] The day's times with the source label and the last fetch time; empty, loading and error states that each say something
 - [ ] Test: the layout test in English, Malay and the pseudo-locale at 100–200%, with the longest zone names; the zone search
 - [ ] Gate: fmt · clippy -D warnings · test --workspace --locked -j 4 · deny check · --self-test
-- [ ] App: `--data-dir ./tmp-data` — pick a zone, change it, see the times follow — both languages, all three themes, the narrow window; and switch the source to Calculated, choose each preset and Asar school, and see the times and the "approximate" label change — the check FEAT-0054 is waiting on
+- [ ] App: `--data-dir ./tmp-data` — pick a zone, change it, see the times follow — both languages, all three themes, the narrow window; first run: the consent prompt, decline and enter a city, accept and see the detected place to confirm; and switch the source to Calculated, choose each preset and Asar school, and see the times and the "approximate" label change — the check FEAT-0054 is waiting on
 - [ ] Docs: spec · README · CHANGELOG · CHECKLIST · GOTCHAS
 ### FEAT-0058 · Prayer times in the scheduler
 - **State:** Pending · **Spec:** docs/11-prayer-and-azan.md §9 · docs/specs/reminders.md §6 · §8 · **Phase:** 5

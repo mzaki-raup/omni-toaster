@@ -11,6 +11,7 @@
 pub mod assets;
 pub mod builtin;
 pub mod library;
+pub mod location;
 pub mod prayer;
 pub mod reminders;
 

@@ -219,6 +219,29 @@ As built (FEAT-0052), in `ot_prayer::fetch`:
 - The detected city is always shown for confirmation, because IP geolocation is
   frequently wrong and a wrong location means wrong prayer times.
 
+As built (FEAT-0056, [ADR-021](08-decisions.md)):
+
+- **The rule** is `ot_prayer::location::next_step(consent, saved, now)`. A place
+  the user chose (`manual`) always stands and is never re-detected. A detected
+  (`ip`) place is looked up again after 24 hours, and only with consent. With
+  nothing saved the user is asked once; "no" leads to manual entry, "yes" to a
+  lookup. Withdrawing consent keeps the saved place and stops looking.
+- **Consent** is `[location] ip_consent` in `settings.toml`: absent until asked,
+  then `true` or `false`. `Lookup::detect` takes the consent and **makes no
+  request unless it is `Granted`**, so the guard is in the client, not only in the
+  UI that should call it.
+- **The lookup** is ipapi.co over HTTPS, once a day at most. Its answer carries the
+  IP address; `Located` has no field for it, so it is dropped on parse. The saved
+  row in `location` is the daily cache — there is no separate cache file.
+- **City search** is Open-Meteo's geocoding endpoint, up to five results in the
+  UI language, and sends only the text the user typed, only when they search.
+  **Typed coordinates** ("3.14, 101.69") inside Malaysia get `Asia/Kuala_Lumpur`;
+  elsewhere there is no free offline coordinate-to-zone lookup, so the zone is the
+  PC's own and is shown for the user to confirm.
+- **Rounding.** Every place is rounded to two decimals (about 1.1 km) when it
+  arrives, whichever way it was found, so a stored or sent coordinate is never
+  more precise than that.
+
 ## 7. Fallback order
 
 ```

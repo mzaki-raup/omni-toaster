@@ -143,8 +143,10 @@ Windows, jadi hampir setiap aspeknya boleh ditetapkan:
 
 Di dalam Malaysia, sumber lalai ialah **JAKIM e-Solat**, mengikut kod zon
 (kira-kira 60 zon), supaya waktunya sepadan dengan masjid, sekolah dan pejabat
-kerajaan yang diikuti pengguna. Aplikasi mengesan lokasi, mencadangkan zon
-terdekat dan meminta pengguna mengesahkannya. Waktu solat diambil untuk bulan
+kerajaan yang diikuti pengguna. Dengan kebenaran pengguna, aplikasi mengesan
+lokasi daripada alamat IP (sekali sehari), mencadangkan zon terdekat dan meminta
+pengguna mengesahkannya; lokasi juga boleh dicari mengikut bandar atau ditaip
+sebagai koordinat. Waktu solat diambil untuk bulan
 semasa dan bulan berikutnya, disimpan dalam cache, dan dikemas kini setiap
 minggu.
 

@@ -105,6 +105,13 @@ jakim_prayer_cache (zone_code, date, hijri, imsak, fajr, syuruk, dhuha,
                     PRIMARY KEY (zone_code, date))
 ```
 
+`location` as built (FEAT-0056, `ot_store::location`): one row, `id = 1`. `source`
+is `ip` or `manual`; `lat` and `lon` are already rounded to two decimals; `tz` is
+an IANA zone name; `updated_at` is when it was found, which makes the row the
+cache of the daily IP lookup. A manual place replaces any detected one, and a
+detection never replaces a manual one. Whether the user agreed to the lookup is
+`[location] ip_consent` in `settings.toml`, not in the database.
+
 `jakim_prayer_cache` as built (FEAT-0053, `ot_store::prayer`): `zone_code` is
 upper case; `date` is `YYYY-MM-DD`; the eight times are `HH:MM:SS` Malaysian
 clock values; `fetched_at` is the UTC instant the row was last written; `source`

@@ -720,3 +720,55 @@ READMEs say 18.0°.
   number, and the fallback chain (FEAT-0055) must treat a day with a missing time
   as a gap.
 - Imsak and Dhuha are JAKIM's own and are not calculated.
+
+---
+
+## ADR-021 · How the app learns where the user is
+
+**Status:** Accepted 2026-11-26 · **Phase:** 5 · **Builds on:** ADR-019 (HTTP),
+`docs/06-security-and-privacy.md`
+
+**Context.** Prayer times, the zone and later the weather all need a place. A
+place is personal data, and an IP lookup shows the user's address to a third
+party, so the app asks before it looks, and it has to work for someone who says no.
+
+**Probed 2026-11-26** (shapes only; the answers were the developer's own place):
+`https://ipapi.co/json/` and `https://ipwho.is/` both answer over HTTPS with no
+key, with coordinates, city, region, country code and an IANA zone; Open-Meteo's
+`geocoding-api.open-meteo.com/v1/search` answers a city name with up to ten
+places, each with coordinates and an IANA zone, and with no `results` key at all
+when nothing matches.
+
+**Decision.**
+
+- **IP lookup: ipapi.co**, chosen by the owner over `ipwho.is`: better known, and
+  its free allowance is far above one lookup a day. Only after the user consents,
+  and at most once a day. Its terms for a free desktop app are to be re-read at
+  the Phase 9 terms check.
+- **City search: Open-Meteo geocoding.** It is already an allowed outbound service
+  (the weather), it returns the zone, and it is queried only when the user
+  searches, with only the text typed.
+- **Coordinates typed by hand:** inside Malaysia the zone is `Asia/Kuala_Lumpur`
+  (all of Malaysia is UTC+8). Elsewhere there is no free offline
+  coordinate-to-zone lookup, so the zone is the PC's own and is shown for the
+  user to confirm. The owner accepted this on 2026-11-26.
+- **Consent** is `[location] ip_consent` in `settings.toml` — absent until asked.
+  `Lookup::detect` refuses without it and sends nothing, so the guarantee does not
+  depend on the UI calling it correctly.
+- **Rounding:** every place is rounded to two decimals (about 1.1 km) on arrival,
+  by whichever route, before it is stored or sent.
+- **No IP is kept:** the IP answer carries one, and `Located` has no field for it.
+- **The saved `location` row is the daily cache.** A place the user chose is
+  `manual` and a detection never overwrites it; withdrawing consent keeps the
+  saved place and stops looking.
+
+**Consequences.**
+
+- Typed coordinates abroad can be in the wrong zone if the PC's zone is not the
+  place's; the confirmation step is the guard, and the user can search by city
+  instead, which carries the right zone.
+- Declining the lookup costs nothing but typing a city: city search sends the
+  typed text and the IP address to Open-Meteo, as the weather will, and that is
+  not covered by the IP-lookup consent. `docs/06` lists it as its own row.
+- Two third parties now see an IP address at the user's request: ipapi.co once a
+  day with consent, Open-Meteo when searching.
