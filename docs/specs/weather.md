@@ -168,6 +168,11 @@ cargo run -p omnitoaster -- --data-dir ./tmp-data
   condition's built-in picture, held back by a pause. Temperatures are whole degrees,
   because `ot-i18n` has no number formatter yet. The per-condition templates and the
   stale marker are FEAT-0070 and FEAT-0071.
+- **The place on the toast (FEAT-0075).** A weather toast names the saved place
+  beneath its text, the same way a prayer's does (`docs/specs/toast.md` §8); the
+  service reads the name with each change and the preview uses the pane's. A
+  simulation has no place and so none is shown. When the weather has a place of its
+  own (FEAT-0072) it is that place's name.
 - **Simulation.** A debug build takes `--simulate-weather <code>`: the service then
   reads a sky that is clear once and then that code, every five seconds, with no
   setting, place or cache, so the toast can be watched without waiting for the

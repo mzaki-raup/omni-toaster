@@ -206,6 +206,11 @@ impl State {
         self.snapshot = Some(snapshot);
     }
 
+    /// The saved place's name once read, for the preview toast.
+    pub fn place_name(&self) -> Option<&str> {
+        self.place.as_ref()?.as_deref()
+    }
+
     /// Whether there is weather to show, so its age can be kept current.
     pub fn has_snapshot(&self) -> bool {
         self.snapshot.is_some()

@@ -50,12 +50,15 @@ const LAST_ERROR_TOAST: &str = "prayer.last_error_toast";
 const DETECT_RETRY: SignedDuration = SignedDuration::from_hours(1);
 
 /// What the service tells the window.
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub enum Note {
     /// No source could give today's times — shown once a day.
     Unavailable,
     /// Where today's times came from, for the label on a prayer's toast.
     Source(Source),
+    /// The place the times are for, as a prayer's toast names it: the saved
+    /// place's name, and the JAKIM zone when the times are JAKIM's.
+    Place(String),
 }
 
 /// What the window tells the service.
@@ -67,7 +70,7 @@ enum Msg {
 }
 
 /// What one pass found, for the thread that runs it.
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub struct Report {
     /// When the next pass is due.
     pub next_run: Timestamp,
@@ -75,6 +78,30 @@ pub struct Report {
     pub unavailable: bool,
     /// Where today's times came from, when there are any.
     pub source: Option<Source>,
+    /// The place the times are for (FEAT-0076), when one is saved.
+    pub place: Option<String>,
+}
+
+/// How a prayer's toast names the place: the saved place's name, with the JAKIM
+/// zone code beside it when the times are JAKIM's — "Kuala Lumpur (WLY01)" — and
+/// the bare name when they are calculated. `None` when no place is saved.
+pub fn place_label(
+    place: Option<&ot_store::location::StoredLocation>,
+    zone: Option<&str>,
+    source: Option<Source>,
+) -> Option<String> {
+    let name = place?.name.trim();
+    if name.is_empty() {
+        return None;
+    }
+    let jakim = matches!(
+        source,
+        Some(Source::Jakim { .. } | Source::JakimCached { .. })
+    );
+    Some(match zone {
+        Some(code) if jakim => format!("{name} ({code})"),
+        _ => name.to_owned(),
+    })
 }
 
 /// A fetch that is never made: the chain run for the day's times must not fetch,
@@ -190,6 +217,7 @@ impl Engine {
                     next_run: now + SignedDuration::from_mins(1),
                     unavailable: false,
                     source: None,
+                    place: None,
                 };
             }
         };
@@ -303,6 +331,11 @@ impl Engine {
             next_run: self.next_run(&store, &plan, wants_jakim, saved.as_ref(), consent, now),
             unavailable,
             source,
+            place: place_label(
+                saved.as_ref(),
+                plan.zone.as_ref().map(|zone| zone.code.as_str()),
+                source,
+            ),
         }
     }
 
@@ -507,6 +540,9 @@ fn serve(mut engine: Engine, incoming: &Receiver<Msg>, notes: &SyncSender<Note>)
             }
             if let Some(source) = report.source {
                 let _ = notes.try_send(Note::Source(source));
+            }
+            if let Some(place) = report.place {
+                let _ = notes.try_send(Note::Place(place));
             }
         }
         let wait = Duration::try_from(next.duration_since(Timestamp::now()))
@@ -902,6 +938,62 @@ mod tests {
             ],
             "on: Jumu'ah in Dhuhr's place on the Friday, Dhuhr on the Saturday"
         );
+    }
+
+    #[test]
+    fn a_prayers_toast_names_the_place_with_the_zone_only_for_jakim_times() {
+        use ot_store::location::StoredLocation;
+        let place = StoredLocation {
+            name: "  Kuala Lumpur ".into(),
+            latitude: 3.15,
+            longitude: 101.69,
+            tz: "Asia/Kuala_Lumpur".into(),
+            country_code: Some("MY".into()),
+            origin: Origin::Manual,
+            updated_at: at(NOW),
+        };
+        let jakim = Some(Source::Jakim {
+            fetched_at: at(NOW),
+        });
+        let cached = Some(Source::JakimCached {
+            fetched_at: at(NOW),
+        });
+        let calculated = Some(Source::Calculated {
+            fallback: true,
+            approximate: true,
+        });
+        assert_eq!(
+            place_label(Some(&place), Some("WLY01"), jakim).as_deref(),
+            Some("Kuala Lumpur (WLY01)")
+        );
+        assert_eq!(
+            place_label(Some(&place), Some("WLY01"), cached).as_deref(),
+            Some("Kuala Lumpur (WLY01)")
+        );
+        // Calculated times are not a zone's, so the zone is not claimed.
+        assert_eq!(
+            place_label(Some(&place), Some("WLY01"), calculated).as_deref(),
+            Some("Kuala Lumpur")
+        );
+        assert_eq!(
+            place_label(Some(&place), None, jakim).as_deref(),
+            Some("Kuala Lumpur")
+        );
+        assert_eq!(place_label(None, Some("WLY01"), jakim), None);
+        let blank = StoredLocation {
+            name: "   ".into(),
+            ..place
+        };
+        assert_eq!(place_label(Some(&blank), None, jakim), None);
+    }
+
+    #[test]
+    fn a_pass_reports_the_place_for_the_toast() {
+        let mut rig = rig(&Settings::default(), Ok(november()));
+        rig.place_in_malaysia(Origin::Manual, "2026-11-19T00:00:00Z");
+        let report = rig.engine.run(at(NOW));
+        // JAKIM's times for the place's zone, so the zone is named beside it.
+        assert_eq!(report.place.as_deref(), Some("Shah Alam (SGR01)"));
     }
 
     #[test]

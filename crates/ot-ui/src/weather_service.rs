@@ -162,6 +162,17 @@ impl Engine {
         thresholds
     }
 
+    /// The saved place's name, for the toast to say where the weather is for
+    /// (FEAT-0075); `None` when none is saved, as in a simulation.
+    pub fn place_name(&self) -> Option<String> {
+        Store::open(&self.root)
+            .ok()?
+            .location()
+            .ok()
+            .flatten()
+            .map(|place| place.name)
+    }
+
     /// The template of the condition a change is to, if it is to one.
     pub fn template_for(&self, change: &Change) -> Option<ot_store::reminders::Template> {
         let Change::Condition { to, .. } = change else {
@@ -329,7 +340,11 @@ pub enum Note {
     Snapshot(Snapshot),
     /// A change, with the template of the condition it is to, if it is to one
     /// (the store is read here, on the service's thread, not the window's).
-    Change(Change, Option<Box<ot_store::reminders::Template>>),
+    Change(
+        Change,
+        Option<Box<ot_store::reminders::Template>>,
+        Option<String>,
+    ),
 }
 
 /// The thread, and the window's hold on it.
@@ -404,8 +419,12 @@ fn serve(mut engine: Engine, incoming: &Receiver<Msg>, notes: &SyncSender<Note>)
             }
             for change in report.changes {
                 let template = engine.template_for(&change).map(Box::new);
+                let place = engine.place_name();
                 // A change must not be lost to a full channel without a word.
-                if notes.try_send(Note::Change(change, template)).is_err() {
+                if notes
+                    .try_send(Note::Change(change, template, place))
+                    .is_err()
+                {
                     tracing::error!("a weather change was dropped: the window is not keeping up");
                 }
             }
@@ -800,6 +819,14 @@ mod tests {
         let report = rig.engine.run(at(T0));
         assert!(report.changes.is_empty() && report.snapshot.is_none());
         assert_eq!(store(&rig).weather().expect("reads"), None);
+    }
+
+    #[test]
+    fn the_saved_places_name_is_given_for_the_toast_and_a_simulation_has_none() {
+        let rig = rig();
+        assert_eq!(rig.engine.place_name().as_deref(), Some("Kuala Lumpur"));
+        let none = rig_with(&weather_on(), false);
+        assert_eq!(none.engine.place_name(), None);
     }
 
     #[test]

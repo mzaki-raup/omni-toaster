@@ -347,6 +347,9 @@ pub struct SettingsWindow {
     weather_service: Option<crate::weather_service::Service>,
     /// Where today's prayer times came from, for the label on a prayer's toast.
     prayer_source: Option<ot_prayer::chain::Source>,
+    /// The place the prayer times are for, as a prayer's toast names it
+    /// (FEAT-0076); `None` until the service has said.
+    prayer_place: Option<String>,
     /// The audio thread: opens no device until something plays (ADR-022).
     audio: ot_media::Player,
     /// The prayer toasts whose sound is playing, so it stops with the toast.
@@ -495,6 +498,7 @@ impl SettingsWindow {
             prayer_service: None,
             weather_service: None,
             prayer_source: None,
+            prayer_place: None,
             audio: ot_media::Player::start(),
             sounding: std::collections::HashSet::new(),
             reminder_rows: None,
@@ -1372,6 +1376,7 @@ impl SettingsWindow {
                 Some(&preview.template),
                 Some(formatted_time(now)),
                 note,
+                self.prayer_place.as_deref(),
             );
             let id = self.toasts.push_first(spec, Instant::now());
             // The preview is a fire as far as the sound goes: it plays what a
@@ -1455,6 +1460,7 @@ impl SettingsWindow {
                 },
                 Some(&template),
                 Some(formatted_time(jiff::Timestamp::now())),
+                self.weather.place_name(),
             );
             let id = self.toasts.push_first(spec, Instant::now());
             if template.sound_mode.as_deref() == Some("chime") {
@@ -2369,6 +2375,7 @@ impl SettingsWindow {
                     *minutes,
                     fired.template.as_ref(),
                     Some(formatted_time(now)),
+                    self.prayer_place.as_deref(),
                 );
                 let persistent = spec.behaviour.persistent;
                 let id = self.toasts.push(spec, Instant::now());
@@ -2395,6 +2402,7 @@ impl SettingsWindow {
                     fired.template.as_ref(),
                     Some(formatted_time(now)),
                     note,
+                    self.prayer_place.as_deref(),
                 );
                 let persistent = spec.behaviour.persistent;
                 let id = self.toasts.push_first(spec, Instant::now());
@@ -2477,13 +2485,13 @@ impl SettingsWindow {
             return;
         };
         for note in service.drain() {
-            let (change, template) = match note {
+            let (change, template, place) = match note {
                 crate::weather_service::Note::Snapshot(snapshot) => {
                     self.weather.set_snapshot(snapshot);
                     continue;
                 }
-                crate::weather_service::Note::Change(change, template) => {
-                    (change, template.map(|boxed| *boxed))
+                crate::weather_service::Note::Change(change, template, place) => {
+                    (change, template.map(|boxed| *boxed), place)
                 }
             };
             if self.pause.is_active(jiff::Timestamp::now()) {
@@ -2495,6 +2503,7 @@ impl SettingsWindow {
                 &change,
                 template.as_ref(),
                 Some(formatted_time(jiff::Timestamp::now())),
+                place.as_deref(),
             );
             let id = self.toasts.push(spec, Instant::now());
             if template.as_ref().and_then(|t| t.sound_mode.as_deref()) == Some("chime") {
@@ -2514,6 +2523,7 @@ impl SettingsWindow {
         for note in service.drain() {
             match note {
                 crate::prayer_service::Note::Source(source) => self.prayer_source = Some(source),
+                crate::prayer_service::Note::Place(place) => self.prayer_place = Some(place),
                 crate::prayer_service::Note::Unavailable => {
                     if self.pause.is_active(jiff::Timestamp::now()) {
                         continue;
