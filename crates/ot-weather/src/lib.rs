@@ -7,5 +7,6 @@
 //! may depend on.
 
 pub mod condition;
+pub mod detect;
 pub mod fetch;
 pub mod observation;

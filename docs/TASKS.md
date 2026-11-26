@@ -176,16 +176,16 @@ stale marker in both languages.
 - [x] Docs: spec · README · CHANGELOG · CHECKLIST · GOTCHAS — spec "What is implemented" · `05` · CHANGELOG · CHECKLIST; README and GOTCHAS: nothing yet
 
 ### FEAT-0068 · Change detection: condition changes and temperature thresholds
-- **State:** Pending · **Spec:** docs/specs/weather.md §4 · §12 · **Phase:** 6
+- **State:** In-Progress · **Spec:** docs/specs/weather.md §4 · §12 · **Phase:** 6
 - **Branch:** feat/phase-6-weather
 - **Depends on:** FEAT-0066
-- [ ] A class change fires once, and only when it persists across two consecutive polls; the last notified class is what is compared against, not the last observed
-- [ ] A temperature move beyond a set delta in a window — a drop of 5 °C within 3 hours, by default — fires at the boundary and not inside it
-- [ ] Stale data never produces a change; a change is only ever derived from a fresh response
-- [ ] Test: one toast for a change, none for flapping between two classes, the threshold at and just inside its boundary, stale data silent. Open question 1 (two polls or a time-in-class) answered or left, and said so
-- [ ] Gate: fmt · clippy -D warnings · test --workspace --locked -j 4 · deny check · --self-test
-- [ ] App: `--data-dir ./tmp-data` — a simulated change produces exactly one toast (FEAT-0069)
-- [ ] Docs: spec · README · CHANGELOG · CHECKLIST · GOTCHAS
+- [x] A class change fires once, and only when it persists across two consecutive polls; the last notified class is what is compared against, not the last observed — `Detector::observe`; a silent baseline for the first reading; a reading repeating the previous `at` is not a second sighting
+- [x] A temperature move beyond a set delta in a window — a drop of 5 °C within 3 hours, by default — fires at the boundary and not inside it — `Threshold` (direction, delta, window), `default_fall()` is 5 °C in 3 hours; exactly the delta fires; once per spell, re-armed when the move falls under the delta
+- [x] Stale data never produces a change; a change is only ever derived from a fresh response — `observe(.., fresh: false, ..)` changes nothing, not even a pending sighting
+- [x] Test: one toast for a change, none for flapping between two classes, the threshold at and just inside its boundary, stale data silent. Open question 1 (two polls or a time-in-class) answered or left, and said so — 17 tests; the boundary and the repeated-reading guard were each broken on purpose and caught; open question 1 answered in the spec (two distinct readings)
+- [x] Gate: fmt · clippy -D warnings · test --workspace --locked -j 4 · deny check · --self-test — fmt · clippy · tests · deny · self-test
+- [ ] App: `--data-dir ./tmp-data` — a simulated change produces exactly one toast (FEAT-0069). Not made: nothing in the app uses the detector until the service (FEAT-0069), which carries this check
+- [x] Docs: spec §12 answered and "What is implemented" · CHANGELOG · CHECKLIST; README and GOTCHAS: nothing yet
 
 ### FEAT-0069 · The weather service: polling, the toast and the simulation
 - **State:** Pending · **Spec:** docs/specs/weather.md §3 · §4 · §7 · docs/03-architecture.md · **Phase:** 6

@@ -13,6 +13,8 @@ Format: [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) · Versioning:
 
 ### Added
 
+- Weather change detection: a change of weather is reported once, only after two separate readings agree, so weather that flickers between two kinds never notifies; a temperature drop (or rise) beyond a set amount within a window is reported once per spell; the first reading after start and anything from the cache never notify. Nothing in the app uses it yet (FEAT-0068).
+
 - Weather cache: the last weather answer is kept for the saved place, with when it was fetched, so it survives a restart and can be shown marked as old when there is no network. Choosing a different place empties it (FEAT-0067).
 
 - Weather conditions: the weather service's numeric codes are grouped into clear, cloudy, rain, thunderstorm, snow and fog, each named in English and Bahasa Melayu; a code the app does not know gets a generic name and a log line. Nothing displays them yet (FEAT-0066).

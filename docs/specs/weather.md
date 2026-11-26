@@ -105,8 +105,13 @@ cargo run -p omnitoaster -- --data-dir ./tmp-data
 
 ## 12. Open questions
 
-1. Whether "two consecutive polls" is the right anti-flap rule, or whether a
-   minimum time-in-class is better at a 15-minute interval.
+1. ~~Whether "two consecutive polls" is the right anti-flap rule, or whether a
+   minimum time-in-class is better at a 15-minute interval.~~ **Answered
+   (FEAT-0068):** two consecutive polls, but two *distinct* readings — a reading with
+   the same `at` as the one before is not a second sighting, because the service
+   moves in 15-minute steps and a faster poll would otherwise confirm a change with
+   the same data twice. A time-in-class rule adds nothing at the 15-minute minimum,
+   where two readings already mean 15 to 30 minutes.
 2. Whether a severe-weather alert (as opposed to a condition change) deserves
    the Alarm priority class.
 
@@ -136,5 +141,17 @@ cargo run -p omnitoaster -- --data-dir ./tmp-data
   TTL is still fresh. Saving a place with other coordinates empties the cache,
   because another place's weather is not this place's; saving the same place again
   (the daily lookup) keeps it.
+- **Change detection (FEAT-0068).** `ot_weather::detect::Detector` is a plain value fed
+  one fresh `Observation` at a time (no clock, no I/O) that returns the `Change`s.
+  The first reading is a silent baseline. A class change fires once, on its second
+  consecutive distinct sighting, against the last class **notified**; a class that
+  flaps and returns, or three different classes in a row, never fires. An unknown
+  class is no information: it neither confirms nor breaks a change and is never
+  announced. A `Threshold` (direction, delta in °C, window) fires when the biggest
+  move from any hourly point inside the window reaches the delta — exactly the delta
+  fires — and not again until the move falls back under it, so one cold front is one
+  toast; `Threshold::default_fall()` is 5 °C in 3 hours. A reading that is not fresh
+  changes nothing, and nothing is stored: the service keeps `notified()` across a
+  restart (FEAT-0069).
 - **A licence point the owner must settle** (ADR-023): the free API is
   non-commercial and wants attribution.
