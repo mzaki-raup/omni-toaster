@@ -246,6 +246,7 @@ fn overflowing(width: f32, scale: f32) -> Vec<String> {
                 &mut weather_settings,
                 &pictures,
                 ot_ui::Tokens::DARK,
+                now,
             );
             let _ = ot_ui::prayer_pane::show(
                 ui,

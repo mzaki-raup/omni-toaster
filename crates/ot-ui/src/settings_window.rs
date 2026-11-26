@@ -1404,6 +1404,9 @@ impl SettingsWindow {
         self.weather.tick();
         if self.weather.busy() {
             ui.ctx().request_repaint_after(Duration::from_millis(100));
+        } else if self.weather.has_snapshot() {
+            // "5 minutes ago" ages while nothing else happens.
+            ui.ctx().request_repaint_after(Duration::from_secs(30));
         }
         let pictures: Vec<crate::prayer_pane::PictureChoice> = self
             .library
@@ -1426,6 +1429,7 @@ impl SettingsWindow {
                     &mut self.settings.weather,
                     &pictures,
                     tokens,
+                    jiff::Timestamp::now(),
                 );
             });
         if outcome.settings_changed {
@@ -2473,7 +2477,15 @@ impl SettingsWindow {
             return;
         };
         for note in service.drain() {
-            let crate::weather_service::Note::Change(change, template) = note;
+            let (change, template) = match note {
+                crate::weather_service::Note::Snapshot(snapshot) => {
+                    self.weather.set_snapshot(snapshot);
+                    continue;
+                }
+                crate::weather_service::Note::Change(change, template) => {
+                    (change, template.map(|boxed| *boxed))
+                }
+            };
             if self.pause.is_active(jiff::Timestamp::now()) {
                 tracing::info!("a weather change came during a pause and was not shown");
                 continue;

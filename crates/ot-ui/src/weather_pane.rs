@@ -18,6 +18,8 @@ use ot_store::Store;
 use ot_store::reminders::{PrayerTemplateEdit, Template};
 use ot_weather::condition::Condition;
 
+use crate::weather_service::Snapshot;
+
 use crate::layout::{self, Columns};
 use crate::prayer_pane::{PictureChoice, ellipsize, hex, parse_hex};
 use crate::prayer_pane::{button, note, rule, subheading, wrapped_checkbox};
@@ -87,6 +89,8 @@ pub struct State {
     place: Option<Option<String>>,
     /// The last error, as text for the status note.
     error: Option<String>,
+    /// The weather as the service last found it, with how old it is.
+    snapshot: Option<Snapshot>,
 }
 
 impl State {
@@ -117,6 +121,7 @@ impl State {
             saved: false,
             place: None,
             error: None,
+            snapshot: None,
         }
     }
 
@@ -138,6 +143,14 @@ impl State {
         };
         state.saved = true;
         state.error = Some("the database is locked".to_string());
+        // The stale marker at its longest: days old.
+        state.snapshot = Some(Snapshot {
+            condition: Condition::Storm,
+            temperature_c: 24.6,
+            fetched_at: jiff::Timestamp::UNIX_EPOCH,
+            stale: true,
+            ttl: jiff::SignedDuration::from_hours(2),
+        });
         state
     }
 
@@ -186,6 +199,16 @@ impl State {
             };
             let _ = out.send(reply);
         });
+    }
+
+    /// The service found the weather: show it.
+    pub fn set_snapshot(&mut self, snapshot: Snapshot) {
+        self.snapshot = Some(snapshot);
+    }
+
+    /// Whether there is weather to show, so its age can be kept current.
+    pub fn has_snapshot(&self) -> bool {
+        self.snapshot.is_some()
     }
 
     /// Whether a thread's answer is still awaited, so the pane asks to be drawn
@@ -250,10 +273,13 @@ pub fn show(
     settings: &mut WeatherSettings,
     pictures: &[PictureChoice],
     tokens: Tokens,
+    now: jiff::Timestamp,
 ) -> Outcome {
     let mut outcome = Outcome::default();
     let columns = layout::columns(ui);
     switch_block(ui, columns, state, settings, tokens, &mut outcome);
+    rule(ui);
+    now_block(ui, columns, state, settings.enabled, tokens, now);
     rule(ui);
     classes_block(ui, columns, settings, tokens, &mut outcome);
     rule(ui);
@@ -265,6 +291,72 @@ pub fn show(
         note(ui, &ot_i18n::text("weather-credit"), tokens.text_dim);
     });
     outcome
+}
+
+/// How long ago, in words: "just now", "5 minutes ago", "3 hours ago", "2 days
+/// ago", from `ot-i18n`'s Fluent plurals so both languages say it their own way.
+pub fn age_text(age: jiff::SignedDuration) -> String {
+    let minutes = age.as_mins().max(0);
+    let count = |key: &str, n: i64| {
+        ot_i18n::text_with_count(key, u32::try_from(n).unwrap_or(u32::MAX), &[])
+    };
+    match minutes {
+        0 => ot_i18n::text("weather-age-now"),
+        1..=59 => count("weather-age-minutes", minutes),
+        60..=1439 => count("weather-age-hours", minutes / 60),
+        _ => count("weather-age-days", minutes / 1440),
+    }
+}
+
+/// The weather as it stands, and when it is stale, which says so and how old it
+/// is (`docs/specs/weather.md` §7): never old data shown as if it were current.
+fn now_block(
+    ui: &mut egui::Ui,
+    columns: Columns,
+    state: &State,
+    enabled: bool,
+    tokens: Tokens,
+    now: jiff::Timestamp,
+) {
+    subheading(ui, "weather-now-heading");
+    let Some(snapshot) = &state.snapshot else {
+        let key = if enabled {
+            "weather-now-none"
+        } else {
+            "weather-now-off"
+        };
+        layout::field_hint(ui, columns, &ot_i18n::text(key), tokens.text_dim);
+        return;
+    };
+    let age = age_text(now.duration_since(snapshot.fetched_at));
+    layout::labelled_row(ui, columns, &ot_i18n::text("weather-now-label"), |ui| {
+        ui.label(ot_i18n::text_with(
+            "weather-now",
+            &[
+                ("condition", ot_i18n::text(snapshot.condition.key()).into()),
+                (
+                    "temperature",
+                    format!("{}", snapshot.temperature_c.round() as i64).into(),
+                ),
+            ],
+        ));
+    });
+    if snapshot.is_stale(now) {
+        ui.horizontal_wrapped(|ui| {
+            ui.add_space(columns.label);
+            ui.colored_label(
+                tokens.accent,
+                ot_i18n::text_with("weather-stale", &[("age", age.into())]),
+            );
+        });
+    } else {
+        layout::field_hint(
+            ui,
+            columns,
+            &ot_i18n::text_with("weather-updated", &[("age", age.into())]),
+            tokens.text_dim,
+        );
+    }
 }
 
 /// The switch, the place and how often to look.

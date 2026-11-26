@@ -188,5 +188,14 @@ cargo run -p omnitoaster -- --data-dir ./tmp-data
   reads and writes the store on short-lived threads, drained each frame, and credits
   Open-Meteo at the bottom (CC BY 4.0). The generic words of the template editor are
   the Prayer's keys (`prayer-template-*`, `prayer-sound-*`).
+- **The stale marker (FEAT-0071).** The service sends the pane a `Snapshot` (the class,
+  the temperature, when it was fetched and its TTL) after each pass, and Settings ▸
+  Weather shows it under "Current Weather": fresh weather says "Updated 6 minutes ago.",
+  and weather older than its TTL says "Not up to date: showing the weather from 5 hours
+  ago." in the accent colour instead — offline, or whenever the last fetch is old.
+  Staleness is judged when drawn, so weather that ages past its TTL between two polls
+  is marked without waiting for one. The age is in minutes, hours or days from Fluent
+  plurals, never formatted by hand. As §7 requires, stale data never produces a
+  notification (FEAT-0068, FEAT-0069). Whole degrees, as the toast has.
 - **A licence point the owner must settle** (ADR-023): the free API is
   non-commercial and wants attribution.

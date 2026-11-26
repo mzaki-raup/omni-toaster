@@ -224,14 +224,14 @@ stale marker in both languages.
 - [x] Docs: spec · README · CHANGELOG · CHECKLIST · GOTCHAS — spec · README and README.ms (the stale "next phases" sentence is corrected) · CHANGELOG · CHECKLIST; screenshots wait for the phase's finish; GOTCHAS: nothing new
 
 ### FEAT-0071 · The offline stale marker
-- **State:** Pending · **Spec:** docs/specs/weather.md §7 · docs/10-i18n.md · **Phase:** 6
+- **State:** Completed · **Spec:** docs/specs/weather.md §7 · docs/10-i18n.md · **Phase:** 6
 - **Branch:** feat/phase-6-weather
 - **Depends on:** FEAT-0067, FEAT-0070
-- [ ] Offline, the cached data is shown marked stale, with how old it is, in both languages; fresh data carries no marker
-- [ ] Test: the stale message in both catalogues with its age; stale data does not notify
-- [ ] Gate: fmt · clippy -D warnings · test --workspace --locked -j 4 · deny check · --self-test
-- [ ] App: `--data-dir ./tmp-data` — disconnect the network and see the marker in English and Malay — Phase 6's second exit criterion
-- [ ] Docs: spec · README · CHANGELOG · CHECKLIST · GOTCHAS
+- [x] Offline, the cached data is shown marked stale, with how old it is, in both languages; fresh data carries no marker — `weather_pane::now_block` from the service's `Snapshot`; fresh data says when it was updated and carries no marker; aged past its TTL it says "Not up to date: showing the weather from … ago" in the accent colour; judged when drawn
+- [x] Test: the stale message in both catalogues with its age; stale data does not notify — `tests/weather_stale.rs` (the age and the marker in both languages, the keys in both catalogues), `Snapshot::is_stale` between passes, and FEAT-0069's "stale data never feeds the detector"
+- [x] Gate: fmt · clippy -D warnings · test --workspace --locked -j 4 · deny check · --self-test — fmt · clippy · tests · deny · self-test
+- [x] App: `--data-dir ./tmp-data` — disconnect the network and see the marker in English and Malay — Phase 6's second exit criterion — debug build offline with a planted 5-hour-old cache: the English pane read "Cloudy, 26 °C" and "Not up to date: showing the weather from 5 hours ago.", the Malay one "Berawan, 26 °C" and "Tidak terkini: memaparkan cuaca dari 5 jam lalu."; with a 6-minute-old cache "Updated 6 minutes ago." and no marker. Not seen: the Light theme, 150% scaling and the narrow window by eye
+- [x] Docs: spec · README · CHANGELOG · CHECKLIST · GOTCHAS — spec · CHANGELOG · CHECKLIST; README already describes the pane; GOTCHAS: nothing new
 
 ---
 

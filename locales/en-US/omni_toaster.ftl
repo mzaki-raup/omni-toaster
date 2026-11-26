@@ -986,3 +986,34 @@ weather-template-condition = Condition
 weather-error = The weather settings could not be read or saved.
 # The credit line at the bottom of Settings > Weather. Open-Meteo's data is licensed CC BY 4.0, which asks for credit.
 weather-credit = Weather data by Open-Meteo.com, licensed CC BY 4.0.
+# The heading of the block showing the weather as it stands.
+weather-now-heading = Current Weather
+# The label of the row giving the weather now.
+weather-now-label = Now
+# The weather as it stands. $condition is a condition name (weather-rain and so on), $temperature whole degrees Celsius.
+weather-now = { $condition }, { $temperature } °C
+# Under the weather when it is up to date. $age is how long ago, like "5 minutes ago" or "just now".
+weather-updated = Updated { $age }.
+# The marker shown instead when the weather is out of date, for instance when offline. $age is how long ago it was fetched, like "3 hours ago". No change is ever reported from such data.
+weather-stale = Not up to date: showing the weather from { $age }.
+# Shown when weather is on but nothing has been found yet.
+weather-now-none = No weather has been found yet.
+# Shown when weather notifications are off.
+weather-now-off = Weather notifications are off.
+# How long ago, for a moment less than a minute ago.
+weather-age-now = just now
+# How long ago, in minutes. $count is a number.
+weather-age-minutes = { $count ->
+    [one] 1 minute ago
+   *[other] { $count } minutes ago
+}
+# How long ago, in hours. $count is a number.
+weather-age-hours = { $count ->
+    [one] 1 hour ago
+   *[other] { $count } hours ago
+}
+# How long ago, in days. $count is a number.
+weather-age-days = { $count ->
+    [one] 1 day ago
+   *[other] { $count } days ago
+}

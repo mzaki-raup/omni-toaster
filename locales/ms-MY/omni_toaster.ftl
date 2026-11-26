@@ -957,3 +957,25 @@ weather-template-condition = Keadaan
 weather-error = Tetapan cuaca tidak dapat dibaca atau disimpan.
 # Baris kredit di bahagian bawah Tetapan > Cuaca. Data Open-Meteo dilesenkan CC BY 4.0, yang meminta kredit.
 weather-credit = Data cuaca oleh Open-Meteo.com, dilesenkan CC BY 4.0.
+# Tajuk blok yang menunjukkan cuaca semasa.
+weather-now-heading = Cuaca Semasa
+# Label baris yang memberi cuaca sekarang.
+weather-now-label = Sekarang
+# Cuaca semasa. $condition ialah nama keadaan (weather-rain dan seterusnya), $temperature darjah Celsius penuh.
+weather-now = { $condition }, { $temperature } °C
+# Di bawah cuaca apabila ia terkini. $age ialah berapa lama dahulu, seperti "5 minit lalu" atau "sebentar tadi".
+weather-updated = Dikemas kini { $age }.
+# Penanda yang dipaparkan apabila cuaca sudah lapuk, contohnya ketika luar talian. $age ialah berapa lama dahulu ia diambil, seperti "3 jam lalu". Tiada perubahan dilaporkan daripada data sedemikian.
+weather-stale = Tidak terkini: memaparkan cuaca dari { $age }.
+# Dipaparkan apabila cuaca dihidupkan tetapi belum ada yang ditemui.
+weather-now-none = Belum ada cuaca ditemui.
+# Dipaparkan apabila pemberitahuan cuaca dimatikan.
+weather-now-off = Pemberitahuan cuaca dimatikan.
+# Berapa lama dahulu, untuk kurang daripada seminit yang lalu.
+weather-age-now = sebentar tadi
+# Berapa lama dahulu, dalam minit. $count ialah nombor. Bahasa Melayu tiada bentuk jamak.
+weather-age-minutes = { $count } minit lalu
+# Berapa lama dahulu, dalam jam. $count ialah nombor.
+weather-age-hours = { $count } jam lalu
+# Berapa lama dahulu, dalam hari. $count ialah nombor.
+weather-age-days = { $count } hari lalu

@@ -188,7 +188,7 @@ Last updated: 2026-11-19
 | Condition change detection | In-Progress | Condition change or temperature threshold. FEAT-0068: `ot_weather::detect` — two distinct readings, against the last class notified, a silent baseline, thresholds that fire at the boundary and once per spell, stale data never compared; tested, not yet in the app (FEAT-0069) |
 | Per-condition templates | In-Progress | FEAT-0070: a template for each of the six conditions (title, message, accent, picture, sound silent or chime), saved from Settings ▸ Weather and used by the toast; migration 008; the pane looked at in English and Malay. The toast's own pixels and a custom picture from the library were not seen |
 | Weather code to Fluent key mapping | In-Progress | No API text displayed. FEAT-0066: `ot_weather::condition` maps all 29 documented codes to six classes and a generic one, with a `weather-` key each in both locale files; not yet shown anywhere (FEAT-0070) |
-| Offline stale marker | Pending | |
+| Offline stale marker | Completed | FEAT-0071: the current weather and its age on the Weather pane; older than its TTL it is marked not up to date, in both languages, seen offline with a planted old cache in English and Malay and absent on fresh data; stale data never notifies (tested) |
 
 ## Phase 7 — Time Announcements
 > **Exit criteria:** announcements fire on schedule in the selected language or fall back with a visible hint, and quiet hours are respected.

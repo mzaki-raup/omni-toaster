@@ -67,8 +67,18 @@ pub struct Snapshot {
     pub condition: Condition,
     pub temperature_c: f64,
     pub fetched_at: Timestamp,
-    /// Older than its TTL: shown marked as old, and never compared.
+    /// Older than its TTL when it was made: shown marked as old, and never compared.
     pub stale: bool,
+    /// How old it may be before it counts as stale, so the window can notice it
+    /// has become so between two passes.
+    pub ttl: SignedDuration,
+}
+
+impl Snapshot {
+    /// Whether it is stale at `now`: it was, or it has aged past its TTL since.
+    pub fn is_stale(&self, now: Timestamp) -> bool {
+        self.stale || now.duration_since(self.fetched_at) > self.ttl
+    }
 }
 
 /// What one pass found.
@@ -224,6 +234,7 @@ impl Engine {
                 temperature_c: observation.temperature_c,
                 fetched_at: cache.fetched_at,
                 stale: cache.is_stale(now, ttl),
+                ttl,
             })
         });
         let mut next_run = cached
@@ -248,6 +259,7 @@ impl Engine {
                         temperature_c: observation.temperature_c,
                         fetched_at: now,
                         stale: false,
+                        ttl,
                     });
                     next_run = now + interval;
                     let found =
@@ -313,9 +325,11 @@ enum Msg {
 /// What the service tells the window.
 #[derive(Debug, Clone, PartialEq)]
 pub enum Note {
+    /// The weather as it stands, for the pane (`docs/specs/weather.md` §7).
+    Snapshot(Snapshot),
     /// A change, with the template of the condition it is to, if it is to one
     /// (the store is read here, on the service's thread, not the window's).
-    Change(Change, Option<ot_store::reminders::Template>),
+    Change(Change, Option<Box<ot_store::reminders::Template>>),
 }
 
 /// The thread, and the window's hold on it.
@@ -383,8 +397,13 @@ fn serve(mut engine: Engine, incoming: &Receiver<Msg>, notes: &SyncSender<Note>)
             let report = engine.run(now);
             next = report.next_run;
             due = false;
+            if let Some(snapshot) = report.snapshot {
+                // The next pass sends the weather again, so a full channel only
+                // delays it: weather updates coalesce, a change must not.
+                let _ = notes.try_send(Note::Snapshot(snapshot));
+            }
             for change in report.changes {
-                let template = engine.template_for(&change);
+                let template = engine.template_for(&change).map(Box::new);
                 // A change must not be lost to a full channel without a word.
                 if notes.try_send(Note::Change(change, template)).is_err() {
                     tracing::error!("a weather change was dropped: the window is not keeping up");
@@ -599,7 +618,8 @@ mod tests {
                 condition: Condition::Rain,
                 temperature_c: 24.0,
                 fetched_at: at(T0),
-                stale: false
+                stale: false,
+                ttl: SignedDuration::from_hours(2)
             })
         );
         assert_eq!(report.next_run, minutes(T0, 30));
@@ -780,6 +800,31 @@ mod tests {
         let report = rig.engine.run(at(T0));
         assert!(report.changes.is_empty() && report.snapshot.is_none());
         assert_eq!(store(&rig).weather().expect("reads"), None);
+    }
+
+    #[test]
+    fn a_snapshot_becomes_stale_when_it_ages_past_its_ttl_between_two_passes() {
+        let snapshot = Snapshot {
+            condition: Condition::Rain,
+            temperature_c: 24.0,
+            fetched_at: at(T0),
+            stale: false,
+            ttl: SignedDuration::from_hours(2),
+        };
+        assert!(
+            !snapshot.is_stale(minutes(T0, 120)),
+            "exactly the TTL is fresh"
+        );
+        assert!(snapshot.is_stale(minutes(T0, 121)));
+        assert!(
+            !snapshot.is_stale(minutes(T0, -30)),
+            "a clock that went back is not old"
+        );
+        let already = Snapshot {
+            stale: true,
+            ..snapshot
+        };
+        assert!(already.is_stale(at(T0)), "stale when made stays stale");
     }
 
     #[test]
