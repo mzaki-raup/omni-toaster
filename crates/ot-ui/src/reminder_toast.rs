@@ -99,6 +99,7 @@ pub fn prayer_spec(
     template: Option<&Template>,
     timestamp: Option<String>,
     note: Option<String>,
+    place: Option<&str>,
 ) -> ot_toast::ToastSpec {
     let name = crate::prayer_pane::prayer_name(prayer);
     let title = non_empty(template.and_then(|t| t.custom_title.as_deref()))
@@ -112,7 +113,7 @@ pub fn prayer_spec(
         .or_else(|| default_prayer_image(prayer).map(str::to_owned));
     let content = ot_toast::Content {
         title,
-        body,
+        body: with_place(body, place),
         app_name: ot_i18n::text("toast-app-name"),
         image,
         accent: template
@@ -140,11 +141,15 @@ pub fn prayer_before_spec(
     minutes: u32,
     template: Option<&Template>,
     timestamp: Option<String>,
+    place: Option<&str>,
 ) -> ot_toast::ToastSpec {
     let name = crate::prayer_pane::prayer_name(prayer);
     let content = ot_toast::Content {
         title: name.clone(),
-        body: ot_i18n::text_with_count("prayer-before-body", minutes, &[("prayer", name.into())]),
+        body: with_place(
+            ot_i18n::text_with_count("prayer-before-body", minutes, &[("prayer", name.into())]),
+            place,
+        ),
         app_name: ot_i18n::text("toast-app-name"),
         image: template
             .and_then(|t| t.image.clone())
@@ -171,6 +176,7 @@ pub fn weather_spec(
     change: &ot_weather::detect::Change,
     template: Option<&Template>,
     timestamp: Option<String>,
+    place: Option<&str>,
 ) -> ot_toast::ToastSpec {
     use ot_weather::detect::{Change, Direction};
     let (title, body, image) = match change {
@@ -215,7 +221,10 @@ pub fn weather_spec(
     let own = |text: Option<&str>| non_empty(text).map(str::to_owned);
     let content = ot_toast::Content {
         title: own(template.and_then(|t| t.custom_title.as_deref())).unwrap_or(title),
-        body: own(template.and_then(|t| t.custom_body.as_deref())).unwrap_or(body),
+        body: with_place(
+            own(template.and_then(|t| t.custom_body.as_deref())).unwrap_or(body),
+            place,
+        ),
         app_name: ot_i18n::text("toast-app-name"),
         image: template.and_then(|t| t.image.clone()).or(image),
         accent: template
@@ -241,6 +250,25 @@ pub fn weather_image(condition: ot_weather::condition::Condition) -> Option<&'st
         Condition::Fog => "@builtin/fog",
         Condition::Snow | Condition::Unknown => return None,
     })
+}
+
+/// The longest a place's name is drawn on a toast before an ellipsis: the name
+/// is the user's, or a city's, and can be any length.
+const PLACE_CHARS: usize = 30;
+
+/// `body` with the place on a line of its own beneath it (FEAT-0075, FEAT-0076),
+/// so a toast says where the weather or the prayer time is for. The place is data,
+/// a name or a name and a zone code, never translated and never a sentence; a
+/// user's own message above it is left exactly as typed. Nothing is added when
+/// there is no place.
+fn with_place(body: String, place: Option<&str>) -> String {
+    match place.map(str::trim).filter(|place| !place.is_empty()) {
+        Some(place) => format!(
+            "{body}\n{}",
+            crate::prayer_pane::ellipsize(place, PLACE_CHARS)
+        ),
+        None => body,
+    }
 }
 
 /// The built-in masjid picture a prayer shows until its template chooses one.
@@ -492,6 +520,7 @@ mod tests {
                 None,
                 Some("5:49 am".into()),
                 None,
+                None,
             );
             assert!(spec.behaviour.persistent, "{language:?}");
             assert_eq!(
@@ -534,14 +563,14 @@ mod tests {
         );
         for language in [Language::English, Language::Malay] {
             in_language(language);
-            let own = prayer_spec(&prefs, "fajr", Some(&written), None, None);
+            let own = prayer_spec(&prefs, "fajr", Some(&written), None, None, None);
             assert_eq!(own.content.title, "Bangun, Subuh dah masuk", "{language:?}");
             assert_eq!(own.content.body, "Jangan lewat.");
             assert!(own.content.accent.is_some(), "the template's accent");
 
             // Nothing written: the built-in text, in the language in force.
             let blank = prayer_template(None, None, None);
-            let built_in = prayer_spec(&prefs, "fajr", Some(&blank), None, None);
+            let built_in = prayer_spec(&prefs, "fajr", Some(&blank), None, None, None);
             let name = crate::prayer_pane::prayer_name("fajr");
             assert_eq!(built_in.content.title, name);
             assert!(built_in.content.body.contains(&name));
@@ -550,7 +579,10 @@ mod tests {
                 "the global accent applies"
             );
             // No template at all is the same as an empty one.
-            assert_eq!(prayer_spec(&prefs, "fajr", None, None, None), built_in);
+            assert_eq!(
+                prayer_spec(&prefs, "fajr", None, None, None, None),
+                built_in
+            );
         }
     }
 
@@ -565,6 +597,7 @@ mod tests {
             Some(&template),
             Some("5:49 am".into()),
             label.clone(),
+            Some("Kuala Lumpur (WLY01)"),
         );
         let preview = prayer_spec(
             &prefs,
@@ -572,6 +605,7 @@ mod tests {
             Some(&template),
             Some("5:49 am".into()),
             label.clone(),
+            Some("Kuala Lumpur (WLY01)"),
         );
         assert_eq!(fire, preview, "one function, so one toast");
         assert_eq!(fire.content.note, label, "the source label is on it");
@@ -628,32 +662,34 @@ mod tests {
             window: jiff::SignedDuration::from_hours(1),
         };
         in_language(Language::English);
-        let spec = weather_spec(&prefs, &rain, None, None);
+        let spec = weather_spec(&prefs, &rain, None, None, None);
         assert_eq!(spec.content.title, "Rain");
         assert_eq!(spec.content.body, "The weather changed from Clear to Rain.");
         let picture = spec.content.image.clone().expect("a picture");
         assert!(ot_store::builtin::find(&picture).is_some(), "{picture}");
         assert_eq!(spec.behaviour.actions, 1, "Dismiss only");
-        let cold = weather_spec(&prefs, &fall, None, None);
+        let cold = weather_spec(&prefs, &fall, None, None, None);
         assert_eq!(cold.content.title, "Temperature is falling");
         assert_eq!(
             cold.content.body,
             "It is 6 \u{b0}C colder than 3 hours ago, now 25 \u{b0}C."
         );
         assert_eq!(
-            weather_spec(&prefs, &one_hour, None, None).content.body,
+            weather_spec(&prefs, &one_hour, None, None, None)
+                .content
+                .body,
             "It is 6 \u{b0}C colder than an hour ago, now 25 \u{b0}C.",
             "the singular"
         );
         in_language(Language::Malay);
-        let spec = weather_spec(&prefs, &rain, None, None);
+        let spec = weather_spec(&prefs, &rain, None, None, None);
         assert_eq!(spec.content.title, "Hujan");
         assert_eq!(
             spec.content.body,
             "Cuaca berubah daripada Cerah kepada Hujan."
         );
         assert_eq!(
-            weather_spec(&prefs, &fall, None, None).content.body,
+            weather_spec(&prefs, &fall, None, None, None).content.body,
             "Suhu 6 \u{b0}C lebih sejuk berbanding 3 jam lalu, kini 25 \u{b0}C."
         );
         in_language(Language::English);
@@ -670,7 +706,7 @@ mod tests {
             from: Condition::Clear,
             to: Condition::Storm,
         };
-        let built_in = weather_spec(&prefs, &storm, None, None);
+        let built_in = weather_spec(&prefs, &storm, None, None, None);
         let own = Template {
             weather_key: Some("storm".into()),
             custom_title: Some("Lightning!".into()),
@@ -679,7 +715,7 @@ mod tests {
             image: Some("assets/mine.png".into()),
             ..Template::default()
         };
-        let spec = weather_spec(&prefs, &storm, Some(&own), None);
+        let spec = weather_spec(&prefs, &storm, Some(&own), None, None);
         assert_eq!(spec.content.title, "Lightning!");
         assert_eq!(spec.content.body, "Bring the washing in");
         assert_eq!(spec.content.image.as_deref(), Some("assets/mine.png"));
@@ -692,7 +728,74 @@ mod tests {
             custom_title: Some("  ".into()),
             ..Template::default()
         };
-        assert_eq!(weather_spec(&prefs, &storm, Some(&blank), None), built_in);
+        assert_eq!(
+            weather_spec(&prefs, &storm, Some(&blank), None, None),
+            built_in
+        );
+    }
+
+    #[test]
+    fn the_weather_and_prayer_toasts_name_the_place_on_a_line_of_their_own() {
+        use ot_weather::condition::Condition;
+        use ot_weather::detect::Change;
+        let _guard = LANGUAGE.lock().unwrap_or_else(|p| p.into_inner());
+        in_language(Language::English);
+        let prefs = ot_toast::Prefs::default();
+        let rain = Change::Condition {
+            from: Condition::Clear,
+            to: Condition::Rain,
+        };
+        let spec = weather_spec(&prefs, &rain, None, None, Some("Kuala Lumpur"));
+        assert_eq!(
+            spec.content.body,
+            "The weather changed from Clear to Rain.\nKuala Lumpur"
+        );
+        // The prayer, its reminder and the preview all say it, beneath their text.
+        let prayer = prayer_spec(
+            &prefs,
+            "dhuhr",
+            None,
+            None,
+            None,
+            Some("Kuala Lumpur (WLY01)"),
+        );
+        assert!(
+            prayer.content.body.ends_with("\nKuala Lumpur (WLY01)"),
+            "{:?}",
+            prayer.content.body
+        );
+        let before =
+            prayer_before_spec(&prefs, "asr", 10, None, None, Some("Kuala Lumpur (WLY01)"));
+        assert!(
+            before.content.body.ends_with("\nKuala Lumpur (WLY01)"),
+            "{:?}",
+            before.content.body
+        );
+        // A user's own message is left exactly as typed, with the place beneath.
+        let own = Template {
+            custom_body: Some("Bring the washing in".into()),
+            ..Template::default()
+        };
+        assert_eq!(
+            weather_spec(&prefs, &rain, Some(&own), None, Some("Shah Alam"))
+                .content
+                .body,
+            "Bring the washing in\nShah Alam"
+        );
+        // No place, or a blank one, adds nothing.
+        let plain = weather_spec(&prefs, &rain, None, None, None);
+        assert_eq!(weather_spec(&prefs, &rain, None, None, Some("  ")), plain);
+        assert!(!plain.content.body.contains('\n'));
+        // A very long name is cut with an ellipsis rather than overrunning the toast.
+        let long = "Kampung Baru Sungai Buloh Seksyen Tujuh Belas Daerah Petaling Selangor";
+        let cut = weather_spec(&prefs, &rain, None, None, Some(long))
+            .content
+            .body;
+        let line = cut.lines().last().expect("a last line");
+        assert!(
+            line.chars().count() <= PLACE_CHARS && line.ends_with('…'),
+            "{line:?}"
+        );
     }
 
     #[test]

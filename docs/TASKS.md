@@ -183,27 +183,27 @@ shipped on its own.
 - **Notes:** A second request per poll (still far inside the free tier's 10,000 a day) and a new threshold the owner may want to tune.
 
 ### FEAT-0075 · The weather toast names the place
-- **State:** Pending · **Spec:** docs/specs/weather.md §4 · docs/specs/toast.md
-- **Branch:** to be cut from `main` once Phase 6 is merged
+- **State:** In-Progress · **Spec:** docs/specs/weather.md §4 · docs/specs/toast.md
+- **Branch:** feat/place-on-toasts
 - **Depends on:** FEAT-0069
 - **Source:** the owner: "In weather toast, display also the location of the weather"
-- [ ] The toast shows the weather place's name (the note line, or in the body), in both languages, for a condition change and a temperature move
-- [ ] Test: the spec for a change carries the place's name; a long place name is cut with an ellipsis, not the toast's own text
-- [ ] Gate: fmt · clippy -D warnings · test --workspace --locked -j 4 · deny check · --self-test
-- [ ] App: `--data-dir ./tmp-data` — a simulated change shows the place on the toast
-- [ ] Docs: spec · README · CHANGELOG · CHECKLIST · GOTCHAS
+- [x] The toast shows the weather place's name (the note line, or in the body), in both languages, for a condition change and a temperature move — `weather_spec` adds it as the body's last line (not the note, which is one line beside Dismiss); the service reads the saved place's name with each change, the preview uses the pane's; a simulation has none
+- [x] Test: the spec for a change carries the place's name; a long place name is cut with an ellipsis, not the toast's own text — the line under the built-in and a user's own message, none for no or a blank place, a long name cut at 30 characters; `Engine::place_name` with and without a place
+- [x] Gate: fmt · clippy · tests · deny · self-test
+- [ ] App: `--data-dir ./tmp-data` — a simulated change shows the place on the toast. **Made:** a debug build with `--simulate-weather 95` still gave exactly one weather toast, and a planted Asr's reminder still registered; nothing broke. Not made: the toast on screen — the capture helper cannot see a toast — so the place line's fit is from the body's row arithmetic (three rows by default), not seen. Left open for that
+- [x] Docs: `docs/specs/toast.md` §8 · spec · CHANGELOG; README and CHECKLIST: nothing; GOTCHAS: nothing new
 - **Notes:** After FEAT-0072 it is the weather place's name; until then, the saved place's.
 
 ### FEAT-0076 · The prayer toast names the place
-- **State:** Pending · **Spec:** docs/11-prayer-and-azan.md §9 · docs/specs/toast.md §8
-- **Branch:** to be cut from `main` once Phase 6 is merged
+- **State:** In-Progress · **Spec:** docs/11-prayer-and-azan.md §9 · docs/specs/toast.md §8
+- **Branch:** feat/place-on-toasts
 - **Depends on:** FEAT-0059
 - **Source:** the owner: "In prayer toast, display also the location of the time prayer"
-- [ ] A prayer's toast, and the pre-prayer reminder's, show the place the times are for (its name, and the JAKIM zone when there is one), beside the source label
-- [ ] Test: the prayer spec carries the place; a long name is cut with an ellipsis; the preview and the real toast stay the same function's output
-- [ ] Gate: fmt · clippy -D warnings · test --workspace --locked -j 4 · deny check · --self-test
-- [ ] App: `--data-dir ./tmp-data` — fire a prayer from a planted time and see the place on it
-- [ ] Docs: spec · README · CHANGELOG · CHECKLIST · GOTCHAS
+- [x] A prayer's toast, and the pre-prayer reminder's, show the place the times are for (its name, and the JAKIM zone when there is one), beside the source label — `prayer_service::place_label` and `Note::Place`; the zone code only when the times are JAKIM's, fresh or cached, never for calculated ones; the preview and the fire share `prayer_spec`
+- [x] Test: the prayer spec carries the place; a long name is cut with an ellipsis; the preview and the real toast stay the same function's output — `place_label` for JAKIM, cached, calculated, no zone, no place, a blank name; a service pass reports "Shah Alam (SGR01)"; the prayer, its reminder and the preview toasts end in the place
+- [x] Gate: fmt · clippy · tests · deny · self-test
+- [ ] App: `--data-dir ./tmp-data` — fire a prayer from a planted time and see the place on it. Not made: the toast on screen (the capture helper cannot see a toast), so the fit is from the row arithmetic. Left open for that
+- [x] Docs: `docs/specs/toast.md` §8 · spec · CHANGELOG; README and CHECKLIST: nothing; GOTCHAS: nothing new
 - **Notes:** The prayer toast already carries the source label as its note; the place goes beside it.
 
 ### CR-0008 · The Azan is the default sound for every prayer, Subuh's for Fajr

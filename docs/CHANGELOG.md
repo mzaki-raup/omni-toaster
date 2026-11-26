@@ -13,6 +13,8 @@ Format: [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) · Versioning:
 
 ### Added
 
+- Weather and prayer notifications now say where they are for: a weather toast names the place, and a prayer toast — and the reminder ahead of it — names the place with the JAKIM zone beside it when the times are JAKIM's, for example "Kuala Lumpur (WLY01)" (FEAT-0075, FEAT-0076).
+
 - The full Azan is every prayer's default sound (d5e6be5a)
 
 ## 0.15.0 — 2026-11-26

@@ -434,6 +434,16 @@ borrows Dhuha's). The fire and the editor's **Preview Toast** both come through
 `reminder_toast::prayer_spec`, so they cannot disagree, and the toast carries the
 day's source label as its note. A per-prayer **style** override is not built.
 
+**The place (FEAT-0075, FEAT-0076).** A prayer's toast, the reminder ahead of it
+and a weather toast each name the place on a line of their own at the end of the
+body (`reminder_toast::with_place`): "Kuala Lumpur (WLY01)" for JAKIM's times — the
+zone code beside the name — and the bare name for calculated times and for weather.
+It is data, never translated, cut at 30 characters with an ellipsis, and a user's
+own message above it is left exactly as typed. It is the body's last line, not the
+note, because the note is one line beside Dismiss and already carries the source
+label. A default toast has room for three body rows; a message long enough to fill
+them pushes the place off, which the body's own ellipsis then shows.
+
 ### 8.1 The image library
 
 Pictures are uploaded **once** into a library and then **reused** by any

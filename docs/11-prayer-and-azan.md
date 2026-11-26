@@ -402,6 +402,12 @@ As built in the scheduler (FEAT-0058, `ot_sched`):
   Dismiss and nothing to snooze, and goes to the front of the queue; a pause
   never holds it back. Quiet hours do not exist yet; when announcements arrive
   they must leave Azan alone too.
+- **The place on the toast** (FEAT-0076). A prayer's toast and its pre-prayer
+  reminder name the place the times are for, beneath their text — the saved place's
+  name, with the JAKIM zone code beside it when the times are JAKIM's (fresh or
+  cached) and the bare name when they are calculated, so a zone is never claimed
+  for times it did not give. The prayer service tells the window each pass
+  (`Note::Place`), and the preview uses the same text (`docs/specs/toast.md` §8).
 - **Sound** (FEAT-0060, ADR-022, CR-0008). Each prayer's template has a sound: the
   full Azan that ships in the exe — Subuh's own for Fajr — which is **the
   default** for every called prayer, Jumu'ah included; the short chime, the default
