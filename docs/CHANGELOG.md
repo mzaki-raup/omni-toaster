@@ -9,6 +9,16 @@ Format: [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) · Versioning:
 
 - (nothing yet)
 
+## 0.19.0 — 2026-11-27
+
+### Added
+
+- Prove the published exe was built for the forge it is on (c1b149db)
+- Settings > Updates with Check Now, Download and Install, and Restart (ce4adee9)
+- Swap a staged exe in with an update helper, rolling back if it does not take (7689ac68)
+- Verify the signed manifest, download and stage the exe (b2509774)
+- Where a copy looks for releases, and the check (2cf29790)
+
 ## 0.18.0 — 2026-11-27
 
 ### Added
