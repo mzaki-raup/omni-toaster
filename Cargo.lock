@@ -2698,6 +2698,8 @@ dependencies = [
  "ot-sched",
  "ot-store",
  "ot-ui",
+ "ot-update",
+ "semver",
  "tempfile",
  "tracing",
  "winresource",

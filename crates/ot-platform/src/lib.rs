@@ -15,6 +15,7 @@ pub mod file_dialog;
 pub mod locale;
 pub mod monitors;
 pub mod motion;
+pub mod process;
 pub mod single_instance;
 pub mod system_events;
 pub mod system_theme;

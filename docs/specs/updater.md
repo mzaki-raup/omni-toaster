@@ -68,6 +68,24 @@ digest of the copy) and says `NotWritable` when it cannot, so the pane can offer
 zip; it never elevates and never touches the running exe or `OmniToasterData/` beyond
 `cache/update/`.
 
+## 3.3 What is built (FEAT-0079): the swap, by an update helper
+
+The crash supervisor of Phase 8 does not exist yet, so §5's "the supervisor swaps" is
+built as a **one-shot helper**: the running (old) exe, started as
+`OmniToaster.exe --apply-update --expect <version> --data-dir <d> -- <original args>`
+by the program that staged the update, which then quits. The helper holds neither
+single-instance name; it waits until both are free, renames itself to
+`OmniToaster.exe.old`, renames `.new` into place, starts the new exe hidden with the
+original arguments, and waits up to 30 seconds for `cache/update/confirmed` to name the
+expected version. The new program writes that file at the end of start-up
+(`update_helper::after_startup`) and then deletes `.old`. If it exits early, never
+confirms, or confirms another version, the helper kills it, renames it to `.failed`,
+puts `.old` back, starts the old program again and leaves `cache/update/rolled-back`
+with the reason (read once). If the old program cannot be put back the outcome is
+`Stuck` and the log names the two files to rename by hand. Nothing outside the exe's
+own folder and `cache/update/` is touched; `OmniToasterData/` is otherwise untouched.
+When Phase 8 builds the supervisor, it takes this role over and the helper goes.
+
 ## 4. The flow
 
 ```

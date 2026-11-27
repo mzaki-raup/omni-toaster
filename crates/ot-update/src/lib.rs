@@ -11,6 +11,7 @@ pub mod manifest;
 pub mod release;
 pub mod source;
 pub mod stage;
+pub mod swap;
 pub mod verify;
 
 #[cfg(test)]

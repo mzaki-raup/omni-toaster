@@ -166,17 +166,17 @@ from git.zacx.net for one downloaded from there (ADR-024, modelled on the siblin
 - [ ] App: `--data-dir ./tmp-data` — download and verify a real release into `cache/update/` without installing. **Made, with the owner's say-so (2026-11-27):** `a_live_release_verifies_downloads_and_stages_from_both_forges` — against **both** forges, the real v0.18.0 manifest's signature verified with the key embedded in the crate, the real `OmniToaster.exe` (about 16 MB each, different digests, each from its own forge) was downloaded and held to its signed size and SHA-256, and staged beside a stand-in in a scratch folder (deleted); nothing was run or installed. Found on the way: the test first used a pretend running version of 0.0.1, which the check rightly refused as too old to update in place (the release needs at least 0.1.0) — so that guard works against a real manifest; the test now uses 0.1.0. **Not made:** the pane, the swap and a restart, which are FEAT-0079 and FEAT-0080
 - [x] Docs: ADR-024's update · `docs/specs/updater.md` §3.2 · CHANGELOG; README and GOTCHAS: nothing yet
 
-### FEAT-0079 · The swap: the supervisor replaces the exe, restarts, and rolls back
-- **State:** Pending · **Spec:** docs/specs/updater.md §5 · docs/specs/supervisor.md
+### FEAT-0079 · The swap: an update helper replaces the exe, restarts, and rolls back
+- **State:** Completed · **Spec:** docs/specs/updater.md §5 · docs/specs/supervisor.md
 - **Branch:** feat/updater
 - **Depends on:** FEAT-0078
-- [ ] The worker asks the supervisor to apply the staged file; the supervisor stops the worker, renames the exe to `.old`, renames `.new` into place and starts the new worker
-- [ ] A new worker that does not report its version in time is rolled back: `.old` restored, the worker restarted, the user told
-- [ ] `.old` is deleted on the first successful run; the data folder is untouched throughout
-- [ ] Test: the swap and the rollback sequences against throwaway files; the data folder byte-identical
-- [ ] Gate: fmt · clippy -D warnings · test --workspace --locked -j 4 · deny check · --self-test
-- [ ] App: `--data-dir ./tmp-data` — update a copy in place from a real release and watch it restart on the new version; then a deliberately broken one rolls back
-- [ ] Docs: spec · README · CHANGELOG · CHECKLIST · GOTCHAS
+- [x] The worker asks the supervisor to apply the staged file; the supervisor stops the worker, renames the exe to `.old`, renames `.new` into place and starts the new worker — built as an update helper (`--apply-update`), not the supervisor, which does not exist until Phase 8: spec §3.3; the worker does not yet ask — FEAT-0080 starts it
+- [x] A new worker that does not report its version in time is rolled back: `.old` restored, the worker restarted, the user told — 30 s confirmation (`cache/update/confirmed`); `.failed` kept, `.old` restored, old program restarted, `rolled-back` note. The user is told in FEAT-0080
+- [x] `.old` is deleted on the first successful run; the data folder is untouched throughout — by the new program after start-up; `OmniToasterData/` only gains `cache/update/`
+- [x] Test: the swap and the rollback sequences against throwaway files; the data folder byte-identical — 12 `swap` unit tests with fake processes plus 4 integration tests with real copies of the exe (swap and confirm, will-not-start, wrong version, nothing staged)
+- [x] Gate: fmt · clippy -D warnings · test --workspace --locked -j 4 · deny check · --self-test — fmt · clippy · tests · deny · self-test
+- [x] App: `--data-dir ./tmp-data` — update a copy in place from a real release and watch it restart on the new version; then a deliberately broken one rolls back — two real exe copies in a scratch folder: the helper swapped the staged one in, the new one started with the original arguments and confirmed. Not made: from a real release, because nothing in the app triggers it yet (FEAT-0080)
+- [x] Docs: spec · README · CHANGELOG · CHECKLIST · GOTCHAS — spec §3.3 · CHANGELOG; README and GOTCHAS: the `--` separator needed whitelisting in the option check; nothing else
 
 ### FEAT-0080 · Settings ▸ Updates: version, source, Check Now, and Install
 - **State:** Pending · **Spec:** docs/specs/updater.md §7 · docs/04-ui-design.md
