@@ -86,6 +86,28 @@ with the reason (read once). If the old program cannot be put back the outcome i
 own folder and `cache/update/` is touched; `OmniToasterData/` is otherwise untouched.
 When Phase 8 builds the supervisor, it takes this role over and the helper goes.
 
+## 3.4 What is built (FEAT-0080): Settings ▸ Updates
+
+`ot-ui` carries the pane (`update_pane`) and the thread behind it (`update_service`).
+The pane shows the running version, the forge this copy was built for (not editable),
+**Check for Updates** (`[updates] enabled`, default on; off means the service sends
+nothing, whatever was pressed a moment before), **Check automatically once a day**
+(`automatic`, default off), **Check Now**, the last check's age, and what it found:
+up to date, available (Download and Install, with the release's page as Release
+Notes), not installable from here (its page), downloading with a progress bar and a
+Cancel, or staged (Restart to Finish). Install verifies, downloads and stages
+(FEAT-0078); Restart starts the update helper (FEAT-0079) with the command line this
+copy was started with and quits. An update the helper rolled back is reported once,
+the next time the pane is created. Every failure is one named sentence: unreachable
+(naming the source), no release, rejected, bad download, folder not writable (the zip
+is offered), too old to update in place, rolled back, or other (the log).
+
+The service reads `settings.toml` before every request. An automatic check happens at
+most once a day: the time of the last request, successful or not, is kept in
+`cache/update/last-check`, and there is no retry loop. It never installs by itself:
+`automatic` only looks. Cancelling stops a download between two chunks, and closing
+the window cancels what is in flight.
+
 ## 4. The flow
 
 ```

@@ -13,6 +13,7 @@ Format: [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) · Versioning:
 
 ### Added
 
+- Settings ▸ Updates: the running version, the website this copy updates from, Check for Updates on or off (off sends nothing), an optional once-a-day check that never installs by itself, Check Now, and Download and Install then Restart to Finish for a newer version — in English and Bahasa Melayu, with every failure named (FEAT-0080).
 - Updates, third step: a staged update can now be swapped in. A short-lived helper (the running exe started with `--apply-update`) waits for the app to quit, replaces the exe, starts the new one and waits for it to confirm; a new exe that will not start, exits early or reports another version is rolled back and the old one restarted. Nothing in the app starts it yet (FEAT-0079).
 - Updates, second step: the app can now fetch a release's signed manifest, verify its signature against the project's key built into the program, download the new `OmniToaster.exe` holding it to the signed size and checksum, and stage it beside the running one — rejecting a tampered manifest, a substituted or oversize download, a replayed old release and a read-only folder. It does not install anything yet, and nothing in the app shows it (FEAT-0078).
 

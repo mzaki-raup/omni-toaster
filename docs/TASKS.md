@@ -179,16 +179,16 @@ from git.zacx.net for one downloaded from there (ADR-024, modelled on the siblin
 - [x] Docs: spec · README · CHANGELOG · CHECKLIST · GOTCHAS — spec §3.3 · CHANGELOG; README and GOTCHAS: the `--` separator needed whitelisting in the option check; nothing else
 
 ### FEAT-0080 · Settings ▸ Updates: version, source, Check Now, and Install
-- **State:** Pending · **Spec:** docs/specs/updater.md §7 · docs/04-ui-design.md
+- **State:** Completed · **Spec:** docs/specs/updater.md §7 · docs/04-ui-design.md
 - **Branch:** feat/updater
 - **Depends on:** FEAT-0077, FEAT-0078
-- [ ] The pane: the running version, which source this copy uses (shown, not editable), Check Now, the last check and its result, the release notes link, and an install button with what will be installed
-- [ ] Automatic checking on or off (a daily check at most, off by default until decided); the whole check can be turned off, which sends nothing
-- [ ] Every string a Fluent key in both languages; empty, checking, up to date, available, not installable and failed states each say something; Malay at its longest
-- [ ] Test: the layout test with the pane; the states; the service checks off the UI thread and cancels
-- [ ] Gate: fmt · clippy -D warnings · test --workspace --locked -j 4 · deny check · --self-test
-- [ ] App: `--data-dir ./tmp-data` — Check Now against both forges' builds; the pane in English and Malay, all three themes, narrow
-- [ ] Docs: spec · README · CHANGELOG · CHECKLIST · GOTCHAS
+- [x] The pane: the running version, which source this copy uses (shown, not editable), Check Now, the last check and its result, the release notes link, and an install button with what will be installed — `update_pane`: version, source, Check Now, last check, Release Notes link, Download and Install, Cancel and Restart to Finish; spec §3.4
+- [x] Automatic checking on or off (a daily check at most, off by default until decided); the whole check can be turned off, which sends nothing — `[updates] enabled` (default on) and `automatic` (default off); a day at most through `cache/update/last-check`; off sends nothing
+- [x] Every string a Fluent key in both languages; empty, checking, up to date, available, not installable and failed states each say something; Malay at its longest — `update-*` and `settings-section-updates` in both files; every state has a sentence; the layout test holds the longest states at 100–200%, narrow and pseudo-locale
+- [x] Test: the layout test with the pane; the states; the service checks off the UI thread and cancels — 8 service tests (off sends nothing — broken on purpose and caught; automatic on, off and once a day; progress; cancel; drop cancels), 4 pane state tests, the layout test with six pane states, and a both-languages text test; the check runs on a thread and cancels
+- [x] Gate: fmt · clippy -D warnings · test --workspace --locked -j 4 · deny check · --self-test — fmt · clippy · tests · deny · self-test
+- [x] App: `--data-dir ./tmp-data` — Check Now against both forges' builds; the pane in English and Malay, all three themes, narrow — debug build on a scratch `--data-dir`: the pane in English and Bahasa Melayu, narrow (570 px), Check Now against git.zacx.net → "You have the latest version (0.18.0)". **Not made:** Light and System themes (the pane uses only theme tokens), GitHub's build (the source is baked at build time), and Download and Install through the real window, since no newer release exists to offer
+- [x] Docs: spec · README · CHANGELOG · CHECKLIST · GOTCHAS — spec §3.4 · 04-ui-design · both READMEs with two screenshots · CHANGELOG; CHECKLIST and GOTCHAS: nothing to add
 
 ### FEAT-0081 · The release pipeline proves the baked source
 - **State:** Pending · **Spec:** docs/09-ci-cd-and-releases.md · scripts/verify-release.ps1

@@ -338,6 +338,19 @@ Dalam bahasa Melayu, tanpa rangkaian dan tanpa cache, jadi waktunya dikira dan
 labelnya menyatakan demikian:
 [settings-prayer-ms.png](docs/screenshots/settings-prayer-ms.png).
 
+Tetapan ▸ Kemas Kini: versi yang sedang berjalan, laman web tempat salinan ini
+mendapat kemas kini (GitHub atau git.zacx.net, ditentukan oleh tempat ia dibina
+dan dimuat turun; dipaparkan, tidak boleh disunting), Semak kemas kini hidup atau
+mati (mati tidak menghantar apa-apa), semakan sekali sehari yang pilihan dan tidak
+memasang sendiri, dan Semak Sekarang. Versi yang lebih baharu dimuat turun, disahkan
+dengan manifes bertandatangan dan cheksumnya, lalu diletakkan di sebelah program
+yang berjalan; Mulakan Semula untuk Siap menukarnya dan mengembalikan yang lama
+jika yang baharu tidak bermula:
+
+![Tetapan ▸ Kemas Kini sebelum semakan pertama](docs/screenshots/settings-updates-ms.png)
+
+Dalam bahasa Inggeris: [settings-updates.png](docs/screenshots/settings-updates.png).
+
 Yang selebihnya **belum ditangkap** — skrinnya belum wujud. Tempatnya telah dikhaskan
 dan prosedur tangkapannya ditulis dalam
 [docs/screenshots/README.md](docs/screenshots/README.md); setiap imej di bawah

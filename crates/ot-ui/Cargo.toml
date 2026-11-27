@@ -25,7 +25,9 @@ ot-sched = { path = "../ot-sched" }
 ot-weather = { path = "../ot-weather" }
 ot-store = { path = "../ot-store" }
 ot-toast = { path = "../ot-toast" }
+ot-update = { path = "../ot-update" }
 raw-window-handle.workspace = true
+semver.workspace = true
 thiserror.workspace = true
 tracing.workspace = true
 
