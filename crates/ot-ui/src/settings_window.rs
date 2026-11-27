@@ -1475,7 +1475,7 @@ impl SettingsWindow {
                 },
                 Some(&template),
                 Some(formatted_time(jiff::Timestamp::now())),
-                self.weather.place_name(),
+                self.weather.place_label(),
             );
             let id = self.toasts.push_first(spec, Instant::now());
             if template.sound_mode.as_deref() == Some("chime") {

@@ -436,13 +436,18 @@ is the place the times are for (FEAT-0083); the day's source label is a fact abo
 times and is shown in Settings ▸ Prayer, not on the toast. A per-prayer **style** override is not built.
 
 **The place (FEAT-0075, FEAT-0076, FEAT-0083).** A prayer's toast, the reminder ahead of
-it and a weather toast each name the place as the toast's **bottom line** — its note
-(`reminder_toast::place_note`), dim like every note: "Kuala Lumpur (WLY01)" for JAKIM's
-times — the zone code beside the name — and the bare name for calculated times and for
-weather. It is data, never translated, cut at 30 characters with an ellipsis, and a
-toast with no place has no bottom line. Nothing is added to the body, so a user's own
-message is exactly as typed and a long one is not pushed off by it. (Before FEAT-0083
-the place was the body's last line and the prayer's note was the source label.)
+it and a weather toast each say where they are for as the toast's **bottom line** — its
+note, dim like every note, beside Dismiss — on **two rows**: the name, with the JAKIM zone
+code in brackets when the times are JAKIM's, over the coordinates to two decimals
+("Kuala Lumpur (WLY01)" over "3.15, 101.69"; a weather toast has no code). The two rows
+are drawn at 10 points so both fit the button row; `reminder_toast::place_line` builds
+them and `actions::note_rows` and `note_size` draw them. A place typed as coordinates is
+named by them, so it is one row (the coordinates and the code), not the same numbers
+twice. It is data, never translated; only the **name** is cut (at 26 characters, with an
+ellipsis), so the code and the coordinates always show. A toast with no place has no
+bottom line. Nothing is added to the body, so a user's own message is exactly as typed
+and a long one is not pushed off by it. (Before FEAT-0083 the place was the body's last
+line and the prayer's note was the source label.)
 
 ### 8.1 The image library
 

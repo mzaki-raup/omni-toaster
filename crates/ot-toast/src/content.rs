@@ -316,6 +316,34 @@ mod tests {
     use crate::spec::{Content, Style};
 
     #[test]
+    fn a_two_row_note_fits_the_button_row_and_the_room_beside_dismiss() {
+        // FEAT-0083: the place on one row and its coordinates on the next.
+        let note = "Kuala Lumpur, Wilayah Persekutuan (WLY01)\n3.15, 101.69";
+        assert_eq!(crate::actions::note_rows(note), 2);
+        assert_eq!(crate::actions::note_rows("Kuala Lumpur"), 1);
+        let ctx = ctx();
+        let _ = ctx.run(Default::default(), |ctx| {
+            let height = ctx.fonts_mut(|fonts| {
+                fonts
+                    .layout_no_wrap(
+                        note.to_owned(),
+                        egui::FontId::proportional(crate::actions::note_size(note)),
+                        egui::Color32::WHITE,
+                    )
+                    .size()
+                    .y
+            });
+            // Centred on the row, so what is over spreads evenly above and below into
+            // the toast's own padding; a point is the most that is allowed.
+            assert!(
+                height <= crate::actions::BUTTON_HEIGHT + 1.0,
+                "two rows are {height} tall and the row is {}",
+                crate::actions::BUTTON_HEIGHT
+            );
+        });
+    }
+
+    #[test]
     fn the_title_is_set_apart_from_the_icon_by_more_than_the_other_gaps() {
         // FEAT-0082: a small, scaled gap between the header's icon and its title.
         const {

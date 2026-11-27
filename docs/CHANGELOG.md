@@ -9,7 +9,7 @@ Format: [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) · Versioning:
 
 ### Changed
 
-- A prayer toast's bottom line is now the place its times are for, in place of the source label, and the place is no longer repeated under the message; a weather toast puts its place on the bottom line the same way (FEAT-0083).
+- A prayer toast's bottom line is now the place its times are for — the name and zone code over the coordinates, on two rows — in place of the source label, and the place is no longer repeated under the message; a weather toast puts its name and coordinates on the bottom line the same way (FEAT-0083).
 - A little more room between a toast's icon and its title (FEAT-0082).
 
 - (nothing yet)

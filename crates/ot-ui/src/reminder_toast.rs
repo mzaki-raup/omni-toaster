@@ -248,20 +248,40 @@ pub fn weather_image(condition: ot_weather::condition::Condition) -> Option<&'st
     })
 }
 
-/// The longest a place's name is drawn on a toast before an ellipsis: the name
-/// is the user's, or a city's, and can be any length.
-const PLACE_CHARS: usize = 30;
+/// The longest a place's name is drawn on a toast before an ellipsis: the name is the
+/// user's, or a city's, and can be any length. Only the name is cut, so the code and the
+/// coordinates after it always show.
+const NAME_CHARS: usize = 26;
 
-/// The place as a toast's bottom line (FEAT-0075, FEAT-0076, FEAT-0083), so a toast says
-/// where the weather or the prayer time is for, in the same dim colour the line has
-/// always had. The place is data, a name or a name and a zone code, never translated
-/// and never a sentence; the user's own message above it is left exactly as typed.
-/// `None` when there is no place, which leaves the toast without a bottom line.
+/// What a toast says about the place it is for (FEAT-0083): the name and, for JAKIM's
+/// times, the zone code beside it, then the coordinates on a row of their own —
+/// "Kuala Lumpur (WLY01)" over "3.15, 101.69". It is data, never translated. A place the
+/// user typed as coordinates is *named* by them, so they are not said twice: that one
+/// is a single row. `None` when there is no name.
+pub fn place_line(name: &str, code: Option<&str>, latitude: f64, longitude: f64) -> Option<String> {
+    let name = name.trim();
+    if name.is_empty() {
+        return None;
+    }
+    let coordinates = format!("{latitude:.2}, {longitude:.2}");
+    let mut line = crate::prayer_pane::ellipsize(name, NAME_CHARS);
+    if let Some(code) = code {
+        line.push_str(&format!(" ({code})"));
+    }
+    if name != coordinates {
+        line.push('\n');
+        line.push_str(&coordinates);
+    }
+    Some(line)
+}
+
+/// A place line as a toast's note: the bottom of the toast (FEAT-0075, FEAT-0076,
+/// FEAT-0083), dim like every note, and nothing at all when there is no place.
 fn place_note(place: Option<&str>) -> Option<String> {
     place
         .map(str::trim)
         .filter(|place| !place.is_empty())
-        .map(|place| crate::prayer_pane::ellipsize(place, PLACE_CHARS))
+        .map(str::to_owned)
 }
 
 /// The built-in masjid picture a prayer shows until its template chooses one.
@@ -773,16 +793,43 @@ mod tests {
         let plain = weather_spec(&prefs, &rain, None, None, None);
         assert_eq!(weather_spec(&prefs, &rain, None, None, Some("  ")), plain);
         assert_eq!(plain.content.note, None);
-        // A very long name is cut with an ellipsis rather than overrunning the toast.
-        let long = "Kampung Baru Sungai Buloh Seksyen Tujuh Belas Daerah Petaling Selangor";
-        let cut = weather_spec(&prefs, &rain, None, None, Some(long))
-            .content
-            .note
-            .expect("a bottom line");
-        assert!(
-            cut.chars().count() <= PLACE_CHARS && cut.ends_with('…'),
-            "{cut:?}"
+    }
+
+    #[test]
+    fn a_place_is_its_name_and_code_over_its_coordinates() {
+        // FEAT-0083: two rows, so neither is cut to make room for the other.
+        assert_eq!(
+            place_line("Kuala Lumpur", Some("WLY01"), 3.15, 101.69).as_deref(),
+            Some("Kuala Lumpur (WLY01)\n3.15, 101.69")
         );
+        // Weather has no zone code.
+        assert_eq!(
+            place_line("Kuching, Sarawak", None, 1.55, 110.35).as_deref(),
+            Some("Kuching, Sarawak\n1.55, 110.35")
+        );
+        // A place typed as coordinates is named by them: one row, not the same numbers twice.
+        assert_eq!(
+            place_line("3.15, 101.69", Some("WLY01"), 3.15, 101.69).as_deref(),
+            Some("3.15, 101.69 (WLY01)")
+        );
+        // The coordinates are always two decimals, whatever the float holds.
+        assert_eq!(
+            place_line("Here", None, 3.0, 101.5).as_deref(),
+            Some("Here\n3.00, 101.50")
+        );
+        // No name, no line.
+        assert_eq!(place_line("   ", Some("WLY01"), 1.0, 2.0), None);
+    }
+
+    #[test]
+    fn a_long_name_is_cut_but_its_code_and_coordinates_still_show() {
+        let long = "Kampung Baru Sungai Buloh Seksyen Tujuh Belas Daerah Petaling Selangor";
+        let line = place_line(long, Some("SGR01"), 3.2, 101.5).expect("a line");
+        let (first, second) = line.split_once('\n').expect("two rows");
+        assert!(first.contains('…'), "{first:?}");
+        assert!(first.ends_with("(SGR01)"), "{first:?}");
+        assert_eq!(second, "3.20, 101.50");
+        assert!(first.chars().count() <= NAME_CHARS + " (SGR01)".chars().count());
     }
 
     #[test]

@@ -151,23 +151,40 @@ pub fn note_rect(row: egui::Rect, buttons: &[egui::Rect]) -> egui::Rect {
 
 /// The note's size, a touch under the labels'.
 pub const NOTE_SIZE: f32 = 12.0;
+/// The size of each row of a two-row note, small enough that both fit the button's
+/// height (FEAT-0083: the place on one row, its coordinates on the next).
+pub const NOTE_SIZE_TWO_ROWS: f32 = 10.0;
 
-/// The note, dim, on one line, vertically centred in its room. It is the
-/// app's own text and is written to fit; an ellipsis is the last resort at
-/// the narrowest width, not the plan.
+/// How many rows a note takes: one, or two when the caller put a line break in it.
+pub fn note_rows(note: &str) -> usize {
+    if note.contains('\n') { 2 } else { 1 }
+}
+
+/// The size a note is drawn at.
+pub fn note_size(note: &str) -> f32 {
+    if note_rows(note) == 2 {
+        NOTE_SIZE_TWO_ROWS
+    } else {
+        NOTE_SIZE
+    }
+}
+
+/// The note, dim, on one line — or two, if it has a line break — vertically centred
+/// in its room. It is written to fit; an ellipsis is the last resort at the narrowest
+/// width, not the plan, and it cuts each row on its own.
 fn draw_note(painter: &egui::Painter, room: egui::Rect, note: &str, dim: egui::Color32) {
     if room.width() < 1.0 {
         return;
     }
     let mut job = egui::text::LayoutJob::simple(
         note.to_owned(),
-        egui::FontId::proportional(NOTE_SIZE),
+        egui::FontId::proportional(note_size(note)),
         dim,
         room.width(),
     );
     job.wrap = egui::text::TextWrapping {
         max_width: room.width(),
-        max_rows: 1,
+        max_rows: note_rows(note),
         break_anywhere: false,
         overflow_character: Some('…'),
     };

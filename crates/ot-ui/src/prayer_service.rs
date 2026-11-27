@@ -84,24 +84,24 @@ pub struct Report {
 
 /// How a prayer's toast names the place: the saved place's name, with the JAKIM
 /// zone code beside it when the times are JAKIM's — "Kuala Lumpur (WLY01)" — and
-/// the bare name when they are calculated. `None` when no place is saved.
+/// the bare name when they are calculated, then the coordinates on a row of their own
+/// (`reminder_toast::place_line`). `None` when no place is saved.
 pub fn place_label(
     place: Option<&ot_store::location::StoredLocation>,
     zone: Option<&str>,
     source: Option<Source>,
 ) -> Option<String> {
-    let name = place?.name.trim();
-    if name.is_empty() {
-        return None;
-    }
+    let place = place?;
     let jakim = matches!(
         source,
         Some(Source::Jakim { .. } | Source::JakimCached { .. })
     );
-    Some(match zone {
-        Some(code) if jakim => format!("{name} ({code})"),
-        _ => name.to_owned(),
-    })
+    crate::reminder_toast::place_line(
+        &place.name,
+        zone.filter(|_| jakim),
+        place.latitude,
+        place.longitude,
+    )
 }
 
 /// A fetch that is never made: the chain run for the day's times must not fetch,
@@ -964,20 +964,20 @@ mod tests {
         });
         assert_eq!(
             place_label(Some(&place), Some("WLY01"), jakim).as_deref(),
-            Some("Kuala Lumpur (WLY01)")
+            Some("Kuala Lumpur (WLY01)\n3.15, 101.69")
         );
         assert_eq!(
             place_label(Some(&place), Some("WLY01"), cached).as_deref(),
-            Some("Kuala Lumpur (WLY01)")
+            Some("Kuala Lumpur (WLY01)\n3.15, 101.69")
         );
         // Calculated times are not a zone's, so the zone is not claimed.
         assert_eq!(
             place_label(Some(&place), Some("WLY01"), calculated).as_deref(),
-            Some("Kuala Lumpur")
+            Some("Kuala Lumpur\n3.15, 101.69")
         );
         assert_eq!(
             place_label(Some(&place), None, jakim).as_deref(),
-            Some("Kuala Lumpur")
+            Some("Kuala Lumpur\n3.15, 101.69")
         );
         assert_eq!(place_label(None, Some("WLY01"), jakim), None);
         let blank = StoredLocation {
@@ -993,7 +993,13 @@ mod tests {
         rig.place_in_malaysia(Origin::Manual, "2026-11-19T00:00:00Z");
         let report = rig.engine.run(at(NOW));
         // JAKIM's times for the place's zone, so the zone is named beside it.
-        assert_eq!(report.place.as_deref(), Some("Shah Alam (SGR01)"));
+        assert_eq!(
+            report.place.as_deref(),
+            Some(
+                "Shah Alam (SGR01)
+3.09, 101.53"
+            )
+        );
     }
 
     #[test]
