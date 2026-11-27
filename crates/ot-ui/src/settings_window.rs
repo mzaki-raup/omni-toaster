@@ -3128,6 +3128,39 @@ pub struct DevOptions {
     pub simulate_weather: Option<u8>,
 }
 
+/// The app's icon as the window takes it: the 256-pixel master of the set
+/// `scripts/make-icons.ps1` makes, which Windows scales for the title bar and the
+/// taskbar. The tray and the exe's own file icon come from the resource the build
+/// embeds; a window gets none of that by itself and shows eframe's default "e"
+/// unless it is handed one (BUG-0019). `None` only if the embedded file were
+/// damaged, which the test would catch.
+fn window_icon() -> Option<egui::IconData> {
+    const PNG: &[u8] = include_bytes!("../../../assets/icon/omnitoaster-256.png");
+    let decoded = image::load_from_memory_with_format(PNG, image::ImageFormat::Png)
+        .map_err(|error| tracing::warn!(%error, "the window icon could not be read"))
+        .ok()?
+        .into_rgba8();
+    Some(egui::IconData {
+        width: decoded.width(),
+        height: decoded.height(),
+        rgba: decoded.into_raw(),
+    })
+}
+
+/// The Settings window's own shape: its title, its size and its icon.
+fn window_viewport() -> egui::ViewportBuilder {
+    let viewport = egui::ViewportBuilder::default()
+        .with_title(ot_i18n::text("settings-window-title"))
+        .with_inner_size([880.0, 560.0])
+        // Narrow enough to prove the layout survives it, and no narrower:
+        // the rules require the window to be checked at this size.
+        .with_min_inner_size([560.0, 400.0]);
+    match window_icon() {
+        Some(icon) => viewport.with_icon(icon),
+        None => viewport,
+    }
+}
+
 pub fn run(
     root: DataRoot,
     settings: Settings,
@@ -3161,12 +3194,7 @@ pub fn run(
     let visuals = window.theme().visuals();
 
     let options = eframe::NativeOptions {
-        viewport: egui::ViewportBuilder::default()
-            .with_title(ot_i18n::text("settings-window-title"))
-            .with_inner_size([880.0, 560.0])
-            // Narrow enough to prove the layout survives it, and no narrower:
-            // the rules require the window to be checked at this size.
-            .with_min_inner_size([560.0, 400.0]),
+        viewport: window_viewport(),
         // No vsync. Every toast is its own window painted in the root's frame
         // (ADR-016), and with vsync each window's present waits for the next
         // refresh in turn: four windows, four refreshes, 12–32 fps. Windows'
@@ -3261,6 +3289,25 @@ fn picture_label(library: &crate::library::Library, path: &str) -> Option<String
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn the_settings_window_carries_the_apps_own_icon_not_eframes_default() {
+        // BUG-0019: without `with_icon` Windows shows eframe's "e" in the title bar and
+        // on the taskbar, though the exe itself carries the real icon.
+        let icon = window_viewport()
+            .icon
+            .expect("the window has an icon of its own");
+        assert_eq!((icon.width, icon.height), (256, 256));
+        assert_eq!(icon.rgba.len(), 256 * 256 * 4);
+        assert!(
+            icon.rgba
+                .as_chunks::<4>()
+                .0
+                .iter()
+                .any(|pixel| pixel[3] == 255),
+            "it is not blank"
+        );
+    }
 
     #[test]
     fn the_title_bar_is_told_each_appearance_once() {

@@ -127,11 +127,27 @@ Refs: BUG-0003
 ```
 Version : v0.5.1
 Features : FEAT-0082
-Bugs : BUG-0018
+Bugs : BUG-0019
 Change Request : CR-0010
 ```
 
 ---
+
+## v0.7.1 — In-Progress
+
+A patch off `main` while FEAT-0072 is open, on `fix/window-icon`.
+
+### BUG-0018 · The Settings window and its taskbar button show eframe's "e", not the app's icon
+- **State:** In-Progress · **Spec:** docs/04-ui-design.md
+- **Branch:** fix/window-icon
+- **Source:** the owner: "Why is the apps icon not follow the icon that I gave before? The icon not showing in the apps and taskbar"
+- [x] Establish the cause: the exe's file icon and the tray icon come from the resource `build.rs` embeds, but the Settings window is an eframe window and nothing called `ViewportBuilder::with_icon`, so Windows shows eframe's default "e" in the title bar and on the taskbar button (visible in the screenshots taken for FEAT-0080)
+- [x] Test: `the_settings_window_carries_the_apps_own_icon_not_eframes_default` fails (the viewport has no icon) before the fix and passes after it: a 256 × 256 RGBA icon that is not blank
+- [x] Fix: `window_viewport()` hands the window the 256-pixel master of the icon set, decoded with `image` (PNG only, already in the tree)
+- [ ] Gate: fmt · clippy -D warnings · `cargo test --workspace --locked -j 4 --no-fail-fast` · deny check · --self-test. **Not green on this machine:** the owner's installed copy (`C:\Apps\omni-toaster`) holds the single-instance names, so `a_second_instance_bows_out_instead_of_starting`, the four `update_swap` tests and `single_instance::tests::a_second_claim_of_the_same_role_is_refused_and_a_release_frees_it` fail for that reason alone; everything else passed
+- [ ] App: not made. The window cannot be started beside the owner's running copy, so the title bar and the taskbar button were not looked at; to be seen once that copy is closed
+- [x] Docs: CHANGELOG · TASKS; GOTCHAS: nothing new
+- **Notes:** The toast windows have no taskbar button and were not changed.
 
 ## v0.7.0 — Planned
 
