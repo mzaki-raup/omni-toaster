@@ -23,7 +23,11 @@ const BODY_SIZE: f32 = 13.5;
 const META_SIZE: f32 = 11.5;
 /// Between the header row and the body.
 const HEADER_GAP: f32 = 6.0;
-/// Between the icon and the title.
+/// Between the header's icon and its title (FEAT-0082): a little more than the
+/// other gaps, so the title does not read as touching the picture.
+const TITLE_GAP: f32 = 12.0;
+/// Between the icon column and what sits beside it: the app name and time, and the
+/// body image.
 const ICON_GAP: f32 = 8.0;
 /// The side of the square the category mark occupies.
 const ICON_SIDE: f32 = 20.0;
@@ -139,7 +143,7 @@ fn draw_text(
                 );
             }
         }
-        title_left += side + ICON_GAP;
+        title_left += side + TITLE_GAP;
     }
 
     // The title: user text, so it is what truncates.
@@ -310,6 +314,43 @@ fn fade(colour: egui::Color32, alpha: f32) -> egui::Color32 {
 mod tests {
     use super::*;
     use crate::spec::{Content, Style};
+
+    #[test]
+    fn a_two_row_note_fits_the_button_row_and_the_room_beside_dismiss() {
+        // FEAT-0083: the place on one row and its coordinates on the next.
+        let note = "Kuala Lumpur, Wilayah Persekutuan (WLY01)\n3.15, 101.69";
+        assert_eq!(crate::actions::note_rows(note), 2);
+        assert_eq!(crate::actions::note_rows("Kuala Lumpur"), 1);
+        let ctx = ctx();
+        let _ = ctx.run(Default::default(), |ctx| {
+            let height = ctx.fonts_mut(|fonts| {
+                fonts
+                    .layout_no_wrap(
+                        note.to_owned(),
+                        egui::FontId::proportional(crate::actions::note_size(note)),
+                        egui::Color32::WHITE,
+                    )
+                    .size()
+                    .y
+            });
+            // Centred on the row, so what is over spreads evenly above and below into
+            // the toast's own padding; a point is the most that is allowed.
+            assert!(
+                height <= crate::actions::BUTTON_HEIGHT + 1.0,
+                "two rows are {height} tall and the row is {}",
+                crate::actions::BUTTON_HEIGHT
+            );
+        });
+    }
+
+    #[test]
+    fn the_title_is_set_apart_from_the_icon_by_more_than_the_other_gaps() {
+        // FEAT-0082: a small, scaled gap between the header's icon and its title.
+        const {
+            assert!(TITLE_GAP > ICON_GAP);
+            assert!(TITLE_GAP <= ICON_SIDE, "slightly, not a gutter");
+        }
+    }
 
     /// Roughly 40% longer than what it is given, in the shape of a
     /// pseudo-locale: long enough to break a layout Malay would not, while

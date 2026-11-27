@@ -41,6 +41,12 @@ const NOTIFIED: &str = ot_store::weather::NOTIFIED_SETTING;
 /// opened. A change of settings or place wakes the thread sooner.
 const IDLE: SignedDuration = SignedDuration::from_mins(10);
 
+/// How a weather toast names a place: `reminder_toast::place_line` with no zone code,
+/// which is a prayer's idea.
+pub fn place_label(place: &ot_store::location::StoredLocation) -> Option<String> {
+    crate::reminder_toast::place_line(&place.name, None, place.latitude, place.longitude)
+}
+
 /// What a fetch is: a place in, an observation and the body it was read from out.
 pub trait Fetch: Send {
     fn fetch(
@@ -167,15 +173,16 @@ impl Engine {
         thresholds
     }
 
-    /// The weather place's name, for the toast to say where the weather is for
-    /// (FEAT-0075); `None` when none is saved, as in a simulation.
-    pub fn place_name(&self) -> Option<String> {
+    /// What the toast says about the weather place (FEAT-0075, FEAT-0083): its name and,
+    /// on a row of its own, its coordinates. `None` when none is saved, as in a
+    /// simulation.
+    pub fn place_label(&self) -> Option<String> {
         Store::open(&self.root)
             .ok()?
             .weather_location()
             .ok()
             .flatten()
-            .map(|place| place.name)
+            .and_then(|place| place_label(&place))
     }
 
     /// The template of the condition a change is to, if it is to one.
@@ -444,7 +451,7 @@ fn serve(mut engine: Engine, incoming: &Receiver<Msg>, notes: &SyncSender<Note>)
             }
             for change in report.changes {
                 let template = engine.template_for(&change).map(Box::new);
-                let place = engine.place_name();
+                let place = engine.place_label();
                 // A change must not be lost to a full channel without a word.
                 if notes
                     .try_send(Note::Change(change, template, place))
@@ -704,14 +711,20 @@ mod tests {
         rig.script.push(Ok(observation(0, 0, 28.0, &[])));
         rig.engine.run(at(T0));
         assert_eq!(*rig.script.asked.lock().expect("lock"), [(1.55, 110.35)]);
-        assert_eq!(rig.engine.place_name().as_deref(), Some("Kuching"));
+        assert_eq!(
+            rig.engine.place_label().as_deref(),
+            Some("Kuching\n1.55, 110.35")
+        );
         // Moving the prayer place later changes neither.
         let mut elsewhere = kuching();
         elsewhere.name = "Penang".into();
         elsewhere.latitude = 5.41;
         elsewhere.longitude = 100.33;
         store(&rig).save_manual_location(&elsewhere).expect("saved");
-        assert_eq!(rig.engine.place_name().as_deref(), Some("Kuching"));
+        assert_eq!(
+            rig.engine.place_label().as_deref(),
+            Some("Kuching\n1.55, 110.35")
+        );
         assert!(
             store(&rig).weather().expect("reads").is_some(),
             "the weather cache is the weather place's, and stayed"
@@ -970,9 +983,12 @@ mod tests {
     #[test]
     fn the_saved_places_name_is_given_for_the_toast_and_a_simulation_has_none() {
         let rig = rig();
-        assert_eq!(rig.engine.place_name().as_deref(), Some("Kuala Lumpur"));
+        assert_eq!(
+            rig.engine.place_label().as_deref(),
+            Some("Kuala Lumpur\n3.15, 101.69")
+        );
         let none = rig_with(&weather_on(), false);
-        assert_eq!(none.engine.place_name(), None);
+        assert_eq!(none.engine.place_label(), None);
     }
 
     #[test]

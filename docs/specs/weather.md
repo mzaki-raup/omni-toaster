@@ -182,7 +182,7 @@ cargo run -p omnitoaster -- --data-dir ./tmp-data
   fetched, and the pass looks again at once. The service, the pane and the toast's place
   name all read row 2.
 - **The place on the toast (FEAT-0075).** A weather toast names the weather place
-  beneath its text, the same way a prayer's does (`docs/specs/toast.md` §8); the
+  as its bottom line (FEAT-0083), the same way a prayer's does (`docs/specs/toast.md` §8); the
   service reads the name with each change and the preview uses the pane's. A
   simulation has no place and so none is shown. When the weather has a place of its
   own (FEAT-0072) it is that place's name.

@@ -431,18 +431,23 @@ the title and message so the built-in text in the active language shows again.
 What is typed is stored as typed with the language it was written in, and never
 translated. The built-in picture is the masjid picture of that prayer (Syuruk
 borrows Dhuha's). The fire and the editor's **Preview Toast** both come through
-`reminder_toast::prayer_spec`, so they cannot disagree, and the toast carries the
-day's source label as its note. A per-prayer **style** override is not built.
+`reminder_toast::prayer_spec`, so they cannot disagree. The toast's note, its bottom line,
+is the place the times are for (FEAT-0083); the day's source label is a fact about the
+times and is shown in Settings ▸ Prayer, not on the toast. A per-prayer **style** override is not built.
 
-**The place (FEAT-0075, FEAT-0076).** A prayer's toast, the reminder ahead of it
-and a weather toast each name the place on a line of their own at the end of the
-body (`reminder_toast::with_place`): "Kuala Lumpur (WLY01)" for JAKIM's times — the
-zone code beside the name — and the bare name for calculated times and for weather.
-It is data, never translated, cut at 30 characters with an ellipsis, and a user's
-own message above it is left exactly as typed. It is the body's last line, not the
-note, because the note is one line beside Dismiss and already carries the source
-label. A default toast has room for three body rows; a message long enough to fill
-them pushes the place off, which the body's own ellipsis then shows.
+**The place (FEAT-0075, FEAT-0076, FEAT-0083).** A prayer's toast, the reminder ahead of
+it and a weather toast each say where they are for as the toast's **bottom line** — its
+note, dim like every note, beside Dismiss — on **two rows**: the name, with the JAKIM zone
+code in brackets when the times are JAKIM's, over the coordinates to two decimals
+("Kuala Lumpur (WLY01)" over "3.15, 101.69"; a weather toast has no code). The two rows
+are drawn at 10 points so both fit the button row; `reminder_toast::place_line` builds
+them and `actions::note_rows` and `note_size` draw them. A place typed as coordinates is
+named by them, so it is one row (the coordinates and the code), not the same numbers
+twice. It is data, never translated; only the **name** is cut (at 26 characters, with an
+ellipsis), so the code and the coordinates always show. A toast with no place has no
+bottom line. Nothing is added to the body, so a user's own message is exactly as typed
+and a long one is not pushed off by it. (Before FEAT-0083 the place was the body's last
+line and the prayer's note was the source label.)
 
 ### 8.1 The image library
 
@@ -612,7 +617,8 @@ every frame rather than cached, so a monitor unplugged mid-toast falls back to
 the primary one. The two ways of *setting* a custom point are controls, and
 land with the Appearance pane.
 
-**The header and the body** (FEAT-0020). The category mark, the title, and
+**The header and the body** (FEAT-0020). The category mark, the title (set 12 points
+from the mark, `TITLE_GAP`, FEAT-0082), and
 the app name and time on the header's right-hand side; the body beneath,
 wrapped at word boundaries and truncated with an ellipsis when even wrapping
 cannot fit it. The app's own labels are laid out first and get their room; the

@@ -16,7 +16,7 @@ use std::sync::mpsc::{Receiver, SyncSender, sync_channel};
 use ot_core::WeatherSettings;
 use ot_prayer::location::{Located, Lookup};
 use ot_store::Store;
-use ot_store::location::Origin;
+use ot_store::location::{Origin, StoredLocation};
 use ot_store::reminders::{PrayerTemplateEdit, Template};
 use ot_weather::condition::Condition;
 
@@ -30,9 +30,9 @@ use crate::theme::Tokens;
 
 /// What a thread read or wrote.
 enum Reply {
-    Place(Option<String>),
+    Place(Option<StoredLocation>),
     /// The weather place was saved: its name, which is what the pane shows.
-    PlaceSaved(Option<String>),
+    PlaceSaved(Option<StoredLocation>),
     /// A city search came back; `generation` says which, so an older one is dropped.
     Search {
         generation: u64,
@@ -97,6 +97,8 @@ pub struct State {
     saved: bool,
     /// The saved place's name once read; `None` inside means there is none.
     place: Option<Option<String>>,
+    /// What a toast says about it: the name, and the coordinates on a row of their own.
+    place_label: Option<String>,
     /// The city search and typed coordinates, shared with Settings ▸ Prayer.
     picker: Picker,
     /// Whether the place entry controls are open.
@@ -117,7 +119,7 @@ impl State {
         let state = Self::idle(root);
         state.spawn("weather-place", |root, out| {
             let reply = match Store::open(root).and_then(|store| store.weather_location()) {
-                Ok(place) => Reply::Place(place.map(|place| place.name)),
+                Ok(place) => Reply::Place(place),
                 Err(error) => Reply::Failed(error.to_string()),
             };
             let _ = out.send(reply);
@@ -139,6 +141,7 @@ impl State {
             edit: TemplateEdit::default(),
             saved: false,
             place: None,
+            place_label: None,
             picker: Picker::new(),
             editing: false,
             search_generation: 0,
@@ -258,7 +261,7 @@ impl State {
                 store.weather_location()
             });
             let reply = match saved {
-                Ok(place) => Reply::PlaceSaved(place.map(|place| place.name)),
+                Ok(place) => Reply::PlaceSaved(place),
                 Err(error) => Reply::Failed(error.to_string()),
             };
             let _ = out.send(reply);
@@ -276,9 +279,21 @@ impl State {
         self.snapshot = Some(snapshot);
     }
 
-    /// The saved place's name once read, for the preview toast.
+    /// The weather place as it was read: its name for the pane, and what a toast says
+    /// about it (its name and coordinates) for the preview.
+    fn set_place(&mut self, place: Option<StoredLocation>) {
+        self.place_label = place.as_ref().and_then(crate::weather_service::place_label);
+        self.place = Some(place.map(|place| place.name));
+    }
+
+    /// The saved place's name once read.
     pub fn place_name(&self) -> Option<&str> {
         self.place.as_ref()?.as_deref()
+    }
+
+    /// What a toast says about the place, for the preview toast (FEAT-0083).
+    pub fn place_label(&self) -> Option<&str> {
+        self.place_label.as_deref()
     }
 
     /// Whether there is weather to show, so its age can be kept current.
@@ -297,9 +312,9 @@ impl State {
         while let Ok(reply) = self.receiver.try_recv() {
             self.pending = self.pending.saturating_sub(1);
             match reply {
-                Reply::Place(place) => self.place = Some(place),
+                Reply::Place(place) => self.set_place(place),
                 Reply::PlaceSaved(place) => {
-                    self.place = Some(place);
+                    self.set_place(place);
                     // The weather shown was another place's: it is gone until the
                     // service has looked at this one.
                     self.snapshot = None;
@@ -346,7 +361,7 @@ impl State {
         self.pending += 1;
         self.spawn("weather-place", |root, out| {
             let reply = match Store::open(root).and_then(|store| store.weather_location()) {
-                Ok(place) => Reply::Place(place.map(|place| place.name)),
+                Ok(place) => Reply::Place(place),
                 Err(error) => Reply::Failed(error.to_string()),
             };
             let _ = out.send(reply);
