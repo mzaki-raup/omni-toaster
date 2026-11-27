@@ -13,6 +13,13 @@ Format: [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) · Versioning:
 
 ### Added
 
+- The release check now proves a release was built for the website it is published on: the exe must carry that website's address, and the manifest's links must start with it, or the release job fails. This is what keeps a GitHub download updating from GitHub and a git.zacx.net download from git.zacx.net (FEAT-0081).
+- Settings ▸ Updates: the running version, the website this copy updates from, Check for Updates on or off (off sends nothing), an optional once-a-day check that never installs by itself, Check Now, and Download and Install then Restart to Finish for a newer version — in English and Bahasa Melayu, with every failure named (FEAT-0080).
+- Updates, third step: a staged update can now be swapped in. A short-lived helper (the running exe started with `--apply-update`) waits for the app to quit, replaces the exe, starts the new one and waits for it to confirm; a new exe that will not start, exits early or reports another version is rolled back and the old one restarted. Nothing in the app starts it yet (FEAT-0079).
+- Updates, second step: the app can now fetch a release's signed manifest, verify its signature against the project's key built into the program, download the new `OmniToaster.exe` holding it to the signed size and checksum, and stage it beside the running one — rejecting a tampered manifest, a substituted or oversize download, a replayed old release and a read-only folder. It does not install anything yet, and nothing in the app shows it (FEAT-0078).
+
+- Updates, first step: the app can now ask the forge it came from — GitHub for a copy downloaded from GitHub, git.zacx.net for one from git.zacx.net — whether a newer release exists and whether it can be installed. Nothing in the app shows or installs it yet; that comes in the next steps (FEAT-0077).
+
 - Settings > Reminders as two columns (e1062ddb)
 
 ## 0.17.0 — 2026-11-26
@@ -248,6 +255,8 @@ Format: [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) · Versioning:
 - Stop two tests racing on the global Fluent loader (0a84278a)
 
 ### Changed
+
+- Internal: the HTTP connection setup and the cancel flag the prayer and weather services each carried are now one shared crate, ready for the updater (CR-0009). Nothing changes for you.
 
 - Settings ▸ Reminders is now two columns: your reminders' titles on the left, each with when it next fires, and the chosen reminder's details and history on the right. New Reminder empties the same form instead of opening another, and a window too narrow for two columns stacks them. A blank form no longer shows an empty-title error before you have typed anything (FEAT-0073).
 

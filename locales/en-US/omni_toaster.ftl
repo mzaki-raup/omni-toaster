@@ -707,6 +707,8 @@ prayer-source-calculated-fallback-approximate = Calculated (fallback, approximat
 settings-section-prayer = Prayer
 # The name of the Weather section in the settings window's left-hand list.
 settings-section-weather = Weather
+# The name of the Updates section in the settings window's left-hand list.
+settings-section-updates = Updates
 # The heading of the location group in Settings > Prayer.
 prayer-location-heading = Location
 # The question in the first-run card that asks before the app looks up the user's place from their internet address.
@@ -1017,3 +1019,64 @@ weather-age-days = { $count ->
     [one] 1 day ago
    *[other] { $count } days ago
 }
+
+# The heading of Settings > Updates.
+update-heading = Updates
+# Label of the row that shows the version of the program that is running.
+update-version-label = Version
+# Label of the row that shows which website this copy looks for updates on.
+update-source-label = Updates from
+# Hint under the source: it was fixed when this copy was built, so it is shown and cannot be edited.
+update-source-hint = Chosen when this copy was built. It can't be changed here.
+# Checkbox that turns checking for updates on or off. Off sends nothing.
+update-enabled = Check for updates
+# Hint under that checkbox: what turning it off does.
+update-enabled-hint = When off, this copy sends nothing to look for updates, and Check Now does nothing.
+# Checkbox that makes the app look for updates on its own, once a day at most.
+update-automatic = Check automatically once a day
+# Hint under that checkbox: it only looks, and never installs by itself.
+update-automatic-hint = Looks for a newer version at most once a day while the app is running. It never installs anything without asking.
+# Button that looks for a newer version right now.
+update-check-now = Check Now
+# Button that stops a check or a download that is under way.
+update-cancel = Cancel
+# Shown while the app asks the website whether there is a newer version.
+update-checking = Checking for updates…
+# Shown when the newest version is not newer than this one. $version is this copy's version.
+update-up-to-date = You have the latest version ({ $version }).
+# Shown when a newer version can be installed. $version is that version.
+update-available = Version { $version } is available.
+# Shown when a newer version exists but cannot be installed from inside the app. $version is that version.
+update-not-installable = Version { $version } is out, but it can't be installed from here. Download it from its release page.
+# Button that downloads, checks and prepares the newer version.
+update-install = Download and Install
+# Shown while the new version downloads. $version is that version and $percent a whole number from 0 to 100.
+update-downloading = Downloading version { $version }: { $percent }%
+# Shown when the new version is ready and waiting for a restart. $version is that version.
+update-staged = Version { $version } is ready. Restart to finish installing it.
+# Button that restarts the app into the new version.
+update-restart = Restart to Finish
+# Link to the page of the newer version, where its release notes are.
+update-release-notes = Release Notes
+# Shown when the last check is known. $age is how long ago, such as "3 hours ago".
+update-last-checked = Last checked { $age }.
+# Shown when nothing has been checked yet.
+update-never-checked = Not checked yet.
+# Shown when checking for updates is turned off.
+update-off = Checking for updates is turned off.
+# Error: the website could not be reached. $source is its address.
+update-failed-network = The update check could not reach { $source }. Try again later.
+# Error: the website has no published version at all.
+update-failed-none = No version has been published yet.
+# Error: the signature or the manifest of the update was not acceptable.
+update-failed-rejected = The update was rejected because its signature or details did not check out. Nothing was installed.
+# Error: the downloaded file is not the one that was signed.
+update-failed-download = The download did not match what was signed, so it was deleted. Nothing was installed.
+# Error: the folder the app is in cannot be written to.
+update-failed-folder = The folder this app is in can't be written to, so it can't update itself. Download the zip from the release page instead.
+# Error: this copy is too old to update in place. $version is the oldest that can.
+update-failed-too-old = This copy is too old to update in place. Download version { $version } or newer from the release page.
+# Error: anything else. The log has the detail.
+update-failed-other = The update could not be completed. The log has the details.
+# Shown after an update did not start properly and the old version was put back.
+update-rolled-back = The last update did not start properly, so the previous version was put back.

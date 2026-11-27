@@ -37,6 +37,77 @@ A release missing the first three reads as **"no installable release"** and the
 user stays where they are. Renaming an asset is a breaking change needing a new
 ADR.
 
+## 3.1 Where a copy looks (FEAT-0077, ADR-024)
+
+A copy updates from the forge it was built for: the release script bakes the
+repository into the exe (`OMNITOASTER_RELEASE_REPO`), so a GitHub download looks at
+GitHub's releases and a git.zacx.net download at git.zacx.net's, and a local build
+at git.zacx.net. It is not a setting. `ot_update::check::Client` asks
+`releases/latest` (stable only), reads the release in the one shape both forges
+answer, compares its version with the running one **by semver**, and says whether it
+is up to date, available, or newer but not installable (a release lacking the
+manifest, its signature or the exe). It trusts nothing it reads: the answer is an
+offer for the user to see, and what is installed is decided by the signed manifest
+(§4, FEAT-0078).
+
+## 3.2 What is built (FEAT-0078)
+
+`ot-update` now carries steps 1 to 6 of the flow below, none of which installs
+anything. `Client::verified_manifest` fetches the release's `manifest.json` and its
+signature (each size-capped), verifies the signature with the embedded key **first**,
+and only then reads the manifest strictly (schema 1, product, an https `windows-x64`
+asset named `OmniToaster.exe` with a size up to 64 MB and a 64-digit lower-case
+SHA-256); it then insists the manifest is for the release's version, **newer than the
+running one** (a replayed old release is refused) and that the running copy is at
+least `min_supported_version` (else the zip). `Downloader::download` reads the exe in
+chunks into `cache/update/OmniToaster-<version>.exe.part`, checking the cancel flag
+between chunks, abandoning it past the manifest's size, and renaming it only when its
+length and digest both match; anything else deletes it. `stage` copies it to
+`OmniToaster.exe.new` beside the running exe (through a `.part` name, re-checking the
+digest of the copy) and says `NotWritable` when it cannot, so the pane can offer the
+zip; it never elevates and never touches the running exe or `OmniToasterData/` beyond
+`cache/update/`.
+
+## 3.3 What is built (FEAT-0079): the swap, by an update helper
+
+The crash supervisor of Phase 8 does not exist yet, so §5's "the supervisor swaps" is
+built as a **one-shot helper**: the running (old) exe, started as
+`OmniToaster.exe --apply-update --expect <version> --data-dir <d> -- <original args>`
+by the program that staged the update, which then quits. The helper holds neither
+single-instance name; it waits until both are free, renames itself to
+`OmniToaster.exe.old`, renames `.new` into place, starts the new exe hidden with the
+original arguments, and waits up to 30 seconds for `cache/update/confirmed` to name the
+expected version. The new program writes that file at the end of start-up
+(`update_helper::after_startup`) and then deletes `.old`. If it exits early, never
+confirms, or confirms another version, the helper kills it, renames it to `.failed`,
+puts `.old` back, starts the old program again and leaves `cache/update/rolled-back`
+with the reason (read once). If the old program cannot be put back the outcome is
+`Stuck` and the log names the two files to rename by hand. Nothing outside the exe's
+own folder and `cache/update/` is touched; `OmniToasterData/` is otherwise untouched.
+When Phase 8 builds the supervisor, it takes this role over and the helper goes.
+
+## 3.4 What is built (FEAT-0080): Settings ▸ Updates
+
+`ot-ui` carries the pane (`update_pane`) and the thread behind it (`update_service`).
+The pane shows the running version, the forge this copy was built for (not editable),
+**Check for Updates** (`[updates] enabled`, default on; off means the service sends
+nothing, whatever was pressed a moment before), **Check automatically once a day**
+(`automatic`, default off), **Check Now**, the last check's age, and what it found:
+up to date, available (Download and Install, with the release's page as Release
+Notes), not installable from here (its page), downloading with a progress bar and a
+Cancel, or staged (Restart to Finish). Install verifies, downloads and stages
+(FEAT-0078); Restart starts the update helper (FEAT-0079) with the command line this
+copy was started with and quits. An update the helper rolled back is reported once,
+the next time the pane is created. Every failure is one named sentence: unreachable
+(naming the source), no release, rejected, bad download, folder not writable (the zip
+is offered), too old to update in place, rolled back, or other (the log).
+
+The service reads `settings.toml` before every request. An automatic check happens at
+most once a day: the time of the last request, successful or not, is kept in
+`cache/update/last-check`, and there is no retry loop. It never installs by itself:
+`automatic` only looks. Cancelling stops a download between two chunks, and closing
+the window cancels what is in flight.
+
 ## 4. The flow
 
 ```

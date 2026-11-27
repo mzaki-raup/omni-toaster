@@ -9,18 +9,14 @@
 //! before an outcome is delivered, since blocking `ureq` cannot interrupt a read
 //! in progress; the ten-second timeout bounds the wait in between.
 
-use std::sync::Arc;
-use std::sync::atomic::{AtomicBool, Ordering};
 use std::time::Duration;
-
-use ureq::tls::{RootCerts, TlsConfig, TlsProvider};
 
 use crate::observation::{MAX_BODY, Observation, ParseError, parse};
 
 const ENDPOINT: &str = "https://api.open-meteo.com/v1/forecast";
 
 /// Connect, send and read together may take this long, and no longer.
-pub const TIMEOUT: Duration = Duration::from_secs(10);
+pub const TIMEOUT: Duration = ot_net::TIMEOUT;
 
 /// Waits after the first, second and third failure in a row.
 pub const RETRY: [Duration; 3] = [
@@ -51,23 +47,7 @@ pub enum FetchError {
     Cancelled,
 }
 
-/// A way to stop an attempt that is waiting to start or to deliver.
-#[derive(Debug, Clone, Default)]
-pub struct Cancel(Arc<AtomicBool>);
-
-impl Cancel {
-    pub fn new() -> Self {
-        Self::default()
-    }
-
-    pub fn cancel(&self) {
-        self.0.store(true, Ordering::SeqCst);
-    }
-
-    pub fn is_cancelled(&self) -> bool {
-        self.0.load(Ordering::SeqCst)
-    }
-}
+pub use ot_net::Cancel;
 
 /// A coordinate rounded to two decimals — about a kilometre — which is all a
 /// forecast needs and all that is sent (`docs/06-security-and-privacy.md`).
@@ -105,23 +85,9 @@ pub fn next_after_failure(error: &FetchError, failures: u32) -> Option<Duration>
     }
 }
 
-/// The HTTP agent: ten seconds, `OmniToaster/<version>`, Windows TLS with the
-/// Windows root store (ADR-019), and status codes left to the caller.
-/// `https_only` is off only for the tests' local server.
+/// The HTTP agent (`ot_net::agent`, ADR-019).
 fn build_agent(https_only: bool) -> ureq::Agent {
-    ureq::Agent::config_builder()
-        .https_only(https_only)
-        .timeout_global(Some(TIMEOUT))
-        .user_agent(format!("OmniToaster/{}", env!("CARGO_PKG_VERSION")))
-        .http_status_as_error(false)
-        .tls_config(
-            TlsConfig::builder()
-                .provider(TlsProvider::NativeTls)
-                .root_certs(RootCerts::PlatformVerifier)
-                .build(),
-        )
-        .build()
-        .into()
+    ot_net::agent(https_only)
 }
 
 /// The HTTP client: one agent, reused.

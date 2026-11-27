@@ -61,6 +61,9 @@ pub enum Section {
     /// `docs/11-prayer-and-azan.md`).
     Prayer,
     Weather,
+    /// Which version this is, and looking for and installing a newer one
+    /// (`docs/specs/updater.md` §7).
+    Updates,
 }
 
 impl Section {
@@ -74,10 +77,11 @@ impl Section {
             Self::Reminders => "settings-section-reminders",
             Self::Prayer => "settings-section-prayer",
             Self::Weather => "settings-section-weather",
+            Self::Updates => "settings-section-updates",
         }
     }
 
-    pub fn all() -> [Self; 7] {
+    pub fn all() -> [Self; 8] {
         [
             Self::General,
             Self::Appearance,
@@ -86,6 +90,7 @@ impl Section {
             Self::Reminders,
             Self::Prayer,
             Self::Weather,
+            Self::Updates,
         ]
     }
 }
@@ -339,6 +344,11 @@ pub struct SettingsWindow {
     prayer: crate::prayer_pane::State,
     /// The Weather pane's own state (FEAT-0070).
     weather: crate::weather_pane::State,
+    /// The Updates pane's own state (FEAT-0080).
+    update: crate::update_pane::State,
+    /// The service that looks for, downloads and stages updates; `None` until
+    /// `run` starts it, and in the layout tests.
+    update_service: Option<crate::update_service::Service>,
     /// The service that keeps the day's times current while Settings is closed;
     /// `None` until `run` starts it, and in the layout tests (FEAT-0058).
     prayer_service: Option<crate::prayer_service::Service>,
@@ -495,6 +505,8 @@ impl SettingsWindow {
             book: None,
             prayer: crate::prayer_pane::State::new(&root_path),
             weather: crate::weather_pane::State::new(&root_path),
+            update: crate::update_pane::State::new(&root_path),
+            update_service: None,
             prayer_service: None,
             weather_service: None,
             prayer_source: None,
@@ -1467,6 +1479,75 @@ impl SettingsWindow {
                 self.audio.play(ot_media::Clip::Chime);
                 self.sounding.insert(id);
             }
+        }
+    }
+
+    fn updates_pane(&mut self, ui: &mut egui::Ui) {
+        let tokens = self.theme.tokens();
+        if self.update.busy() {
+            ui.ctx().request_repaint_after(Duration::from_millis(100));
+        }
+        let mut asked = crate::update_pane::Asked::default();
+        egui::ScrollArea::vertical()
+            .auto_shrink([false, false])
+            .show(ui, |ui| {
+                asked = crate::update_pane::show(
+                    ui,
+                    &mut self.update,
+                    &mut self.settings.updates,
+                    tokens,
+                    jiff::Timestamp::now(),
+                );
+            });
+        if asked.settings_changed {
+            self.save();
+        }
+        if let Some(service) = &self.update_service {
+            if asked.check {
+                self.update.requested(true);
+                service.check();
+            }
+            if let Some(release) = asked.install.take() {
+                service.install(release);
+            }
+            if asked.cancel {
+                service.cancel();
+            }
+        }
+        if let Some(version) = asked.restart.take() {
+            self.restart_to_update(ui.ctx(), &version);
+        }
+    }
+
+    /// Start the update helper — this program, told to swap the staged one in once
+    /// this one has quit — and quit. If the helper cannot be started nothing has
+    /// changed, and the pane says so.
+    fn restart_to_update(&mut self, ctx: &egui::Context, version: &semver::Version) {
+        let relaunch: Vec<String> = std::env::args().skip(1).collect();
+        let args = ot_update::swap::helper_args(self.root.path(), version, &relaunch);
+        let started =
+            std::env::current_exe().and_then(|exe| ot_platform::process::spawn_hidden(&exe, &args));
+        match started {
+            Ok(_) => {
+                tracing::info!(%version, "restarting to finish an update");
+                self.quit(ctx);
+            }
+            Err(error) => {
+                tracing::warn!(%error, "the update helper could not be started");
+                self.update.apply(crate::update_service::Note::Failed(
+                    crate::update_service::Problem::Other,
+                ));
+            }
+        }
+    }
+
+    /// Take what the update service has to say.
+    fn drain_update_notes(&mut self) {
+        let Some(service) = &self.update_service else {
+            return;
+        };
+        while let Some(note) = service.poll() {
+            self.update.apply(note);
         }
     }
 
@@ -2686,6 +2767,7 @@ impl eframe::App for SettingsWindow {
         self.drain_fires();
         self.drain_prayer_notes();
         self.drain_weather_notes();
+        self.drain_update_notes();
         self.drain_book();
         self.handle_tray(ctx);
         self.drain_images(ctx);
@@ -2748,6 +2830,7 @@ impl eframe::App for SettingsWindow {
                 Section::Reminders => self.reminders_pane(ui),
                 Section::Prayer => self.prayer_pane(ui),
                 Section::Weather => self.weather_pane(ui),
+                Section::Updates => self.updates_pane(ui),
             });
 
         if self.confirming_quit {
@@ -3070,6 +3153,7 @@ pub fn run(
         &book_root,
         dev.simulate_weather,
     ));
+    window.update_service = Some(crate::update_service::Service::start(&book_root));
     window.scheduler = Some(scheduler);
     if dev.test_toast {
         window.show_shape_samples();

@@ -311,6 +311,18 @@ In Bahasa Melayu, with no network and nothing cached, so the times are
 calculated and the label says so:
 [settings-prayer-ms.png](docs/screenshots/settings-prayer-ms.png).
 
+Settings ▸ Updates: the running version, the website this copy gets its updates
+from (GitHub or git.zacx.net, decided by where it was built and downloaded from;
+shown, not editable), Check for Updates on or off (off sends nothing), an
+optional once-a-day check that never installs by itself, and Check Now. A newer
+version is downloaded, verified against its signed manifest and checksum, and put
+beside the running program; Restart to Finish swaps it in and puts the old one back
+if the new one does not start:
+
+![Settings ▸ Updates before the first check](docs/screenshots/settings-updates.png)
+
+In Bahasa Melayu: [settings-updates-ms.png](docs/screenshots/settings-updates-ms.png).
+
 The rest are **not captured yet** — the screens do not exist. The places are reserved
 and the capture procedure is written down in
 [docs/screenshots/README.md](docs/screenshots/README.md); each image below is

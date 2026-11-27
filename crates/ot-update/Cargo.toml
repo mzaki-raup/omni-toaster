@@ -1,0 +1,30 @@
+[package]
+name = "ot-update"
+description = "Where this copy looks for newer releases, and the check itself."
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+repository.workspace = true
+authors.workspace = true
+publish.workspace = true
+build = "build.rs"
+
+[lints]
+workspace = true
+
+[dependencies]
+minisign-verify.workspace = true
+ot-net = { path = "../ot-net" }
+semver.workspace = true
+sha2.workspace = true
+serde_json.workspace = true
+thiserror.workspace = true
+tracing.workspace = true
+ureq.workspace = true
+
+[dev-dependencies]
+# Signs a test manifest with a throwaway key made at run time, so no private key
+# is ever committed and the tests can sign what they like.
+minisign = "0.10.0"
+tempfile.workspace = true

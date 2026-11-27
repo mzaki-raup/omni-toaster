@@ -48,6 +48,29 @@ pub struct Settings {
     pub prayer: PrayerSettings,
     /// Settings ▸ Weather (`docs/specs/weather.md` §9).
     pub weather: WeatherSettings,
+    /// Settings ▸ Updates (`docs/specs/updater.md` §7).
+    pub updates: UpdateSettings,
+}
+
+/// Settings ▸ Updates. The check can be turned off altogether, which sends
+/// nothing; looking on its own once a day is a separate choice and off until the
+/// owner decides otherwise. Installing is always the user's own button.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(default, deny_unknown_fields)]
+pub struct UpdateSettings {
+    /// Whether this copy may ask its forge for a newer release at all.
+    pub enabled: bool,
+    /// Look once a day, at most, while the app is running.
+    pub automatic: bool,
+}
+
+impl Default for UpdateSettings {
+    fn default() -> Self {
+        Self {
+            enabled: true,
+            automatic: false,
+        }
+    }
 }
 
 /// Settings ▸ Weather. Off by default: turning it on sends the saved place,
@@ -466,6 +489,27 @@ mod tests {
         Settings::default().save(&root).expect("the save succeeds");
         let text = std::fs::read_to_string(Settings::path_in(&root)).expect("the file");
         assert!(!text.contains("ip_consent"), "{text}");
+    }
+
+    #[test]
+    fn the_update_settings_default_to_manual_checks_and_survive_a_save() {
+        let defaults = Settings::default().updates;
+        assert!(defaults.enabled, "Check Now works out of the box");
+        assert!(
+            !defaults.automatic,
+            "nothing is asked for on its own until chosen"
+        );
+
+        let dir = tempfile::tempdir().expect("temp dir");
+        let root = DataRoot::resolve(Some(dir.path())).expect("root");
+        let mut settings = Settings::default();
+        settings.updates.automatic = true;
+        settings.updates.enabled = false;
+        settings.save(&root).expect("saves");
+        assert_eq!(
+            Settings::load(&root).expect("loads").updates,
+            settings.updates
+        );
     }
 
     #[test]

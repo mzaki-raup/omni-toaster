@@ -17,6 +17,6 @@ pub use paths::{DataRoot, PathError};
 pub use pause::{Pause, PauseFor};
 pub use settings::{
     AZAN_WINDOW_MINUTES, General, LocationSettings, PRE_PRAYER_MINUTES, PrayerSettings, Reminders,
-    Settings, SettingsError, WEATHER_CLASSES, WEATHER_DELTA_C, WEATHER_POLL_MINUTES,
-    WEATHER_WINDOW_HOURS, WeatherSettings,
+    Settings, SettingsError, UpdateSettings, WEATHER_CLASSES, WEATHER_DELTA_C,
+    WEATHER_POLL_MINUTES, WEATHER_WINDOW_HOURS, WeatherSettings,
 };

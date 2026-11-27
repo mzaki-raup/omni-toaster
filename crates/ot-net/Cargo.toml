@@ -1,0 +1,16 @@
+[package]
+name = "ot-net"
+description = "The HTTP agent and the cancel flag every network service shares."
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+repository.workspace = true
+authors.workspace = true
+publish.workspace = true
+
+[lints]
+workspace = true
+
+[dependencies]
+ureq.workspace = true

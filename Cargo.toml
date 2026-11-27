@@ -87,6 +87,14 @@ serde = { version = "1.0.229", features = ["derive"] }
 # read into typed Rust with unknown fields refused.
 serde_json = "1.0.154"
 
+# Comparing release versions by semver, never by string (FEAT-0077): already in the
+# tree through the build tooling, named here so the version is one.
+semver = "1.0.28"
+
+# Verifying a release's signature (FEAT-0078, ADR-024): minisign, the format
+# `rsign2` signs the manifest in. Verification only, no dependencies of its own.
+minisign-verify = "0.3.0"
+
 # Decoding an imported image (FEAT-0021). Default features are off and only
 # the three formats the spec allows are on - PNG, JPEG and WebP - so the exe
 # carries no decoder for a format the app refuses anyway, and the attack

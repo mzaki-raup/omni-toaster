@@ -126,10 +126,92 @@ Refs: BUG-0003
 
 ```
 Version : v0.5.1
-Features : FEAT-0077
+Features : FEAT-0082
 Bugs : BUG-0018
-Change Request : CR-0009
+Change Request : CR-0010
 ```
+
+---
+
+## v0.7.0 — Planned
+
+The in-app updater (FEAT-0008's scope, split into steps), on `feat/updater`. The
+owner's request, 2026-11-27: update from GitHub for a copy downloaded from GitHub and
+from git.zacx.net for one downloaded from there (ADR-024, modelled on the sibling
+`lock-screen`'s updater). FEAT-0008 is superseded by FEAT-0077 to FEAT-0081.
+
+### FEAT-0077 · The update source and the check: which forge, and is there a newer release
+- **State:** In-Progress · **Spec:** docs/specs/updater.md §3.1 · ADR-024
+- **Branch:** feat/updater
+- **Depends on:** CR-0009
+- [x] `ot-update`: the repository baked at build time through `OMNITOASTER_RELEASE_REPO` (the release script sets it), the latest-release API derived for GitHub and for a Forgejo, a malformed value refused — `source.rs`; `scripts/build-and-package.ps1` sets the variable before the build; `build.rs` rebuilds on a change
+- [x] The release read in the one shape both forges answer; versions compared by semver; stable releases only; a release lacking the manifest, its signature or the exe is "not installable" — `release.rs`; both captured answers (2026-11-27) read to the same version and the three assets
+- [x] `check::Client`: one blocking attempt, cancellable, size-capped, HTTPS only, named failures; the live check against both forges, `#[ignore]`d — `check.rs`; the live test run by hand against git.zacx.net and github.com and passed
+- [x] Test: both forges' real answers parsed from fixtures; semver ordering; drafts, prereleases and broken answers; the client against a local server (offer, up to date, not installable, 404, 503, a broken body, the cap, a cancel, unreachable); the repository parser's refusals; a build with nothing set reads the Forgejo — 20 tests and the live one; the source tests also pass with a GitHub repository baked in (`OMNITOASTER_RELEASE_REPO` set)
+- [ ] Gate: fmt · clippy -D warnings · test --workspace --locked -j 4 · deny check · --self-test
+- [ ] App: `--data-dir ./tmp-data` — not applicable on its own — nothing in the app uses it until FEAT-0080's pane
+- [ ] Docs: spec · README · CHANGELOG · CHECKLIST · GOTCHAS
+- **Notes:** Tried: a release exe built with `scripts/build-and-package.ps1 -RepoUrl https://github.com/mzaki-raup/omni-toaster` carried **neither** repository string, because nothing links `ot-update` yet and the linker drops it. So "the exe reads its own forge" is **not yet shown**; FEAT-0081 shows it once the pane (FEAT-0080) links the crate, by finding the string in each forge's exe. Also found: `.claude/rules/build-and-run.md` says to run the packaging script with `-Version 0.0.0-local`, which the script refuses (it wants a release version, and then that the binary reports the same one), so a local dry run needs a build at the version the script is given.
+
+### FEAT-0078 · Verifying and downloading: the signed manifest, the hash, the staged file
+- **State:** In-Progress · **Spec:** docs/specs/updater.md §3 · §4 · §6 · docs/06-security-and-privacy.md
+- **Branch:** feat/updater
+- **Depends on:** FEAT-0077
+- [x] Fetch `manifest.json` and `manifest.json.minisig` from the release's assets; verify the minisign signature against the public key embedded in the exe (`keys/minisign.pub`) **before** reading the manifest; fail closed — `Client::verified_manifest`; `verify::verify_manifest` with `minisign-verify`, the key embedded with `include_str!`; **the real v0.18.0 manifest and signature verify against it**
+- [x] Compare the manifest's version with the release's and the running one; refuse a manifest older than the running version — the release's version, newer than the running one, and `min_supported_version`; a replayed old release is `NotNewer`
+- [x] Download `OmniToaster.exe` into `OmniToasterData/cache/update/` with the manifest's size as the cap; check its SHA-256 against the manifest; delete it on any mismatch — `Downloader::download`: chunked, cancel between chunks, abandoned past the manifest's size, renamed only on matching length and digest, deleted otherwise
+- [x] Stage it beside the running exe as `OmniToaster.exe.new` only when the folder is writable; otherwise say so and offer the manual zip — `stage` through a `.part` name with the digest re-checked; `NotWritable` instead of a crash; the running exe is never touched
+- [x] Test: a tampered manifest is rejected and nothing downloads; a corrupted download is rejected and deleted; an oversize answer is abandoned; a read-only folder says so — 17 more tests (46 in all): the real signature, a one-byte tamper, another key, garbage keys and signatures, a signed non-manifest, the whole chain against a local server with a throwaway key, each attack above; **the signature check and the digest check were each broken on purpose and caught (4 tests and 1)**
+- [x] Gate: fmt · clippy -D warnings · test --workspace --locked -j 4 · deny check · --self-test — fmt · clippy · tests · deny · self-test
+- [ ] App: `--data-dir ./tmp-data` — download and verify a real release into `cache/update/` without installing. **Made, with the owner's say-so (2026-11-27):** `a_live_release_verifies_downloads_and_stages_from_both_forges` — against **both** forges, the real v0.18.0 manifest's signature verified with the key embedded in the crate, the real `OmniToaster.exe` (about 16 MB each, different digests, each from its own forge) was downloaded and held to its signed size and SHA-256, and staged beside a stand-in in a scratch folder (deleted); nothing was run or installed. Found on the way: the test first used a pretend running version of 0.0.1, which the check rightly refused as too old to update in place (the release needs at least 0.1.0) — so that guard works against a real manifest; the test now uses 0.1.0. **Not made:** the pane, the swap and a restart, which are FEAT-0079 and FEAT-0080
+- [x] Docs: ADR-024's update · `docs/specs/updater.md` §3.2 · CHANGELOG; README and GOTCHAS: nothing yet
+
+### FEAT-0079 · The swap: an update helper replaces the exe, restarts, and rolls back
+- **State:** Completed · **Spec:** docs/specs/updater.md §5 · docs/specs/supervisor.md
+- **Branch:** feat/updater
+- **Depends on:** FEAT-0078
+- [x] The worker asks the supervisor to apply the staged file; the supervisor stops the worker, renames the exe to `.old`, renames `.new` into place and starts the new worker — built as an update helper (`--apply-update`), not the supervisor, which does not exist until Phase 8: spec §3.3; the worker does not yet ask — FEAT-0080 starts it
+- [x] A new worker that does not report its version in time is rolled back: `.old` restored, the worker restarted, the user told — 30 s confirmation (`cache/update/confirmed`); `.failed` kept, `.old` restored, old program restarted, `rolled-back` note. The user is told in FEAT-0080
+- [x] `.old` is deleted on the first successful run; the data folder is untouched throughout — by the new program after start-up; `OmniToasterData/` only gains `cache/update/`
+- [x] Test: the swap and the rollback sequences against throwaway files; the data folder byte-identical — 12 `swap` unit tests with fake processes plus 4 integration tests with real copies of the exe (swap and confirm, will-not-start, wrong version, nothing staged)
+- [x] Gate: fmt · clippy -D warnings · test --workspace --locked -j 4 · deny check · --self-test — fmt · clippy · tests · deny · self-test
+- [x] App: `--data-dir ./tmp-data` — update a copy in place from a real release and watch it restart on the new version; then a deliberately broken one rolls back — two real exe copies in a scratch folder: the helper swapped the staged one in, the new one started with the original arguments and confirmed. Not made: from a real release, because nothing in the app triggers it yet (FEAT-0080)
+- [x] Docs: spec · README · CHANGELOG · CHECKLIST · GOTCHAS — spec §3.3 · CHANGELOG; README and GOTCHAS: the `--` separator needed whitelisting in the option check; nothing else
+
+### FEAT-0080 · Settings ▸ Updates: version, source, Check Now, and Install
+- **State:** Completed · **Spec:** docs/specs/updater.md §7 · docs/04-ui-design.md
+- **Branch:** feat/updater
+- **Depends on:** FEAT-0077, FEAT-0078
+- [x] The pane: the running version, which source this copy uses (shown, not editable), Check Now, the last check and its result, the release notes link, and an install button with what will be installed — `update_pane`: version, source, Check Now, last check, Release Notes link, Download and Install, Cancel and Restart to Finish; spec §3.4
+- [x] Automatic checking on or off (a daily check at most, off by default until decided); the whole check can be turned off, which sends nothing — `[updates] enabled` (default on) and `automatic` (default off); a day at most through `cache/update/last-check`; off sends nothing
+- [x] Every string a Fluent key in both languages; empty, checking, up to date, available, not installable and failed states each say something; Malay at its longest — `update-*` and `settings-section-updates` in both files; every state has a sentence; the layout test holds the longest states at 100–200%, narrow and pseudo-locale
+- [x] Test: the layout test with the pane; the states; the service checks off the UI thread and cancels — 8 service tests (off sends nothing — broken on purpose and caught; automatic on, off and once a day; progress; cancel; drop cancels), 4 pane state tests, the layout test with six pane states, and a both-languages text test; the check runs on a thread and cancels
+- [x] Gate: fmt · clippy -D warnings · test --workspace --locked -j 4 · deny check · --self-test — fmt · clippy · tests · deny · self-test
+- [x] App: `--data-dir ./tmp-data` — Check Now against both forges' builds; the pane in English and Malay, all three themes, narrow — debug build on a scratch `--data-dir`: the pane in English and Bahasa Melayu, narrow (570 px), Check Now against git.zacx.net → "You have the latest version (0.18.0)". **Not made:** Light and System themes (the pane uses only theme tokens), GitHub's build (the source is baked at build time), and Download and Install through the real window, since no newer release exists to offer
+- [x] Docs: spec · README · CHANGELOG · CHECKLIST · GOTCHAS — spec §3.4 · 04-ui-design · both READMEs with two screenshots · CHANGELOG; CHECKLIST and GOTCHAS: nothing to add
+
+### FEAT-0081 · The release pipeline proves the baked source
+- **State:** Completed · **Spec:** docs/09-ci-cd-and-releases.md · scripts/verify-release.ps1
+- **Branch:** feat/updater
+- **Depends on:** FEAT-0077
+- [x] `scripts/verify-release.ps1` checks that the published exe was built for the forge it was published on (its baked repository string is in the file) — the exe must contain `[omnitoaster-update-source=<server>/<repo>]` (written by `ot-update`'s `build.rs`); the manifest's notes link and every asset link must start with the forge's address. `-SkipBakedSource` for releases before v0.19.0
+- [x] Both workflows pass `-RepoUrl` as before; a test or step fails a release whose exe names the wrong forge — both already end with `verify-release.ps1` with the forge's `-Server` and `-Repository`, so a wrong-forge exe fails the job; no workflow change was needed. The first version searched for the bare address and passed a GitHub exe on the Forgejo (the default repository is in every build): GOTCHAS
+- [x] Document the two exes' differing digests and manifests — docs/09 "Which forge a copy updates from": two exes, two digests, two manifests, one key
+- [x] Gate: fmt · clippy -D warnings · test --workspace --locked -j 4 · deny check · --self-test — fmt · clippy · tests · deny · self-test; a unit test ties the marker to the repository the build reads
+- [x] App: `--data-dir ./tmp-data` — run the verify script against a published release on each forge — real dry-run packages of both forges with `build-and-package.ps1 -RepoUrl`: the digests differ, each exe carries exactly its own marker, and the check passes the matching pairs and fails both crossed ones. **Not made:** `verify-release.ps1` end to end against a published release, because none carries the marker yet (v0.18.0 predates it); the next release on each forge is that run
+- [x] Docs: spec · README · CHANGELOG · CHECKLIST · GOTCHAS — docs/09 · CHANGELOG · GOTCHAS; README: nothing, release internals; the dry-run version in two rules files corrected
+
+### CR-0009 · The HTTP agent and the cancel flag are shared, in `ot-net`
+- **State:** Completed · **Spec:** docs/08-decisions.md ADR-019 · ADR-023 · docs/03-architecture.md
+- **Branch:** feat/updater
+- **Source:** ADR-023's consequence: "if a third service needs them they belong in a shared place" — the updater is the third
+- [x] `crates/ot-net`: `agent(https_only)`, `agent_with_timeout`, `Cancel`, `TIMEOUT`; no policy and no answers read
+- [x] `ot-prayer` and `ot-weather` re-export `Cancel` and call `ot_net::agent`; their own tests and every call site unchanged
+- [x] Test: the cancel's clones share it; the agent builds with and without HTTPS forced; the prayer and weather suites pass as they were
+- [x] Gate: fmt · clippy -D warnings · test --workspace --locked -j 4 · deny check · --self-test
+- [x] App: not applicable — no behaviour changed
+- [x] Docs: ADR-023's update · `docs/03-architecture.md` · CHANGELOG
+- **Notes:** A refactor of working code, which the rules forbid unless something needs it; the updater needs it, and ADR-023 said so in advance.
 
 ---
 

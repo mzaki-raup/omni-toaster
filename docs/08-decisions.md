@@ -896,3 +896,64 @@ can send more.
   weather is relied on**, and the About pane should credit Open-Meteo whatever is
   decided (FEAT-0070).
 - 10,000 calls a day is far above one poll every 15 to 30 minutes (at most 96).
+
+**Update 2026-11-27 (CR-0009).** The updater is the third service that needs the
+agent and `Cancel`, which is the point at which the consequence above said to put
+them somewhere shared. They now live in `crates/ot-net` — the agent of ADR-019 (with
+a variant that takes a longer timeout, for a download) and the cancel flag — and
+`ot-prayer` and `ot-weather` re-export `Cancel` and call `ot_net::agent`, so no call
+site changed. `ot-net` holds no policy and reads no answer, so it is not a service
+and the rule that services do not depend on each other is untouched.
+
+---
+
+## ADR-024 · The update source is fixed when the copy is built
+
+**Status:** Accepted 2026-11-27 · **Phase:** 9 · **Builds on:** ADR-010 (the updater),
+ADR-019, ADR-023
+
+**Context.** OmniToaster is published from two forges, the self-hosted Forgejo at
+`git.zacx.net` and a GitHub mirror of the same history, and each builds its own
+release (`scripts/push-to-mirror.ps1` hands the tag to GitHub, whose `release.yml`
+builds that version itself). The owner asked that a copy downloaded from GitHub
+update from GitHub and one downloaded from git.zacx.net update from git.zacx.net.
+The sibling `lock-screen` already does this.
+
+**Options.** A setting the user switches (cannot know where the download came from,
+and a setting can be pointed anywhere by anyone who can edit the file) · detecting
+the download's origin from the file's Mark-of-the-Web (fragile: lost on copy, on
+extraction by some tools, on any non-browser download) · **the release script bakes
+the repository into the exe when it builds it**.
+
+**Decision.** `OMNITOASTER_RELEASE_REPO` is set by `scripts/build-and-package.ps1`
+to the `-RepoUrl` it was given — the forge it is building a release for — and
+`ot_update::source` reads it with `option_env!`; a build with nothing set, which is
+every local build, reads the Forgejo. The latest-release API is derived from it:
+`https://api.github.com/repos/<o>/<r>/releases/latest` for GitHub and
+`https://<host>/api/v1/repos/<o>/<r>/releases/latest` for a Forgejo, both answering
+in the same JSON. A malformed value is refused (HTTPS, `host/owner/repo`, nothing
+else) and falls back to the Forgejo with an error in the log. The settings pane
+shows which source a copy uses and does not let it be changed. The check lives in
+a new crate, `ot-update`, which depends on `ot-net` (CR-0009) and `semver`.
+
+**Consequences.**
+
+- The two forges' `OmniToaster.exe` differ by this one string, so their manifests
+  list different digests; each release's manifest is self-consistent, and a copy
+  verifies only what its own forge published.
+- A release must carry `manifest.json`, `manifest.json.minisig` and
+  `OmniToaster.exe`; one missing any is found but "not installable", and the user is
+  pointed at its page.
+- Only stable releases are offered (`releases/latest` excludes prereleases); the
+  beta channel is a later step.
+- Moving the project to another forge means one `-RepoUrl`, nothing in the source.
+
+**Update 2026-11-27 (FEAT-0078): verifying.** `ot-update` verifies with
+`minisign-verify` 0.3 (verification only, no dependencies of its own, MIT), against
+the key committed as `keys/minisign.pub` and **embedded in the crate** with
+`include_str!`. The signature is checked before the manifest is read as anything but
+bytes; a failure fails closed and nothing is downloaded. Only the prehashed
+signatures `rsign2` makes by default are accepted. The tests sign with a throwaway key
+made at run time by the `minisign` crate (a dev-dependency, MIT), so no private key is
+ever committed, and one test verifies the **real** v0.18.0 manifest and signature
+(captured in `tests/fixtures/real-0.18.0/`) against the embedded key.

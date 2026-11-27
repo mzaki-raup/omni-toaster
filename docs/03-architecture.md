@@ -23,6 +23,8 @@ omni-toaster/
 │   ├── ot-sched/               # the scheduler thread, recurrence, snooze
 │   ├── ot-prayer/              # PrayerSource, JakimSource, CalculatedSource, zones
 │   ├── ot-weather/             # Open-Meteo client, condition-change detection
+│   ├── ot-net/                 # the HTTP agent and the cancel flag every network service shares
+│   ├── ot-update/              # where this copy looks for newer releases, and the check
 │   └── ot-media/               # audio playback (rodio), speech (SpeechSynthesizer)
 ├── locales/{en-US,ms-MY}/omni_toaster.ftl
 ├── assets/

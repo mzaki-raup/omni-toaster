@@ -58,7 +58,8 @@ bottom.
 | **Announcements** | Schedule, voice, test button, chime fallback |
 | **Location** | Detected location, manual override, the confirmation step |
 | **Templates** | Per-category title, body, image, accent, sound, style overrides; "Use default text" |
-| **Logs and Updates** | Log folder, retention, crash reports, update channel and the update check |
+| **Updates** | Built (FEAT-0080): the running version, the website this copy updates from (shown, not editable), Check for Updates on or off, an optional daily check, Check Now, the result with a Release Notes link, and Download and Install then Restart to Finish — `docs/specs/updater.md` §3.4 |
+| **Logs** | Log folder, retention, crash reports |
 | **About** | Version, licence, the JAKIM attribution, third-party notices |
 
 General is the only pane that exists so far: language, theme and Start with

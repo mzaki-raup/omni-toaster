@@ -180,6 +180,34 @@ fn overflowing(width: f32, scale: f32) -> Vec<String> {
         label: "Gambar masjid besar dengan menara tinggi di tepi tasik pada waktu subuh".to_owned(),
     }];
     let now: jiff::Timestamp = "2026-11-26T04:00:00Z".parse().expect("instant");
+    // Settings > Updates (FEAT-0080): the longest states, each in its own pane.
+    let offered = ot_update::release::Release {
+        version: semver::Version::new(10, 20, 30),
+        tag: "v10.20.30".to_owned(),
+        page_url: "https://git.zacx.net/owner/omni-toaster/releases/tag/v10.20.30".to_owned(),
+        assets: Vec::new(),
+    };
+    let mut update_settings = ot_core::UpdateSettings::default();
+    let mut update_states = [
+        ot_ui::update_pane::State::for_layout_test(ot_ui::update_pane::Phase::Available(offered)),
+        ot_ui::update_pane::State::for_layout_test(ot_ui::update_pane::Phase::Downloading {
+            version: semver::Version::new(10, 20, 30),
+            done: 5,
+            total: 16,
+        }),
+        ot_ui::update_pane::State::for_layout_test(ot_ui::update_pane::Phase::Staged(
+            semver::Version::new(10, 20, 30),
+        )),
+        ot_ui::update_pane::State::for_layout_test(ot_ui::update_pane::Phase::Failed(
+            ot_ui::update_service::Problem::TooOld(semver::Version::new(10, 20, 30)),
+        )),
+        ot_ui::update_pane::State::for_layout_test(ot_ui::update_pane::Phase::Failed(
+            ot_ui::update_service::Problem::FolderNotWritable,
+        )),
+        ot_ui::update_pane::State::for_layout_test(ot_ui::update_pane::Phase::Failed(
+            ot_ui::update_service::Problem::Network,
+        )),
+    ];
     let mut harness = Harness::builder()
         .with_size([width, 12000.0])
         .with_pixels_per_point(scale)
@@ -248,6 +276,15 @@ fn overflowing(width: f32, scale: f32) -> Vec<String> {
                 ot_ui::Tokens::DARK,
                 now,
             );
+            for state in &mut update_states {
+                let _ = ot_ui::update_pane::show(
+                    ui,
+                    state,
+                    &mut update_settings,
+                    ot_ui::Tokens::DARK,
+                    jiff::Timestamp::now(),
+                );
+            }
             let _ = ot_ui::prayer_pane::show(
                 ui,
                 &mut first_run_state,

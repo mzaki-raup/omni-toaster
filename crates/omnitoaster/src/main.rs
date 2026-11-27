@@ -18,6 +18,7 @@
 #![cfg_attr(not(debug_assertions), windows_subsystem = "windows")]
 
 mod self_test;
+mod update_helper;
 
 use std::path::PathBuf;
 use std::process::ExitCode;
@@ -41,6 +42,10 @@ const KNOWN_FLAGS: &[&str] = &[
     "--worker",
     "--data-dir",
     "--log-level",
+    // The update helper (FEAT-0079): the old exe, started by a copy that has staged
+    // a new one, which swaps it in and rolls it back if it does not take.
+    "--apply-update",
+    "--expect",
     "--lang",
     #[cfg(debug_assertions)]
     "--panic-now",
@@ -96,6 +101,7 @@ fn main() -> ExitCode {
 
     if let Some(unknown) = args.iter().find(|a| {
         a.starts_with("--")
+            && a.as_str() != "--"
             && !KNOWN_FLAGS
                 .iter()
                 .any(|known| *a == known || a.starts_with(&format!("{known}=")))
@@ -156,6 +162,23 @@ fn main() -> ExitCode {
         } else {
             ExitCode::FAILURE
         };
+    }
+
+    // The update helper holds no instance name (it waits for the others to be
+    // released) and starts no logging, so it is dispatched before either.
+    if args.iter().any(|a| a == "--apply-update") {
+        let expect = match value_of(&args, "--expect") {
+            Ok(Some(version)) => version,
+            _ => {
+                eprintln!("--apply-update needs --expect <version>.");
+                return ExitCode::FAILURE;
+            }
+        };
+        let Some(data) = data_dir.as_deref() else {
+            eprintln!("--apply-update needs --data-dir <path>.");
+            return ExitCode::FAILURE;
+        };
+        return update_helper::run(&args, data, &expect);
     }
 
     // One instance per role. Taken after --self-test and --help, which are
@@ -293,6 +316,8 @@ fn main() -> ExitCode {
     }
 
     tracing::info!("startup complete");
+    // Confirm to an update helper that is waiting, and remove what an update replaced.
+    update_helper::after_startup(root.path(), VERSION);
 
     // Hold the instance guard without a window, so a second launch can be
     // observed being refused and so the command line can be exercised where

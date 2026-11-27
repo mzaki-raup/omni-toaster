@@ -14,6 +14,7 @@ workspace = true
 
 [dependencies]
 adhan.workspace = true
+ot-net = { path = "../ot-net" }
 jiff.workspace = true
 serde_json.workspace = true
 thiserror.workspace = true

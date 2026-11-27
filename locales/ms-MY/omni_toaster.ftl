@@ -687,6 +687,8 @@ prayer-source-calculated-fallback-approximate = Dikira (sandaran, anggaran)
 settings-section-prayer = Solat
 # Nama bahagian Cuaca dalam senarai di sebelah kiri tetingkap tetapan.
 settings-section-weather = Cuaca
+# Nama bahagian Kemas Kini dalam senarai di sebelah kiri tetingkap tetapan.
+settings-section-updates = Kemas Kini
 # Tajuk kumpulan lokasi dalam Tetapan > Solat.
 prayer-location-heading = Lokasi
 # Soalan dalam kad larian pertama yang bertanya sebelum aplikasi mencari tempat pengguna daripada alamat internetnya.
@@ -979,3 +981,64 @@ weather-age-minutes = { $count } minit lalu
 weather-age-hours = { $count } jam lalu
 # Berapa lama dahulu, dalam hari. $count ialah nombor.
 weather-age-days = { $count } hari lalu
+
+# Tajuk Tetapan > Kemas Kini.
+update-heading = Kemas Kini
+# Label baris yang menunjukkan versi program yang sedang berjalan.
+update-version-label = Versi
+# Label baris yang menunjukkan laman web tempat salinan ini mencari kemas kini.
+update-source-label = Kemas Kini Dari
+# Petunjuk di bawah sumber: ia ditetapkan semasa salinan ini dibina, jadi hanya ditunjukkan dan tidak boleh disunting.
+update-source-hint = Dipilih semasa salinan ini dibina. Ia tidak boleh diubah di sini.
+# Kotak semak yang menghidupkan atau mematikan semakan kemas kini. Apabila dimatikan, tiada apa-apa dihantar.
+update-enabled = Semak kemas kini
+# Petunjuk di bawah kotak semak itu: apa yang berlaku apabila dimatikan.
+update-enabled-hint = Apabila dimatikan, salinan ini tidak menghantar apa-apa untuk mencari kemas kini, dan Semak Sekarang tidak berbuat apa-apa.
+# Kotak semak yang membuat aplikasi mencari kemas kini sendiri, paling kerap sekali sehari.
+update-automatic = Semak secara automatik sekali sehari
+# Petunjuk di bawah kotak semak itu: ia hanya mencari dan tidak memasang apa-apa sendiri.
+update-automatic-hint = Mencari versi yang lebih baharu paling kerap sekali sehari semasa aplikasi berjalan. Ia tidak memasang apa-apa tanpa bertanya.
+# Butang yang mencari versi yang lebih baharu sekarang.
+update-check-now = Semak Sekarang
+# Butang yang menghentikan semakan atau muat turun yang sedang berjalan.
+update-cancel = Batal
+# Dipaparkan semasa aplikasi bertanya laman web sama ada ada versi yang lebih baharu.
+update-checking = Menyemak kemas kini…
+# Dipaparkan apabila versi terbaharu tidak lebih baharu daripada versi ini. $version ialah versi salinan ini.
+update-up-to-date = Anda menggunakan versi terkini ({ $version }).
+# Dipaparkan apabila versi yang lebih baharu boleh dipasang. $version ialah versi itu.
+update-available = Versi { $version } tersedia.
+# Dipaparkan apabila versi yang lebih baharu wujud tetapi tidak boleh dipasang dari dalam aplikasi. $version ialah versi itu.
+update-not-installable = Versi { $version } telah dikeluarkan, tetapi tidak boleh dipasang dari sini. Muat turunnya dari halaman keluarannya.
+# Butang yang memuat turun, menyemak dan menyediakan versi yang lebih baharu.
+update-install = Muat Turun dan Pasang
+# Dipaparkan semasa versi baharu dimuat turun. $version ialah versi itu dan $percent nombor bulat dari 0 hingga 100.
+update-downloading = Memuat turun versi { $version }: { $percent }%
+# Dipaparkan apabila versi baharu sudah sedia dan menunggu mula semula. $version ialah versi itu.
+update-staged = Versi { $version } sudah sedia. Mulakan semula untuk menyiapkan pemasangan.
+# Butang yang memulakan semula aplikasi ke dalam versi baharu.
+update-restart = Mulakan Semula untuk Siap
+# Pautan ke halaman versi yang lebih baharu, tempat nota keluarannya.
+update-release-notes = Nota Keluaran
+# Dipaparkan apabila semakan terakhir diketahui. $age ialah berapa lama dahulu, seperti "3 jam lalu".
+update-last-checked = Disemak terakhir { $age }.
+# Dipaparkan apabila belum ada apa-apa disemak.
+update-never-checked = Belum disemak lagi.
+# Dipaparkan apabila semakan kemas kini dimatikan.
+update-off = Semakan kemas kini dimatikan.
+# Ralat: laman web tidak dapat dihubungi. $source ialah alamatnya.
+update-failed-network = Semakan kemas kini tidak dapat menghubungi { $source }. Cuba lagi nanti.
+# Ralat: laman web tidak mempunyai versi yang diterbitkan langsung.
+update-failed-none = Belum ada versi yang diterbitkan.
+# Ralat: tandatangan atau butiran kemas kini tidak boleh diterima.
+update-failed-rejected = Kemas kini ditolak kerana tandatangan atau butirannya tidak sah. Tiada apa-apa dipasang.
+# Ralat: fail yang dimuat turun bukan fail yang ditandatangani.
+update-failed-download = Muat turun tidak sepadan dengan yang ditandatangani, jadi ia dipadam. Tiada apa-apa dipasang.
+# Ralat: folder tempat aplikasi berada tidak boleh ditulis.
+update-failed-folder = Folder tempat aplikasi ini berada tidak boleh ditulis, jadi ia tidak boleh mengemas kini dirinya. Muat turun zip dari halaman keluaran.
+# Ralat: salinan ini terlalu lama untuk dikemas kini terus. $version ialah yang paling lama yang boleh.
+update-failed-too-old = Salinan ini terlalu lama untuk dikemas kini terus. Muat turun versi { $version } atau yang lebih baharu dari halaman keluaran.
+# Ralat: apa-apa yang lain. Log mempunyai butirannya.
+update-failed-other = Kemas kini tidak dapat disiapkan. Log mempunyai butirannya.
+# Dipaparkan selepas kemas kini tidak bermula dengan betul dan versi sebelumnya dikembalikan.
+update-rolled-back = Kemas kini terakhir tidak bermula dengan betul, jadi versi sebelumnya dikembalikan.
