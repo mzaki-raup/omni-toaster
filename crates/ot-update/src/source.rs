@@ -22,6 +22,14 @@ pub const RELEASE_REPO: &str = match option_env!("OMNITOASTER_RELEASE_REPO") {
     None => DEFAULT_REPO,
 };
 
+/// The repository again, as a marker only this build's own repository appears in
+/// (`[omnitoaster-update-source=<repository>]`), kept in the finished exe so the
+/// release check can prove it was built for the forge it is published on
+/// (`scripts/verify-release.ps1`, FEAT-0081). `used` keeps the compiler from
+/// dropping a string nothing else reads.
+#[used]
+pub static SOURCE_MARKER: &str = env!("OMNITOASTER_UPDATE_SOURCE_MARKER");
+
 /// The Forgejo, where development happens and where a build with nothing set looks.
 pub const DEFAULT_REPO: &str = "https://git.zacx.net/owner/omni-toaster";
 
@@ -181,6 +189,16 @@ mod tests {
         let repo = this_repo();
         assert_eq!(repo.name, "omni-toaster");
         assert!(repo.latest_release_api().starts_with("https://"));
+    }
+
+    /// The marker the release check looks for names this build's repository, and
+    /// build.rs's own default has not drifted from `DEFAULT_REPO`.
+    #[test]
+    fn the_source_marker_names_the_repository_this_build_reads() {
+        assert_eq!(
+            SOURCE_MARKER,
+            format!("[omnitoaster-update-source={RELEASE_REPO}]")
+        );
     }
 
     /// A local build must read the Forgejo. If this fails, something in the

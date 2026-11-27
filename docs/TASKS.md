@@ -191,15 +191,15 @@ from git.zacx.net for one downloaded from there (ADR-024, modelled on the siblin
 - [x] Docs: spec · README · CHANGELOG · CHECKLIST · GOTCHAS — spec §3.4 · 04-ui-design · both READMEs with two screenshots · CHANGELOG; CHECKLIST and GOTCHAS: nothing to add
 
 ### FEAT-0081 · The release pipeline proves the baked source
-- **State:** Pending · **Spec:** docs/09-ci-cd-and-releases.md · scripts/verify-release.ps1
+- **State:** Completed · **Spec:** docs/09-ci-cd-and-releases.md · scripts/verify-release.ps1
 - **Branch:** feat/updater
 - **Depends on:** FEAT-0077
-- [ ] `scripts/verify-release.ps1` checks that the published exe was built for the forge it was published on (its baked repository string is in the file)
-- [ ] Both workflows pass `-RepoUrl` as before; a test or step fails a release whose exe names the wrong forge
-- [ ] Document the two exes' differing digests and manifests
-- [ ] Gate: fmt · clippy -D warnings · test --workspace --locked -j 4 · deny check · --self-test
-- [ ] App: `--data-dir ./tmp-data` — run the verify script against a published release on each forge
-- [ ] Docs: spec · README · CHANGELOG · CHECKLIST · GOTCHAS
+- [x] `scripts/verify-release.ps1` checks that the published exe was built for the forge it was published on (its baked repository string is in the file) — the exe must contain `[omnitoaster-update-source=<server>/<repo>]` (written by `ot-update`'s `build.rs`); the manifest's notes link and every asset link must start with the forge's address. `-SkipBakedSource` for releases before v0.19.0
+- [x] Both workflows pass `-RepoUrl` as before; a test or step fails a release whose exe names the wrong forge — both already end with `verify-release.ps1` with the forge's `-Server` and `-Repository`, so a wrong-forge exe fails the job; no workflow change was needed. The first version searched for the bare address and passed a GitHub exe on the Forgejo (the default repository is in every build): GOTCHAS
+- [x] Document the two exes' differing digests and manifests — docs/09 "Which forge a copy updates from": two exes, two digests, two manifests, one key
+- [x] Gate: fmt · clippy -D warnings · test --workspace --locked -j 4 · deny check · --self-test — fmt · clippy · tests · deny · self-test; a unit test ties the marker to the repository the build reads
+- [x] App: `--data-dir ./tmp-data` — run the verify script against a published release on each forge — real dry-run packages of both forges with `build-and-package.ps1 -RepoUrl`: the digests differ, each exe carries exactly its own marker, and the check passes the matching pairs and fails both crossed ones. **Not made:** `verify-release.ps1` end to end against a published release, because none carries the marker yet (v0.18.0 predates it); the next release on each forge is that run
+- [x] Docs: spec · README · CHANGELOG · CHECKLIST · GOTCHAS — docs/09 · CHANGELOG · GOTCHAS; README: nothing, release internals; the dry-run version in two rules files corrected
 
 ### CR-0009 · The HTTP agent and the cancel flag are shared, in `ot-net`
 - **State:** Completed · **Spec:** docs/08-decisions.md ADR-019 · ADR-023 · docs/03-architecture.md

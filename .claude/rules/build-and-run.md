@@ -84,7 +84,7 @@ The only thing that moves `[workspace.package] version` in the root
 because the binary's version comes from it.
 
 ```bash
-pwsh -File scripts/build-and-package.ps1 -Version 0.0.0-local -SkipSign
+pwsh -File scripts/build-and-package.ps1 -Version <workspace version> -SkipSign
 ```
 
 A local packaging dry run. The script builds the exe and assembles every

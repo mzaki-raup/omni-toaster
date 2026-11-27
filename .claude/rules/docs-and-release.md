@@ -91,7 +91,7 @@ pwsh -File scripts/next-release.ps1
 ```
 
 ```bash
-pwsh -File scripts/build-and-package.ps1 -Version 0.0.0-local -SkipSign
+pwsh -File scripts/build-and-package.ps1 -Version <workspace version> -SkipSign
 ```
 
 ```bash

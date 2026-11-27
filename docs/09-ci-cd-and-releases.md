@@ -225,3 +225,19 @@ Each forge builds its own release, and `scripts/build-and-package.ps1` sets
 exe a release carries knows where to look for the next one: GitHub's builds read
 GitHub, the Forgejo's read the Forgejo (ADR-024). Nothing in either workflow
 changes; the script does it. A local build reads the Forgejo.
+
+Because the two forges build separately, the two releases of one version are **two
+different exes**: their SHA-256 digests differ (each carries its own repository
+address), and so do their manifests, whose asset and notes links point at their own
+forge and whose signatures are over different bytes. Both verify against the same
+public key. Nothing in the app compares one forge's digest with the other's.
+
+`scripts/verify-release.ps1`, the last step of both release workflows, proves a
+release was built for the forge it is on: the exe must contain
+`[omnitoaster-update-source=<server>/<owner>/<repo>]` (a marker `ot-update`'s build
+script writes from the `-RepoUrl` the exe was built with, a plain ASCII string in the
+file; the bare address would not prove anything, because the default one is in every
+build as a constant), and the manifest's notes link and every asset link must start with it. A
+release whose exe names another forge fails the job instead of quietly sending its
+users to the wrong place. `-SkipBakedSource` exists only for a release published
+before the exe carried its source (before v0.19.0).

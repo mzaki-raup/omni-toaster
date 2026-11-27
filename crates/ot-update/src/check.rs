@@ -121,7 +121,7 @@ impl Client {
         if cancel.is_cancelled() {
             return Err(CheckError::Cancelled);
         }
-        tracing::info!(api = %self.api, "checking for a newer release");
+        tracing::info!(api = %self.api, source = crate::source::SOURCE_MARKER, "checking for a newer release");
         let body = self.get(&self.api)?;
         if cancel.is_cancelled() {
             return Err(CheckError::Cancelled);

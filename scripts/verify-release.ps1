@@ -11,7 +11,12 @@
     4. the manifest's version, tag and channel match the release;
     5. every asset listed in the manifest downloads with the stated size and
        sha256, and SHA256SUMS.txt agrees;
-    6. the Windows executable prints the released version with --version and
+    6. the exe was built for the forge it is published on: the update source it
+       carries (what the in-app updater reads) is this forge's, and
+       the manifest's download and notes addresses are too. GitHub and the
+       Forgejo each build their own release, so their exes and manifests
+       differ by design and each one points at its own forge;
+    7. the Windows executable prints the released version with --version and
        passes --self-test against a temporary data folder.
 
   The release workflow runs this as its last step; a failure fails the job so a
@@ -32,10 +37,40 @@ param(
   # runner can exhaust that before this step runs. Assets are still fetched
   # anonymously, exactly as the app fetches them.
   [string]$Token = $(if ($env:GITHUB_TOKEN) { $env:GITHUB_TOKEN } elseif ($env:GH_TOKEN) { $env:GH_TOKEN } else { "" }),
-  [switch]$NoSelfTest
+  [switch]$NoSelfTest,
+  # For a release published before the exe carried its update source (before
+  # v0.19.0): skips step 6's check of the exe's own bytes.
+  [switch]$SkipBakedSource
 )
 
 $ErrorActionPreference = "Stop"
+
+# The address this forge's releases live at: what build-and-package.ps1 was given
+# as -RepoUrl, so it is what the exe carries and what the manifest's links start with.
+function Get-RepoUrl([string]$Server, [string]$Repository) { return ($Server.TrimEnd('/') + "/" + $Repository) }
+
+# What the exe carries when it was built for `RepoUrl`: ot-update's build script
+# writes it (crates/ot-update/build.rs), and only the repository it was built for is in it.
+function Get-SourceMarker([string]$RepoUrl) { return "[omnitoaster-update-source=$RepoUrl]" }
+
+# Whether a file's bytes contain the address. A compiled string is stored as plain
+# ASCII, so a byte search is enough; the whole exe is read, which is a few megabytes.
+function Test-ContainsText([string]$Path, [string]$Text) {
+  $bytes = [System.IO.File]::ReadAllBytes($Path)
+  $needle = [System.Text.Encoding]::ASCII.GetBytes($Text)
+  if ($needle.Length -eq 0 -or $bytes.Length -lt $needle.Length) { return $false }
+  $first = $needle[0]
+  $last = $bytes.Length - $needle.Length
+  for ($i = [Array]::IndexOf($bytes, $first, 0); $i -ge 0 -and $i -le $last; $i = [Array]::IndexOf($bytes, $first, $i + 1)) {
+    $same = $true
+    for ($k = 1; $k -lt $needle.Length; $k++) { if ($bytes[$i + $k] -ne $needle[$k]) { $same = $false; break } }
+    if ($same) { return $true }
+  }
+  return $false
+}
+
+# Dot-sourced by a test: stop after the definitions above.
+if ($env:OT_VERIFY_FUNCTIONS_ONLY) { return }
 
 if (-not $Repository) {
   $origin = git remote get-url origin
@@ -122,10 +157,14 @@ try {
   $sums = @{}
   foreach ($line in Get-Content $sumsPath) { if ($line -match '^([0-9a-f]{64})\s+\*?(.+)$') { $sums[$Matches[2]] = $Matches[1] } }
 
+  $repoUrl = Get-RepoUrl $Server $Repository
+  if (-not ([string]$manifest.notes_url).StartsWith("$repoUrl/")) { throw "manifest.notes_url '$($manifest.notes_url)' is not on $repoUrl." }
+
   $exePath = $null
   foreach ($key in $manifest.assets.PSObject.Properties.Name) {
     $entry = $manifest.assets.$key
     if (-not $assets.ContainsKey($entry.name)) { throw "Manifest asset '$($entry.name)' is not attached to the release." }
+    if (-not ([string]$entry.url).StartsWith("$repoUrl/")) { throw "Manifest asset '$($entry.name)' points at '$($entry.url)', not at $repoUrl." }
     $path = Fetch $entry.name
     $size = (Get-Item $path).Length
     $hash = (Get-FileHash $path -Algorithm SHA256).Hash.ToLower()
@@ -134,6 +173,15 @@ try {
     if ($sums[$entry.name] -ne $hash) { throw "$($entry.name): sha256 mismatch against SHA256SUMS.txt." }
     Write-Host "$($entry.name): size and sha256 OK"
     if ($key -eq "windows-x64") { $exePath = $path }
+  }
+
+  if (-not $SkipBakedSource -and $exePath) {
+    # The marker, not the bare address: the default repository is in every build as
+    # a constant, so a GitHub exe contains the Forgejo's address too.
+    if (-not (Test-ContainsText $exePath (Get-SourceMarker $repoUrl))) {
+      throw "OmniToaster.exe does not carry the update source $repoUrl, so it would look for its updates on another forge. It was built for the wrong one."
+    }
+    Write-Host "OmniToaster.exe carries its update source, $repoUrl"
   }
 
   if (-not $NoSelfTest -and $exePath -and $IsWindows) {
