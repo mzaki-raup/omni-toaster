@@ -9,6 +9,12 @@ Format: [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) · Versioning:
 
 - (nothing yet)
 
+## 0.18.0 — 2026-11-27
+
+### Added
+
+- Settings > Reminders as two columns (e1062ddb)
+
 ## 0.17.0 — 2026-11-26
 
 ### Added
