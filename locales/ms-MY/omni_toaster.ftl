@@ -924,13 +924,13 @@ weather-heading = Pemberitahuan Cuaca
 # Kotak semak yang menghidupkan pemberitahuan cuaca. Dimatikan secara lalai.
 weather-enable = Beritahu saya apabila cuaca berubah
 # Petunjuk di bawah kotak semak itu: apa yang dihantar, dan bahawa apabila dimatikan tiada apa-apa dihantar.
-weather-enable-hint = Menghantar lokasi yang disimpan di bawah Solat, dibundarkan kepada kira-kira satu kilometer, kepada Open-Meteo. Apabila dimatikan, tiada apa-apa dihantar.
+weather-enable-hint = Menghantar lokasi cuaca di bawah, dibundarkan kepada kira-kira satu kilometer, kepada Open-Meteo. Apabila dimatikan, tiada apa-apa dihantar.
 # Label baris yang menamakan lokasi untuk cuaca.
 weather-place-label = Lokasi
 # Dipaparkan apabila belum ada lokasi disimpan.
-weather-place-none = Tiada lokasi ditetapkan. Tetapkan satu di bawah Solat.
-# Petunjuk di bawah lokasi.
-weather-place-hint = Cuaca menggunakan lokasi yang sama dengan waktu solat.
+weather-place-none = Tiada lokasi ditetapkan. Pilih satu dengan Tukar Lokasi.
+# Petunjuk di bawah lokasi: ia milik cuaca sendiri, dipilih di sini, dan tidak lagi mengikut lokasi solat.
+weather-place-hint = Cuaca mempunyai lokasinya sendiri. Ia bermula sebagai lokasi waktu solat dan tidak lagi mengikutinya.
 # Label medan bilangan minit antara setiap semakan cuaca.
 weather-poll-label = Semak Setiap (Minit)
 # Petunjuk di bawah medan itu.

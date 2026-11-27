@@ -105,7 +105,12 @@ jakim_prayer_cache (zone_code, date, hijri, imsak, fajr, syuruk, dhuha,
                     PRIMARY KEY (zone_code, date))
 ```
 
-`location` as built (FEAT-0056, `ot_store::location`): one row, `id = 1`. `source`
+`location` as built (FEAT-0056, `ot_store::location`): one row for each use, `id = 1` for
+the place Prayer uses and `id = 2` for the one Weather uses (FEAT-0072, migration 009;
+the table has no constraint on `id`, so no column was added). The weather place starts
+as a copy of the prayer place and is independent after that; the detection below and the
+manual place under Prayer touch row 1 only, and `weather_cache` belongs to row 2. In
+row 1, `source`
 is `ip` or `manual`; `lat` and `lon` are already rounded to two decimals; `tz` is
 an IANA zone name; `updated_at` is when it was found, which makes the row the
 cache of the daily IP lookup. A manual place replaces any detected one, and a
@@ -130,6 +135,7 @@ edited once it has shipped; a correction is a new migration.
 | `002_asset_label.sql` | 2 | `asset.label`, the name a picture has in the image library |
 | `003_locale_keys.sql` | 4 | the `category` key columns (one template per key), `authored_lang` on `category` and `reminder`, and a template row for each built-in reminder type key |
 | `004_jakim.sql` | 5 | `jakim_prayer_cache`. The zone table is embedded data — `data/jakim_zones.csv` and `data/jakim_zone_points.csv` — not a database table (FEAT-0050) |
+| `009_weather_place.sql` | 6 | the weather place (`location` row 2), copied from the prayer place if there is one, and the cached weather moved to it. A fresh database gets row 2 when the first prayer place is saved (FEAT-0072) |
 
 Every migration is tested on both a fresh database and an existing one
 ([.claude/rules/testing.md](../.claude/rules/testing.md)).

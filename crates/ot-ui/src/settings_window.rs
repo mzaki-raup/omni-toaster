@@ -1419,6 +1419,11 @@ impl SettingsWindow {
     fn weather_pane(&mut self, ui: &mut egui::Ui) {
         let tokens = self.theme.tokens();
         self.weather.tick();
+        if self.weather.take_place_saved()
+            && let Some(service) = &self.weather_service
+        {
+            service.changed();
+        }
         if self.weather.busy() {
             ui.ctx().request_repaint_after(Duration::from_millis(100));
         } else if self.weather.has_snapshot() {

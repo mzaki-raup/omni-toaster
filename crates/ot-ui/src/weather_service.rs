@@ -33,8 +33,9 @@ use ot_weather::observation::{Observation, parse};
 /// that slept wakes to the right time rather than to an eight-hour wait.
 const MAX_WAIT: Duration = Duration::from_secs(30);
 
-/// Where the last class the user was told about is kept.
-const NOTIFIED: &str = "weather.notified";
+/// Where the last class the user was told about is kept; the store clears it when the
+/// weather place moves.
+const NOTIFIED: &str = ot_store::weather::NOTIFIED_SETTING;
 
 /// How long to wait when weather is off, no place is saved or the store cannot be
 /// opened. A change of settings or place wakes the thread sooner.
@@ -98,6 +99,9 @@ pub struct Engine {
     fetch: Box<dyn Fetch>,
     cancel: Cancel,
     detector: Option<Detector>,
+    /// The coordinates the last pass looked at, so a moved place starts from a fresh
+    /// baseline rather than being compared with the old place's sky (FEAT-0072).
+    last_place: Option<(f64, f64)>,
     failures: u32,
     retry_at: Option<Timestamp>,
     /// Set for a developer's simulation: it needs no setting, no place and no
@@ -112,6 +116,7 @@ impl Engine {
             fetch,
             cancel,
             detector: None,
+            last_place: None,
             failures: 0,
             retry_at: None,
             simulated: None,
@@ -162,12 +167,12 @@ impl Engine {
         thresholds
     }
 
-    /// The saved place's name, for the toast to say where the weather is for
+    /// The weather place's name, for the toast to say where the weather is for
     /// (FEAT-0075); `None` when none is saved, as in a simulation.
     pub fn place_name(&self) -> Option<String> {
         Store::open(&self.root)
             .ok()?
-            .location()
+            .weather_location()
             .ok()
             .flatten()
             .map(|place| place.name)
@@ -205,12 +210,20 @@ impl Engine {
                 return idle(SignedDuration::from_mins(1));
             }
         };
-        let place = store.location().ok().flatten();
+        let place = store.weather_location().ok().flatten();
         let coordinates = match (&place, self.simulated) {
             (Some(place), _) => (place.latitude, place.longitude),
             (None, Some(_)) => (0.0, 0.0),
             (None, None) => return idle(IDLE),
         };
+
+        if self.simulated.is_none() {
+            if self.last_place.is_some_and(|before| before != coordinates) {
+                tracing::info!("the weather place changed; starting from a fresh baseline");
+                self.detector = None;
+            }
+            self.last_place = Some(coordinates);
+        }
 
         let interval = self.simulated.map_or_else(
             || SignedDuration::from_mins(i64::from(settings.weather.poll_minutes())),
@@ -258,10 +271,22 @@ impl Engine {
                     if self.cancel.is_cancelled() {
                         return idle(IDLE);
                     }
-                    if self.simulated.is_none()
-                        && let Err(error) = store.write_weather(now, &body)
-                    {
-                        tracing::warn!(%error, "the weather could not be cached");
+                    if self.simulated.is_none() {
+                        match store.write_weather(coordinates.0, coordinates.1, now, &body) {
+                            Ok(true) => {}
+                            Ok(false) => {
+                                // The user chose another place while this was being
+                                // fetched: this is the old place's sky, which must not be
+                                // cached, shown or compared. Look again for the new one.
+                                tracing::info!(
+                                    "the weather place changed during the fetch; the answer was dropped"
+                                );
+                                return idle(SignedDuration::from_secs(1));
+                            }
+                            Err(error) => {
+                                tracing::warn!(%error, "the weather could not be cached");
+                            }
+                        }
                     }
                     self.failures = 0;
                     self.retry_at = None;
@@ -507,6 +532,9 @@ mod tests {
         }
     }
 
+    /// Something to do in the middle of a fetch.
+    type Hook = Box<dyn FnOnce() + Send>;
+
     /// A fetch that answers from a script and counts its calls.
     #[derive(Clone, Default)]
     struct Script {
@@ -514,6 +542,9 @@ mod tests {
         calls: Arc<AtomicU32>,
         asked: Arc<Mutex<Vec<(f64, f64)>>>,
         cancel_inside: Arc<Mutex<Option<Cancel>>>,
+        /// Runs once, in the middle of the next fetch: the user doing something while
+        /// the request is out.
+        during: Arc<Mutex<Option<Hook>>>,
     }
 
     impl Script {
@@ -536,6 +567,10 @@ mod tests {
             self.asked.lock().expect("lock").push((latitude, longitude));
             if let Some(cancel) = self.cancel_inside.lock().expect("lock").as_ref() {
                 cancel.cancel();
+            }
+            let hook = self.during.lock().expect("lock").take();
+            if let Some(hook) = hook {
+                hook();
             }
             let observation = self
                 .answers
@@ -645,6 +680,117 @@ mod tests {
         let cached = store(&rig).weather().expect("reads").expect("cached");
         assert_eq!(cached.fetched_at, at(T0));
         assert!(cached.payload_json.contains("\"weather_code\":61"));
+    }
+
+    fn kuching() -> StoredLocation {
+        StoredLocation {
+            name: "Kuching".into(),
+            latitude: 1.55,
+            longitude: 110.35,
+            tz: "Asia/Kuching".into(),
+            country_code: Some("MY".into()),
+            origin: Origin::Manual,
+            updated_at: at(T0),
+        }
+    }
+
+    #[test]
+    fn the_service_asks_for_the_weather_place_not_the_prayer_place() {
+        let mut rig = rig();
+        // Prayer keeps Kuala Lumpur; Weather chooses Kuching.
+        store(&rig)
+            .save_weather_location(&kuching())
+            .expect("saved");
+        rig.script.push(Ok(observation(0, 0, 28.0, &[])));
+        rig.engine.run(at(T0));
+        assert_eq!(*rig.script.asked.lock().expect("lock"), [(1.55, 110.35)]);
+        assert_eq!(rig.engine.place_name().as_deref(), Some("Kuching"));
+        // Moving the prayer place later changes neither.
+        let mut elsewhere = kuching();
+        elsewhere.name = "Penang".into();
+        elsewhere.latitude = 5.41;
+        elsewhere.longitude = 100.33;
+        store(&rig).save_manual_location(&elsewhere).expect("saved");
+        assert_eq!(rig.engine.place_name().as_deref(), Some("Kuching"));
+        assert!(
+            store(&rig).weather().expect("reads").is_some(),
+            "the weather cache is the weather place's, and stayed"
+        );
+    }
+
+    #[test]
+    fn choosing_another_place_empties_the_cache_and_starts_from_a_fresh_baseline() {
+        let mut rig = rig();
+        for (n, code) in [(0, 0), (30, 61), (60, 61)] {
+            rig.script.push(Ok(observation(n, code, 25.0, &[])));
+        }
+        for n in [0, 30, 60] {
+            rig.engine.run(minutes(T0, n));
+        }
+        // Rain was told about for Kuala Lumpur. Kuching is chosen, and is clear.
+        store(&rig)
+            .save_weather_location(&kuching())
+            .expect("saved");
+        assert_eq!(
+            store(&rig).weather().expect("reads"),
+            None,
+            "the cache went"
+        );
+        for (n, code) in [(90, 0), (120, 0)] {
+            rig.script.push(Ok(observation(n, code, 28.0, &[])));
+        }
+        let told: usize = [90, 120]
+            .iter()
+            .map(|n| rig.engine.run(minutes(T0, *n)).changes.len())
+            .sum();
+        assert_eq!(
+            told, 0,
+            "a new place's sky is not compared with the old place's"
+        );
+        assert_eq!(
+            *rig.script
+                .asked
+                .lock()
+                .expect("lock")
+                .last()
+                .expect("asked"),
+            (1.55, 110.35)
+        );
+    }
+
+    #[test]
+    fn a_fetch_that_finishes_after_the_place_moved_is_dropped_not_cached_or_shown() {
+        let mut rig = rig();
+        let root = rig.dir.path().to_path_buf();
+        *rig.script.during.lock().expect("lock") = Some(Box::new(move || {
+            Store::open(&root)
+                .and_then(|store| store.save_weather_location(&kuching()))
+                .expect("the user chose Kuching mid-fetch");
+        }));
+        rig.script.push(Ok(observation(0, 61, 24.0, &[])));
+        let report = rig.engine.run(at(T0));
+        assert_eq!(
+            report.snapshot, None,
+            "Kuala Lumpur's sky is not shown for Kuching"
+        );
+        assert!(report.changes.is_empty());
+        assert_eq!(
+            store(&rig).weather().expect("reads"),
+            None,
+            "and not cached"
+        );
+        assert_eq!(
+            report.next_run,
+            at(T0) + SignedDuration::from_secs(1),
+            "look again at once"
+        );
+        // The next pass asks for the new place.
+        rig.script.push(Ok(observation(1, 0, 28.0, &[])));
+        rig.engine.run(at(T0) + SignedDuration::from_secs(1));
+        assert_eq!(
+            *rig.script.asked.lock().expect("lock"),
+            [(3.15, 101.69), (1.55, 110.35)]
+        );
     }
 
     #[test]

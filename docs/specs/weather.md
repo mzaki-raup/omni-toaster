@@ -138,9 +138,10 @@ cargo run -p omnitoaster -- --data-dir ./tmp-data
   reads the payload; `ot-weather`'s parser does, so a damaged row is a failed parse
   and a refetch. `CachedWeather::age` and `is_stale(now, ttl)` say how old it is,
   with `DEFAULT_TTL` of two hours (four polls at the default interval); exactly the
-  TTL is still fresh. Saving a place with other coordinates empties the cache,
-  because another place's weather is not this place's; saving the same place again
-  (the daily lookup) keeps it.
+  TTL is still fresh. Choosing a **weather place** with other coordinates empties the
+  cache, because another place's weather is not this place's; choosing the same place
+  again keeps it. Moving the **prayer** place no longer touches it (FEAT-0072: the two
+  places are independent). The cache belongs to `location` row 2.
 - **Change detection (FEAT-0068).** `ot_weather::detect::Detector` is a plain value fed
   one fresh `Observation` at a time (no clock, no I/O) that returns the `Change`s.
   The first reading is a silent baseline. A class change fires once, on its second
@@ -156,7 +157,7 @@ cargo run -p omnitoaster -- --data-dir ./tmp-data
 - **The service (FEAT-0069).** `ot_ui::weather_service`: an `Engine` of one testable
   pass and a thread, started with the window, like the prayer service. **Off by
   default** (`[weather] enabled`; the Weather pane is FEAT-0070), and off means no
-  outbound request at all. It polls for the saved place every `poll_minutes` (30; 15
+  outbound request at all. It polls for the weather place every `poll_minutes` (30; 15
   to 240), keeps each answer in the cache, and feeds each fresh one to the detector with
   the thresholds the settings ask for (`fall_*`, `rise_*`), keeping only changes **to**
   a class listed in `notify_classes`. The last class told is kept in the store
@@ -168,7 +169,19 @@ cargo run -p omnitoaster -- --data-dir ./tmp-data
   condition's built-in picture, held back by a pause. Temperatures are whole degrees,
   because `ot-i18n` has no number formatter yet. The per-condition templates and the
   stale marker are FEAT-0070 and FEAT-0071.
-- **The place on the toast (FEAT-0075).** A weather toast names the saved place
+- **The weather has its own place (FEAT-0072).** `location` row 2 (migration 009,
+  `ot_store::location::WEATHER_ROW`): it starts as a copy of the prayer place and is then
+  chosen in Settings ▸ Weather with the same two controls as Prayer — a city search
+  (Open-Meteo geocoding, ADR-021) or typed coordinates — which are one shared piece,
+  `ot_ui::place_picker`. Prayer's place, zone and times are not touched. Choosing another
+  place empties the cache **and** clears `weather.notified` in one store call, and the
+  service drops its detector when the coordinates differ from the last pass, so the new
+  place starts from a fresh baseline instead of being compared with the old place's sky.
+  A fetch that finishes after the place moved is not cached, shown or compared: the
+  cache write is conditional on the place still being at the coordinates that were
+  fetched, and the pass looks again at once. The service, the pane and the toast's place
+  name all read row 2.
+- **The place on the toast (FEAT-0075).** A weather toast names the weather place
   beneath its text, the same way a prayer's does (`docs/specs/toast.md` §8); the
   service reads the name with each change and the preview uses the pane's. A
   simulation has no place and so none is shown. When the weather has a place of its
@@ -178,7 +191,8 @@ cargo run -p omnitoaster -- --data-dir ./tmp-data
   setting, place or cache, so the toast can be watched without waiting for the
   weather. Not in a release.
 - **Settings ▸ Weather (FEAT-0070).** `ot_ui::weather_pane`: the switch (with what
-  it sends), the saved place read-only (it is set under Prayer), the poll interval,
+  it sends), the weather place with Change Location (the shared city search and
+  coordinates, FEAT-0072), the poll interval,
   a checkbox for each class a change **to** is told about, the two temperature
   thresholds (a fall and a rise, each by 1 to 30 whole °C within 1 to 6 hours), and a
   template for each condition. The settings are `[weather]` in `settings.toml`, brought

@@ -1,6 +1,6 @@
 //! Settings ▸ Weather (FEAT-0070, `docs/specs/weather.md` §6 and §9).
 //!
-//! The switch, the place it uses (the one saved under Prayer), how often to look,
+//! The switch, the place it uses (its own, searched or typed here, FEAT-0072), how often to look,
 //! which kinds of weather and which sudden temperature moves to tell about, and a
 //! template for each condition: its title, message, accent, picture and sound,
 //! each empty meaning the built-in. The pane draws and nothing in it blocks: the
@@ -14,13 +14,16 @@ use std::path::{Path, PathBuf};
 use std::sync::mpsc::{Receiver, SyncSender, sync_channel};
 
 use ot_core::WeatherSettings;
+use ot_prayer::location::{Located, Lookup};
 use ot_store::Store;
+use ot_store::location::Origin;
 use ot_store::reminders::{PrayerTemplateEdit, Template};
 use ot_weather::condition::Condition;
 
 use crate::weather_service::Snapshot;
 
 use crate::layout::{self, Columns};
+use crate::place_picker::Picker;
 use crate::prayer_pane::{PictureChoice, ellipsize, hex, parse_hex};
 use crate::prayer_pane::{button, note, rule, subheading, wrapped_checkbox};
 use crate::theme::Tokens;
@@ -28,6 +31,13 @@ use crate::theme::Tokens;
 /// What a thread read or wrote.
 enum Reply {
     Place(Option<String>),
+    /// The weather place was saved: its name, which is what the pane shows.
+    PlaceSaved(Option<String>),
+    /// A city search came back; `generation` says which, so an older one is dropped.
+    Search {
+        generation: u64,
+        found: Result<Vec<Located>, &'static str>,
+    },
     Template {
         condition: String,
         template: Option<Box<Template>>,
@@ -87,6 +97,15 @@ pub struct State {
     saved: bool,
     /// The saved place's name once read; `None` inside means there is none.
     place: Option<Option<String>>,
+    /// The city search and typed coordinates, shared with Settings ▸ Prayer.
+    picker: Picker,
+    /// Whether the place entry controls are open.
+    editing: bool,
+    /// The newest search, so an older answer that arrives late is dropped.
+    search_generation: u64,
+    /// The weather place was saved since the window last asked: the service is told
+    /// once and the old place's weather is forgotten.
+    place_saved: bool,
     /// The last error, as text for the status note.
     error: Option<String>,
     /// The weather as the service last found it, with how old it is.
@@ -97,7 +116,7 @@ impl State {
     pub fn new(root: &Path) -> Self {
         let state = Self::idle(root);
         state.spawn("weather-place", |root, out| {
-            let reply = match Store::open(root).and_then(|store| store.location()) {
+            let reply = match Store::open(root).and_then(|store| store.weather_location()) {
                 Ok(place) => Reply::Place(place.map(|place| place.name)),
                 Err(error) => Reply::Failed(error.to_string()),
             };
@@ -120,6 +139,10 @@ impl State {
             edit: TemplateEdit::default(),
             saved: false,
             place: None,
+            picker: Picker::new(),
+            editing: false,
+            search_generation: 0,
+            place_saved: false,
             error: None,
             snapshot: None,
         }
@@ -127,8 +150,14 @@ impl State {
 
     /// A state with nothing loaded and the longest sample text in every field,
     /// for the layout test.
-    pub fn for_layout_test(root: &Path) -> Self {
+    pub fn for_layout_test(root: &Path, results: Vec<Located>) -> Self {
         let mut state = Self::idle(root);
+        // The place entry controls open, with long results and a coordinates error.
+        state.editing = true;
+        state.picker.city = "Kuching".to_string();
+        state.picker.search = crate::place_picker::Search::Results(results);
+        state.picker.coords = "1.55, 110.35".to_string();
+        state.picker.coords_error = Some("prayer-coords-error-range");
         state.place = Some(Some(
             "Kuala Lumpur, Wilayah Persekutuan Kuala Lumpur".to_string(),
         ));
@@ -201,6 +230,47 @@ impl State {
         });
     }
 
+    /// Search for a city. An answer older than the newest search is dropped.
+    fn search(&mut self, text: String) {
+        self.search_generation += 1;
+        let generation = self.search_generation;
+        self.pending += 1;
+        let language = if ot_i18n::current_language() == Some(ot_i18n::Language::Malay) {
+            "ms"
+        } else {
+            "en"
+        };
+        self.spawn("weather-search", move |_, out| {
+            let found = Lookup::new()
+                .search(&text, language)
+                .map_err(|error| crate::prayer_pane::error_key(&error));
+            let _ = out.send(Reply::Search { generation, found });
+        });
+    }
+
+    /// Save the place the user chose as the weather's own.
+    fn save_place(&mut self, place: &Located) {
+        let stored = crate::prayer::stored(place, Origin::Manual, jiff::Timestamp::now());
+        self.pending += 1;
+        self.spawn("weather-save-place", move |root, out| {
+            let saved = Store::open(root).and_then(|store| {
+                store.save_weather_location(&stored)?;
+                store.weather_location()
+            });
+            let reply = match saved {
+                Ok(place) => Reply::PlaceSaved(place.map(|place| place.name)),
+                Err(error) => Reply::Failed(error.to_string()),
+            };
+            let _ = out.send(reply);
+        });
+    }
+
+    /// Whether the weather place was saved since this was last asked, so the service
+    /// can be told. Asking clears it.
+    pub fn take_place_saved(&mut self) -> bool {
+        std::mem::take(&mut self.place_saved)
+    }
+
     /// The service found the weather: show it.
     pub fn set_snapshot(&mut self, snapshot: Snapshot) {
         self.snapshot = Some(snapshot);
@@ -219,7 +289,7 @@ impl State {
     /// Whether a thread's answer is still awaited, so the pane asks to be drawn
     /// again soon.
     pub fn busy(&self) -> bool {
-        self.pending > 0
+        self.pending > 0 || self.picker.searching()
     }
 
     /// Take what the threads have answered since the last frame.
@@ -228,6 +298,19 @@ impl State {
             self.pending = self.pending.saturating_sub(1);
             match reply {
                 Reply::Place(place) => self.place = Some(place),
+                Reply::PlaceSaved(place) => {
+                    self.place = Some(place);
+                    // The weather shown was another place's: it is gone until the
+                    // service has looked at this one.
+                    self.snapshot = None;
+                    self.place_saved = true;
+                    self.editing = false;
+                }
+                Reply::Search { generation, found } => {
+                    if generation == self.search_generation {
+                        self.picker.set_results(found);
+                    }
+                }
                 Reply::Template {
                     condition,
                     template,
@@ -257,11 +340,12 @@ impl State {
         }
     }
 
-    /// The place was changed under Prayer: read it again.
+    /// The place was changed under Prayer: read the weather place again, which only
+    /// changes if this was the first place there was (it starts as a copy of it).
     pub fn place_changed(&mut self) {
         self.pending += 1;
         self.spawn("weather-place", |root, out| {
-            let reply = match Store::open(root).and_then(|store| store.location()) {
+            let reply = match Store::open(root).and_then(|store| store.weather_location()) {
                 Ok(place) => Reply::Place(place.map(|place| place.name)),
                 Err(error) => Reply::Failed(error.to_string()),
             };
@@ -368,7 +452,7 @@ fn now_block(
 fn switch_block(
     ui: &mut egui::Ui,
     columns: Columns,
-    state: &State,
+    state: &mut State,
     settings: &mut WeatherSettings,
     tokens: Tokens,
     outcome: &mut Outcome,
@@ -414,6 +498,21 @@ fn switch_block(
         &ot_i18n::text("weather-place-hint"),
         tokens.text_dim,
     );
+    ui.add_space(layout::ROW_GAP);
+    if state.editing {
+        let action = state.picker.show(ui, columns, tokens);
+        if let Some(text) = action.search {
+            state.search(text);
+        }
+        if let Some(chosen) = action.chosen {
+            state.save_place(&chosen.place);
+        }
+        if action.close {
+            state.editing = false;
+        }
+    } else if button(ui, ot_i18n::text("prayer-location-change")).clicked() {
+        state.editing = true;
+    }
     ui.add_space(layout::ROW_GAP);
 
     let mut minutes = settings.poll_minutes();
@@ -824,6 +923,105 @@ mod tests {
         assert_eq!(state.edit.title, "Fine day");
         assert!(state.edit.chime && state.edit.accent_on);
         assert_eq!(state.edit.accent, parse_hex("#336699").expect("a colour"));
+    }
+
+    fn located(name: &str, latitude: f64, longitude: f64) -> Located {
+        Located {
+            name: name.to_owned(),
+            latitude,
+            longitude,
+            tz: "Asia/Kuching".to_owned(),
+            country_code: Some("MY".to_owned()),
+        }
+    }
+
+    /// Tick until `done` holds or ten seconds pass.
+    fn tick_until(state: &mut State, done: impl Fn(&State) -> bool) {
+        let deadline = Instant::now() + Duration::from_secs(10);
+        while Instant::now() < deadline {
+            state.tick();
+            if done(state) {
+                return;
+            }
+            std::thread::sleep(Duration::from_millis(10));
+        }
+        panic!("the thread did not answer in time");
+    }
+
+    #[test]
+    fn a_chosen_place_is_the_weathers_own_and_prayer_keeps_its_place() {
+        let dir = tempfile::tempdir().expect("a scratch folder");
+        DataRoot::resolve(Some(dir.path())).expect("resolves");
+        {
+            let store = Store::open(dir.path()).expect("created");
+            store
+                .save_manual_location(&ot_store::location::StoredLocation {
+                    name: "Kuala Lumpur".into(),
+                    latitude: 3.15,
+                    longitude: 101.69,
+                    tz: "Asia/Kuala_Lumpur".into(),
+                    country_code: Some("MY".into()),
+                    origin: Origin::Manual,
+                    updated_at: "2026-11-26T01:00:00Z".parse().expect("instant"),
+                })
+                .expect("saved");
+        }
+        let mut state = State::new(dir.path());
+        tick_until(&mut state, |state| state.place.is_some());
+        assert_eq!(
+            state.place_name(),
+            Some("Kuala Lumpur"),
+            "it starts as a copy"
+        );
+
+        state.save_place(&located("Kuching, Sarawak", 1.55, 110.35));
+        tick_until(&mut state, |state| state.place_saved);
+        assert_eq!(state.place_name(), Some("Kuching, Sarawak"));
+        assert!(state.take_place_saved(), "the service is told");
+        assert!(!state.take_place_saved(), "once");
+        assert_eq!(state.snapshot, None, "the old place's weather is forgotten");
+
+        let store = Store::open(dir.path()).expect("opens");
+        assert_eq!(
+            store.location().expect("reads").expect("a place").name,
+            "Kuala Lumpur",
+            "Prayer keeps its own"
+        );
+        let weather = store.weather_location().expect("reads").expect("a place");
+        assert_eq!(
+            (weather.name.as_str(), weather.origin),
+            ("Kuching, Sarawak", Origin::Manual)
+        );
+    }
+
+    #[test]
+    fn an_older_search_answer_that_arrives_late_is_dropped() {
+        let dir = tempfile::tempdir().expect("a scratch folder");
+        let mut state = State::idle(dir.path());
+        state.search_generation = 2;
+        state
+            .sender
+            .send(Reply::Search {
+                generation: 1,
+                found: Ok(vec![located("Old answer", 1.0, 1.0)]),
+            })
+            .expect("sent");
+        state
+            .sender
+            .send(Reply::Search {
+                generation: 2,
+                found: Ok(vec![located("New answer", 2.0, 2.0)]),
+            })
+            .expect("sent");
+        state.pending = 2;
+        state.tick();
+        match &state.picker.search {
+            crate::place_picker::Search::Results(found) => {
+                assert_eq!(found.len(), 1);
+                assert_eq!(found[0].name, "New answer");
+            }
+            other => panic!("{other:?}"),
+        }
     }
 
     #[test]

@@ -238,17 +238,17 @@ separate pieces of work and are filed apart so each can be taken, reviewed and
 shipped on its own.
 
 ### FEAT-0072 · The weather has its own place, searched and chosen in the Weather pane
-- **State:** Pending · **Spec:** docs/specs/weather.md §9 · docs/11-prayer-and-azan.md §6
-- **Branch:** to be cut from `main` once Phase 6 is merged
+- **State:** Completed · **Spec:** docs/specs/weather.md §9 · docs/11-prayer-and-azan.md §6
+- **Branch:** feat/weather-place
 - **Depends on:** FEAT-0056, FEAT-0070
 - **Source:** the owner: "Allow weather location to be choose/search/select by user"; chose **its own place**, not a shared one
-- [ ] A weather place of its own, stored apart from the prayer place (a new row or table, with a migration); it starts as a copy of the prayer place and is then independent
-- [ ] The Weather pane's place row becomes the Prayer pane's controls: search by city (Open-Meteo geocoding, as FEAT-0056), typed coordinates, and the result list, with the consent the search already has
-- [ ] The service and the cache use the weather place; changing it empties the cache and re-baselines the detector, as FEAT-0067 does for the prayer place
-- [ ] Test: a weather place saved and read back apart from the prayer place; the service asks for the weather place's coordinates; changing it empties the cache; the layout test with the new controls in Malay
-- [ ] Gate: fmt · clippy -D warnings · test --workspace --locked -j 4 · deny check · --self-test
-- [ ] App: `--data-dir ./tmp-data` — search a city in Settings ▸ Weather, choose it, see the current weather for it while Prayer keeps its own place
-- [ ] Docs: spec · README · CHANGELOG · CHECKLIST · GOTCHAS
+- [x] A weather place of its own, stored apart from the prayer place (a new row or table, with a migration); it starts as a copy of the prayer place and is then independent — `location` row 2 with migration 009 (a copy of row 1 for an existing database; a fresh one gets it with the first prayer place); no new table, since the table has no constraint on `id`
+- [x] The Weather pane's place row becomes the Prayer pane's controls: search by city (Open-Meteo geocoding, as FEAT-0056), typed coordinates, and the result list, with the consent the search already has — the Prayer pane's search and coordinates are now one shared `place_picker`, used by both panes; the IP consent and detection stay in Prayer
+- [x] The service and the cache use the weather place; changing it empties the cache and re-baselines the detector, as FEAT-0067 does for the prayer place — the service, the pane and the toast name read row 2; the store empties the cache and `weather.notified` on a moved place, the engine drops its detector, and a fetch that finishes after the move is dropped (a test saves a new place from inside a fake fetch)
+- [x] Test: a weather place saved and read back apart from the prayer place; the service asks for the weather place's coordinates; changing it empties the cache; the layout test with the new controls in Malay — migration 009 on a version-8 database and on a fresh one; a weather place saved apart from the prayer place; the cache emptied by a weather move and kept by a prayer move (FEAT-0067's old test is now two); the service asks for the weather place; fresh baseline; the dropped-fetch race; the layout test with the picker open and long results; mutation checks on the re-baseline and the cache clearing, each caught
+- [x] Gate: fmt · clippy -D warnings · test --workspace --locked -j 4 · deny check · --self-test — fmt · clippy · tests with `--no-fail-fast` · deny · self-test, with the owner's installed copy closed
+- [x] App: `--data-dir ./tmp-data` — search a city in Settings ▸ Weather, choose it, see the current weather for it while Prayer keeps its own place — scratch `--data-dir`: Prayer set by coordinates 3.15, 101.69; Weather began as a copy of it (Cloudy, 26 °C); a city search for Kuching listed results; choosing Kuching, Sarawak showed Cloudy, 27 °C for it while Prayer kept 3.15, 101.69 and its own zone. English, Dark only. **Not made:** Malay and the other themes, a narrow window, and a screenshot of the new controls (the Weather pane has none in the README yet)
+- [x] Docs: spec · README · CHANGELOG · CHECKLIST · GOTCHAS — spec · 05 · both READMEs (text; no screenshot exists for this pane) · CHANGELOG · CHECKLIST · GOTCHAS
 - **Notes:** The city search sends the typed text and the IP address to Open-Meteo (ADR-021); `docs/06` already lists it.
 
 ### FEAT-0073 · Settings ▸ Reminders as two columns: the list, and the details
