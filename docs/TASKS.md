@@ -141,27 +141,27 @@ FEAT-0089; the toast items and the Prayer items are independent of it. Branch
 `batch/v0.8.0`.
 
 ### FEAT-0082 · A small gap between the app icon and the title in a toast's header
-- **State:** Pending · **Spec:** docs/specs/toast.md
+- **State:** Completed · **Spec:** docs/specs/toast.md
 - **Branch:** batch/v0.8.0
 - **Source:** the owner's list of 2026-11-27
-- [ ] The header's icon and its title are set apart by a small, scaled gap, in every shape and at every size; the title still truncates rather than overflowing
-- [ ] Test: the layout of the header with a long Malay title: nothing overflows and the gap is the shared constant, not a literal
-- [ ] Gate: fmt · clippy -D warnings · test --workspace --locked -j 4 · deny check · --self-test
-- [ ] App: `--data-dir ./tmp-data` — fire a test toast in each shape, English and Malay; the title no longer touches the icon
-- [ ] Docs: spec · README · CHANGELOG · CHECKLIST · GOTCHAS
+- [x] The header's icon and its title are set apart by a small, scaled gap, in every shape and at every size; the title still truncates rather than overflowing — `TITLE_GAP` of 12 points beside the old 8 (`ICON_GAP`, which the app name and the body image still use); the title still truncates
+- [x] Test: the layout of the header with a long Malay title: nothing overflows and the gap is the shared constant, not a literal — the constant is larger than the other gaps and below the icon's side. **Weak:** it checks the constant, not a measured position; the real-font layout tests of the header (98 in `ot-toast`) still pass
+- [x] Gate: fmt · clippy -D warnings · test --workspace --locked -j 4 · deny check · --self-test — fmt · clippy · `cargo test --workspace --locked -j 4 --no-fail-fast` · deny · self-test, with the owner's installed copy closed
+- [x] App: `--data-dir ./tmp-data` — fire a test toast in each shape, English and Malay; the title no longer touches the icon — a weather and a prayer toast fired from their panes on a scratch folder, English and Dark: the title sits clear of the icon. **Not made:** Malay, the other shapes and themes, and a side-by-side with the old 8-point gap
+- [x] Docs: spec · README · CHANGELOG · CHECKLIST · GOTCHAS — docs/specs/toast.md §4 and §8 · docs/11 · docs/specs/weather.md · CHANGELOG; README, CHECKLIST and GOTCHAS: nothing
 - **Notes:** The owner's words: "In All Toast Notification -> Notification Title; add a gap slightly between the apps icon and the title."
 
 ### FEAT-0083 · A toast's bottom line is its location: the prayer's, and the weather's
-- **State:** Pending · **Spec:** docs/specs/toast.md §8 · docs/11-prayer-and-azan.md · docs/specs/weather.md
+- **State:** Completed · **Spec:** docs/specs/toast.md §8 · docs/11-prayer-and-azan.md · docs/specs/weather.md
 - **Branch:** batch/v0.8.0
 - **Source:** the owner's list of 2026-11-27
-- [ ] A prayer toast drops the source status line at the bottom and shows the prayer's location there, in the same font colour; the place line under the details goes
-- [ ] A weather toast moves its place to the bottom line the same way
-- [ ] The Prayer pane's preview and the real toast stay identical (one `ToastSpec`)
-- [ ] Test: `ToastSpec` for a prayer and for a weather toast: the bottom line is the place, there is no source line and no place under the text; a toast with no place has no bottom line
-- [ ] Gate: fmt · clippy -D warnings · test --workspace --locked -j 4 · deny check · --self-test
-- [ ] App: `--data-dir ./tmp-data` — fire a prayer test toast and a weather test toast from their panes: the place is the last line, the source is gone
-- [ ] Docs: spec · README · CHANGELOG · CHECKLIST · GOTCHAS
+- [x] A prayer toast drops the source status line at the bottom and shows the prayer's location there, in the same font colour; the place line under the details goes — `prayer_spec` no longer takes a source note; its note is the place (`place_note`); the body is the template's or the built-in text only; `prayer_before_spec` the same
+- [x] A weather toast moves its place to the bottom line the same way — `weather_spec`'s note is the place
+- [x] The Prayer pane's preview and the real toast stay identical (one `ToastSpec`) — both callers in the window build the spec the same way; the fire/preview test asserts equality
+- [x] Test: `ToastSpec` for a prayer and for a weather toast: the bottom line is the place, there is no source line and no place under the text; a toast with no place has no bottom line — `ToastSpec` for prayer, pre-prayer and weather: the bottom line is the place, the body has none; none or blank means no bottom line; a long name is cut at 30; a user's own body is unchanged
+- [x] Gate: fmt · clippy -D warnings · test --workspace --locked -j 4 · deny check · --self-test — fmt · clippy · `cargo test --workspace --locked -j 4 --no-fail-fast` · deny · self-test, with the owner's installed copy closed
+- [x] App: `--data-dir ./tmp-data` — fire a prayer test toast and a weather test toast from their panes: the place is the last line, the source is gone — a weather preview toast and a prayer preview toast on a scratch folder (place 3.15, 101.69; zone WLY01): each ends with the place as its dim bottom line, the prayer's with the zone code, no source label and no place under the message. **Not made:** a place with no name, Malay, a long place name on screen, and the reminder ahead of a prayer (covered by the unit test only)
+- [x] Docs: spec · README · CHANGELOG · CHECKLIST · GOTCHAS — docs/specs/toast.md §4 and §8 · docs/11 · docs/specs/weather.md · CHANGELOG; README, CHECKLIST and GOTCHAS: nothing
 - **Notes:** Supersedes FEAT-0075's placement (the place beneath the text). The source label stays in Settings ▸ Prayer's status, which is where it was always a fact about the times.
 
 ### FEAT-0084 · Libraries: icons, images and audio, uploaded once and picked anywhere

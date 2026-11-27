@@ -89,7 +89,8 @@ pub fn spec(
 /// A prayer's toast: the template's own title and message if it has them,
 /// else the prayer's name with both names and "It is time for …"; its own
 /// picture and accent, else the built-in masjid picture and the global accent;
-/// the day's source label as the note. Dismiss only, persistent up to the
+/// the place the times are for as the bottom line (FEAT-0083; the day's source label
+/// is a fact about the times and stays in Settings ▸ Prayer). Dismiss only, persistent up to the
 /// ten-minute cap, drawn from the same `ToastSpec` as every other toast
 /// (`docs/11-prayer-and-azan.md` §9). The fire and the editor's preview both
 /// come through here, so they cannot disagree. `prayer` is the scheduler's key.
@@ -98,7 +99,6 @@ pub fn prayer_spec(
     prayer: &str,
     template: Option<&Template>,
     timestamp: Option<String>,
-    note: Option<String>,
     place: Option<&str>,
 ) -> ot_toast::ToastSpec {
     let name = crate::prayer_pane::prayer_name(prayer);
@@ -113,14 +113,14 @@ pub fn prayer_spec(
         .or_else(|| default_prayer_image(prayer).map(str::to_owned));
     let content = ot_toast::Content {
         title,
-        body: with_place(body, place),
+        body,
         app_name: ot_i18n::text("toast-app-name"),
         image,
         accent: template
             .and_then(|t| t.accent_color.as_deref())
             .and_then(parse_accent),
         timestamp,
-        note,
+        note: place_note(place),
         action_labels: action_labels(),
         ..ot_toast::Content::default()
     };
@@ -146,10 +146,7 @@ pub fn prayer_before_spec(
     let name = crate::prayer_pane::prayer_name(prayer);
     let content = ot_toast::Content {
         title: name.clone(),
-        body: with_place(
-            ot_i18n::text_with_count("prayer-before-body", minutes, &[("prayer", name.into())]),
-            place,
-        ),
+        body: ot_i18n::text_with_count("prayer-before-body", minutes, &[("prayer", name.into())]),
         app_name: ot_i18n::text("toast-app-name"),
         image: template
             .and_then(|t| t.image.clone())
@@ -158,6 +155,7 @@ pub fn prayer_before_spec(
             .and_then(|t| t.accent_color.as_deref())
             .and_then(parse_accent),
         timestamp,
+        note: place_note(place),
         action_labels: action_labels(),
         ..ot_toast::Content::default()
     };
@@ -221,16 +219,14 @@ pub fn weather_spec(
     let own = |text: Option<&str>| non_empty(text).map(str::to_owned);
     let content = ot_toast::Content {
         title: own(template.and_then(|t| t.custom_title.as_deref())).unwrap_or(title),
-        body: with_place(
-            own(template.and_then(|t| t.custom_body.as_deref())).unwrap_or(body),
-            place,
-        ),
+        body: own(template.and_then(|t| t.custom_body.as_deref())).unwrap_or(body),
         app_name: ot_i18n::text("toast-app-name"),
         image: template.and_then(|t| t.image.clone()).or(image),
         accent: template
             .and_then(|t| t.accent_color.as_deref())
             .and_then(parse_accent),
         timestamp,
+        note: place_note(place),
         action_labels: action_labels(),
         ..ot_toast::Content::default()
     };
@@ -256,19 +252,16 @@ pub fn weather_image(condition: ot_weather::condition::Condition) -> Option<&'st
 /// is the user's, or a city's, and can be any length.
 const PLACE_CHARS: usize = 30;
 
-/// `body` with the place on a line of its own beneath it (FEAT-0075, FEAT-0076),
-/// so a toast says where the weather or the prayer time is for. The place is data,
-/// a name or a name and a zone code, never translated and never a sentence; a
-/// user's own message above it is left exactly as typed. Nothing is added when
-/// there is no place.
-fn with_place(body: String, place: Option<&str>) -> String {
-    match place.map(str::trim).filter(|place| !place.is_empty()) {
-        Some(place) => format!(
-            "{body}\n{}",
-            crate::prayer_pane::ellipsize(place, PLACE_CHARS)
-        ),
-        None => body,
-    }
+/// The place as a toast's bottom line (FEAT-0075, FEAT-0076, FEAT-0083), so a toast says
+/// where the weather or the prayer time is for, in the same dim colour the line has
+/// always had. The place is data, a name or a name and a zone code, never translated
+/// and never a sentence; the user's own message above it is left exactly as typed.
+/// `None` when there is no place, which leaves the toast without a bottom line.
+fn place_note(place: Option<&str>) -> Option<String> {
+    place
+        .map(str::trim)
+        .filter(|place| !place.is_empty())
+        .map(|place| crate::prayer_pane::ellipsize(place, PLACE_CHARS))
 }
 
 /// The built-in masjid picture a prayer shows until its template chooses one.
@@ -520,7 +513,6 @@ mod tests {
                 None,
                 Some("5:49 am".into()),
                 None,
-                None,
             );
             assert!(spec.behaviour.persistent, "{language:?}");
             assert_eq!(
@@ -563,14 +555,14 @@ mod tests {
         );
         for language in [Language::English, Language::Malay] {
             in_language(language);
-            let own = prayer_spec(&prefs, "fajr", Some(&written), None, None, None);
+            let own = prayer_spec(&prefs, "fajr", Some(&written), None, None);
             assert_eq!(own.content.title, "Bangun, Subuh dah masuk", "{language:?}");
             assert_eq!(own.content.body, "Jangan lewat.");
             assert!(own.content.accent.is_some(), "the template's accent");
 
             // Nothing written: the built-in text, in the language in force.
             let blank = prayer_template(None, None, None);
-            let built_in = prayer_spec(&prefs, "fajr", Some(&blank), None, None, None);
+            let built_in = prayer_spec(&prefs, "fajr", Some(&blank), None, None);
             let name = crate::prayer_pane::prayer_name("fajr");
             assert_eq!(built_in.content.title, name);
             assert!(built_in.content.body.contains(&name));
@@ -579,24 +571,19 @@ mod tests {
                 "the global accent applies"
             );
             // No template at all is the same as an empty one.
-            assert_eq!(
-                prayer_spec(&prefs, "fajr", None, None, None, None),
-                built_in
-            );
+            assert_eq!(prayer_spec(&prefs, "fajr", None, None, None), built_in);
         }
     }
 
     #[test]
-    fn the_fire_and_the_preview_build_the_same_toast_and_it_carries_the_source_label() {
+    fn the_fire_and_the_preview_build_the_same_toast_and_its_bottom_line_is_the_place() {
         let prefs = ot_toast::Prefs::default();
         let template = prayer_template(Some("Subuh"), None, None);
-        let label = Some("Source: JAKIM e-Solat".to_owned());
         let fire = prayer_spec(
             &prefs,
             "fajr",
             Some(&template),
             Some("5:49 am".into()),
-            label.clone(),
             Some("Kuala Lumpur (WLY01)"),
         );
         let preview = prayer_spec(
@@ -604,11 +591,18 @@ mod tests {
             "fajr",
             Some(&template),
             Some("5:49 am".into()),
-            label.clone(),
             Some("Kuala Lumpur (WLY01)"),
         );
         assert_eq!(fire, preview, "one function, so one toast");
-        assert_eq!(fire.content.note, label, "the source label is on it");
+        assert_eq!(
+            fire.content.note.as_deref(),
+            Some("Kuala Lumpur (WLY01)"),
+            "the place is the bottom line; the source label is not on the toast"
+        );
+        assert!(
+            !fire.content.body.contains("Kuala Lumpur"),
+            "and it is no longer beneath the text"
+        );
     }
 
     #[test]
@@ -735,7 +729,7 @@ mod tests {
     }
 
     #[test]
-    fn the_weather_and_prayer_toasts_name_the_place_on_a_line_of_their_own() {
+    fn the_weather_and_prayer_toasts_name_the_place_on_their_bottom_line() {
         use ot_weather::condition::Condition;
         use ot_weather::detect::Change;
         let _guard = LANGUAGE.lock().unwrap_or_else(|p| p.into_inner());
@@ -747,54 +741,47 @@ mod tests {
         };
         let spec = weather_spec(&prefs, &rain, None, None, Some("Kuala Lumpur"));
         assert_eq!(
-            spec.content.body,
-            "The weather changed from Clear to Rain.\nKuala Lumpur"
+            spec.content.body, "The weather changed from Clear to Rain.",
+            "nothing is added beneath the text"
         );
-        // The prayer, its reminder and the preview all say it, beneath their text.
-        let prayer = prayer_spec(
-            &prefs,
-            "dhuhr",
-            None,
-            None,
-            None,
-            Some("Kuala Lumpur (WLY01)"),
-        );
+        assert_eq!(spec.content.note.as_deref(), Some("Kuala Lumpur"));
+        // The prayer, its reminder and the preview all say it, on the same line.
+        let prayer = prayer_spec(&prefs, "dhuhr", None, None, Some("Kuala Lumpur (WLY01)"));
+        assert_eq!(prayer.content.note.as_deref(), Some("Kuala Lumpur (WLY01)"));
         assert!(
-            prayer.content.body.ends_with("\nKuala Lumpur (WLY01)"),
+            !prayer.content.body.contains("WLY01"),
             "{:?}",
             prayer.content.body
         );
         let before =
             prayer_before_spec(&prefs, "asr", 10, None, None, Some("Kuala Lumpur (WLY01)"));
+        assert_eq!(before.content.note.as_deref(), Some("Kuala Lumpur (WLY01)"));
         assert!(
-            before.content.body.ends_with("\nKuala Lumpur (WLY01)"),
+            !before.content.body.contains("WLY01"),
             "{:?}",
             before.content.body
         );
-        // A user's own message is left exactly as typed, with the place beneath.
+        // A user's own message is left exactly as typed, with nothing appended.
         let own = Template {
             custom_body: Some("Bring the washing in".into()),
             ..Template::default()
         };
-        assert_eq!(
-            weather_spec(&prefs, &rain, Some(&own), None, Some("Shah Alam"))
-                .content
-                .body,
-            "Bring the washing in\nShah Alam"
-        );
-        // No place, or a blank one, adds nothing.
+        let spec = weather_spec(&prefs, &rain, Some(&own), None, Some("Shah Alam"));
+        assert_eq!(spec.content.body, "Bring the washing in");
+        assert_eq!(spec.content.note.as_deref(), Some("Shah Alam"));
+        // No place, or a blank one, has no bottom line.
         let plain = weather_spec(&prefs, &rain, None, None, None);
         assert_eq!(weather_spec(&prefs, &rain, None, None, Some("  ")), plain);
-        assert!(!plain.content.body.contains('\n'));
+        assert_eq!(plain.content.note, None);
         // A very long name is cut with an ellipsis rather than overrunning the toast.
         let long = "Kampung Baru Sungai Buloh Seksyen Tujuh Belas Daerah Petaling Selangor";
         let cut = weather_spec(&prefs, &rain, None, None, Some(long))
             .content
-            .body;
-        let line = cut.lines().last().expect("a last line");
+            .note
+            .expect("a bottom line");
         assert!(
-            line.chars().count() <= PLACE_CHARS && line.ends_with('…'),
-            "{line:?}"
+            cut.chars().count() <= PLACE_CHARS && cut.ends_with('…'),
+            "{cut:?}"
         );
     }
 

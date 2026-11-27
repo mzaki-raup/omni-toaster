@@ -403,7 +403,7 @@ As built in the scheduler (FEAT-0058, `ot_sched`):
   never holds it back. Quiet hours do not exist yet; when announcements arrive
   they must leave Azan alone too.
 - **The place on the toast** (FEAT-0076). A prayer's toast and its pre-prayer
-  reminder name the place the times are for, beneath their text — the saved place's
+  reminder name the place the times are for, as the toast's bottom line (FEAT-0083) — the saved place's
   name, with the JAKIM zone code beside it when the times are JAKIM's (fresh or
   cached) and the bare name when they are calculated, so a zone is never claimed
   for times it did not give. The prayer service tells the window each pass

@@ -1381,13 +1381,11 @@ impl SettingsWindow {
             self.audio.stop();
         }
         if let Some(preview) = outcome.preview.take() {
-            let note = self.prayer_source.map(crate::prayer_pane::source_label);
             let spec = crate::reminder_toast::prayer_spec(
                 &self.prefs,
                 &preview.prayer,
                 Some(&preview.template),
                 Some(formatted_time(now)),
-                note,
                 self.prayer_place.as_deref(),
             );
             let id = self.toasts.push_first(spec, Instant::now());
@@ -2474,13 +2472,11 @@ impl SettingsWindow {
             // A prayer is its own toast, ahead of everything, and a pause does
             // not hold it back (`docs/specs/tray-and-settings.md` §4).
             if let Some(prayer) = prayer {
-                let note = self.prayer_source.map(crate::prayer_pane::source_label);
                 let spec = crate::reminder_toast::prayer_spec(
                     &self.prefs,
                     &prayer,
                     fired.template.as_ref(),
                     Some(formatted_time(now)),
-                    note,
                     self.prayer_place.as_deref(),
                 );
                 let persistent = spec.behaviour.persistent;
