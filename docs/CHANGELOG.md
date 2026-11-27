@@ -7,13 +7,13 @@ Format: [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) · Versioning:
 
 ## Unreleased
 
+- (nothing yet)
+
+## 0.22.0 — 2026-11-27
+
 ### Added
 
-- Libraries (FEAT-0084): Settings ▸ Picture Library is now Libraries, with Images, Icons and Audio. Upload a sound (WAV, MP3 or Ogg) and give it a name, play it from the list and rename or remove it; keep small icons from 16 to 256 pixels in a library of their own; a file offered to a library when it is already in another is told which one. Removing a sound a prayer uses asks first. Sounds uploaded for a prayer now appear in the Audio library under their file's name.
-
-### Changed
-
-- The rail's "Picture Library" is now "Libraries" ("Pustaka Gambar" is now "Pustaka"), and the status messages about it say "the library" (FEAT-0084).
+- Settings > Libraries with Images, Icons and Audio (1dd7166d)
 
 ## 0.21.0 — 2026-11-27
 
