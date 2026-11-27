@@ -182,6 +182,15 @@ is pruned at 90 days.
 
 ## 10. UI
 
+**Two columns (FEAT-0073).** Settings ▸ Reminders puts the reminders' titles in a
+column on the left, each with when it next fires, and the chosen reminder's form
+and history on the right; New Reminder and Cancel empty that same form rather than
+opening another, so one blank form is always on show. A window too narrow for two
+columns (the pane under 640 points) stacks them, the list above the form. The
+missed list stays above both, and the fatigue and snooze settings below, full
+width. A blank form nobody has touched does not scold: its Save is disabled and the
+empty-title message waits until there is something to correct.
+
 Settings ▸ Reminders: the list, the editor, categories, lead offsets and snooze
 defaults ([04-ui-design.md](../04-ui-design.md)). Deleting a reminder and
 clearing history are both guarded. The list has an empty state; the editor

@@ -243,6 +243,8 @@ Format: [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) · Versioning:
 
 ### Changed
 
+- Settings ▸ Reminders is now two columns: your reminders' titles on the left, each with when it next fires, and the chosen reminder's details and history on the right. New Reminder empties the same form instead of opening another, and a window too narrow for two columns stacks them. A blank form no longer shows an empty-title error before you have typed anything (FEAT-0073).
+
 - Every prayer now plays the full Azan by default — Subuh's own for Fajr, the same Azan for the rest — instead of the short chime. Syuruk, the sunrise, keeps the chime because it is not a call to prayer. Each prayer's sound can still be changed in Settings ▸ Prayer. A prayer whose template had the chime chosen before this change now follows the new default, and you can choose the chime again (CR-0008).
 
 - Update Documentations (291717e0)

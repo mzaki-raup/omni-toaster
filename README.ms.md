@@ -319,11 +319,12 @@ dengan gambar yang disertakan bersama aplikasi disenaraikan di bawahnya:
 Skrin yang sama dalam bahasa Melayu:
 [settings-pictures-ms.png](docs/screenshots/settings-pictures-ms.png).
 
-Tetapan ▸ Peringatan: peringatan yang terlepas, peringatan anda dengan yang
-sedang disunting, sejarahnya, serta tempoh dan had Tunda dan tempoh susulan di
-bawahnya:
+Tetapan ▸ Peringatan: peringatan yang terlepas di atas; peringatan anda sebagai
+lajur tajuk di sebelah kiri dan borang serta sejarah peringatan yang dipilih di
+sebelah kanan (Peringatan Baharu mengosongkan borang yang sama); serta tempoh dan
+had Tunda dan tempoh susulan di bawahnya:
 
-![Tetapan ▸ Peringatan dengan peringatan mingguan terbuka dalam penyunting](docs/screenshots/settings-reminders.png)
+![Tetapan ▸ Peringatan dengan dua peringatan, satu terbuka dalam borang di sebelah kanan](docs/screenshots/settings-reminders.png)
 
 Dalam bahasa Melayu: [settings-reminders-ms.png](docs/screenshots/settings-reminders-ms.png).
 

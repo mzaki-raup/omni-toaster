@@ -105,7 +105,7 @@ fn a_thousand_reminders_lay_out_only_the_rows_in_view() {
         })
         .collect();
     let mut harness = Harness::builder().with_size([700.0, 900.0]).build_ui(|ui| {
-        let _ = ot_ui::reminders::reminder_list(ui, Some(&rows), None, ot_ui::Tokens::DARK);
+        let _ = ot_ui::reminders::reminder_list(ui, Some(&rows), None, ot_ui::Tokens::DARK, 6);
     });
     fonts(&mut harness);
     harness.run();
@@ -134,10 +134,119 @@ fn the_list_says_when_it_is_loading_and_when_it_is_empty() {
         ),
     ] {
         let mut harness = Harness::builder().with_size([700.0, 300.0]).build_ui(|ui| {
-            let _ = ot_ui::reminders::reminder_list(ui, rows.as_deref(), None, ot_ui::Tokens::DARK);
+            let _ =
+                ot_ui::reminders::reminder_list(ui, rows.as_deref(), None, ot_ui::Tokens::DARK, 6);
         });
         fonts(&mut harness);
         harness.run();
         assert!(harness.query_by_label(expected).is_some(), "{expected}");
     }
+}
+
+type PaneState = (
+    Editor,
+    Option<ot_ui::reminders::ListAction>,
+    Option<EditorAction>,
+);
+
+fn two_column_harness(width: f32) -> Harness<'static, PaneState> {
+    english();
+    let rows = vec![
+        ot_ui::reminders::ListRow {
+            id: 7,
+            title: "Bayar bil".to_owned(),
+            detail: "Event · next 19/11/2026 at 10:00 am".to_owned(),
+        },
+        ot_ui::reminders::ListRow {
+            id: 9,
+            title: "Jumpa doktor".to_owned(),
+            detail: "Appointment · next 20/11/2026 at 9:00 am".to_owned(),
+        },
+    ];
+    let mut harness = Harness::builder()
+        .with_size([width, 1200.0])
+        .build_ui_state(
+            move |ui, (editor, listed, edited): &mut PaneState| {
+                let master = ot_ui::reminders::list_and_details(
+                    ui,
+                    Some(&rows),
+                    editor,
+                    &[],
+                    &[],
+                    &mut false,
+                    ot_ui::Tokens::DARK,
+                );
+                if master.listed.is_some() {
+                    *listed = master.listed;
+                }
+                if master.edited.is_some() {
+                    *edited = master.edited;
+                }
+            },
+            (saved_editor(), None, None),
+        );
+    fonts(&mut harness);
+    harness.run();
+    harness
+}
+
+#[test]
+fn wide_the_titles_are_a_column_on_the_left_and_the_form_is_on_the_right() {
+    let harness = two_column_harness(900.0);
+    let title = harness.get_by_label("Bayar bil");
+    let new = harness.get_by_label("New Reminder");
+    let form = harness.get_by_label("Save");
+    assert!(
+        new.rect().right() < form.rect().left(),
+        "New Reminder {:?} is left of the form's Save {:?}",
+        new.rect(),
+        form.rect()
+    );
+    assert!(
+        title.rect().right() < form.rect().left(),
+        "the titles are left of the form"
+    );
+    // Side by side, not stacked: the form's own first label starts to the right
+    // of the titles, where stacked it would start at the pane's left edge.
+    let first = harness.get_by_label("Title");
+    assert!(
+        first.rect().left() > title.rect().right(),
+        "the form's Title {:?} is right of the list's titles {:?}",
+        first.rect(),
+        title.rect()
+    );
+    assert!(
+        harness.query_by_label("Jumpa doktor").is_some(),
+        "both titles are listed"
+    );
+}
+
+#[test]
+fn narrow_the_list_sits_above_the_form_and_nothing_overlaps() {
+    let harness = two_column_harness(500.0);
+    let list = harness.get_by_label("Jumpa doktor");
+    let form = harness.get_by_label("Save");
+    assert!(
+        list.rect().bottom() < form.rect().top(),
+        "the list {:?} is above the form {:?}",
+        list.rect(),
+        form.rect()
+    );
+}
+
+#[test]
+fn choosing_a_title_new_reminder_and_the_forms_buttons_each_say_so() {
+    let mut harness = two_column_harness(900.0);
+    harness.get_by_label("Jumpa doktor").click();
+    harness.run();
+    assert_eq!(
+        harness.state().1,
+        Some(ot_ui::reminders::ListAction::Select(9))
+    );
+    harness.get_by_label("New Reminder").click();
+    harness.run();
+    assert_eq!(harness.state().1, Some(ot_ui::reminders::ListAction::New));
+    harness.get_by_label("Cancel").click();
+    harness.run();
+    assert_eq!(harness.state().2, Some(EditorAction::Cancel));
 }

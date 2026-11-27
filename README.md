@@ -292,11 +292,12 @@ the ones that ship with the app listed below them:
 The same screen in Bahasa Melayu:
 [settings-pictures-ms.png](docs/screenshots/settings-pictures-ms.png).
 
-Settings ▸ Reminders: the missed reminders, your reminders with the one being
-edited, its history, and Snooze's length and limit and the catch-up window
+Settings ▸ Reminders: the missed reminders above; your reminders as a column of
+titles on the left and the chosen one's form and history on the right (New Reminder
+empties the same form); and Snooze's length and limit and the catch-up window
 below:
 
-![Settings ▸ Reminders with a weekly reminder open in the editor](docs/screenshots/settings-reminders.png)
+![Settings ▸ Reminders with two reminders, one open in the form on the right](docs/screenshots/settings-reminders.png)
 
 In Bahasa Melayu: [settings-reminders-ms.png](docs/screenshots/settings-reminders-ms.png).
 
