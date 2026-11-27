@@ -953,13 +953,13 @@ weather-heading = Weather Notifications
 # The checkbox that turns weather notifications on. Off by default.
 weather-enable = Notify me when the weather changes
 # The hint under that checkbox: what is sent, and that off sends nothing.
-weather-enable-hint = Sends the place saved under Prayer, rounded to about a kilometre, to Open-Meteo. Turned off, nothing is sent.
+weather-enable-hint = Sends the weather place below, rounded to about a kilometre, to Open-Meteo. Turned off, nothing is sent.
 # The label of the row that names the place the weather is for.
 weather-place-label = Place
 # Shown when no place has been saved yet.
-weather-place-none = No place is set. Set one under Prayer.
-# The hint under the place.
-weather-place-hint = The weather uses the same place as the prayer times.
+weather-place-none = No place is set. Choose one with Change Location.
+# The hint under the place: it is the weather's own, chosen here, and no longer follows the prayer place.
+weather-place-hint = The weather has its own place. It started as the place for the prayer times and no longer follows it.
 # The label of the field for how many minutes pass between looks at the weather.
 weather-poll-label = Check Every (Minutes)
 # The hint under that field.

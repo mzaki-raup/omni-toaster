@@ -13,6 +13,7 @@ pub mod images;
 pub mod layout;
 pub mod library;
 pub mod phrases;
+pub mod place_picker;
 pub mod prayer;
 pub mod prayer_pane;
 pub mod prayer_service;

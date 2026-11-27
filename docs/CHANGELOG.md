@@ -7,7 +7,13 @@ Format: [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) · Versioning:
 
 ## Unreleased
 
-- (nothing yet)
+### Added
+
+- Settings ▸ Weather now has a place of its own, searched by city or typed as coordinates with the same controls as Prayer; it starts as a copy of the prayer place and is independent after that. Choosing another place forgets the old place's weather and starts change detection afresh, and moving the prayer place no longer clears the weather (FEAT-0072).
+
+### Changed
+
+- The weather's "which place" hints no longer say it uses the Prayer place (`weather-place-hint`, `weather-place-none`, `weather-enable-hint`), in both languages (FEAT-0072).
 
 ## 0.19.1 — 2026-11-27
 

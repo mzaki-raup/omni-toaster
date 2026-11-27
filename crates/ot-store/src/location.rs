@@ -1,6 +1,10 @@
-//! The one saved location (FEAT-0056, `docs/11-prayer-and-azan.md` §6).
+//! The saved locations (FEAT-0056, FEAT-0072, `docs/11-prayer-and-azan.md` §6).
 //!
-//! A single row in `location`: where the user is, how the app knows, and when it
+//! `location` has one row for each use: [`ROW`] is the place Prayer uses and
+//! [`WEATHER_ROW`] the one Weather uses. The weather place starts as a copy of the
+//! prayer place and is independent after that; the detection below is Prayer's only.
+//!
+//! The prayer row: where the user is, how the app knows, and when it
 //! last looked. The row is also the cache of the daily IP lookup — a detected
 //! place written less than a day ago is not looked up again — so there is no
 //! separate cache file. A place the user typed or chose is `manual`, and a
@@ -12,8 +16,11 @@ use rusqlite::{OptionalExtension as _, params};
 use crate::reminders::stamp;
 use crate::{Store, StoreError};
 
-/// The row's id: there is only ever one.
+/// The place Prayer uses.
 pub(crate) const ROW: i64 = 1;
+
+/// The place Weather uses (migration 009).
+pub(crate) const WEATHER_ROW: i64 = 2;
 
 /// How the app came to know the place; the `source` column.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -63,21 +70,19 @@ where
 }
 
 impl Store {
+    /// Write the prayer place, and give the weather place its first value from it
+    /// if it has none. Weather is not touched otherwise: another place for Prayer is
+    /// not another place for the weather.
     fn write_location(&self, place: &StoredLocation) -> Result<(), StoreError> {
-        // The weather cached for another place is not this place's: when the
-        // coordinates change it goes, and costs a refetch (FEAT-0067).
-        let moved = self
-            .conn
-            .query_row(
-                "SELECT lat, lon FROM location WHERE id = ?1",
-                params![ROW],
-                |row| Ok((row.get::<_, f64>(0)?, row.get::<_, f64>(1)?)),
-            )
-            .optional()?
-            .is_some_and(|(lat, lon)| lat != place.latitude || lon != place.longitude);
-        if moved {
-            self.clear_weather()?;
-        }
+        self.write_row(ROW, place)?;
+        self.conn.execute(
+            "INSERT OR IGNORE INTO location (id, name, lat, lon, tz, country_code, source, updated_at)              SELECT ?2, name, lat, lon, tz, country_code, source, updated_at FROM location WHERE id = ?1",
+            params![ROW, WEATHER_ROW],
+        )?;
+        Ok(())
+    }
+
+    fn write_row(&self, row: i64, place: &StoredLocation) -> Result<(), StoreError> {
         self.conn.execute(
             "INSERT INTO location (id, name, lat, lon, tz, country_code, source, updated_at) \
              VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8) \
@@ -85,7 +90,7 @@ impl Store {
              lon = excluded.lon, tz = excluded.tz, country_code = excluded.country_code, \
              source = excluded.source, updated_at = excluded.updated_at",
             params![
-                ROW,
+                row,
                 place.name,
                 place.latitude,
                 place.longitude,
@@ -123,14 +128,46 @@ impl Store {
         Ok(true)
     }
 
-    /// The saved place, if there is one.
+    /// The place Prayer uses, if there is one.
     pub fn location(&self) -> Result<Option<StoredLocation>, StoreError> {
+        self.read_row(ROW)
+    }
+
+    /// The place Weather uses: the one chosen in Settings ▸ Weather, or until one is,
+    /// the copy of the prayer place it started as.
+    pub fn weather_location(&self) -> Result<Option<StoredLocation>, StoreError> {
+        self.read_row(WEATHER_ROW)
+    }
+
+    /// Save the place the user chose for Weather. If it is another place than the
+    /// one before, the cached weather is another place's and goes, and so does the
+    /// class the change detector last told about, so the new place starts from a
+    /// fresh baseline instead of being compared with the old one's sky (FEAT-0072).
+    pub fn save_weather_location(&self, place: &StoredLocation) -> Result<(), StoreError> {
+        let moved = self.weather_location()?.is_some_and(|saved| {
+            saved.latitude != place.latitude || saved.longitude != place.longitude
+        });
+        self.write_row(
+            WEATHER_ROW,
+            &StoredLocation {
+                origin: Origin::Manual,
+                ..place.clone()
+            },
+        )?;
+        if moved {
+            self.clear_weather()?;
+            self.set_setting(crate::weather::NOTIFIED_SETTING, "")?;
+        }
+        Ok(())
+    }
+
+    fn read_row(&self, row: i64) -> Result<Option<StoredLocation>, StoreError> {
         Ok(self
             .conn
             .query_row(
                 "SELECT name, lat, lon, tz, country_code, source, updated_at \
                  FROM location WHERE id = ?1",
-                params![ROW],
+                params![row],
                 |row| {
                     let origin: String = row.get(5)?;
                     let updated_at: String = row.get(6)?;
@@ -213,7 +250,7 @@ mod tests {
     }
 
     #[test]
-    fn a_detection_replaces_an_older_detection_and_one_row_is_all_there_is() {
+    fn a_detection_replaces_an_older_detection_and_prayer_has_one_row() {
         let store = Store::open_in_memory().expect("opens");
         store
             .save_detected_location(&place("Old", Origin::Ip, "2026-11-25T01:00:00Z"))
@@ -223,9 +260,14 @@ mod tests {
             .expect("saved");
         let rows: i64 = store
             .connection()
-            .query_row("SELECT COUNT(*) FROM location", [], |r| r.get(0))
+            .query_row("SELECT COUNT(*) FROM location WHERE id = 1", [], |r| {
+                r.get(0)
+            })
             .expect("count");
         assert_eq!(rows, 1);
+        // The other row is the weather's copy, made once and left alone by a detection.
+        let weather = store.weather_location().expect("read").expect("a copy");
+        assert_eq!(weather.name, "Old");
         assert_eq!(
             store.location().expect("read").expect("a place").name,
             "New"

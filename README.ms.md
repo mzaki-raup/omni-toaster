@@ -27,8 +27,9 @@ sehingga anda menyambungnya semula. **Peringatan** dibuat dalam Tetapan ▸
 Peringatan dan dipaparkan sebagai toast tepat pada masanya, dengan tunda,
 susulan peringatan yang terlepas dan sejarah. **Waktu solat dan azan** ada dalam
 Tetapan ▸ Solat, dan **perubahan cuaca** dalam Tetapan ▸ Cuaca, yang dimatikan
-sehingga anda menghidupkannya kerana ia menghantar lokasi anda, dibundarkan
-kepada kira-kira satu kilometer, kepada Open-Meteo; pengumuman masa ialah fasa
+sehingga anda menghidupkannya kerana ia menghantar lokasinya, dibundarkan
+kepada kira-kira satu kilometer, kepada Open-Meteo, dan yang mempunyai lokasi
+sendiri yang anda cari atau taip di situ, berasingan daripada lokasi waktu solat; pengumuman masa ialah fasa
 seterusnya.
 `--data-dir`, `--self-test`, `--version`, `--help`, `--lang` dan `--worker`
 semuanya berfungsi.

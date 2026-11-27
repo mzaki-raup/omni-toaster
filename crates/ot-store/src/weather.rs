@@ -1,19 +1,24 @@
 //! The last weather answer (FEAT-0067, `docs/specs/weather.md` §7 and §8).
 //!
-//! One row of `weather_cache`, for the one saved place, holding the response body
+//! One row of `weather_cache`, for the weather place (`location` row 2, FEAT-0072), holding the response body
 //! as the service sent it and when it was fetched. The store does not read the
 //! payload — `ot-weather` does, with the same strict parser that read it the first
 //! time — so a damaged row is a failed parse and a refetch, never a wrong
 //! forecast. The cache is disposable: emptying it costs a fetch and nothing else.
-//! It is emptied when the saved place moves, because another place's weather is
-//! not this place's.
+//! It is emptied when the weather place moves, because another place's weather is
+//! not this place's; moving the prayer place does not touch it.
 
 use jiff::{SignedDuration, Timestamp};
 use rusqlite::{OptionalExtension as _, params};
 
-use crate::location::ROW;
+use crate::location::WEATHER_ROW;
 use crate::reminders::stamp;
 use crate::{Store, StoreError};
+
+/// Where the class the change detector last told the user about is kept. It goes
+/// with the cache when the weather place moves, so a new place starts from a fresh
+/// baseline.
+pub const NOTIFIED_SETTING: &str = "weather.notified";
 
 /// How old cached weather may be before it counts as stale: two hours, four
 /// polls at the default interval. A stale answer is still shown, marked as old,
@@ -44,21 +49,23 @@ impl CachedWeather {
 
 impl Store {
     /// Keep `payload_json`, fetched at `fetched_at`, as the cached weather of the
-    /// saved place, replacing whatever was there. It needs a saved place: weather
-    /// is for somewhere.
+    /// weather place, replacing whatever was there — **but only if the weather place
+    /// is still at `latitude`, `longitude`**. A fetch that was under way when the user
+    /// chose another place finishes with the old place's sky, and writing it would
+    /// hand the new place a cache that looks fresh. Returns whether it was written.
+    /// It needs a weather place: weather is for somewhere.
     pub fn write_weather(
         &self,
+        latitude: f64,
+        longitude: f64,
         fetched_at: Timestamp,
         payload_json: &str,
-    ) -> Result<(), StoreError> {
-        self.conn.execute(
-            "INSERT INTO weather_cache (location_id, fetched_at, payload_json) \
-             VALUES (?1, ?2, ?3) \
-             ON CONFLICT (location_id) DO UPDATE SET fetched_at = excluded.fetched_at, \
-             payload_json = excluded.payload_json",
-            params![ROW, stamp(fetched_at), payload_json],
+    ) -> Result<bool, StoreError> {
+        let written = self.conn.execute(
+            "INSERT INTO weather_cache (location_id, fetched_at, payload_json)              SELECT ?1, ?2, ?3 FROM location WHERE id = ?1 AND lat = ?4 AND lon = ?5              ON CONFLICT (location_id) DO UPDATE SET fetched_at = excluded.fetched_at,              payload_json = excluded.payload_json",
+            params![WEATHER_ROW, stamp(fetched_at), payload_json, latitude, longitude],
         )?;
-        Ok(())
+        Ok(written > 0)
     }
 
     /// The cached weather, if there is any.
@@ -67,7 +74,7 @@ impl Store {
             .conn
             .query_row(
                 "SELECT fetched_at, payload_json FROM weather_cache WHERE location_id = ?1",
-                params![ROW],
+                params![WEATHER_ROW],
                 |row| Ok((row.get(0)?, row.get(1)?)),
             )
             .optional()?;
@@ -129,7 +136,7 @@ mod tests {
         let store = store_with_place();
         assert_eq!(store.weather().expect("reads"), None, "nothing yet");
         store
-            .write_weather(at("2026-11-26T11:00:00Z"), r#"{"a":1}"#)
+            .write_weather(3.15, 101.69, at("2026-11-26T11:00:00Z"), r#"{"a":1}"#)
             .expect("written");
         assert_eq!(
             store.weather().expect("reads"),
@@ -139,7 +146,7 @@ mod tests {
             })
         );
         store
-            .write_weather(at("2026-11-26T11:30:00Z"), r#"{"b":2}"#)
+            .write_weather(3.15, 101.69, at("2026-11-26T11:30:00Z"), r#"{"b":2}"#)
             .expect("written");
         let now = store.weather().expect("reads").expect("a row");
         assert_eq!(now.payload_json, r#"{"b":2}"#, "one row, replaced");
@@ -172,48 +179,121 @@ mod tests {
     }
 
     #[test]
-    fn it_needs_a_saved_place() {
+    fn it_needs_a_weather_place_and_without_one_writes_nothing() {
         let store = Store::open_in_memory().expect("opens");
         assert!(
-            store
-                .write_weather(at("2026-11-26T11:00:00Z"), "{}")
-                .is_err()
+            !store
+                .write_weather(3.15, 101.69, at("2026-11-26T11:00:00Z"), "{}")
+                .expect("not an error")
         );
+        assert_eq!(store.weather().expect("reads"), None);
     }
 
     #[test]
     fn emptying_it_costs_nothing_but_a_fetch() {
         let store = store_with_place();
         store
-            .write_weather(at("2026-11-26T11:00:00Z"), "{}")
+            .write_weather(3.15, 101.69, at("2026-11-26T11:00:00Z"), "{}")
             .expect("written");
         store.clear_weather().expect("cleared");
         assert_eq!(store.weather().expect("reads"), None);
     }
 
     #[test]
-    fn moving_the_place_empties_it_and_saving_the_same_place_again_does_not() {
+    fn moving_the_weather_place_empties_the_cache_and_the_told_class_and_the_same_place_does_not() {
         let store = store_with_place();
         store
-            .write_weather(at("2026-11-26T11:00:00Z"), "{}")
+            .write_weather(3.15, 101.69, at("2026-11-26T11:00:00Z"), "{}")
             .expect("written");
-        // The daily lookup writing the same place again keeps the weather.
         store
-            .save_manual_location(&place(3.15, 101.69))
+            .set_setting(NOTIFIED_SETTING, "rain")
+            .expect("a class was told");
+        // Choosing the same place again keeps the weather and what was told.
+        store
+            .save_weather_location(&place(3.15, 101.69))
             .expect("saved");
         assert!(store.weather().expect("reads").is_some());
-        // Another place does not.
+        assert_eq!(
+            store.setting(NOTIFIED_SETTING).expect("reads").as_deref(),
+            Some("rain")
+        );
+        // Another place does not: its sky is not this one's, and what was told about
+        // this one's must not be compared with it.
         store
-            .save_manual_location(&place(1.55, 110.35))
+            .save_weather_location(&place(1.55, 110.35))
             .expect("saved");
         assert_eq!(store.weather().expect("reads"), None);
+        assert_eq!(
+            store.setting(NOTIFIED_SETTING).expect("reads").as_deref(),
+            Some(""),
+            "a fresh baseline"
+        );
+    }
+
+    #[test]
+    fn moving_the_prayer_place_leaves_the_weather_place_and_its_cache_alone() {
+        let store = store_with_place();
+        store
+            .write_weather(3.15, 101.69, at("2026-11-26T11:00:00Z"), "{}")
+            .expect("written");
+        store
+            .save_manual_location(&place(1.55, 110.35))
+            .expect("another prayer place");
+        assert!(store.weather().expect("reads").is_some(), "the cache stays");
+        let weather = store.weather_location().expect("reads").expect("a place");
+        assert_eq!((weather.latitude, weather.longitude), (3.15, 101.69));
+        assert_eq!(
+            store.location().expect("reads").expect("a place").latitude,
+            1.55
+        );
+    }
+
+    #[test]
+    fn a_weather_place_is_saved_and_read_back_apart_from_the_prayer_place() {
+        let store = store_with_place();
+        let mut kuching = place(1.55, 110.35);
+        kuching.name = "Kuching".into();
+        store.save_weather_location(&kuching).expect("saved");
+        assert_eq!(
+            store
+                .weather_location()
+                .expect("reads")
+                .expect("a place")
+                .name,
+            "Kuching"
+        );
+        assert_eq!(
+            store.location().expect("reads").expect("a place").name,
+            "Somewhere",
+            "Prayer keeps its own"
+        );
+    }
+
+    #[test]
+    fn a_fetch_that_finishes_after_the_place_moved_is_not_cached() {
+        let store = store_with_place();
+        // The fetch for the first place was under way when the user chose another.
+        store
+            .save_weather_location(&place(1.55, 110.35))
+            .expect("saved");
+        let written = store
+            .write_weather(3.15, 101.69, at("2026-11-26T11:00:00Z"), "{}")
+            .expect("not an error");
+        assert!(!written, "the old place's sky is not written");
+        assert_eq!(store.weather().expect("reads"), None);
+        assert!(
+            store
+                .write_weather(1.55, 110.35, at("2026-11-26T11:00:00Z"), "{}")
+                .expect("written"),
+            "the new place's is"
+        );
     }
 
     #[test]
     fn a_damaged_time_is_the_same_as_no_cache() {
         let store = store_with_place();
         store
-            .write_weather(at("2026-11-26T11:00:00Z"), "{}")
+            .write_weather(3.15, 101.69, at("2026-11-26T11:00:00Z"), "{}")
             .expect("written");
         store
             .conn
@@ -232,7 +312,7 @@ mod tests {
                 .save_manual_location(&place(3.15, 101.69))
                 .expect("saved");
             store
-                .write_weather(at("2026-11-26T11:00:00Z"), r#"{"kept":true}"#)
+                .write_weather(3.15, 101.69, at("2026-11-26T11:00:00Z"), r#"{"kept":true}"#)
                 .expect("written");
         }
         let again = Store::open(dir.path()).expect("opens again");

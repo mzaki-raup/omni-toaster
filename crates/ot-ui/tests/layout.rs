@@ -173,7 +173,13 @@ fn overflowing(width: f32, scale: f32) -> Vec<String> {
         rise_enabled: true,
         ..ot_core::WeatherSettings::default()
     };
-    let mut weather_state = ot_ui::weather_pane::State::for_layout_test(scratch.path());
+    let mut weather_state = ot_ui::weather_pane::State::for_layout_test(
+        scratch.path(),
+        vec![
+            result("Kuching, Sarawak"),
+            result("Kampung Baru Sungai Buloh Hulu Selangor Dengkil Sepang Selangor Darul Ehsan"),
+        ],
+    );
     let pictures = vec![ot_ui::prayer_pane::PictureChoice {
         sha256: "abc".to_owned(),
         relative_path: "assets/long-label.png".to_owned(),

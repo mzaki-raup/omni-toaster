@@ -13,13 +13,13 @@ use ot_prayer::calculated::{Asr, Preset};
 use ot_prayer::chain::{Resolution, Resolved, Source, SourceChoice};
 use ot_prayer::jakim::Prayer;
 use ot_prayer::location::{
-    self, Consent, CoordinateError, Located, LookupError, MALAYSIA_TZ, Origin as LocationOrigin,
-    Step,
+    self, Consent, Located, LookupError, MALAYSIA_TZ, Origin as LocationOrigin, Step,
 };
 use ot_prayer::zones::{self, Zone};
 use ot_store::location::{Origin, StoredLocation};
 
 use crate::layout::{self, Columns};
+use crate::place_picker::{Picker, Search};
 use crate::prayer::{self, Controller, Plan, Reply, Warning};
 use crate::theme::Tokens;
 
@@ -71,15 +71,6 @@ pub fn prayer_name(key: &str) -> String {
         .map_or_else(|| key.to_owned(), |(_, fluent)| ot_i18n::text(fluent))
 }
 
-/// Where a city search stands.
-#[derive(Debug)]
-enum Search {
-    Idle,
-    Loading,
-    Results(Vec<Located>),
-    Failed(&'static str),
-}
-
 /// Where today's times stand.
 #[derive(Debug)]
 enum Day {
@@ -108,10 +99,8 @@ pub struct State {
     rows: Vec<(String, String)>,
     label: String,
     editing: bool,
-    city: String,
-    search: Search,
-    coords: String,
-    coords_error: Option<&'static str>,
+    /// The city search and typed coordinates, shared with Settings ▸ Weather.
+    picker: Picker,
     coords_note: Option<String>,
     zone_open: bool,
     zone_query: String,
@@ -119,7 +108,6 @@ pub struct State {
     zone_rows: Vec<(String, String)>,
     /// The query and language `zone_rows` was built for.
     zone_rows_for: Option<(String, bool)>,
-    system_tz: String,
     /// The saved place changed: the prayer service is told once.
     changed: bool,
     /// Which prayer's template is being edited (an index into `LISTED`), what
@@ -230,19 +218,12 @@ impl State {
             rows: Vec::new(),
             label: String::new(),
             editing: false,
-            city: String::new(),
-            search: Search::Idle,
-            coords: String::new(),
-            coords_error: None,
+            picker: Picker::new(),
             coords_note: None,
             zone_open: false,
             zone_query: String::new(),
             zone_rows: Vec::new(),
             zone_rows_for: None,
-            system_tz: TimeZone::system()
-                .iana_name()
-                .unwrap_or_default()
-                .to_string(),
             changed: false,
             template_prayer: 0,
             edit: TemplateEdit::default(),
@@ -269,10 +250,10 @@ impl State {
         let plan = prayer::plan(settings, state.saved.as_ref());
         state.plan = Some(plan);
         state.editing = true;
-        state.city = "Shah Alam".to_string();
-        state.search = Search::Results(results);
-        state.coords = "3.14, 101.69".to_string();
-        state.coords_error = Some("prayer-coords-error-range");
+        state.picker.city = "Shah Alam".to_string();
+        state.picker.search = Search::Results(results);
+        state.picker.coords = "3.14, 101.69".to_string();
+        state.picker.coords_error = Some("prayer-coords-error-range");
         state.coords_note = Some(ot_i18n::text_with(
             "prayer-coords-zone-note",
             &[("zone", "America/Argentina/ComodRivadavia".into())],
@@ -332,7 +313,7 @@ impl State {
         !self.loaded
             || self.detecting
             || matches!(self.day, Day::Loading)
-            || matches!(self.search, Search::Loading)
+            || self.picker.searching()
     }
 
     /// A language or clock change: the rows and the label are text, so they are
@@ -406,8 +387,8 @@ impl State {
                 self.detecting = false;
                 self.detect_error = Some(error_key(&error));
             }
-            Reply::Search(Ok(found)) => self.search = Search::Results(found),
-            Reply::Search(Err(error)) => self.search = Search::Failed(error_key(&error)),
+            Reply::Search(Ok(found)) => self.picker.set_results(Ok(found)),
+            Reply::Search(Err(error)) => self.picker.set_results(Err(error_key(&error))),
             Reply::Day(Resolution::Times(resolved)) => {
                 self.resolved = Some(resolved);
                 self.day = Day::Times;
@@ -504,19 +485,11 @@ impl State {
 }
 
 /// The Fluent key of what went wrong with a lookup or a search.
-fn error_key(error: &LookupError) -> &'static str {
+pub(crate) fn error_key(error: &LookupError) -> &'static str {
     match error {
         LookupError::Network(_) | LookupError::Http(500..) => "prayer-error-network",
         LookupError::Service(_) | LookupError::Http(_) => "prayer-error-service",
         _ => "prayer-error-answer",
-    }
-}
-
-fn coordinate_error_key(error: &CoordinateError) -> &'static str {
-    match error {
-        CoordinateError::Format => "prayer-coords-error-format",
-        CoordinateError::Range => "prayer-coords-error-range",
-        CoordinateError::TimeZone(_) => "prayer-coords-error-zone",
     }
 }
 
@@ -748,109 +721,28 @@ fn location_block(
     entry_controls(ui, columns, state, tokens);
 }
 
-/// City search and typed coordinates.
+/// City search and typed coordinates: the shared picker, with what Prayer does with
+/// what it returns.
 fn entry_controls(ui: &mut egui::Ui, columns: Columns, state: &mut State, tokens: Tokens) {
-    // City.
-    let mut run_search = false;
-    layout::labelled_row(ui, columns, &ot_i18n::text("prayer-search-label"), |ui| {
-        let field = (columns.field - 96.0).max(120.0);
-        let response = ui.add_sized(
-            [field, layout::field_height(ui)],
-            egui::TextEdit::singleline(&mut state.city)
-                .hint_text(ot_i18n::text("prayer-search-placeholder")),
-        );
-        let enter = response.lost_focus() && ui.input(|input| input.key_pressed(egui::Key::Enter));
-        if button(ui, ot_i18n::text("prayer-search-button")).clicked() || enter {
-            run_search = true;
-        }
-    });
-    if run_search && !state.city.trim().is_empty() {
-        state.search = Search::Loading;
-        state.controller.search(state.city.clone(), language_code());
+    let action = state.picker.show(ui, columns, tokens);
+    if let Some(text) = action.search {
+        state.controller.search(text, language_code());
     }
-    let mut chosen = None;
-    match &state.search {
-        Search::Idle => {}
-        Search::Loading => {
-            ui.add_space(layout::ROW_GAP / 2.0);
-            note(ui, &ot_i18n::text("prayer-search-loading"), tokens.text_dim);
-        }
-        Search::Failed(key) => {
-            ui.add_space(layout::ROW_GAP / 2.0);
-            note(ui, &ot_i18n::text(key), tokens.danger);
-        }
-        Search::Results(found) if found.is_empty() => {
-            ui.add_space(layout::ROW_GAP / 2.0);
-            note(ui, &ot_i18n::text("prayer-search-empty"), tokens.text_dim);
-        }
-        Search::Results(found) => {
-            ui.add_space(layout::ROW_GAP / 2.0);
-            for place in found {
-                let text = ot_i18n::text_with(
-                    "prayer-search-result",
-                    &[
-                        ("place", place.name.clone().into()),
-                        ("zone", place.tz.clone().into()),
-                    ],
-                );
-                if ui
-                    .add(egui::Button::selectable(false, text).wrap())
-                    .clicked()
-                {
-                    chosen = Some(place.clone());
-                }
-            }
-        }
-    }
-    if let Some(place) = chosen {
-        state.controller.save_manual(place);
-        state.search = Search::Idle;
+    if let Some(chosen) = action.chosen {
+        // Typed coordinates outside Malaysia took this PC's time zone, which is a
+        // guess: said where the place is shown, until it changes.
+        state.coords_note =
+            (chosen.typed_coordinates && chosen.place.tz != MALAYSIA_TZ).then(|| {
+                ot_i18n::text_with(
+                    "prayer-coords-zone-note",
+                    &[("zone", chosen.place.tz.clone().into())],
+                )
+            });
+        state.controller.save_manual(chosen.place);
         state.editing = false;
-        state.coords_note = None;
     }
-    ui.add_space(layout::ROW_GAP);
-
-    // Coordinates.
-    let mut use_coords = false;
-    layout::labelled_row(ui, columns, &ot_i18n::text("prayer-coords-label"), |ui| {
-        let field = (columns.field - 150.0).max(120.0);
-        ui.add_sized(
-            [field, layout::field_height(ui)],
-            egui::TextEdit::singleline(&mut state.coords)
-                .hint_text(ot_i18n::text("prayer-coords-placeholder")),
-        );
-        if button(ui, ot_i18n::text("prayer-coords-use")).clicked() {
-            use_coords = true;
-        }
-    });
-    if use_coords {
-        match location::from_coordinates(&state.coords, &state.system_tz) {
-            Ok(place) => {
-                state.coords_error = None;
-                // Outside Malaysia the zone is this PC's, which is a guess.
-                state.coords_note = (place.tz != MALAYSIA_TZ).then(|| {
-                    ot_i18n::text_with(
-                        "prayer-coords-zone-note",
-                        &[("zone", place.tz.clone().into())],
-                    )
-                });
-                state.controller.save_manual(place);
-                state.editing = false;
-            }
-            Err(error) => {
-                state.coords_note = None;
-                state.coords_error = Some(coordinate_error_key(&error));
-            }
-        }
-    }
-    if let Some(key) = state.coords_error {
-        ui.add_space(layout::ROW_GAP / 2.0);
-        note(ui, &ot_i18n::text(key), tokens.danger);
-    }
-    ui.add_space(layout::ROW_GAP);
-    if button(ui, ot_i18n::text("prayer-close")).clicked() {
+    if action.close {
         state.editing = false;
-        state.search = Search::Idle;
     }
 }
 

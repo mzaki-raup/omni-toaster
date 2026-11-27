@@ -25,8 +25,9 @@ menu, which also pauses all notifications for half an hour, an hour or until
 you resume them. **Reminders** are made in Settings ▸ Reminders and fire as
 toasts on time, with snooze, missed-reminder catch-up and a history. **Prayer
 times and the Azan** are in Settings ▸ Prayer, and **weather changes** in Settings ▸
-Weather, which is off until you turn it on because it sends your place, rounded to
-about a kilometre, to Open-Meteo; time announcements are the next phase.
+Weather, which is off until you turn it on because it sends its place, rounded to
+about a kilometre, to Open-Meteo, and which has a place of its own that you search for
+or type there, separate from the prayer place; time announcements are the next phase.
 `--data-dir`, `--self-test`, `--version`, `--help`, `--lang` and `--worker`
 all work.
 

@@ -65,10 +65,15 @@ const MIGRATIONS: &[(i64, &str, &str)] = &[
         "008_weather_templates.sql",
         include_str!("../migrations/008_weather_templates.sql"),
     ),
+    (
+        9,
+        "009_weather_place.sql",
+        include_str!("../migrations/009_weather_place.sql"),
+    ),
 ];
 
 /// The schema version this build migrates to: the last migration's number.
-pub const SCHEMA_VERSION: i64 = 8;
+pub const SCHEMA_VERSION: i64 = 9;
 
 /// The database file, relative to the data root.
 const DB_RELATIVE_PATH: &str = "data/omnitoaster.db";
@@ -247,7 +252,7 @@ mod tests {
     #[test]
     fn a_fresh_database_migrates_to_the_latest_version() {
         let store = Store::open_in_memory().expect("opens");
-        assert_eq!(store.schema_version().expect("version"), 8);
+        assert_eq!(store.schema_version().expect("version"), 9);
     }
 
     #[test]
@@ -289,13 +294,13 @@ mod tests {
         {
             let store = Store::open(dir.path()).expect("first open");
             store.set_setting("theme", "dark").expect("write");
-            assert_eq!(store.schema_version().expect("version"), 8);
+            assert_eq!(store.schema_version().expect("version"), 9);
         }
 
         // Re-opening must not re-run 001 — which would fail on the existing
         // tables — and must leave the data alone.
         let store = Store::open(dir.path()).expect("second open");
-        assert_eq!(store.schema_version().expect("version"), 8);
+        assert_eq!(store.schema_version().expect("version"), 9);
         assert_eq!(
             store.setting("theme").expect("read").as_deref(),
             Some("dark"),
@@ -324,7 +329,7 @@ mod tests {
         }
 
         let store = Store::open(dir.path()).expect("migrates");
-        assert_eq!(store.schema_version().expect("version"), 8);
+        assert_eq!(store.schema_version().expect("version"), 9);
         let label: String = store
             .connection()
             .query_row("SELECT label FROM asset WHERE sha256 = 'abc'", [], |row| {
@@ -361,7 +366,7 @@ mod tests {
         }
 
         let store = Store::open(dir.path()).expect("migrates");
-        assert_eq!(store.schema_version().expect("version"), 8);
+        assert_eq!(store.schema_version().expect("version"), 9);
         let conn = store.connection();
 
         let (title, key, lang): (String, Option<String>, Option<String>) = conn
@@ -417,7 +422,7 @@ mod tests {
         }
 
         let store = Store::open(dir.path()).expect("migrates");
-        assert_eq!(store.schema_version().expect("version"), 8);
+        assert_eq!(store.schema_version().expect("version"), 9);
         let conn = store.connection();
         let title: String = conn
             .query_row("SELECT title FROM reminder WHERE id = 1", [], |row| {
@@ -431,6 +436,59 @@ mod tests {
             })
             .expect("the cache table exists and is empty");
         assert_eq!(cached, 0);
+    }
+
+    #[test]
+    fn a_version_8_database_gives_the_weather_a_copy_of_the_prayer_place_and_its_cache() {
+        // 009 on an existing database (FEAT-0072): the file as v0.19.0 left it, with a
+        // prayer place and the weather cached for it.
+        let dir = tempfile::tempdir().expect("temp dir");
+        std::fs::create_dir_all(dir.path().join("data")).expect("mkdir");
+        {
+            let conn =
+                Connection::open(dir.path().join(DB_RELATIVE_PATH)).expect("a version 8 file");
+            for migration in &MIGRATIONS[..8] {
+                conn.execute_batch(migration.2)
+                    .expect("an earlier migration");
+            }
+            conn.pragma_update(None, "user_version", 8i64)
+                .expect("version 8");
+            conn.execute(
+                "INSERT INTO location (id, name, lat, lon, tz, country_code, source, updated_at)                  VALUES (1, 'Kuala Lumpur', 3.15, 101.69, 'Asia/Kuala_Lumpur', 'MY', 'manual', '2026-11-26T00:00:00Z')",
+                [],
+            )
+            .expect("a prayer place");
+            conn.execute(
+                "INSERT INTO weather_cache (location_id, fetched_at, payload_json)                  VALUES (1, '2026-11-26T01:00:00Z', '{}')",
+                [],
+            )
+            .expect("cached weather");
+        }
+
+        let store = Store::open(dir.path()).expect("migrates");
+        assert_eq!(store.schema_version().expect("version"), 9);
+        let prayer = store.location().expect("reads").expect("the prayer place");
+        let weather = store
+            .weather_location()
+            .expect("reads")
+            .expect("the weather place");
+        assert_eq!(prayer.name, "Kuala Lumpur");
+        assert_eq!(
+            (weather.name.as_str(), weather.latitude, weather.longitude),
+            ("Kuala Lumpur", 3.15, 101.69),
+            "the weather place starts as a copy"
+        );
+        assert!(
+            store.weather().expect("reads").is_some(),
+            "the cached weather moved to the weather place and was kept"
+        );
+    }
+
+    #[test]
+    fn a_fresh_database_has_no_weather_place_until_a_place_is_saved() {
+        let store = Store::open_in_memory().expect("opens");
+        assert_eq!(store.weather_location().expect("reads"), None);
+        assert_eq!(store.location().expect("reads"), None);
     }
 
     #[test]
@@ -512,7 +570,7 @@ mod tests {
                 error,
                 StoreError::FromTheFuture {
                     found: 99,
-                    known: 8
+                    known: 9
                 }
             ),
             "got {error:?}"
