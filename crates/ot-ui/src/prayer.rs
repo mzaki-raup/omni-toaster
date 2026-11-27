@@ -301,34 +301,17 @@ pub fn clip_for(
     }
 }
 
-/// Check a chosen file and copy it in: the size before a byte is read, then the
-/// format and a bounded decode, then the hashed copy and its row. Blocking.
+/// Check a chosen file and copy it in, through the one audio import path
+/// (`crate::audio_import`), and record it in the Audio library under the file's own name.
+/// Blocking.
 fn import_clip(root: &Path, path: &Path) -> Reply {
-    let refused = |error: ot_media::audio::AudioError| Reply::AudioRefused(error.name_key());
-    let unreadable = || Reply::AudioRefused("error-import-unreadable");
-    let Ok(metadata) = std::fs::metadata(path) else {
-        return unreadable();
+    let imported = match crate::audio_import::import(root, path) {
+        Ok(imported) => imported,
+        Err(key) => return Reply::AudioRefused(key),
     };
-    if let Err(error) = ot_media::audio::check_size(metadata.len()) {
-        return refused(error);
-    }
-    let Ok(bytes) = std::fs::read(path) else {
-        return unreadable();
-    };
-    let checked = match ot_media::audio::check(&bytes) {
-        Ok(checked) => checked,
-        Err(error) => return refused(error),
-    };
-    let stored = match ot_store::assets::store_audio(root, &bytes, checked.format.extension()) {
-        Ok(stored) => stored,
-        Err(error) => {
-            tracing::warn!(%error, "an audio clip could not be copied in");
-            return unreadable();
-        }
-    };
-    match Store::open(root).and_then(|store| store.add_audio_asset(&stored)) {
-        Ok(()) => Reply::AudioImported {
-            relative_path: stored.relative_path,
+    match Store::open(root).and_then(|store| store.add_audio(&imported.clip, &imported.label)) {
+        Ok(_) => Reply::AudioImported {
+            relative_path: imported.clip.relative_path,
         },
         Err(error) => Reply::Failed(error.to_string()),
     }

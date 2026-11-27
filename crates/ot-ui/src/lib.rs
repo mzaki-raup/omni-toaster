@@ -8,6 +8,7 @@
 
 pub mod animation;
 pub mod appearance;
+pub mod audio_import;
 pub mod fields;
 pub mod images;
 pub mod layout;

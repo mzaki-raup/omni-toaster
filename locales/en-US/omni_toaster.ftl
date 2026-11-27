@@ -98,6 +98,8 @@ toast-position-custom-hint = Drag the preview to place it, or type the distance 
 error-import-too-large = { $name } is larger than 5 MB, so it was not imported.
 error-import-not-an-image = { $name } is not a PNG, JPEG or WebP picture, whatever its name says.
 error-import-too-many-pixels = { $name } is larger than 4096 by 4096 pixels, so it was not imported.
+# Import error: a picture offered as an icon is smaller than 16 or larger than 256 pixels on a side. $name is the file's name.
+error-import-icon-size = { $name } is the wrong size for an icon: an icon is from 16 to 256 pixels each way, so it was not imported.
 error-import-undecodable = { $name } could not be read as a picture. It may be damaged.
 error-import-escapes = { $name } could not be copied into the OmniToaster folder.
 error-import-unreadable = { $name } could not be read.
@@ -188,8 +190,8 @@ tray-quit-confirm-stay = Keep Running
 settings-window-title = Settings
 settings-section-general = General
 settings-section-appearance = Appearance
-# The section holding the image library: pictures uploaded once and used by any notification.
-settings-section-pictures = Picture Library
+# The section holding the libraries: images, icons and sounds uploaded once and used by any notification.
+settings-section-pictures = Libraries
 # The section holding how toasts arrive and leave.
 settings-section-animation = Animation
 # The section holding the reminders and what Snooze does.
@@ -315,13 +317,13 @@ settings-toast-icon-dialog-title = Choose an icon for the toast header
 settings-toast-image-dialog-title = Choose an image for the toast
 # The file-type filter in the Open dialog.
 settings-toast-image-filter = Pictures (PNG, JPEG, WebP)
-# Settings > Picture Library. The line under the section title.
+# Settings > Libraries, Images. The line under the kind buttons.
 settings-library-hint = Upload a picture once and use it in any notification, as its icon or its image.
 # The button that opens the file dialog to add a picture to the library.
 settings-library-upload = Upload a Picture
 # The last item of every icon and image picker, which uploads a picture and chooses it.
 settings-library-upload-new = Upload a New Picture
-# The title of the Open dialog when uploading from the Picture Library section.
+# The title of the Open dialog when uploading from the Libraries section.
 settings-library-dialog-title = Choose a picture for the library
 # Shown while the library is being read.
 settings-library-loading = Loading the pictures…
@@ -345,15 +347,37 @@ settings-library-keep = Keep It
 settings-library-none-icon = App Icon
 # The first item of the image picker: no image.
 settings-library-none-image = No Image
-# The heading of the list of pictures that ship with the app, in Settings > Picture Library.
+# The three libraries, as buttons that choose which one is shown and as the word in a message: pictures for a notification's body, small pictures for its header, and sounds.
+settings-library-kind-images = Images
+settings-library-kind-icons = Icons
+settings-library-kind-audio = Audio
+# The line at the top of the Icons library.
+settings-library-hint-icons = Upload a small picture, from 16 to 256 pixels each way, to use as the icon in a notification's header.
+# The line at the top of the Audio library: the formats, and that the name is the user's to change.
+settings-library-hint-audio = Upload a sound (WAV, MP3 or Ogg) once and use it in any notification. It starts with its file's name, which you can change.
+# The upload button of the Icons library.
+settings-library-upload-icon = Upload an Icon
+# The upload button of the Audio library.
+settings-library-upload-audio = Upload a Sound
+# Shown in the Icons library when it is empty.
+settings-library-empty-icons = No icons yet. Upload one to use as a notification's header icon.
+# Shown in the Audio library when it is empty.
+settings-library-empty-audio = No sounds yet. Upload one to use in a notification.
+# The hint on a sound's name field.
+settings-library-label-hint-audio = The name this sound goes by in every picker
+# Shown in a sound's name field when its name is empty.
+settings-library-audio-unnamed = Untitled sound
+# The question before removing a sound that notification templates still use. $label is its name.
+settings-library-in-use-audio = “{ $label }” is still in use. Remove it anyway? Whatever uses it falls back to the short chime.
+# The heading of the list of pictures that ship with the app, in Settings > Libraries.
 settings-library-builtin = Built-In Pictures
 # The line under that heading.
 settings-library-builtin-hint = These come with OmniToaster. Use them for any notification; they can't be renamed or removed.
-# Group headings in the picture pickers and the Picture Library: the built-in pictures for prayer times, weather and reminder types.
+# Group headings in the picture pickers and the Images library: the built-in pictures for prayer times, weather and reminder types.
 settings-builtin-group-prayer = Prayer Times
 settings-builtin-group-weather = Weather
 settings-builtin-group-reminder = Reminders
-# Names of the built-in pictures, shown in the pickers and the Picture Library. Prayers carry both names, as everywhere in Settings.
+# Names of the built-in pictures, shown in the pickers and the Images library. Prayers carry both names, as everywhere in Settings.
 settings-builtin-masjid-imsak = Mosque · Imsak
 settings-builtin-masjid-subuh = Mosque · Subuh (Fajr)
 settings-builtin-masjid-dhuha = Mosque · Dhuha
@@ -395,14 +419,14 @@ settings-status-paused-until-resumed = Notifications are paused until you resume
 settings-status-resumed = Notifications are on again.
 settings-status-tray-failed = The tray icon could not be created, so closing this window is the only way out: { $reason }
 settings-status-language-failed = The language could not be changed: { $reason }
-# Status line after an upload. $label is the picture's name in the library.
-settings-status-library-added = “{ $label }” was added to the picture library.
-# Status line when the uploaded picture was already in the library. $label is its existing name.
-settings-status-library-already-there = That picture is already in the library, as “{ $label }”.
+# Status line after an upload. $label is the name it has in the library.
+settings-status-library-added = “{ $label }” was added to the library.
+# Status line when the uploaded file was already in a library. $label is its existing name and $library is which one: Images, Icons or Audio.
+settings-status-library-already-there = That file is already in the { $library } library, as “{ $label }”.
 # Status line after a picture was removed from the library.
 settings-status-library-removed = The picture was removed from the library.
 # Status line when the library could not be read or changed. $reason is the technical cause.
-settings-status-library-failed = The picture library could not be updated: { $reason }
+settings-status-library-failed = The library could not be updated: { $reason }
 settings-status-dialog-failed = The file dialog could not be opened: { $reason }
 settings-status-saved = Your settings are saved.
 settings-status-autostart-on = OmniToaster will start with Windows.

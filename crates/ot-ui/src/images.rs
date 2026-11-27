@@ -12,6 +12,7 @@ use std::path::{Path, PathBuf};
 use std::sync::mpsc::{Receiver, SyncSender, TryRecvError, sync_channel};
 
 use ot_store::assets::{Asset, ImportError, Thumbnail};
+use ot_store::library::Kind;
 
 /// The side a thumbnail is shrunk to. The icon slot is 20 points, which is
 /// 50 pixels at 250%; 64 leaves room without carrying the original around.
@@ -46,12 +47,20 @@ pub enum ImportOutcome {
     /// Imported, for `slot` if it came from a picker; the string is the
     /// label it starts with in the library — the file's own name, which the
     /// user may change.
-    Imported(Option<Slot>, Asset, String),
+    Imported(Option<Slot>, Kind, Asset, String),
     /// The file broke one of the import rules; `name` is its file name, for
     /// the message.
     Refused { name: String, error: ImportError },
     /// The dialog itself could not be shown.
     DialogFailed(String),
+}
+
+/// Import `path` as a picture or as an icon (which must also be 16 to 256 pixels).
+fn import_as(root: &Path, path: &Path, kind: Kind) -> Result<Asset, ImportError> {
+    match kind {
+        Kind::Icon => ot_store::assets::import_icon(root, path),
+        _ => ot_store::assets::import(root, path),
+    }
 }
 
 /// Choosing a file and importing it, one attempt at a time.
@@ -83,7 +92,7 @@ impl Importer {
     /// Open the dialog on a worker thread and import whatever is chosen.
     ///
     /// `title` and `filter_name` arrive in the user's language.
-    pub fn start(&mut self, slot: Option<Slot>, title: String, filter_name: String) {
+    pub fn start(&mut self, slot: Option<Slot>, kind: Kind, title: String, filter_name: String) {
         if self.busy {
             return;
         }
@@ -95,9 +104,10 @@ impl Importer {
             .spawn(move || {
                 let outcome = match ot_platform::file_dialog::pick_image(&title, &filter_name) {
                     Ok(None) => ImportOutcome::Cancelled,
-                    Ok(Some(path)) => match ot_store::assets::import(&root, &path) {
+                    Ok(Some(path)) => match import_as(&root, &path, kind) {
                         Ok(asset) => ImportOutcome::Imported(
                             slot,
+                            kind,
                             asset,
                             path.file_stem()
                                 .map(|stem| stem.to_string_lossy().into_owned())
