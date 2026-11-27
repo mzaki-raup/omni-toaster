@@ -68,6 +68,11 @@ if ($RepoUrl -notmatch '^https://') { throw "RepoUrl '$RepoUrl' must be an https
 $forgeHost = ([uri]$RepoUrl).Host
 
 # --- Build ----------------------------------------------------------------------
+# Which forge this copy updates from is fixed here, when it is built (ADR-024): the
+# exe a GitHub release carries reads GitHub's releases and the one a git.zacx.net
+# release carries reads git.zacx.net, with nothing for a user to set. ot-update reads
+# it with option_env!, and its build.rs rebuilds when it changes.
+$env:OMNITOASTER_RELEASE_REPO = $RepoUrl
 if (-not $SkipBuild) {
   Invoke-Checked "cargo build" { cargo build --release --locked -p omnitoaster --target $Target }
 }

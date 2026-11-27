@@ -217,3 +217,11 @@ loudly rather than publishing unsigned if it is unset. It must be the **two-line
 unencrypted** minisign secret key: a key made with `rsign generate -W` prompts
 for a password on the console, which on a runner hangs until the 60-second
 timeout kills it. `keys/README.md` has the generation and rotation procedure.
+
+## Which forge a copy updates from
+
+Each forge builds its own release, and `scripts/build-and-package.ps1` sets
+`OMNITOASTER_RELEASE_REPO` to the `-RepoUrl` it was given before it builds, so the
+exe a release carries knows where to look for the next one: GitHub's builds read
+GitHub, the Forgejo's read the Forgejo (ADR-024). Nothing in either workflow
+changes; the script does it. A local build reads the Forgejo.

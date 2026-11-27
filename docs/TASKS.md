@@ -126,7 +126,7 @@ Refs: BUG-0003
 
 ```
 Version : v0.5.1
-Features : FEAT-0077
+Features : FEAT-0082
 Bugs : BUG-0018
 Change Request : CR-0010
 ```
@@ -135,7 +135,71 @@ Change Request : CR-0010
 
 ## v0.7.0 — Planned
 
-The in-app updater (FEAT-0008's scope, split into steps), on `feat/updater`.
+The in-app updater (FEAT-0008's scope, split into steps), on `feat/updater`. The
+owner's request, 2026-11-27: update from GitHub for a copy downloaded from GitHub and
+from git.zacx.net for one downloaded from there (ADR-024, modelled on the sibling
+`lock-screen`'s updater). FEAT-0008 is superseded by FEAT-0077 to FEAT-0081.
+
+### FEAT-0077 · The update source and the check: which forge, and is there a newer release
+- **State:** In-Progress · **Spec:** docs/specs/updater.md §3.1 · ADR-024
+- **Branch:** feat/updater
+- **Depends on:** CR-0009
+- [x] `ot-update`: the repository baked at build time through `OMNITOASTER_RELEASE_REPO` (the release script sets it), the latest-release API derived for GitHub and for a Forgejo, a malformed value refused — `source.rs`; `scripts/build-and-package.ps1` sets the variable before the build; `build.rs` rebuilds on a change
+- [x] The release read in the one shape both forges answer; versions compared by semver; stable releases only; a release lacking the manifest, its signature or the exe is "not installable" — `release.rs`; both captured answers (2026-11-27) read to the same version and the three assets
+- [x] `check::Client`: one blocking attempt, cancellable, size-capped, HTTPS only, named failures; the live check against both forges, `#[ignore]`d — `check.rs`; the live test run by hand against git.zacx.net and github.com and passed
+- [x] Test: both forges' real answers parsed from fixtures; semver ordering; drafts, prereleases and broken answers; the client against a local server (offer, up to date, not installable, 404, 503, a broken body, the cap, a cancel, unreachable); the repository parser's refusals; a build with nothing set reads the Forgejo — 20 tests and the live one; the source tests also pass with a GitHub repository baked in (`OMNITOASTER_RELEASE_REPO` set)
+- [ ] Gate: fmt · clippy -D warnings · test --workspace --locked -j 4 · deny check · --self-test
+- [ ] App: `--data-dir ./tmp-data` — not applicable on its own — nothing in the app uses it until FEAT-0080's pane
+- [ ] Docs: spec · README · CHANGELOG · CHECKLIST · GOTCHAS
+- **Notes:** Tried: a release exe built with `scripts/build-and-package.ps1 -RepoUrl https://github.com/mzaki-raup/omni-toaster` carried **neither** repository string, because nothing links `ot-update` yet and the linker drops it. So "the exe reads its own forge" is **not yet shown**; FEAT-0081 shows it once the pane (FEAT-0080) links the crate, by finding the string in each forge's exe. Also found: `.claude/rules/build-and-run.md` says to run the packaging script with `-Version 0.0.0-local`, which the script refuses (it wants a release version, and then that the binary reports the same one), so a local dry run needs a build at the version the script is given.
+
+### FEAT-0078 · Verifying and downloading: the signed manifest, the hash, the staged file
+- **State:** Pending · **Spec:** docs/specs/updater.md §3 · §4 · §6 · docs/06-security-and-privacy.md
+- **Branch:** feat/updater
+- **Depends on:** FEAT-0077
+- [ ] Fetch `manifest.json` and `manifest.json.minisig` from the release's assets; verify the minisign signature against the public key embedded in the exe (`keys/minisign.pub`) **before** reading the manifest; fail closed
+- [ ] Compare the manifest's version with the release's and the running one; refuse a manifest older than the running version
+- [ ] Download `OmniToaster.exe` into `OmniToasterData/cache/update/` with the manifest's size as the cap; check its SHA-256 against the manifest; delete it on any mismatch
+- [ ] Stage it beside the running exe as `OmniToaster.exe.new` only when the folder is writable; otherwise say so and offer the manual zip
+- [ ] Test: a tampered manifest is rejected and nothing downloads; a corrupted download is rejected and deleted; an oversize answer is abandoned; a read-only folder says so
+- [ ] Gate: fmt · clippy -D warnings · test --workspace --locked -j 4 · deny check · --self-test
+- [ ] App: `--data-dir ./tmp-data` — download and verify a real release into `cache/update/` without installing
+- [ ] Docs: spec · README · CHANGELOG · CHECKLIST · GOTCHAS
+
+### FEAT-0079 · The swap: the supervisor replaces the exe, restarts, and rolls back
+- **State:** Pending · **Spec:** docs/specs/updater.md §5 · docs/specs/supervisor.md
+- **Branch:** feat/updater
+- **Depends on:** FEAT-0078
+- [ ] The worker asks the supervisor to apply the staged file; the supervisor stops the worker, renames the exe to `.old`, renames `.new` into place and starts the new worker
+- [ ] A new worker that does not report its version in time is rolled back: `.old` restored, the worker restarted, the user told
+- [ ] `.old` is deleted on the first successful run; the data folder is untouched throughout
+- [ ] Test: the swap and the rollback sequences against throwaway files; the data folder byte-identical
+- [ ] Gate: fmt · clippy -D warnings · test --workspace --locked -j 4 · deny check · --self-test
+- [ ] App: `--data-dir ./tmp-data` — update a copy in place from a real release and watch it restart on the new version; then a deliberately broken one rolls back
+- [ ] Docs: spec · README · CHANGELOG · CHECKLIST · GOTCHAS
+
+### FEAT-0080 · Settings ▸ Updates: version, source, Check Now, and Install
+- **State:** Pending · **Spec:** docs/specs/updater.md §7 · docs/04-ui-design.md
+- **Branch:** feat/updater
+- **Depends on:** FEAT-0077, FEAT-0078
+- [ ] The pane: the running version, which source this copy uses (shown, not editable), Check Now, the last check and its result, the release notes link, and an install button with what will be installed
+- [ ] Automatic checking on or off (a daily check at most, off by default until decided); the whole check can be turned off, which sends nothing
+- [ ] Every string a Fluent key in both languages; empty, checking, up to date, available, not installable and failed states each say something; Malay at its longest
+- [ ] Test: the layout test with the pane; the states; the service checks off the UI thread and cancels
+- [ ] Gate: fmt · clippy -D warnings · test --workspace --locked -j 4 · deny check · --self-test
+- [ ] App: `--data-dir ./tmp-data` — Check Now against both forges' builds; the pane in English and Malay, all three themes, narrow
+- [ ] Docs: spec · README · CHANGELOG · CHECKLIST · GOTCHAS
+
+### FEAT-0081 · The release pipeline proves the baked source
+- **State:** Pending · **Spec:** docs/09-ci-cd-and-releases.md · scripts/verify-release.ps1
+- **Branch:** feat/updater
+- **Depends on:** FEAT-0077
+- [ ] `scripts/verify-release.ps1` checks that the published exe was built for the forge it was published on (its baked repository string is in the file)
+- [ ] Both workflows pass `-RepoUrl` as before; a test or step fails a release whose exe names the wrong forge
+- [ ] Document the two exes' differing digests and manifests
+- [ ] Gate: fmt · clippy -D warnings · test --workspace --locked -j 4 · deny check · --self-test
+- [ ] App: `--data-dir ./tmp-data` — run the verify script against a published release on each forge
+- [ ] Docs: spec · README · CHANGELOG · CHECKLIST · GOTCHAS
 
 ### CR-0009 · The HTTP agent and the cancel flag are shared, in `ot-net`
 - **State:** Completed · **Spec:** docs/08-decisions.md ADR-019 · ADR-023 · docs/03-architecture.md

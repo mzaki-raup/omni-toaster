@@ -37,6 +37,19 @@ A release missing the first three reads as **"no installable release"** and the
 user stays where they are. Renaming an asset is a breaking change needing a new
 ADR.
 
+## 3.1 Where a copy looks (FEAT-0077, ADR-024)
+
+A copy updates from the forge it was built for: the release script bakes the
+repository into the exe (`OMNITOASTER_RELEASE_REPO`), so a GitHub download looks at
+GitHub's releases and a git.zacx.net download at git.zacx.net's, and a local build
+at git.zacx.net. It is not a setting. `ot_update::check::Client` asks
+`releases/latest` (stable only), reads the release in the one shape both forges
+answer, compares its version with the running one **by semver**, and says whether it
+is up to date, available, or newer but not installable (a release lacking the
+manifest, its signature or the exe). It trusts nothing it reads: the answer is an
+offer for the user to see, and what is installed is decided by the signed manifest
+(§4, FEAT-0078).
+
 ## 4. The flow
 
 ```

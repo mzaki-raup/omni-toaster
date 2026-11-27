@@ -13,6 +13,8 @@ Format: [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) · Versioning:
 
 ### Added
 
+- Updates, first step: the app can now ask the forge it came from — GitHub for a copy downloaded from GitHub, git.zacx.net for one from git.zacx.net — whether a newer release exists and whether it can be installed. Nothing in the app shows or installs it yet; that comes in the next steps (FEAT-0077).
+
 - Settings > Reminders as two columns (e1062ddb)
 
 ## 0.17.0 — 2026-11-26
