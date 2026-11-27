@@ -154,23 +154,23 @@ shipped on its own.
 - **Notes:** The city search sends the typed text and the IP address to Open-Meteo (ADR-021); `docs/06` already lists it.
 
 ### FEAT-0073 · Settings ▸ Reminders as two columns: the list, and the details
-- **State:** Pending · **Spec:** docs/specs/tray-and-settings.md · docs/specs/reminders.md · docs/04-ui-design.md
-- **Branch:** to be cut from `main` once Phase 6 is merged
+- **State:** Completed · **Spec:** docs/specs/tray-and-settings.md · docs/specs/reminders.md · docs/04-ui-design.md
+- **Branch:** feat/reminders-two-columns
 - **Depends on:** FEAT-0043, FEAT-0046
 - **Source:** the owner: "revamp the reminder list and config. Make a 2 column. Left column is the Reminder Title Lists, while the right column is the reminder setting details. New reminder reuse the empty form of reminder setting details"
-- [ ] The reminder titles in a column on the left, the chosen one's editor on the right; choosing a title opens its details
-- [ ] New Reminder selects an empty form in the same right-hand editor (one form, reused), rather than a separate one
-- [ ] The missed list, history, fatigue section and snooze settings keep their place and still work
-- [ ] Narrow window: the columns stack or the list collapses, nothing overlaps (`.claude/rules/ui.md`); both languages at the longest Malay title
-- [ ] Test: the layout test and the reminders-pane tests for the new arrangement, including choosing, creating and deleting from the list
-- [ ] Gate: fmt · clippy -D warnings · test --workspace --locked -j 4 · deny check · --self-test
-- [ ] App: `--data-dir ./tmp-data` — create, choose, edit and delete reminders in the two columns, in both languages and all three themes, narrow and wide
-- [ ] Docs: spec · README · CHANGELOG · CHECKLIST · GOTCHAS
+- [x] The reminder titles in a column on the left, the chosen one's editor on the right; choosing a title opens its details — `reminders::list_and_details`: the list on the left (each title with when it fires, virtualised, 14 rows in view then it scrolls) and the form and history on the right; choosing a title opens it
+- [x] New Reminder selects an empty form in the same right-hand editor (one form, reused), rather than a separate one — the pane always has a form (`editor` is a blank `Editor::new_at` when none is chosen), so New Reminder and Cancel empty the same one; an untouched blank form shows no empty-title error and its Save is disabled
+- [x] The missed list, history, fatigue section and snooze settings keep their place and still work — the missed list stays above both columns, the history is under the form, and the fatigue and snooze settings stay below, full width; the editor code was reused unchanged apart from the blank-form message
+- [x] Narrow window: the columns stack or the list collapses, nothing overlaps (`.claude/rules/ui.md`); both languages at the longest Malay title — under 640 points the list stacks above the form; the layout test runs the pane at the default and the narrow width, at three scales, in both languages and the pseudo-locale
+- [x] Test: the layout test and the reminders-pane tests for the new arrangement, including choosing, creating and deleting from the list — three new kittest tests (wide: the form's Title is right of the list's titles; narrow: the list is above the form; choosing, New Reminder and Cancel each report) with the threshold broken on purpose and caught, the layout test, and the existing delete/clear/thousand-row tests
+- [x] Gate: fmt · clippy -D warnings · test --workspace --locked -j 4 · deny check · --self-test — fmt · clippy · tests · deny · self-test
+- [x] App: `--data-dir ./tmp-data` — create, choose, edit and delete reminders in the two columns, in both languages and all three themes, narrow and wide. **Made (debug build, scratch folder, 1100, 896 and 700 pixels wide):** two reminders created through the form with New Reminder, each appearing in the left column; choosing one fills the form and its history; the window at 700 pixels stacks the list above the form; Malay at 896 pixels, the longest "when" line fits after the list was widened. **Not made:** the Light and System themes, 150% and 200% scaling by eye, deleting from the list in the app, and a list long enough to scroll in the app (the thousand-row test covers the cost)
+- [x] Docs: spec · README · CHANGELOG · CHECKLIST · GOTCHAS — `docs/specs/reminders.md` · both READMEs' captions and both screenshots retaken · screenshots README · CHANGELOG; GOTCHAS: nothing new
 - **Notes:** A UI rework of a pane that already has tests and a layout test; the editor itself (FEAT-0045, FEAT-0046) should be reused, not rewritten.
 
 ### FEAT-0074 · Hazy weather, from an air-quality or visibility reading
 - **State:** Pending · **Spec:** docs/specs/weather.md §4 · §5 · ADR-023
-- **Branch:** to be cut from `main` once Phase 6 is merged
+- **Branch:** feat/reminders-two-columns
 - **Depends on:** FEAT-0065, FEAT-0066
 - **Source:** the owner: "Add hazy weather to notify user too"; chose an **air-quality or visibility reading** as the source
 - [ ] Verify the source first, as FEAT-0065 did: Open-Meteo has no haze weather code, so check its air-quality service (and visibility) live for a few places, keep the answers as fixtures, and record the choice and the haze threshold as an ADR

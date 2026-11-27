@@ -1478,11 +1478,15 @@ impl SettingsWindow {
         let mut listed = None;
         let mut edited = None;
         let mut cleared = false;
-        let problems = self
-            .editor
-            .as_ref()
-            .map(|editor| editor.validate(jiff::Timestamp::now(), &jiff::tz::TimeZone::system()))
-            .unwrap_or_default();
+        // One form, always: a blank new reminder until one is chosen, so New
+        // Reminder and Cancel empty the same form rather than hiding it.
+        let mut editor = self.editor.take().unwrap_or_else(|| {
+            crate::reminder_editor::Editor::new_at(
+                jiff::Timestamp::now(),
+                &jiff::tz::TimeZone::system(),
+            )
+        });
+        let problems = editor.validate(jiff::Timestamp::now(), &jiff::tz::TimeZone::system());
         egui::ScrollArea::vertical()
             .auto_shrink([false, false])
             .show(ui, |ui| {
@@ -1490,28 +1494,16 @@ impl SettingsWindow {
                 ui.add_space(layout::ROW_GAP);
                 ui.separator();
                 ui.add_space(layout::ROW_GAP);
-                listed = crate::reminders::reminder_list(
+                let master = crate::reminders::list_and_details(
                     ui,
                     self.reminder_rows.as_deref(),
-                    self.editor.as_ref().and_then(|editor| editor.id),
+                    &mut editor,
+                    &problems,
+                    &self.reminder_history,
+                    &mut self.confirming_clear,
                     tokens,
                 );
-                if let Some(editor) = &mut self.editor {
-                    ui.add_space(layout::ROW_GAP);
-                    ui.separator();
-                    ui.add_space(layout::ROW_GAP);
-                    let columns = layout::columns(ui);
-                    edited = crate::reminder_editor::editor(ui, columns, editor, &problems, tokens);
-                    if editor.id.is_some() {
-                        ui.add_space(layout::ROW_GAP);
-                        cleared = crate::reminders::history(
-                            ui,
-                            &self.reminder_history,
-                            &mut self.confirming_clear,
-                            tokens,
-                        );
-                    }
-                }
+                (listed, edited, cleared) = (master.listed, master.edited, master.cleared);
                 ui.add_space(layout::ROW_GAP);
                 ui.separator();
                 ui.add_space(layout::ROW_GAP);
@@ -1537,6 +1529,7 @@ impl SettingsWindow {
                     });
                 }
             });
+        self.editor = Some(editor);
         match listed {
             Some(crate::reminders::ListAction::New) => {
                 self.editor = Some(crate::reminder_editor::Editor::new_at(

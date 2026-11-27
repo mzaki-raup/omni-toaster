@@ -283,7 +283,14 @@ pub fn editor(
             .find(|(f, _)| *f == field)
             .map(|(_, key)| *key)
     };
+    // A blank form nobody has touched is not an error to shout about: the form is
+    // always on show beside the list (FEAT-0073), and Save stays disabled until
+    // there is a title, which is the explanation.
+    let pristine = editor.id.is_none() && editor.title.trim().is_empty();
     let say = |ui: &mut egui::Ui, field| {
+        if pristine && field == Field::Title {
+            return;
+        }
         if let Some(key) = problem(field) {
             layout::field_hint(ui, columns, &ot_i18n::text(key), tokens.danger);
         }

@@ -216,12 +216,13 @@ fn overflowing(width: f32, scale: f32) -> Vec<String> {
             );
             // The list, the editor and the history (FEAT-0046), with the
             // Clear History question up, its longest state.
-            let _ = ot_ui::reminders::reminder_list(ui, Some(&rows), Some(3), ot_ui::Tokens::DARK);
-            let _ = ot_ui::reminder_editor::editor(
+            let _ = ot_ui::reminders::list_and_details(
                 ui,
-                columns,
+                Some(&rows),
                 &mut editor,
                 &problems,
+                &history_rows,
+                &mut confirming,
                 ot_ui::Tokens::DARK,
             );
             let _ = ot_ui::reminders::fatigue_controls(
@@ -230,7 +231,6 @@ fn overflowing(width: f32, scale: f32) -> Vec<String> {
                 &mut fatigue,
                 ot_ui::Tokens::DARK,
             );
-            let _ = ot_ui::reminders::history(ui, &history_rows, &mut confirming, ot_ui::Tokens::DARK);
             let _ = ot_ui::prayer_pane::show(
                 ui,
                 &mut prayer_state,

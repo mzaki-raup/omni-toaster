@@ -217,8 +217,23 @@ pub enum ListAction {
     Select(i64),
 }
 
-/// How tall the list may grow before it scrolls, in rows.
+/// How tall the list may grow before it scrolls, in rows, when it sits above
+/// the form in a narrow window.
 const LIST_ROWS: usize = 6;
+
+/// And when it has a column of its own, beside the form.
+const COLUMN_LIST_ROWS: usize = 14;
+
+/// A pane at least this wide puts the list and the form side by side; narrower,
+/// the list sits above the form, which keeps both usable at the narrowest window
+/// the layout rules require (`.claude/rules/ui.md`).
+pub const TWO_COLUMN_MIN: f32 = 640.0;
+
+/// The list column's width: about a third of the pane, within what a long Malay
+/// title can be read in and what leaves the form its room.
+fn list_width(available: f32) -> f32 {
+    (available * 0.42).clamp(240.0, 360.0)
+}
 
 /// The reminders, newest last, with New Reminder above them. `rows` is
 /// `None` while they load. Only the rows in view are laid out, so a list of
@@ -228,6 +243,7 @@ pub fn reminder_list(
     rows: Option<&[ListRow]>,
     selected: Option<i64>,
     tokens: Tokens,
+    max_rows: usize,
 ) -> Option<ListAction> {
     let mut action = None;
     // The heading and its button on one middle line (ui.md): the row's
@@ -268,7 +284,7 @@ pub fn reminder_list(
         2.0 * ui.text_style_height(&egui::TextStyle::Body) + ui.spacing().item_spacing.y * 2.0;
     egui::ScrollArea::vertical()
         .id_salt("reminder-list")
-        .max_height(row_height * LIST_ROWS as f32)
+        .max_height(row_height * max_rows as f32)
         .auto_shrink([false, true])
         .show_rows(ui, row_height, rows.len(), |ui, range| {
             for row in &rows[range] {
@@ -293,6 +309,65 @@ pub fn reminder_list(
             }
         });
     action
+}
+
+/// What the list and the form beside it asked for in a frame.
+#[derive(Debug, Default)]
+pub struct Master {
+    pub listed: Option<ListAction>,
+    pub edited: Option<crate::reminder_editor::EditorAction>,
+    /// Clear History was confirmed.
+    pub cleared: bool,
+}
+
+/// The reminders and the one being edited (FEAT-0073): the titles in a column on
+/// the left and the form with its history on the right; New Reminder empties the
+/// same form rather than opening another. In a window too narrow for two columns
+/// the list sits above the form. `editor` is always a form — a blank one when
+/// nothing is chosen — so there is one form to reuse.
+#[allow(
+    clippy::too_many_arguments,
+    reason = "one pane, each argument a distinct input"
+)]
+pub fn list_and_details(
+    ui: &mut egui::Ui,
+    rows: Option<&[ListRow]>,
+    editor: &mut crate::reminder_editor::Editor,
+    problems: &[(crate::reminder_editor::Field, &'static str)],
+    history_rows: &[String],
+    confirming: &mut bool,
+    tokens: Tokens,
+) -> Master {
+    let mut out = Master::default();
+    let selected = editor.id;
+    let mut details = |ui: &mut egui::Ui, out: &mut Master| {
+        let columns = layout::columns(ui);
+        out.edited = crate::reminder_editor::editor(ui, columns, editor, problems, tokens);
+        if editor.id.is_some() {
+            ui.add_space(layout::ROW_GAP);
+            out.cleared = history(ui, history_rows, confirming, tokens);
+        }
+    };
+    if ui.available_width() < TWO_COLUMN_MIN {
+        out.listed = reminder_list(ui, rows, selected, tokens, LIST_ROWS);
+        ui.add_space(layout::ROW_GAP);
+        ui.separator();
+        ui.add_space(layout::ROW_GAP);
+        details(ui, &mut out);
+        return out;
+    }
+    let left = list_width(ui.available_width());
+    ui.horizontal_top(|ui| {
+        ui.vertical(|ui| {
+            ui.set_width(left);
+            out.listed = reminder_list(ui, rows, selected, tokens, COLUMN_LIST_ROWS);
+        });
+        ui.separator();
+        ui.vertical(|ui| {
+            details(ui, &mut out);
+        });
+    });
+    out
 }
 
 /// A reminder's history, newest last, already formatted, with Clear
