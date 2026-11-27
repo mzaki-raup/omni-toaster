@@ -7,9 +7,13 @@ Format: [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) · Versioning:
 
 ## Unreleased
 
+- (nothing yet)
+
+## 0.19.1 — 2026-11-27
+
 ### Fixed
 
-- The Settings window and its taskbar button now show the app's own icon instead of the default "e" (BUG-0018).
+- Give the Settings window the app icon instead of eframe default (156014d3)
 
 ## 0.19.0 — 2026-11-27
 
