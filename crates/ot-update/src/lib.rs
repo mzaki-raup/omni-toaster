@@ -6,7 +6,14 @@
 //! downloading and installing it are the steps that follow (FEAT-0078 onward).
 
 pub mod check;
+pub mod download;
+pub mod manifest;
 pub mod release;
 pub mod source;
+pub mod stage;
+pub mod verify;
+
+#[cfg(test)]
+mod chain;
 
 pub use ot_net::Cancel;

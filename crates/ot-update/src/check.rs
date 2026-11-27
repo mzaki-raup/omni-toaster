@@ -12,8 +12,13 @@ use semver::Version;
 
 use ot_net::Cancel;
 
+use crate::manifest::{MAX_MANIFEST, Manifest};
 use crate::release::{self, MAX_JSON, Release, ReleaseError};
 use crate::source::Repo;
+use crate::verify::{self, VerifyError};
+
+/// A minisign signature is a few hundred bytes.
+const MAX_SIGNATURE: usize = 4 * 1024;
 
 /// What a check found.
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -45,11 +50,41 @@ pub enum CheckError {
     Cancelled,
 }
 
+/// Why a release could not be turned into a manifest to install from.
+#[derive(Debug, Clone, PartialEq, Eq, thiserror::Error)]
+pub enum PrepareError {
+    #[error("the release has no {0} asset")]
+    MissingAsset(&'static str),
+    #[error("the request failed: {0}")]
+    Network(String),
+    #[error("the forge answered HTTP {0}")]
+    Http(u16),
+    #[error("an answer is over its size limit")]
+    TooLarge,
+    /// The signature, the key or the manifest's own contents were not acceptable.
+    /// **Nothing is downloaded** after this.
+    #[error(transparent)]
+    Verify(#[from] VerifyError),
+    /// The signed manifest names a different version from the release's page.
+    #[error("the manifest is for {manifest}, not the release's {release}")]
+    VersionMismatch { release: Version, manifest: Version },
+    /// A manifest that is not newer than the running program (a replayed old one).
+    #[error("the manifest's version {0} is not newer than the running one")]
+    NotNewer(Version),
+    /// This copy is older than the release will update in place: use the zip.
+    #[error("this copy is too old to update in place; the release needs at least {0}")]
+    ManualUpdateNeeded(Version),
+    #[error("the check was cancelled")]
+    Cancelled,
+}
+
 /// The client: one agent, aimed at one repository.
 #[derive(Clone)]
 pub struct Client {
     agent: ureq::Agent,
     api: String,
+    /// Whether a manifest's URLs must be HTTPS: always, except a test's local server.
+    require_https: bool,
 }
 
 impl Client {
@@ -62,6 +97,7 @@ impl Client {
         Self {
             agent: ot_net::agent(true),
             api: repo.latest_release_api(),
+            require_https: true,
         }
     }
 
@@ -72,10 +108,11 @@ impl Client {
     }
 
     #[cfg(test)]
-    fn local(api: &str) -> Self {
+    pub(crate) fn local(api: &str) -> Self {
         Self {
             agent: ot_net::agent(false),
             api: api.to_owned(),
+            require_https: false,
         }
     }
 
@@ -99,6 +136,69 @@ impl Client {
         } else {
             Outcome::NotInstallable(release)
         })
+    }
+
+    /// Fetch the release's `manifest.json` and its signature, verify the signature
+    /// against `public_key` (the embedded key in production, [`verify::PUBLIC_KEY`])
+    /// **before reading the manifest**, and cross-check it: it must be for the
+    /// release's version, newer than `running`, and updatable in place from it.
+    /// Fails closed: any problem means nothing is downloaded.
+    pub fn verified_manifest(
+        &self,
+        release: &Release,
+        running: &Version,
+        public_key: &str,
+        cancel: &Cancel,
+    ) -> Result<Manifest, PrepareError> {
+        let asset =
+            |name: &'static str| release.asset(name).ok_or(PrepareError::MissingAsset(name));
+        let manifest_url = asset(release::MANIFEST)?.url.clone();
+        let signature_url = asset(release::MANIFEST_SIGNATURE)?.url.clone();
+        if cancel.is_cancelled() {
+            return Err(PrepareError::Cancelled);
+        }
+        let manifest = self.get_capped(&manifest_url, MAX_MANIFEST)?;
+        let signature = self.get_capped(&signature_url, MAX_SIGNATURE)?;
+        if cancel.is_cancelled() {
+            return Err(PrepareError::Cancelled);
+        }
+        let signature = String::from_utf8_lossy(&signature);
+        let manifest =
+            verify::verify_manifest_with(&manifest, &signature, public_key, self.require_https)?;
+        if manifest.version != release.version {
+            return Err(PrepareError::VersionMismatch {
+                release: release.version.clone(),
+                manifest: manifest.version,
+            });
+        }
+        if !release::is_newer(&manifest.version, running) {
+            return Err(PrepareError::NotNewer(manifest.version));
+        }
+        if *running < manifest.min_supported {
+            return Err(PrepareError::ManualUpdateNeeded(manifest.min_supported));
+        }
+        Ok(manifest)
+    }
+
+    fn get_capped(&self, url: &str, cap: usize) -> Result<Vec<u8>, PrepareError> {
+        let mut response = self
+            .agent
+            .get(url)
+            .call()
+            .map_err(|error| PrepareError::Network(error.to_string()))?;
+        let status = response.status().as_u16();
+        if status != 200 {
+            return Err(PrepareError::Http(status));
+        }
+        response
+            .body_mut()
+            .with_config()
+            .limit(cap as u64)
+            .read_to_vec()
+            .map_err(|error| match error {
+                ureq::Error::BodyExceedsLimit(_) => PrepareError::TooLarge,
+                other => PrepareError::Network(other.to_string()),
+            })
     }
 
     fn get(&self, url: &str) -> Result<Vec<u8>, CheckError> {

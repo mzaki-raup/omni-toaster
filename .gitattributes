@@ -39,3 +39,8 @@ SHA256SUMS.txt  -text
 *.exe   binary
 *.ttf   binary
 *.otf   binary
+
+# A signed manifest is checked byte for byte: its signature is over the exact bytes a
+# release published (CRLF, from PowerShell), so git must neither normalise nor
+# convert them (ot-update's real-signature test).
+crates/ot-update/tests/fixtures/real-0.18.0/* -text

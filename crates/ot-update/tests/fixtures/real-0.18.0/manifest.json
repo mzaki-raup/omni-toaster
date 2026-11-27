@@ -1,0 +1,25 @@
+{
+  "schema": 1,
+  "product": "OmniToaster",
+  "version": "0.18.0",
+  "channel": "stable",
+  "published_at": "2026-11-27T03:05:05Z",
+  "tag": "v0.18.0",
+  "notes_url": "https://git.zacx.net/owner/omni-toaster/releases/tag/v0.18.0",
+  "min_supported_version": "0.1.0",
+  "data_schema": 1,
+  "assets": {
+    "windows-x64": {
+      "name": "OmniToaster.exe",
+      "url": "https://git.zacx.net/owner/omni-toaster/releases/download/v0.18.0/OmniToaster.exe",
+      "size": 16173568,
+      "sha256": "9c55fa26c44709f58c010aa1bf7dbd1c88e76169f3c5e34d32962ee9c75b6b02"
+    },
+    "windows-x64-zip": {
+      "name": "OmniToaster-0.18.0-windows-x64.zip",
+      "url": "https://git.zacx.net/owner/omni-toaster/releases/download/v0.18.0/OmniToaster-0.18.0-windows-x64.zip",
+      "size": 9160907,
+      "sha256": "c6978e87e66e58a4e7303c48db65258e15c99f75edbf429acdc74a7872d4f085"
+    }
+  }
+}

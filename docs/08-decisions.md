@@ -947,3 +947,13 @@ a new crate, `ot-update`, which depends on `ot-net` (CR-0009) and `semver`.
 - Only stable releases are offered (`releases/latest` excludes prereleases); the
   beta channel is a later step.
 - Moving the project to another forge means one `-RepoUrl`, nothing in the source.
+
+**Update 2026-11-27 (FEAT-0078): verifying.** `ot-update` verifies with
+`minisign-verify` 0.3 (verification only, no dependencies of its own, MIT), against
+the key committed as `keys/minisign.pub` and **embedded in the crate** with
+`include_str!`. The signature is checked before the manifest is read as anything but
+bytes; a failure fails closed and nothing is downloaded. Only the prehashed
+signatures `rsign2` makes by default are accepted. The tests sign with a throwaway key
+made at run time by the `minisign` crate (a dev-dependency, MIT), so no private key is
+ever committed, and one test verifies the **real** v0.18.0 manifest and signature
+(captured in `tests/fixtures/real-0.18.0/`) against the embedded key.

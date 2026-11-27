@@ -50,6 +50,24 @@ manifest, its signature or the exe). It trusts nothing it reads: the answer is a
 offer for the user to see, and what is installed is decided by the signed manifest
 (§4, FEAT-0078).
 
+## 3.2 What is built (FEAT-0078)
+
+`ot-update` now carries steps 1 to 6 of the flow below, none of which installs
+anything. `Client::verified_manifest` fetches the release's `manifest.json` and its
+signature (each size-capped), verifies the signature with the embedded key **first**,
+and only then reads the manifest strictly (schema 1, product, an https `windows-x64`
+asset named `OmniToaster.exe` with a size up to 64 MB and a 64-digit lower-case
+SHA-256); it then insists the manifest is for the release's version, **newer than the
+running one** (a replayed old release is refused) and that the running copy is at
+least `min_supported_version` (else the zip). `Downloader::download` reads the exe in
+chunks into `cache/update/OmniToaster-<version>.exe.part`, checking the cancel flag
+between chunks, abandoning it past the manifest's size, and renaming it only when its
+length and digest both match; anything else deletes it. `stage` copies it to
+`OmniToaster.exe.new` beside the running exe (through a `.part` name, re-checking the
+digest of the copy) and says `NotWritable` when it cannot, so the pane can offer the
+zip; it never elevates and never touches the running exe or `OmniToasterData/` beyond
+`cache/update/`.
+
 ## 4. The flow
 
 ```

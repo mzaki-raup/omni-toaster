@@ -13,6 +13,8 @@ Format: [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) · Versioning:
 
 ### Added
 
+- Updates, second step: the app can now fetch a release's signed manifest, verify its signature against the project's key built into the program, download the new `OmniToaster.exe` holding it to the signed size and checksum, and stage it beside the running one — rejecting a tampered manifest, a substituted or oversize download, a replayed old release and a read-only folder. It does not install anything yet, and nothing in the app shows it (FEAT-0078).
+
 - Updates, first step: the app can now ask the forge it came from — GitHub for a copy downloaded from GitHub, git.zacx.net for one from git.zacx.net — whether a newer release exists and whether it can be installed. Nothing in the app shows or installs it yet; that comes in the next steps (FEAT-0077).
 
 - Settings > Reminders as two columns (e1062ddb)

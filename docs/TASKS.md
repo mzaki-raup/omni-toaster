@@ -154,17 +154,17 @@ from git.zacx.net for one downloaded from there (ADR-024, modelled on the siblin
 - **Notes:** Tried: a release exe built with `scripts/build-and-package.ps1 -RepoUrl https://github.com/mzaki-raup/omni-toaster` carried **neither** repository string, because nothing links `ot-update` yet and the linker drops it. So "the exe reads its own forge" is **not yet shown**; FEAT-0081 shows it once the pane (FEAT-0080) links the crate, by finding the string in each forge's exe. Also found: `.claude/rules/build-and-run.md` says to run the packaging script with `-Version 0.0.0-local`, which the script refuses (it wants a release version, and then that the binary reports the same one), so a local dry run needs a build at the version the script is given.
 
 ### FEAT-0078 · Verifying and downloading: the signed manifest, the hash, the staged file
-- **State:** Pending · **Spec:** docs/specs/updater.md §3 · §4 · §6 · docs/06-security-and-privacy.md
+- **State:** In-Progress · **Spec:** docs/specs/updater.md §3 · §4 · §6 · docs/06-security-and-privacy.md
 - **Branch:** feat/updater
 - **Depends on:** FEAT-0077
-- [ ] Fetch `manifest.json` and `manifest.json.minisig` from the release's assets; verify the minisign signature against the public key embedded in the exe (`keys/minisign.pub`) **before** reading the manifest; fail closed
-- [ ] Compare the manifest's version with the release's and the running one; refuse a manifest older than the running version
-- [ ] Download `OmniToaster.exe` into `OmniToasterData/cache/update/` with the manifest's size as the cap; check its SHA-256 against the manifest; delete it on any mismatch
-- [ ] Stage it beside the running exe as `OmniToaster.exe.new` only when the folder is writable; otherwise say so and offer the manual zip
-- [ ] Test: a tampered manifest is rejected and nothing downloads; a corrupted download is rejected and deleted; an oversize answer is abandoned; a read-only folder says so
-- [ ] Gate: fmt · clippy -D warnings · test --workspace --locked -j 4 · deny check · --self-test
-- [ ] App: `--data-dir ./tmp-data` — download and verify a real release into `cache/update/` without installing
-- [ ] Docs: spec · README · CHANGELOG · CHECKLIST · GOTCHAS
+- [x] Fetch `manifest.json` and `manifest.json.minisig` from the release's assets; verify the minisign signature against the public key embedded in the exe (`keys/minisign.pub`) **before** reading the manifest; fail closed — `Client::verified_manifest`; `verify::verify_manifest` with `minisign-verify`, the key embedded with `include_str!`; **the real v0.18.0 manifest and signature verify against it**
+- [x] Compare the manifest's version with the release's and the running one; refuse a manifest older than the running version — the release's version, newer than the running one, and `min_supported_version`; a replayed old release is `NotNewer`
+- [x] Download `OmniToaster.exe` into `OmniToasterData/cache/update/` with the manifest's size as the cap; check its SHA-256 against the manifest; delete it on any mismatch — `Downloader::download`: chunked, cancel between chunks, abandoned past the manifest's size, renamed only on matching length and digest, deleted otherwise
+- [x] Stage it beside the running exe as `OmniToaster.exe.new` only when the folder is writable; otherwise say so and offer the manual zip — `stage` through a `.part` name with the digest re-checked; `NotWritable` instead of a crash; the running exe is never touched
+- [x] Test: a tampered manifest is rejected and nothing downloads; a corrupted download is rejected and deleted; an oversize answer is abandoned; a read-only folder says so — 17 more tests (46 in all): the real signature, a one-byte tamper, another key, garbage keys and signatures, a signed non-manifest, the whole chain against a local server with a throwaway key, each attack above; **the signature check and the digest check were each broken on purpose and caught (4 tests and 1)**
+- [x] Gate: fmt · clippy -D warnings · test --workspace --locked -j 4 · deny check · --self-test — fmt · clippy · tests · deny · self-test
+- [ ] App: `--data-dir ./tmp-data` — download and verify a real release into `cache/update/` without installing. **Made, with the owner's say-so (2026-11-27):** `a_live_release_verifies_downloads_and_stages_from_both_forges` — against **both** forges, the real v0.18.0 manifest's signature verified with the key embedded in the crate, the real `OmniToaster.exe` (about 16 MB each, different digests, each from its own forge) was downloaded and held to its signed size and SHA-256, and staged beside a stand-in in a scratch folder (deleted); nothing was run or installed. Found on the way: the test first used a pretend running version of 0.0.1, which the check rightly refused as too old to update in place (the release needs at least 0.1.0) — so that guard works against a real manifest; the test now uses 0.1.0. **Not made:** the pane, the swap and a restart, which are FEAT-0079 and FEAT-0080
+- [x] Docs: ADR-024's update · `docs/specs/updater.md` §3.2 · CHANGELOG; README and GOTCHAS: nothing yet
 
 ### FEAT-0079 · The swap: the supervisor replaces the exe, restarts, and rolls back
 - **State:** Pending · **Spec:** docs/specs/updater.md §5 · docs/specs/supervisor.md
