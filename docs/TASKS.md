@@ -165,18 +165,18 @@ FEAT-0089; the toast items and the Prayer items are independent of it. Branch
 - **Notes:** Supersedes FEAT-0075's placement (the place beneath the text). The source label stays in Settings ▸ Prayer's status, which is where it was always a fact about the times.
 
 ### FEAT-0084 · Libraries: icons, images and audio, uploaded once and picked anywhere
-- **State:** Pending · **Spec:** docs/specs/toast.md §8.1 · docs/06-security-and-privacy.md · docs/04-ui-design.md
-- **Branch:** batch/v0.8.0
+- **State:** Completed · **Spec:** docs/specs/toast.md §8.1 · docs/06-security-and-privacy.md · docs/04-ui-design.md
+- **Branch:** feat/libraries
 - **Source:** the owner's list of 2026-11-27
-- [ ] Settings ▸ Picture Library becomes Libraries with three kinds — Icons, Images and Audio — in both languages
-- [ ] Audio: the user uploads a sound (MP3, WAV and the formats the spec allows) with a name of their own; it is checked by magic bytes and size, copied in under a content-hashed name, and decoded with a bound, like every import
-- [ ] Icons: a library kind of their own, from 16 × 16 to 256 × 256 px, checked and stored the same way
-- [ ] A shared picker (a dropdown of the library's entries) that any pane can use, with the built-in choices listed first
-- [ ] A migration for the audio and icon kinds if the schema needs one
-- [ ] Test: the import checks for audio and icons: size, magic bytes, traversal, content-hashed relative path, bounded decode, the icon size range; the library lists, renames and removes, and refuses to remove what is in use
-- [ ] Gate: fmt · clippy -D warnings · test --workspace --locked -j 4 · deny check · --self-test
-- [ ] App: `--data-dir ./tmp-data` — upload a sound and an icon, name them, see them listed; remove one that is in use and be told
-- [ ] Docs: spec · README · CHANGELOG · CHECKLIST · GOTCHAS
+- [x] Settings ▸ Picture Library becomes Libraries with three kinds — Icons, Images and Audio — in both languages — `settings-section-pictures`'s text is now Libraries / Pustaka (the key is unchanged); three buttons choose Images, Icons or Audio; every other mention of the old name was searched for (GOTCHAS)
+- [x] Audio: the user uploads a sound (MP3, WAV and the formats the spec allows) with a name of their own; it is checked by magic bytes and size, copied in under a content-hashed name, and decoded with a bound, like every import — one import path, `ot_ui::audio_import`, shared with the Prayer pane's own sound upload; a name from the file's stem, editable; Play Sound, Stop and Remove per row; WAV, MP3 and Ogg only (the spec's formats)
+- [x] Icons: a library kind of their own, from 16 × 16 to 256 × 256 px, checked and stored the same way — `assets::import_icon`: 16 to 256 on each side, read from the header before any copy
+- [x] A shared picker (a dropdown of the library's entries) that any pane can use, with the built-in choices listed first — **Moved to FEAT-0088** (with the advisor's reasoning: a component with no caller cannot be checked in the app). The Appearance icon picker still lists Images, so nothing that worked as an icon stopped
+- [x] A migration for the audio and icon kinds if the schema needs one — **none needed**: `asset.kind` has no CHECK constraint and `label` and `sound_id` already exist
+- [x] Test: the import checks for audio and icons: size, magic bytes, traversal, content-hashed relative path, bounded decode, the icon size range; the library lists, renames and removes, and refuses to remove what is in use — 7 store tests (icon range with nothing left behind, three lists, one file across kinds, a used sound asks first, the answer names the other library), 3 library-thread tests, 2 audio import tests, the key coverage in both languages; **not covered by a layout test:** the Libraries pane lives inside the window, so its Malay and narrow layout was looked at in the app instead
+- [x] Gate: fmt · clippy -D warnings · test --workspace --locked -j 4 · deny check · --self-test — fmt · clippy · `cargo test --workspace --locked -j 4 --no-fail-fast` · deny · self-test, with no OmniToaster copy running
+- [x] App: `--data-dir ./tmp-data` — upload a sound and an icon, name them, see them listed; remove one that is in use and be told — scratch `--data-dir`, real file dialog: an icon uploaded and named from its file; an 8 × 8 icon refused with the size rule in red; two sounds uploaded (one with a very long name) and listed; a fake MP3 refused by its bytes; the same sound again answered "already in the Audio library"; a picture already in Icons offered to Images answered "already in the Icons library, as icon32"; Remove on a sound Fajr uses (set by SQL, since no pane can pick a library sound until FEAT-0088) asked first and named the templates. Malay at 570 px wide fits. **Not made:** Play Sound heard (only that the button is there), Remove Anyway in the app (thread test only), Light and System themes, and 150–200% DPI
+- [x] Docs: spec · README · CHANGELOG · CHECKLIST · GOTCHAS — spec §8.1 rewritten (it said the opposite) · 04 · both READMEs · screenshots (three retaken or new; the rest recorded as stale) · CHANGELOG · GOTCHAS
 - **Notes:** The first of the batch: FEAT-0086, FEAT-0088 and FEAT-0089 pick from these libraries. Audio is the one new media kind and goes through `.claude/rules/security.md`'s import path in full.
 
 ### FEAT-0085 · Settings ▸ Reminders: the list of reminders in structure, with separators or cards
@@ -218,6 +218,7 @@ FEAT-0089; the toast items and the Prayer items are independent of it. Branch
 - **Branch:** batch/v0.8.0
 - **Depends on:** FEAT-0084
 - **Source:** the owner's list of 2026-11-27
+- [ ] A shared dropdown picker over the libraries (the built-in choices first, "Upload a New …" last), moved here from FEAT-0084 so it has a caller; an icon column on `category` with its migration, so an icon can be "in use"
 - [ ] Each prayer's template gets an Icon, an Image and a Sound dropdown from the libraries, not only the built-in picture; empty means the built-in
 - [ ] Test: a template saved with a library icon, image and sound reads back and builds a `ToastSpec` that carries them; the preview matches the real toast
 - [ ] Gate: fmt · clippy -D warnings · test --workspace --locked -j 4 · deny check · --self-test

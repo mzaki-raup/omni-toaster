@@ -449,30 +449,45 @@ bottom line. Nothing is added to the body, so a user's own message is exactly as
 and a long one is not pushed off by it. (Before FEAT-0083 the place was the body's last
 line and the prayer's note was the source label.)
 
-### 8.1 The image library
+### 8.1 The libraries
 
-Pictures are uploaded **once** into a library and then **reused** by any
-template that wants them — a meeting picture for the meeting reminder, a
-mosque for each Azan, an alarm clock for alarms, a clock face for the hourly
-announcement. A template refers to a picture in the library; it never carries
-a copy of its own.
+Images, icons and sounds are uploaded **once** into a library and then **reused** by any
+template that wants them — a meeting picture for the meeting reminder, a mosque for each
+Azan, an alarm clock for alarms, a bell for a prayer. A template refers to an entry in a
+library; it never carries a copy of its own. Settings ▸ **Libraries** (before FEAT-0084,
+Picture Library) has three: **Images**, **Icons** and **Audio**, chosen by buttons at its
+top.
 
 - **Upload** goes through the import path of §4 and
-  `docs/06-security-and-privacy.md` unchanged: size first, magic bytes, a
-  bounded decode, a content-hashed copy under `OmniToasterData/assets/`.
-  Because the copy is named by its hash, the same picture uploaded twice is
-  stored once.
-- Each entry has a **label** the user gives it ("Mosque", "Meeting"), so a
-  template's picker reads as a list of names with thumbnails rather than a
-  list of hashes.
-- The library is **one list for both uses**: any picture may serve as an icon
-  in one template and an image in another.
-- **Removing** a picture that a template still uses asks first and names the
-  templates; the templates then fall back as the table above says, rather
-  than pointing at a file that is gone.
-- Every picker that chooses a picture — the icon and image of every template —
-  chooses **from the library**, with "Upload a New Picture" at the end of the
-  list so nobody has to leave the editor to add one.
+  `docs/06-security-and-privacy.md` unchanged: size first, magic bytes, a bounded decode,
+  a content-hashed copy under `OmniToasterData/assets/`. Because the copy is named by its
+  hash, the same file uploaded twice is stored once.
+- **Images** are the body pictures (PNG, JPEG, WebP; up to 5 MB and 4096 × 4096).
+- **Icons** are small pictures for a toast's header, the same formats but each side from
+  **16 to 256 pixels**. The size is read from the header **before** anything is copied,
+  so a refused icon leaves nothing in the data folder.
+- **Audio** is a sound of the formats `ot_media::audio` allows — **WAV, MP3 and Ogg
+  Vorbis** — up to 20 MB and ten minutes, checked by its bytes and decoded in full with a
+  bound. It goes through one path, `ot_ui::audio_import`, for the Libraries pane and for a
+  prayer's own sound alike. Each row has Play Sound, Stop and Remove.
+- Each entry has a **name** the user gives it ("Mosque", "Door Bell"), starting as the
+  file's own name, so a picker reads as a list of names rather than hashes. An entry with
+  no name (a sound uploaded before FEAT-0084) shows "Untitled sound" and can be named.
+- **One file is one entry, in one library.** `asset.sha256` is the primary key, so the same
+  bytes cannot be both an image and an icon: offering a file already in another library is
+  answered with *which* library it is in and the name it has there, and adds nothing.
+  (Before FEAT-0084 any picture was "one list for both uses"; the header-icon picker still
+  lists Images as well as Icons, so a picture that worked as an icon still does.)
+- **Removing** an entry that a template still uses asks first, for a picture by its image
+  and for a sound by its `sound_id`; the question says what happens: the template falls
+  back to the app icon or no image, or to the short chime. A confirmed removal deletes the
+  row — `ON DELETE SET NULL` clears the template's reference in the same statement — and
+  then the file. A prayer's `sound_mode` stays `file` with no clip, which `clip_for` plays
+  as the chime. An icon has no template column yet (FEAT-0088), so none can use one.
+- The pickers that choose a picture — the icon and image of every template — choose **from
+  the libraries**, with "Upload a New Picture" at the end of the list so nobody has to
+  leave the editor to add one. A shared picker for Prayer, Weather and Reminders is
+  FEAT-0088.
 
 ### 8.2 Built-in pictures and sounds
 
@@ -494,7 +509,7 @@ imports anything. The files, their categories and their provenance are
   header icon in one template and the body image in another. Settings ▸
   Appearance's pickers list the user's own pictures, then the built-in ones
   under a heading each — Prayer Times, Weather, Reminders — then "Upload a New
-  Picture". Settings ▸ Picture Library lists them read-only below the user's
+  Picture". Settings ▸ Libraries ▸ Images lists them read-only below the user's
   own: they cannot be renamed or removed, and so are never asked about.
 - **Two sizes.** A toast's image is drawn up to 72 points (180 pixels at 250%)
   and so is decoded to 192 pixels; the header icon is 20 points and stays at
@@ -568,7 +583,7 @@ cargo run -p omnitoaster -- --data-dir ./tmp-data
 
 ## What is implemented (2026-11-09)
 
-**The image library** (FEAT-0025). Settings ▸ Picture Library lists every
+**The image library** (FEAT-0025; Settings ▸ Libraries ▸ Images since FEAT-0084). It lists every
 upload with its thumbnail and an editable name — the file's own name to
 start with — and a Remove button. Uploads go through §4's import path
 unchanged and are recorded in the `asset` table with their `label`; the
@@ -583,7 +598,7 @@ connection.
 
 **Built-in pictures** (FEAT-0027, after Phase 2 closed). 19 pictures embedded
 as `@builtin/<name>` (`ot_store::builtin`), listed in both pickers and in the
-Picture Library, with the toast's image decoded at 192 pixels and the icon at
+Libraries ▸ Images, with the toast's image decoded at 192 pixels and the icon at
 64. The categories they are for are recorded (`assets/README.md`) and bound by
 Phases 4 to 6; three sounds are staged under `assets/sound/` for the audio
 engine.

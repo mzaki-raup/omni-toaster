@@ -775,17 +775,14 @@ impl Store {
     }
 
     /// Record an audio clip that was copied into `assets/`, so a template can
-    /// name it. The same clip recorded twice is recorded once.
-    pub fn add_audio_asset(&self, clip: &crate::assets::StoredAudio) -> Result<(), StoreError> {
-        self.conn.execute(
-            "INSERT OR IGNORE INTO asset (sha256, kind, relative_path, bytes, created_at) \
-             VALUES (?1, 'audio', ?2, ?3, strftime('%Y-%m-%dT%H:%M:%fZ', 'now'))",
-            params![
-                clip.sha256,
-                clip.relative_path,
-                i64::try_from(clip.bytes).unwrap_or(i64::MAX)
-            ],
-        )?;
+    /// name it, under `label`. The same clip recorded twice is recorded once and keeps
+    /// its first name.
+    pub fn add_audio_asset(
+        &self,
+        clip: &crate::assets::StoredAudio,
+        label: &str,
+    ) -> Result<(), StoreError> {
+        self.add_audio(clip, label)?;
         Ok(())
     }
 
@@ -1527,8 +1524,10 @@ mod tests {
             crate::assets::store_audio(dir.path(), b"RIFFxxxxWAVEdata", "wav").expect("again"),
             clip
         );
-        store.add_audio_asset(&clip).expect("recorded");
-        store.add_audio_asset(&clip).expect("recorded again");
+        store.add_audio_asset(&clip, "Azan").expect("recorded");
+        store
+            .add_audio_asset(&clip, "Again")
+            .expect("recorded again");
 
         let edit = |mode: &str, sound: Option<String>| PrayerTemplateEdit {
             title: None,

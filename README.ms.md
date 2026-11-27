@@ -132,9 +132,13 @@ Windows, jadi hampir setiap aspeknya boleh ditetapkan:
   Tutup menutup toast dengan animasi keluarnya, Buka membawa Tetapan ke
   hadapan, dan Tunda menangguhkan peringatan; pada toast yang tiada apa-apa
   untuk ditunda, seperti toast ujian, Tunda dikelabukan
-- **Pustaka Gambar:** muat naik gambar sekali — masjid, mesyuarat, jam loceng —
+- **Pustaka:** muat naik gambar sekali — masjid, mesyuarat, jam loceng —
   namakannya, dan gunakannya dalam mana-mana pemberitahuan sebagai ikon atau
-  imejnya. Membuang gambar yang masih digunakan akan meminta pengesahan dahulu.
+  imejnya; simpan juga **ikon** kecil (16 hingga 256 piksel) dan **bunyi** (WAV, MP3
+  atau Ogg) di situ, masing-masing dengan nama anda sendiri, dan mainkan bunyi dari
+  senarai. Satu fail hanya boleh berada dalam satu pustaka, dan memuat naik yang sudah
+  ada dalam pustaka lain akan memberitahu yang mana. Membuang entri yang masih
+  digunakan akan meminta pengesahan dahulu.
   Sembilan belas gambar disertakan bersama aplikasi — masjid bagi setiap waktu
   solat, sembilan jenis cuaca, jam loceng, mesyuarat dan sesi latihan — sedia
   untuk dipilih daripada senarai yang sama
@@ -312,13 +316,15 @@ dan Mainkan memaparkan toast ujian dengannya:
 
 Dalam bahasa Melayu: [settings-animation-ms.png](docs/screenshots/settings-animation-ms.png).
 
-Tetapan ▸ Pustaka Gambar, tempat gambar dimuat naik sekali dan dinamakan,
-dengan gambar yang disertakan bersama aplikasi disenaraikan di bawahnya:
+Tetapan ▸ Pustaka, tempat gambar, ikon dan bunyi dimuat naik sekali dan dinamakan,
+dengan gambar yang disertakan bersama aplikasi disenaraikan di bawah Imej:
 
-![Tetapan ▸ Pustaka Gambar dengan dua gambar yang dimuat naik dan gambar terbina dalam](docs/screenshots/settings-pictures.png)
+![Tetapan ▸ Pustaka ▸ Imej dengan dua gambar yang dimuat naik dan gambar terbina dalam](docs/screenshots/settings-pictures.png)
 
 Skrin yang sama dalam bahasa Melayu:
-[settings-pictures-ms.png](docs/screenshots/settings-pictures-ms.png).
+[settings-pictures-ms.png](docs/screenshots/settings-pictures-ms.png). Pustaka
+Audio, dengan dua bunyi yang boleh dimainkan, dinamakan semula atau dibuang:
+[settings-libraries-audio.png](docs/screenshots/settings-libraries-audio.png).
 
 Tetapan ▸ Peringatan: peringatan yang terlepas di atas; peringatan anda sebagai
 lajur tajuk di sebelah kiri dan borang serta sejarah peringatan yang dipilih di

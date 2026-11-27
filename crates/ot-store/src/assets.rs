@@ -29,6 +29,10 @@ pub const MAX_BYTES: u64 = 5 * 1024 * 1024;
 /// The most it may decode to, in each dimension. A 4096 × 4096 RGBA image is
 /// already 64 MB in memory; anything past that is not a notification picture.
 pub const MAX_PIXELS: u32 = 4096;
+/// The sides an **icon** may have, in pixels (FEAT-0084): the header icon is 20 points
+/// and is drawn from a 64-pixel decode, so nothing smaller than 16 is worth keeping and
+/// nothing past 256 is an icon.
+pub const ICON_SIDES: std::ops::RangeInclusive<u32> = 16..=256;
 /// Where imports land, under the data folder.
 pub const ASSETS_DIR: &str = "assets";
 
@@ -96,6 +100,12 @@ pub enum ImportError {
         width: u32,
         height: u32,
     },
+    #[error("{path} is {width}x{height}; an icon is from 16 to 256 pixels each way")]
+    IconSize {
+        path: PathBuf,
+        width: u32,
+        height: u32,
+    },
     #[error("{path} could not be decoded: {reason}")]
     Undecodable { path: PathBuf, reason: String },
     #[error("{path} is outside the data folder")]
@@ -113,6 +123,7 @@ impl ImportError {
             Self::TooLarge { .. } => "error-import-too-large",
             Self::NotAnImage { .. } => "error-import-not-an-image",
             Self::TooManyPixels { .. } => "error-import-too-many-pixels",
+            Self::IconSize { .. } => "error-import-icon-size",
             Self::Undecodable { .. } => "error-import-undecodable",
             Self::Escapes { .. } => "error-import-escapes",
             Self::Unreadable { .. } | Self::Unwritable { .. } => "error-import-unreadable",
@@ -126,6 +137,21 @@ impl ImportError {
 /// caller runs it on a worker thread and takes the result through a channel —
 /// never on the UI thread (`.claude/rules/threads-and-scheduling.md`).
 pub fn import(root: &Path, source: &Path) -> Result<Asset, ImportError> {
+    import_checked(root, source, None)
+}
+
+/// Import an **icon**: the same path as [`import`], and in addition each side must be in
+/// [`ICON_SIDES`]. The check is made from the header before anything is copied, so a
+/// refused icon leaves nothing in the data folder.
+pub fn import_icon(root: &Path, source: &Path) -> Result<Asset, ImportError> {
+    import_checked(root, source, Some(ICON_SIDES))
+}
+
+fn import_checked(
+    root: &Path,
+    source: &Path,
+    sides: Option<std::ops::RangeInclusive<u32>>,
+) -> Result<Asset, ImportError> {
     // 1. The size, from the directory entry, before a byte is read.
     let metadata = fs::metadata(source).map_err(|error| ImportError::Unreadable {
         path: source.to_path_buf(),
@@ -161,6 +187,15 @@ pub fn import(root: &Path, source: &Path) -> Result<Asset, ImportError> {
     let (width, height) = dimensions(&bytes, &source)?;
     if width > MAX_PIXELS || height > MAX_PIXELS {
         return Err(ImportError::TooManyPixels {
+            path: source,
+            width,
+            height,
+        });
+    }
+    if let Some(sides) = sides
+        && !(sides.contains(&width) && sides.contains(&height))
+    {
+        return Err(ImportError::IconSize {
             path: source,
             width,
             height,

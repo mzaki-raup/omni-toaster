@@ -49,7 +49,7 @@ bottom.
 |---|---|
 | **General** | Language (System · English · Bahasa Melayu), theme, start with Windows, pause controls, single-instance notice |
 | **Appearance** | Toast shape, corner radius, size, colours, transparency, glass effect, shadow, the monitor, the position, the display duration and stacking — with the live preview |
-| **Picture Library** | Pictures uploaded once and used by any notification: thumbnail, name, Remove, and a question before removing one in use |
+| **Libraries** | Images, Icons (16 to 256 px) and Audio (WAV, MP3, Ogg) uploaded once and used by any notification: a button for each library, a name for each entry, Play Sound for audio, Remove, and a question before removing one in use — `docs/specs/toast.md` §8.1 (FEAT-0084) |
 | **Animation** | In and out animation, duration, easing, the Reduce Motion switch with Windows' own "Show animations" stated under it, and Play, which fires a test toast with them (FEAT-0036) |
 | **Notifications** | Display duration, stacking, screen and corner, quiet hours |
 | **Reminders** | The reminder list and editor, categories, lead offsets, snooze defaults. Built: Missed Reminders (FEAT-0045), Your Reminders and the editor with each reminder's history (FEAT-0046), and the Snooze section with the catch-up window (FEAT-0043, FEAT-0045) — `docs/specs/reminders.md` §10 |

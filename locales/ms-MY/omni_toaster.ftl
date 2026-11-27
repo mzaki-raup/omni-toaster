@@ -93,6 +93,8 @@ toast-position-custom-hint = Seret pratonton untuk meletakkannya, atau taipkan j
 error-import-too-large = { $name } lebih besar daripada 5 MB, jadi ia tidak diimport.
 error-import-not-an-image = { $name } bukan gambar PNG, JPEG atau WebP, walau apa pun namanya.
 error-import-too-many-pixels = { $name } lebih besar daripada 4096 kali 4096 piksel, jadi ia tidak diimport.
+# Ralat import: gambar yang ditawarkan sebagai ikon lebih kecil daripada 16 atau lebih besar daripada 256 piksel pada satu sisi. $name ialah nama fail itu.
+error-import-icon-size = { $name } bersaiz salah untuk ikon: ikon ialah 16 hingga 256 piksel pada setiap arah, jadi ia tidak diimport.
 error-import-undecodable = { $name } tidak dapat dibaca sebagai gambar. Ia mungkin rosak.
 error-import-escapes = { $name } tidak dapat disalin ke dalam folder OmniToaster.
 error-import-unreadable = { $name } tidak dapat dibaca.
@@ -183,8 +185,8 @@ tray-quit-confirm-stay = Teruskan Berjalan
 settings-window-title = Tetapan
 settings-section-general = Umum
 settings-section-appearance = Penampilan
-# Bahagian pustaka gambar: gambar dimuat naik sekali dan digunakan oleh mana-mana pemberitahuan.
-settings-section-pictures = Pustaka Gambar
+# Bahagian pustaka: imej, ikon dan bunyi dimuat naik sekali dan digunakan oleh mana-mana pemberitahuan.
+settings-section-pictures = Pustaka
 # Bahagian yang menetapkan cara toast muncul dan hilang.
 settings-section-animation = Animasi
 # Bahagian yang memegang peringatan dan cara Tunda berfungsi.
@@ -311,13 +313,13 @@ settings-toast-icon-dialog-title = Pilih ikon untuk pengepala toast
 settings-toast-image-dialog-title = Pilih imej untuk toast
 # Penapis jenis fail dalam dialog Buka.
 settings-toast-image-filter = Gambar (PNG, JPEG, WebP)
-# Tetapan > Pustaka Gambar. Baris di bawah tajuk bahagian.
+# Tetapan > Pustaka, Imej. Baris di bawah butang jenis.
 settings-library-hint = Muat naik gambar sekali dan gunakannya dalam mana-mana pemberitahuan, sebagai ikon atau imejnya.
 # Butang yang membuka dialog fail untuk menambah gambar ke pustaka.
 settings-library-upload = Muat Naik Gambar
 # Item terakhir setiap pemilih ikon dan imej, yang memuat naik gambar dan memilihnya.
 settings-library-upload-new = Muat Naik Gambar Baharu
-# Tajuk dialog Buka apabila memuat naik dari bahagian Pustaka Gambar.
+# Tajuk dialog Buka apabila memuat naik dari bahagian Pustaka.
 settings-library-dialog-title = Pilih gambar untuk pustaka
 # Dipaparkan semasa pustaka sedang dibaca.
 settings-library-loading = Memuatkan gambar…
@@ -341,15 +343,37 @@ settings-library-keep = Simpan
 settings-library-none-icon = Ikon Aplikasi
 # Item pertama pemilih imej: tiada imej.
 settings-library-none-image = Tiada Imej
-# Tajuk senarai gambar yang disertakan bersama aplikasi, dalam Tetapan > Pustaka Gambar.
+# Tajuk senarai gambar yang disertakan bersama aplikasi, dalam Tetapan > Pustaka.
 settings-library-builtin = Gambar Terbina Dalam
+# Tiga pustaka, sebagai butang yang memilih yang mana satu ditunjukkan dan sebagai perkataan dalam mesej: gambar untuk badan pemberitahuan, gambar kecil untuk pengepalanya, dan bunyi.
+settings-library-kind-images = Imej
+settings-library-kind-icons = Ikon
+settings-library-kind-audio = Audio
+# Baris di bahagian atas pustaka Ikon.
+settings-library-hint-icons = Muat naik gambar kecil, 16 hingga 256 piksel pada setiap arah, untuk digunakan sebagai ikon dalam pengepala pemberitahuan.
+# Baris di bahagian atas pustaka Audio: format, dan bahawa namanya boleh diubah oleh pengguna.
+settings-library-hint-audio = Muat naik bunyi (WAV, MP3 atau Ogg) sekali dan gunakannya dalam mana-mana pemberitahuan. Ia bermula dengan nama failnya, yang boleh anda ubah.
+# Butang muat naik pustaka Ikon.
+settings-library-upload-icon = Muat Naik Ikon
+# Butang muat naik pustaka Audio.
+settings-library-upload-audio = Muat Naik Bunyi
+# Dipaparkan dalam pustaka Ikon apabila kosong.
+settings-library-empty-icons = Belum ada ikon. Muat naik satu untuk digunakan sebagai ikon pengepala pemberitahuan.
+# Dipaparkan dalam pustaka Audio apabila kosong.
+settings-library-empty-audio = Belum ada bunyi. Muat naik satu untuk digunakan dalam pemberitahuan.
+# Petunjuk pada medan nama sesuatu bunyi.
+settings-library-label-hint-audio = Nama bunyi ini dalam setiap pemilih
+# Dipaparkan dalam medan nama bunyi apabila namanya kosong.
+settings-library-audio-unnamed = Bunyi tanpa nama
+# Soalan sebelum membuang bunyi yang masih digunakan oleh templat pemberitahuan. $label ialah namanya.
+settings-library-in-use-audio = “{ $label }” masih digunakan. Buang juga? Apa-apa yang menggunakannya akan kembali kepada bunyi loceng pendek.
 # Baris di bawah tajuk itu.
 settings-library-builtin-hint = Gambar ini disertakan bersama OmniToaster. Gunakannya untuk mana-mana pemberitahuan; ia tidak boleh dinamakan semula atau dibuang.
-# Tajuk kumpulan dalam pemilih gambar dan Pustaka Gambar: gambar terbina dalam untuk waktu solat, cuaca dan jenis peringatan.
+# Tajuk kumpulan dalam pemilih gambar dan pustaka Imej: gambar terbina dalam untuk waktu solat, cuaca dan jenis peringatan.
 settings-builtin-group-prayer = Waktu Solat
 settings-builtin-group-weather = Cuaca
 settings-builtin-group-reminder = Peringatan
-# Nama gambar terbina dalam, dipaparkan dalam pemilih dan Pustaka Gambar. Waktu solat membawa kedua-dua nama, seperti di seluruh Tetapan.
+# Nama gambar terbina dalam, dipaparkan dalam pemilih dan pustaka Imej. Waktu solat membawa kedua-dua nama, seperti di seluruh Tetapan.
 settings-builtin-masjid-imsak = Masjid · Imsak
 settings-builtin-masjid-subuh = Masjid · Subuh (Fajr)
 settings-builtin-masjid-dhuha = Masjid · Dhuha
@@ -392,14 +416,14 @@ settings-status-paused-until-resumed = Pemberitahuan dijeda sehingga anda menyam
 settings-status-resumed = Pemberitahuan dihidupkan semula.
 settings-status-tray-failed = Ikon dulang tidak dapat dibuat, jadi menutup tetingkap ini ialah satu-satunya jalan keluar: { $reason }
 settings-status-language-failed = Bahasa tidak dapat ditukar: { $reason }
-# Baris status selepas muat naik. $label ialah nama gambar dalam pustaka.
-settings-status-library-added = “{ $label }” telah ditambah ke pustaka gambar.
-# Baris status apabila gambar yang dimuat naik sudah ada dalam pustaka. $label ialah namanya yang sedia ada.
-settings-status-library-already-there = Gambar itu sudah ada dalam pustaka, sebagai “{ $label }”.
+# Baris status selepas muat naik. $label ialah nama yang ada dalam pustaka.
+settings-status-library-added = “{ $label }” telah ditambah ke pustaka.
+# Baris status apabila fail yang dimuat naik sudah ada dalam pustaka. $label ialah namanya yang sedia ada dan $library ialah yang mana satu: Imej, Ikon atau Audio.
+settings-status-library-already-there = Fail itu sudah ada dalam pustaka { $library }, sebagai “{ $label }”.
 # Baris status selepas gambar dibuang daripada pustaka.
 settings-status-library-removed = Gambar telah dibuang daripada pustaka.
 # Baris status apabila pustaka tidak dapat dibaca atau diubah. $reason ialah punca teknikalnya.
-settings-status-library-failed = Pustaka gambar tidak dapat dikemas kini: { $reason }
+settings-status-library-failed = Pustaka tidak dapat dikemas kini: { $reason }
 settings-status-dialog-failed = Dialog fail tidak dapat dibuka: { $reason }
 settings-status-saved = Tetapan anda telah disimpan.
 settings-status-autostart-on = OmniToaster akan mula dengan Windows.

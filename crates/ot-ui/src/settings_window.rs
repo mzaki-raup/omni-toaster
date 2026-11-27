@@ -95,6 +95,68 @@ impl Section {
     }
 }
 
+/// Which library Settings ▸ Libraries is showing (FEAT-0084).
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum LibraryKind {
+    Image,
+    Icon,
+    Audio,
+}
+
+impl LibraryKind {
+    const ALL: [Self; 3] = [Self::Image, Self::Icon, Self::Audio];
+
+    /// The word for it in the chooser and in a message.
+    fn name_key(self) -> &'static str {
+        match self {
+            Self::Image => "settings-library-kind-images",
+            Self::Icon => "settings-library-kind-icons",
+            Self::Audio => "settings-library-kind-audio",
+        }
+    }
+
+    fn hint_key(self) -> &'static str {
+        match self {
+            Self::Image => "settings-library-hint",
+            Self::Icon => "settings-library-hint-icons",
+            Self::Audio => "settings-library-hint-audio",
+        }
+    }
+
+    fn upload_key(self) -> &'static str {
+        match self {
+            Self::Image => "settings-library-upload",
+            Self::Icon => "settings-library-upload-icon",
+            Self::Audio => "settings-library-upload-audio",
+        }
+    }
+
+    fn empty_key(self) -> &'static str {
+        match self {
+            Self::Image => "settings-library-empty",
+            Self::Icon => "settings-library-empty-icons",
+            Self::Audio => "settings-library-empty-audio",
+        }
+    }
+
+    fn store(self) -> ot_store::library::Kind {
+        match self {
+            Self::Image => ot_store::library::Kind::Image,
+            Self::Icon => ot_store::library::Kind::Icon,
+            Self::Audio => ot_store::library::Kind::Audio,
+        }
+    }
+}
+
+/// The word for a stored library kind, for a message.
+fn kind_name_key(kind: ot_store::library::Kind) -> &'static str {
+    match kind {
+        ot_store::library::Kind::Image => LibraryKind::Image.name_key(),
+        ot_store::library::Kind::Icon => LibraryKind::Icon.name_key(),
+        ot_store::library::Kind::Audio => LibraryKind::Audio.name_key(),
+    }
+}
+
 /// What the language picker offers. `System` is the absence of a choice, which
 /// is what a first run has.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -179,9 +241,10 @@ pub enum Status {
     LibraryAdded {
         label: String,
     },
-    /// The same picture was already there, under this label.
+    /// The same file was already there, under this label, in this library.
     LibraryAlreadyThere {
         label: String,
+        library: &'static str,
     },
     LibraryRemoved,
     /// A file broke an import rule; the message names the file and the rule.
@@ -223,9 +286,12 @@ impl Status {
                 "settings-status-library-added",
                 &[("label", label.clone().into())],
             ),
-            Self::LibraryAlreadyThere { label } => ot_i18n::text_with(
+            Self::LibraryAlreadyThere { label, library } => ot_i18n::text_with(
                 "settings-status-library-already-there",
-                &[("label", label.clone().into())],
+                &[
+                    ("label", label.clone().into()),
+                    ("library", ot_i18n::text(library).into()),
+                ],
             ),
             Self::LibraryRemoved => ot_i18n::text("settings-status-library-removed"),
             Self::ImportRefused { key, name } => {
@@ -278,6 +344,9 @@ pub struct SettingsWindow {
     images: crate::images::Images,
     /// The file dialog and the import behind it, also off the UI thread.
     importer: crate::images::Importer,
+    /// Which library Settings ▸ Libraries shows, and the importer for its sounds.
+    library_kind: LibraryKind,
+    audio_importer: crate::audio_import::Importer,
     /// The image library, on a thread of its own with its own connection.
     library: crate::library::Library,
     /// A removal waiting for the user's word because something uses the
@@ -479,6 +548,8 @@ impl SettingsWindow {
             prefs: ot_toast::Prefs::from_table(&settings_toast),
             images: crate::images::Images::new(&root_path),
             importer: crate::images::Importer::new(&root_path),
+            library_kind: LibraryKind::Image,
+            audio_importer: crate::audio_import::Importer::new(&root_path),
             library: crate::library::Library::new(&root_path),
             confirm_remove: None,
             test_icon: None,
@@ -2141,6 +2212,7 @@ impl SettingsWindow {
         if upload {
             self.importer.start(
                 Some(slot),
+                ot_store::library::Kind::Image,
                 ot_i18n::text(title_key),
                 ot_i18n::text("settings-toast-image-filter"),
             );
@@ -2159,7 +2231,11 @@ impl SettingsWindow {
             self.images.request(builtin.key);
         }
         let height = layout::field_height(ui);
-        let busy = self.importer.is_busy();
+        let busy = self.importer.is_busy() || self.audio_importer.is_busy();
+        let kind = self.library_kind;
+        let mut chosen_kind = None;
+        let mut play: Option<String> = None;
+        let mut stop = false;
         let mut upload = false;
         let mut rename: Option<(String, String)> = None;
         let mut remove: Option<String> = None;
@@ -2177,12 +2253,25 @@ impl SettingsWindow {
         egui::ScrollArea::vertical()
             .auto_shrink([false, false])
             .show(ui, |ui| {
+                // Which library: they wrap rather than run past a narrow pane.
+                ui.horizontal_wrapped(|ui| {
+                    for choice in LibraryKind::ALL {
+                        let button = egui::Button::selectable(
+                            choice == kind,
+                            ot_i18n::text(choice.name_key()),
+                        )
+                        .min_size(egui::vec2(0.0, height));
+                        if ui.add(button).clicked() {
+                            chosen_kind = Some(choice);
+                        }
+                    }
+                });
+                ui.add_space(layout::ROW_GAP);
                 ui.label(
-                    egui::RichText::new(ot_i18n::text("settings-library-hint"))
-                        .color(tokens.text_dim),
+                    egui::RichText::new(ot_i18n::text(kind.hint_key())).color(tokens.text_dim),
                 );
                 ui.add_space(layout::ROW_GAP);
-                let label = format!("\u{1F4C2}  {}", ot_i18n::text("settings-library-upload"));
+                let label = format!("\u{1F4C2}  {}", ot_i18n::text(kind.upload_key()));
                 let button = egui::Button::new(label).min_size(egui::vec2(0.0, height));
                 if ui.add_enabled(!busy, button).clicked() {
                     upload = true;
@@ -2193,160 +2282,252 @@ impl SettingsWindow {
 
                 let images = &self.images;
                 let confirm_remove = self.confirm_remove.as_ref();
-                match self.library.pictures_mut() {
-                    None => {
-                        ui.label(
-                            egui::RichText::new(ot_i18n::text("settings-library-loading"))
-                                .color(tokens.text_dim),
-                        );
-                    }
-                    Some([]) => {
-                        ui.label(
-                            egui::RichText::new(ot_i18n::text("settings-library-empty"))
-                                .color(tokens.text_dim),
-                        );
-                    }
-                    Some(entries) => {
-                        let thumb = height * 1.6;
-                        for entry in entries {
-                            ui.spacing_mut().interact_size.y = height;
-                            ui.horizontal(|ui| {
-                                ui.set_min_height(thumb);
-                                let (slot, _) = ui.allocate_exact_size(
-                                    egui::vec2(thumb, thumb),
-                                    egui::Sense::hover(),
-                                );
-                                if let Some(picture) = images.picture(&entry.picture.relative_path)
-                                {
-                                    let fitted = egui::Rect::from_center_size(
-                                        slot.center(),
-                                        picture.size * (thumb / picture.size.max_elem()).min(1.0),
-                                    );
-                                    egui::Image::new(egui::load::SizedTexture::new(
-                                        picture.texture,
-                                        picture.size,
-                                    ))
-                                    .paint_at(ui, fitted);
-                                }
-                                ui.with_layout(
-                                    egui::Layout::right_to_left(egui::Align::Center),
-                                    |ui| {
-                                        // The trash can for Remove, the same
-                                        // glyph as every other Remove.
-                                        let label = format!(
-                                            "\u{1F5D1}  {}",
-                                            ot_i18n::text("settings-library-remove")
-                                        );
-                                        let button = egui::Button::new(label)
-                                            .min_size(egui::vec2(0.0, height));
-                                        if ui.add(button).clicked() {
-                                            remove = Some(entry.picture.sha256.clone());
-                                        }
-                                        let field = egui::TextEdit::singleline(&mut entry.edit)
-                                            .desired_width(ui.available_width())
-                                            .min_size(egui::vec2(0.0, height))
-                                            .vertical_align(egui::Align::Center);
-                                        let response = ui.add(field).on_hover_text(ot_i18n::text(
-                                            "settings-library-label-hint",
-                                        ));
-                                        if response.lost_focus()
-                                            && entry.edit != entry.picture.label
-                                        {
-                                            rename = Some((
-                                                entry.picture.sha256.clone(),
-                                                entry.edit.clone(),
-                                            ));
-                                        }
-                                    },
-                                );
-                            });
-                            if let Some((sha256, templates)) = confirm_remove
-                                && *sha256 == entry.picture.sha256
-                            {
-                                ui.add_space(layout::ROW_GAP);
-                                egui::Frame::new()
-                                    .fill(tokens.surface_raised)
-                                    .inner_margin(layout::ROW_GAP)
-                                    .show(ui, |ui| {
-                                        // As wide as the row it belongs to.
-                                        ui.set_min_width(ui.available_width());
-                                        ui.label(ot_i18n::text_with(
-                                            "settings-library-in-use",
-                                            &[("label", entry.picture.label.clone().into())],
-                                        ));
-                                        if used_here {
-                                            ui.label(ot_i18n::text(
-                                                "settings-library-used-by-test-toast",
-                                            ));
-                                        }
-                                        if *templates {
-                                            ui.label(ot_i18n::text(
-                                                "settings-library-used-by-templates",
-                                            ));
-                                        }
-                                        ui.add_space(layout::ROW_GAP);
-                                        ui.horizontal_wrapped(|ui| {
-                                            let anyway = egui::Button::new(
-                                                egui::RichText::new(ot_i18n::text(
-                                                    "settings-library-remove-anyway",
-                                                ))
-                                                .color(tokens.danger),
-                                            )
-                                            .min_size(egui::vec2(0.0, height));
-                                            if ui.add(anyway).clicked() {
-                                                confirmed = Some(true);
-                                            }
-                                            let keep = egui::Button::new(ot_i18n::text(
-                                                "settings-library-keep",
+                if kind == LibraryKind::Audio {
+                    match self.library.audio_mut() {
+                        None => {
+                            ui.label(
+                                egui::RichText::new(ot_i18n::text("settings-library-loading"))
+                                    .color(tokens.text_dim),
+                            );
+                        }
+                        Some([]) => {
+                            ui.label(
+                                egui::RichText::new(ot_i18n::text(kind.empty_key()))
+                                    .color(tokens.text_dim),
+                            );
+                        }
+                        Some(entries) => {
+                            for entry in entries.iter_mut() {
+                                ui.spacing_mut().interact_size.y = height;
+                                ui.horizontal(|ui| {
+                                    ui.set_min_height(height);
+                                    ui.with_layout(
+                                        egui::Layout::right_to_left(egui::Align::Center),
+                                        |ui| {
+                                            let remove_button = egui::Button::new(format!(
+                                                "\u{1F5D1}  {}",
+                                                ot_i18n::text("settings-library-remove")
                                             ))
                                             .min_size(egui::vec2(0.0, height));
-                                            if ui.add(keep).clicked() {
-                                                confirmed = Some(false);
+                                            if ui.add(remove_button).clicked() {
+                                                remove = Some(entry.picture.sha256.clone());
                                             }
-                                        });
-                                    });
+                                            let stop_button = egui::Button::new(ot_i18n::text(
+                                                "prayer-sound-stop",
+                                            ))
+                                            .min_size(egui::vec2(0.0, height));
+                                            if ui.add(stop_button).clicked() {
+                                                stop = true;
+                                            }
+                                            let play_button = egui::Button::new(ot_i18n::text(
+                                                "prayer-sound-play",
+                                            ))
+                                            .min_size(egui::vec2(0.0, height));
+                                            if ui.add(play_button).clicked() {
+                                                play = Some(entry.picture.relative_path.clone());
+                                            }
+                                            let field = egui::TextEdit::singleline(&mut entry.edit)
+                                                .desired_width(ui.available_width())
+                                                .min_size(egui::vec2(0.0, height))
+                                                .hint_text(ot_i18n::text(
+                                                    "settings-library-audio-unnamed",
+                                                ))
+                                                .vertical_align(egui::Align::Center);
+                                            let response = ui.add(field).on_hover_text(
+                                                ot_i18n::text("settings-library-label-hint-audio"),
+                                            );
+                                            if response.lost_focus()
+                                                && entry.edit != entry.picture.label
+                                            {
+                                                rename = Some((
+                                                    entry.picture.sha256.clone(),
+                                                    entry.edit.clone(),
+                                                ));
+                                            }
+                                        },
+                                    );
+                                });
+                                if let Some((sha256, templates)) = confirm_remove
+                                    && *sha256 == entry.picture.sha256
+                                {
+                                    ui.add_space(layout::ROW_GAP);
+                                    remove_question(
+                                        ui,
+                                        tokens,
+                                        height,
+                                        "settings-library-in-use-audio",
+                                        &entry.picture.label,
+                                        false,
+                                        *templates,
+                                        &mut confirmed,
+                                    );
+                                }
+                                ui.add_space(layout::ROW_GAP);
                             }
-                            ui.add_space(layout::ROW_GAP);
+                        }
+                    }
+                } else {
+                    match self.library.pictures_mut() {
+                        None => {
+                            ui.label(
+                                egui::RichText::new(ot_i18n::text("settings-library-loading"))
+                                    .color(tokens.text_dim),
+                            );
+                        }
+                        Some(entries)
+                            if !entries
+                                .iter()
+                                .any(|entry| entry.picture.kind == kind.store()) =>
+                        {
+                            ui.label(
+                                egui::RichText::new(ot_i18n::text(kind.empty_key()))
+                                    .color(tokens.text_dim),
+                            );
+                        }
+                        Some(entries) => {
+                            let thumb = height * 1.6;
+                            for entry in entries
+                                .iter_mut()
+                                .filter(|entry| entry.picture.kind == kind.store())
+                            {
+                                ui.spacing_mut().interact_size.y = height;
+                                ui.horizontal(|ui| {
+                                    ui.set_min_height(thumb);
+                                    let (slot, _) = ui.allocate_exact_size(
+                                        egui::vec2(thumb, thumb),
+                                        egui::Sense::hover(),
+                                    );
+                                    if let Some(picture) =
+                                        images.picture(&entry.picture.relative_path)
+                                    {
+                                        let fitted = egui::Rect::from_center_size(
+                                            slot.center(),
+                                            picture.size
+                                                * (thumb / picture.size.max_elem()).min(1.0),
+                                        );
+                                        egui::Image::new(egui::load::SizedTexture::new(
+                                            picture.texture,
+                                            picture.size,
+                                        ))
+                                        .paint_at(ui, fitted);
+                                    }
+                                    ui.with_layout(
+                                        egui::Layout::right_to_left(egui::Align::Center),
+                                        |ui| {
+                                            // The trash can for Remove, the same
+                                            // glyph as every other Remove.
+                                            let label = format!(
+                                                "\u{1F5D1}  {}",
+                                                ot_i18n::text("settings-library-remove")
+                                            );
+                                            let button = egui::Button::new(label)
+                                                .min_size(egui::vec2(0.0, height));
+                                            if ui.add(button).clicked() {
+                                                remove = Some(entry.picture.sha256.clone());
+                                            }
+                                            let field = egui::TextEdit::singleline(&mut entry.edit)
+                                                .desired_width(ui.available_width())
+                                                .min_size(egui::vec2(0.0, height))
+                                                .vertical_align(egui::Align::Center);
+                                            let response = ui.add(field).on_hover_text(
+                                                ot_i18n::text("settings-library-label-hint"),
+                                            );
+                                            if response.lost_focus()
+                                                && entry.edit != entry.picture.label
+                                            {
+                                                rename = Some((
+                                                    entry.picture.sha256.clone(),
+                                                    entry.edit.clone(),
+                                                ));
+                                            }
+                                        },
+                                    );
+                                });
+                                if let Some((sha256, templates)) = confirm_remove
+                                    && *sha256 == entry.picture.sha256
+                                {
+                                    ui.add_space(layout::ROW_GAP);
+                                    remove_question(
+                                        ui,
+                                        tokens,
+                                        height,
+                                        "settings-library-in-use",
+                                        &entry.picture.label,
+                                        used_here,
+                                        *templates,
+                                        &mut confirmed,
+                                    );
+                                }
+                                ui.add_space(layout::ROW_GAP);
+                            }
                         }
                     }
                 }
 
                 // What ships with the app: not the user's to rename or
-                // remove, so listed apart and read-only.
-                ui.add_space(layout::PANE_GAP);
-                ui.separator();
-                ui.add_space(layout::PANE_GAP);
-                ui.label(egui::RichText::new(ot_i18n::text("settings-library-builtin")).strong());
-                ui.label(
-                    egui::RichText::new(ot_i18n::text("settings-library-builtin-hint"))
-                        .color(tokens.text_dim),
-                );
-                ui.add_space(layout::ROW_GAP);
-                for group in ot_store::builtin::Group::all() {
-                    ui.label(
-                        egui::RichText::new(ot_i18n::text(group.name_key())).color(tokens.text_dim),
-                    );
-                    ui.add_space(layout::ROW_GAP / 2.0);
-                    egui::Grid::new(("builtin-pictures", group as u8))
-                        .num_columns(2)
-                        .spacing([layout::OPTION_GAP, layout::ROW_GAP])
-                        .show(ui, |ui| {
-                            for builtin in ot_store::builtin::in_group(group) {
-                                paint_thumbnail(ui, images.picture(builtin.key), height * 1.6);
-                                ui.label(ot_i18n::text(builtin.label_key));
-                                ui.end_row();
-                            }
-                        });
+                if kind == LibraryKind::Image {
+                    // remove, so listed apart and read-only.
                     ui.add_space(layout::PANE_GAP);
+                    ui.separator();
+                    ui.add_space(layout::PANE_GAP);
+                    ui.label(
+                        egui::RichText::new(ot_i18n::text("settings-library-builtin")).strong(),
+                    );
+                    ui.label(
+                        egui::RichText::new(ot_i18n::text("settings-library-builtin-hint"))
+                            .color(tokens.text_dim),
+                    );
+                    ui.add_space(layout::ROW_GAP);
+                    for group in ot_store::builtin::Group::all() {
+                        ui.label(
+                            egui::RichText::new(ot_i18n::text(group.name_key()))
+                                .color(tokens.text_dim),
+                        );
+                        ui.add_space(layout::ROW_GAP / 2.0);
+                        egui::Grid::new(("builtin-pictures", group as u8))
+                            .num_columns(2)
+                            .spacing([layout::OPTION_GAP, layout::ROW_GAP])
+                            .show(ui, |ui| {
+                                for builtin in ot_store::builtin::in_group(group) {
+                                    paint_thumbnail(ui, images.picture(builtin.key), height * 1.6);
+                                    ui.label(ot_i18n::text(builtin.label_key));
+                                    ui.end_row();
+                                }
+                            });
+                        ui.add_space(layout::PANE_GAP);
+                    }
                 }
             });
 
+        if let Some(choice) = chosen_kind
+            && choice != self.library_kind
+        {
+            self.library_kind = choice;
+            self.confirm_remove = None;
+            // A sound playing from the list is the old view's.
+            self.audio.stop();
+        }
+        if let Some(path) = play {
+            self.audio.stop();
+            self.audio
+                .play(ot_media::Clip::File(self.root.path().join(path)));
+        }
+        if stop {
+            self.audio.stop();
+        }
         if upload {
-            self.importer.start(
-                None,
-                ot_i18n::text("settings-library-dialog-title"),
-                ot_i18n::text("settings-toast-image-filter"),
-            );
+            match kind {
+                LibraryKind::Image | LibraryKind::Icon => self.importer.start(
+                    None,
+                    kind.store(),
+                    ot_i18n::text("settings-library-dialog-title"),
+                    ot_i18n::text("settings-toast-image-filter"),
+                ),
+                LibraryKind::Audio => self.audio_importer.start(
+                    ot_i18n::text("prayer-sound-dialog-title"),
+                    ot_i18n::text("prayer-sound-filter"),
+                ),
+            }
         }
         if let Some((sha256, label)) = rename {
             self.library.rename(sha256, label);
@@ -2663,11 +2844,16 @@ impl SettingsWindow {
         if let Some(outcome) = self.importer.drain() {
             match outcome {
                 crate::images::ImportOutcome::Cancelled => {}
-                crate::images::ImportOutcome::Imported(slot, asset, label) => {
-                    tracing::info!(path = asset.relative_path, ?slot, "a picture was imported");
+                crate::images::ImportOutcome::Imported(slot, kind, asset, label) => {
+                    tracing::info!(
+                        path = asset.relative_path,
+                        ?slot,
+                        ?kind,
+                        "a picture was imported"
+                    );
                     // Into the library first; the picker gets it when the
                     // library has answered.
-                    self.library.add(asset, label, slot);
+                    self.library.add(kind, asset, label, slot);
                 }
                 crate::images::ImportOutcome::Refused { name, error } => {
                     tracing::warn!(%error, "a picture was refused");
@@ -2684,6 +2870,25 @@ impl SettingsWindow {
                 }
             }
         }
+        if let Some(outcome) = self.audio_importer.drain() {
+            match outcome {
+                crate::audio_import::Outcome::Cancelled => {}
+                crate::audio_import::Outcome::Imported(imported) => {
+                    tracing::info!(path = imported.clip.relative_path, "a sound was imported");
+                    self.library.add_clip(imported.clip, imported.label);
+                }
+                crate::audio_import::Outcome::Refused { name, key } => {
+                    tracing::warn!(key, "a sound was refused");
+                    self.status = Status::ImportRefused { key, name };
+                }
+                crate::audio_import::Outcome::DialogFailed(reason) => {
+                    self.status = Status::Failed {
+                        key: "settings-status-dialog-failed",
+                        reason,
+                    };
+                }
+            }
+        }
         for reply in self.library.drain() {
             match reply {
                 crate::library::Reply::Added {
@@ -2691,6 +2896,7 @@ impl SettingsWindow {
                     relative_path,
                     label,
                     new,
+                    kind,
                 } => {
                     match slot {
                         Some(crate::images::Slot::Icon) => self.test_icon = Some(relative_path),
@@ -2702,7 +2908,10 @@ impl SettingsWindow {
                     self.status = if new {
                         Status::LibraryAdded { label }
                     } else {
-                        Status::LibraryAlreadyThere { label }
+                        Status::LibraryAlreadyThere {
+                            label,
+                            library: kind_name_key(kind),
+                        }
                     };
                 }
                 crate::library::Reply::InUse { sha256, templates } => {
@@ -2747,6 +2956,58 @@ impl SettingsWindow {
             ui.label(egui::RichText::new(self.status.text_with_pause(self.pause)).color(colour));
         });
     }
+}
+
+/// The question asked before removing something a template still uses, with its two
+/// answers. `key` is the sentence for this kind of entry; `used_here` adds that the test
+/// toast shows it, and `templates` that notification templates do.
+#[allow(
+    clippy::too_many_arguments,
+    reason = "one block of the pane, each argument a distinct thing it says"
+)]
+fn remove_question(
+    ui: &mut egui::Ui,
+    tokens: Tokens,
+    height: f32,
+    key: &str,
+    label: &str,
+    used_here: bool,
+    templates: bool,
+    confirmed: &mut Option<bool>,
+) {
+    egui::Frame::new()
+        .fill(tokens.surface_raised)
+        .inner_margin(layout::ROW_GAP)
+        .show(ui, |ui| {
+            // As wide as the row it belongs to.
+            ui.set_min_width(ui.available_width());
+            ui.label(ot_i18n::text_with(
+                key,
+                &[("label", label.to_owned().into())],
+            ));
+            if used_here {
+                ui.label(ot_i18n::text("settings-library-used-by-test-toast"));
+            }
+            if templates {
+                ui.label(ot_i18n::text("settings-library-used-by-templates"));
+            }
+            ui.add_space(layout::ROW_GAP);
+            ui.horizontal_wrapped(|ui| {
+                let anyway = egui::Button::new(
+                    egui::RichText::new(ot_i18n::text("settings-library-remove-anyway"))
+                        .color(tokens.danger),
+                )
+                .min_size(egui::vec2(0.0, height));
+                if ui.add(anyway).clicked() {
+                    *confirmed = Some(true);
+                }
+                let keep = egui::Button::new(ot_i18n::text("settings-library-keep"))
+                    .min_size(egui::vec2(0.0, height));
+                if ui.add(keep).clicked() {
+                    *confirmed = Some(false);
+                }
+            });
+        });
 }
 
 impl eframe::App for SettingsWindow {
@@ -3471,6 +3732,37 @@ mod tests {
         keys.extend(ot_toast::Position::presets().map(ot_toast::Position::name_key));
         keys.push(ot_toast::Position::Custom { x: 0.0, y: 0.0 }.name_key());
         keys
+    }
+
+    #[test]
+    fn every_library_kind_has_its_words_in_both_languages() {
+        // FEAT-0084: the chooser, the hint, the upload button, the empty state, and the
+        // words a message uses for the library a file is already in.
+        for tag in ["en-US", "ms-MY"] {
+            let present = ot_i18n::message_keys(tag).expect("the catalogue loads");
+            for kind in LibraryKind::ALL {
+                for key in [
+                    kind.name_key(),
+                    kind.hint_key(),
+                    kind.upload_key(),
+                    kind.empty_key(),
+                ] {
+                    assert!(present.contains(key), "{tag} has no message {key}");
+                }
+            }
+            for key in [
+                "settings-library-in-use-audio",
+                "settings-library-label-hint-audio",
+                "settings-library-audio-unnamed",
+                "error-import-icon-size",
+                "prayer-sound-play",
+                "prayer-sound-stop",
+                "prayer-sound-filter",
+                "prayer-sound-dialog-title",
+            ] {
+                assert!(present.contains(key), "{tag} has no message {key}");
+            }
+        }
     }
 
     #[test]

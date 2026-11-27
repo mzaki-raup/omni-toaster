@@ -118,9 +118,12 @@ everything about them is a setting:
   Dismiss closes the toast with its out-animation, Open brings Settings
   forward, and Snooze puts a reminder off; on a toast with nothing to snooze,
   such as the test toast, Snooze is greyed
-- **Picture Library:** upload a picture once — a mosque, a meeting, an alarm
-  clock — name it, and use it in any notification as its icon or its image.
-  Removing a picture still in use asks first. Nineteen pictures ship with the
+- **Libraries:** upload a picture once — a mosque, a meeting, an alarm
+  clock — name it, and use it in any notification as its icon or its image; keep
+  small **icons** (16 to 256 pixels) and **sounds** (WAV, MP3 or Ogg) there too, each
+  with a name of your own, and play a sound from the list. A file can be in only one
+  library, and uploading one that is already in another says which. Removing an
+  entry still in use asks first. Nineteen pictures ship with the
   app — a mosque for each prayer, nine kinds of weather, an alarm clock, a
   meeting and a training session — ready to choose from the same lists
 - **Position and stacking:** nine presets or a point of your own, on the primary
@@ -285,13 +288,15 @@ Motion, and Play fires a test toast with them:
 
 In Bahasa Melayu: [settings-animation-ms.png](docs/screenshots/settings-animation-ms.png).
 
-Settings ▸ Picture Library, where pictures are uploaded once and named, with
-the ones that ship with the app listed below them:
+Settings ▸ Libraries, where pictures, icons and sounds are uploaded once and named,
+with the pictures that ship with the app listed below the Images:
 
-![Settings ▸ Picture Library with two uploaded pictures and the built-in ones](docs/screenshots/settings-pictures.png)
+![Settings ▸ Libraries ▸ Images with two uploaded pictures and the built-in ones](docs/screenshots/settings-pictures.png)
 
 The same screen in Bahasa Melayu:
-[settings-pictures-ms.png](docs/screenshots/settings-pictures-ms.png).
+[settings-pictures-ms.png](docs/screenshots/settings-pictures-ms.png). The Audio
+library, with two sounds that can be played, renamed or removed:
+[settings-libraries-audio.png](docs/screenshots/settings-libraries-audio.png).
 
 Settings ▸ Reminders: the missed reminders above; your reminders as a column of
 titles on the left and the chosen one's form and history on the right (New Reminder

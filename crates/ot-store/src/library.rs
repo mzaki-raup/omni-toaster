@@ -1,4 +1,4 @@
-//! The image library: pictures uploaded once and reused by any template
+//! The libraries: images, icons and audio uploaded once and reused by any template
 //! (`docs/specs/toast.md` §8.1).
 //!
 //! The files are already content-addressed by [`crate::assets::import`]; what
@@ -12,13 +12,41 @@ use rusqlite::{OptionalExtension as _, params};
 use crate::assets::{self, Asset, ImportError};
 use crate::{Store, StoreError};
 
-/// The `asset.kind` of a library picture. One kind for both uses: any picture
-/// may be an icon in one template and an image in another.
-const KIND: &str = "image";
+/// Which library an entry is in: the `asset.kind` column. `asset.sha256` is the primary
+/// key, so one file is one entry in one library whatever it is used for.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+pub enum Kind {
+    /// A picture for a toast's body (FEAT-0025).
+    Image,
+    /// A small picture for a toast's header, 16 to 256 pixels (FEAT-0084).
+    Icon,
+    /// A sound (FEAT-0060, FEAT-0084).
+    Audio,
+}
 
-/// A picture in the library.
+impl Kind {
+    pub fn as_str(self) -> &'static str {
+        match self {
+            Self::Image => "image",
+            Self::Icon => "icon",
+            Self::Audio => "audio",
+        }
+    }
+
+    pub fn parse(text: &str) -> Option<Self> {
+        match text {
+            "image" => Some(Self::Image),
+            "icon" => Some(Self::Icon),
+            "audio" => Some(Self::Audio),
+            _ => None,
+        }
+    }
+}
+
+/// An entry in a library: a picture, an icon or a sound.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct LibraryPicture {
+    pub kind: Kind,
     pub sha256: String,
     /// Relative to the data folder.
     pub relative_path: String,
@@ -30,9 +58,14 @@ pub struct LibraryPicture {
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum Added {
     New,
-    /// The same picture was already there, under this label, which is kept:
-    /// uploading it again is not a reason to lose the name it was given.
-    AlreadyThere(String),
+    /// The same file was already there, under this label, which is kept: uploading it
+    /// again is not a reason to lose the name it was given. `kind` is the library it is
+    /// in, which may not be the one it was added to: the key is the file's content, so
+    /// an image cannot also be an icon.
+    AlreadyThere {
+        label: String,
+        kind: Kind,
+    },
 }
 
 /// What a removal did.
@@ -60,49 +93,111 @@ impl From<rusqlite::Error> for LibraryError {
 }
 
 impl Store {
-    /// Record an imported picture in the library under `label`.
+    /// Record an imported picture in the Images library under `label`.
     pub fn add_to_library(&self, asset: &Asset, label: &str) -> Result<Added, StoreError> {
-        let existing: Option<String> = self
+        self.add_to(Kind::Image, asset, label)
+    }
+
+    /// Record an imported file in the library `kind` under `label`.
+    pub fn add_to(&self, kind: Kind, asset: &Asset, label: &str) -> Result<Added, StoreError> {
+        self.add_entry(
+            kind,
+            &asset.sha256,
+            &asset.relative_path,
+            asset.bytes,
+            label,
+        )
+    }
+
+    /// Record a stored sound in the Audio library under `label`.
+    pub fn add_audio(
+        &self,
+        clip: &crate::assets::StoredAudio,
+        label: &str,
+    ) -> Result<Added, StoreError> {
+        self.add_entry(
+            Kind::Audio,
+            &clip.sha256,
+            &clip.relative_path,
+            clip.bytes,
+            label,
+        )
+    }
+
+    /// Record a file in the library `kind`: the one place a row is written.
+    pub fn add_entry(
+        &self,
+        kind: Kind,
+        sha256: &str,
+        relative_path: &str,
+        bytes: u64,
+        label: &str,
+    ) -> Result<Added, StoreError> {
+        let existing: Option<(String, String)> = self
             .conn
             .query_row(
-                "SELECT label FROM asset WHERE sha256 = ?1",
-                params![asset.sha256],
-                |row| row.get(0),
+                "SELECT label, kind FROM asset WHERE sha256 = ?1",
+                params![sha256],
+                |row| Ok((row.get(0)?, row.get(1)?)),
             )
             .optional()?;
-        if let Some(existing) = existing {
-            return Ok(Added::AlreadyThere(existing));
+        if let Some((existing, was)) = existing {
+            return Ok(Added::AlreadyThere {
+                label: existing,
+                kind: Kind::parse(&was).unwrap_or(kind),
+            });
         }
         self.conn.execute(
             "INSERT INTO asset (sha256, kind, relative_path, bytes, created_at, label) \
              VALUES (?1, ?2, ?3, ?4, strftime('%Y-%m-%dT%H:%M:%fZ', 'now'), ?5)",
             params![
-                asset.sha256,
-                KIND,
-                asset.relative_path,
-                i64::try_from(asset.bytes).unwrap_or(i64::MAX),
+                sha256,
+                kind.as_str(),
+                relative_path,
+                i64::try_from(bytes).unwrap_or(i64::MAX),
                 label
             ],
         )?;
         Ok(Added::New)
     }
 
-    /// Every picture in the library, oldest first, so a new upload lands at
-    /// the end of the list rather than reshuffling it.
+    /// The pictures — Images, then Icons are mixed in upload order — oldest first, so a
+    /// new upload lands at the end of the list rather than reshuffling it.
     pub fn library(&self) -> Result<Vec<LibraryPicture>, StoreError> {
+        self.entries(&[Kind::Image, Kind::Icon])
+    }
+
+    /// The sounds, oldest first.
+    pub fn audio_library(&self) -> Result<Vec<LibraryPicture>, StoreError> {
+        self.entries(&[Kind::Audio])
+    }
+
+    fn entries(&self, kinds: &[Kind]) -> Result<Vec<LibraryPicture>, StoreError> {
         let mut stmt = self.conn.prepare(
-            "SELECT sha256, relative_path, label, bytes FROM asset \
-             WHERE kind = ?1 ORDER BY created_at, rowid",
+            "SELECT sha256, relative_path, label, bytes, kind FROM asset \
+             ORDER BY created_at, rowid",
         )?;
-        let rows = stmt.query_map(params![KIND], |row| {
-            Ok(LibraryPicture {
-                sha256: row.get(0)?,
-                relative_path: row.get(1)?,
-                label: row.get(2)?,
-                bytes: u64::try_from(row.get::<_, i64>(3)?).unwrap_or(0),
-            })
+        let rows = stmt.query_map([], |row| {
+            Ok((
+                LibraryPicture {
+                    kind: Kind::parse(&row.get::<_, String>(4)?).unwrap_or(Kind::Image),
+                    sha256: row.get(0)?,
+                    relative_path: row.get(1)?,
+                    label: row.get(2)?,
+                    bytes: u64::try_from(row.get::<_, i64>(3)?).unwrap_or(0),
+                },
+                row.get::<_, String>(4)?,
+            ))
         })?;
-        Ok(rows.collect::<Result<_, _>>()?)
+        let mut found = Vec::new();
+        for row in rows {
+            let (entry, kind) = row?;
+            // A kind this build does not know (from a newer one) is not listed.
+            if Kind::parse(&kind).is_some_and(|kind| kinds.contains(&kind)) {
+                found.push(entry);
+            }
+        }
+        Ok(found)
     }
 
     /// Rename a picture.
@@ -114,11 +209,12 @@ impl Store {
         Ok(())
     }
 
-    /// The templates that use a picture, by `category` id.
+    /// The templates that use an entry, by `category` id: as their picture or as their
+    /// sound. (An icon has no column of its own yet; FEAT-0088 adds it.)
     pub fn templates_using(&self, sha256: &str) -> Result<Vec<i64>, StoreError> {
         let mut stmt = self
             .conn
-            .prepare("SELECT id FROM category WHERE image_id = ?1 ORDER BY id")?;
+            .prepare("SELECT id FROM category WHERE image_id = ?1 OR sound_id = ?1 ORDER BY id")?;
         let rows = stmt.query_map(params![sha256], |row| row.get(0))?;
         Ok(rows.collect::<Result<_, _>>()?)
     }
@@ -187,7 +283,10 @@ mod tests {
         let second = assets::import(dir.path(), &source).expect("import again");
         assert_eq!(
             store.add_to_library(&second, "Masjid").expect("add again"),
-            Added::AlreadyThere("Mosque".to_string())
+            Added::AlreadyThere {
+                label: "Mosque".to_string(),
+                kind: Kind::Image
+            }
         );
         let library = store.library().expect("list");
         assert_eq!(library.len(), 1);
@@ -264,5 +363,147 @@ mod tests {
             Removal::Removed
         );
         assert!(!dir.path().join(&asset.relative_path).exists());
+    }
+
+    /// A PNG of the given size in the temp folder.
+    fn png(dir: &std::path::Path, name: &str, width: u32, height: u32) -> std::path::PathBuf {
+        let path = dir.join(name);
+        let mut bytes = Vec::new();
+        image::RgbaImage::from_pixel(width, height, image::Rgba([200, 30, 30, 255]))
+            .write_to(
+                &mut std::io::Cursor::new(&mut bytes),
+                image::ImageFormat::Png,
+            )
+            .expect("encode");
+        std::fs::write(&path, bytes).expect("write");
+        path
+    }
+
+    /// What is in the data folder's assets directory.
+    fn files_in_assets(root: &std::path::Path) -> usize {
+        std::fs::read_dir(root.join(assets::ASSETS_DIR))
+            .map(|entries| entries.count())
+            .unwrap_or(0)
+    }
+
+    #[test]
+    fn an_icon_must_be_from_16_to_256_pixels_and_a_refused_one_leaves_nothing_behind() {
+        let (dir, store, _) = setup();
+        for (w, h) in [(16, 16), (64, 64), (256, 256), (16, 256)] {
+            let file = png(dir.path(), &format!("ok-{w}x{h}.png"), w, h);
+            let icon = assets::import_icon(dir.path(), &file).expect("an icon in range");
+            store.add_to(Kind::Icon, &icon, "Icon").expect("added");
+        }
+        let before = files_in_assets(dir.path());
+        for (w, h) in [(15, 16), (16, 15), (257, 64), (64, 300), (4, 4)] {
+            let file = png(dir.path(), &format!("bad-{w}x{h}.png"), w, h);
+            let error = assets::import_icon(dir.path(), &file).expect_err("out of range");
+            assert!(
+                matches!(error, assets::ImportError::IconSize { width, height, .. } if (width, height) == (w, h)),
+                "{w}x{h}: {error:?}"
+            );
+            assert_eq!(error.name_key(), "error-import-icon-size");
+        }
+        assert_eq!(
+            files_in_assets(dir.path()),
+            before,
+            "a refused icon was never copied in"
+        );
+        // The same 300 px file is still a fine image.
+        let big = png(dir.path(), "big.png", 300, 300);
+        assert!(assets::import(dir.path(), &big).is_ok());
+    }
+
+    #[test]
+    fn icons_and_images_are_separate_lists_and_audio_is_a_third() {
+        let (dir, store, source) = setup();
+        let image = assets::import(dir.path(), &source).expect("import");
+        store.add_to(Kind::Image, &image, "Mosque").expect("added");
+        let icon_file = png(dir.path(), "mark.png", 32, 32);
+        let icon = assets::import_icon(dir.path(), &icon_file).expect("icon");
+        store.add_to(Kind::Icon, &icon, "Mark").expect("added");
+        let clip = assets::store_audio(dir.path(), b"RIFFxxxxWAVEdata", "wav").expect("clip");
+        store.add_audio(&clip, "Bell").expect("added");
+
+        let pictures = store.library().expect("pictures");
+        let kinds: Vec<(Kind, &str)> = pictures
+            .iter()
+            .map(|entry| (entry.kind, entry.label.as_str()))
+            .collect();
+        assert_eq!(kinds, [(Kind::Image, "Mosque"), (Kind::Icon, "Mark")]);
+        let audio = store.audio_library().expect("audio");
+        assert_eq!(audio.len(), 1);
+        assert_eq!(
+            (audio[0].kind, audio[0].label.as_str()),
+            (Kind::Audio, "Bell")
+        );
+    }
+
+    #[test]
+    fn a_file_already_in_one_library_is_not_added_to_another_and_says_which() {
+        let (dir, store, _) = setup();
+        let file = png(dir.path(), "logo.png", 64, 64);
+        let image = assets::import(dir.path(), &file).expect("import");
+        store.add_to(Kind::Image, &image, "Logo").expect("added");
+        // The same bytes offered as an icon: one primary key, one entry, in Images.
+        let same = assets::import_icon(dir.path(), &file).expect("icon-sized");
+        assert_eq!(
+            store
+                .add_to(Kind::Icon, &same, "Logo icon")
+                .expect("answered"),
+            Added::AlreadyThere {
+                label: "Logo".to_string(),
+                kind: Kind::Image
+            }
+        );
+        assert_eq!(
+            store.library().expect("list").len(),
+            1,
+            "still one entry, not two"
+        );
+    }
+
+    #[test]
+    fn removing_a_sound_a_prayer_uses_asks_first_and_the_prayer_falls_back_to_the_chime() {
+        let (dir, store, _) = setup();
+        let clip = assets::store_audio(dir.path(), b"RIFFxxxxWAVEdata", "wav").expect("clip");
+        store.add_audio(&clip, "Bell").expect("added");
+        store
+            .connection()
+            .execute(
+                "INSERT INTO category (id, kind, sound_id, sound_mode) VALUES (207, 'prayer', ?1, 'file')",
+                params![clip.sha256],
+            )
+            .expect("a prayer using it");
+        assert_eq!(
+            store.templates_using(&clip.sha256).expect("uses"),
+            [207],
+            "a sound counts as used"
+        );
+        assert_eq!(
+            store
+                .remove_from_library(dir.path(), &clip.sha256, false)
+                .expect("asked"),
+            Removal::InUse(vec![207])
+        );
+        assert_eq!(
+            store.audio_library().expect("list").len(),
+            1,
+            "nothing removed"
+        );
+        assert_eq!(
+            store
+                .remove_from_library(dir.path(), &clip.sha256, true)
+                .expect("removed"),
+            Removal::Removed
+        );
+        let sound_id: Option<String> = store
+            .connection()
+            .query_row("SELECT sound_id FROM category WHERE id = 207", [], |row| {
+                row.get(0)
+            })
+            .expect("the prayer is still there");
+        assert_eq!(sound_id, None, "it no longer points at the clip");
+        // `sound_mode` stays 'file' with no clip, which `clip_for` plays as the chime.
     }
 }
