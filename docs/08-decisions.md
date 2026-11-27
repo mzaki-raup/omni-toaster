@@ -896,3 +896,11 @@ can send more.
   weather is relied on**, and the About pane should credit Open-Meteo whatever is
   decided (FEAT-0070).
 - 10,000 calls a day is far above one poll every 15 to 30 minutes (at most 96).
+
+**Update 2026-11-27 (CR-0009).** The updater is the third service that needs the
+agent and `Cancel`, which is the point at which the consequence above said to put
+them somewhere shared. They now live in `crates/ot-net` — the agent of ADR-019 (with
+a variant that takes a longer timeout, for a download) and the cancel flag — and
+`ot-prayer` and `ot-weather` re-export `Cancel` and call `ot_net::agent`, so no call
+site changed. `ot-net` holds no policy and reads no answer, so it is not a service
+and the rule that services do not depend on each other is untouched.

@@ -12,21 +12,19 @@
 //! between. A cancelled [`spawn`] delivers nothing at all, and it never has a
 //! path to the cache: the thread only sends over a channel.
 
-use std::sync::atomic::{AtomicBool, Ordering};
-use std::sync::{Arc, mpsc};
+use std::sync::mpsc;
 use std::thread::JoinHandle;
 use std::time::Duration;
 
 use jiff::ToSpan;
 use jiff::civil::Date;
-use ureq::tls::{RootCerts, TlsConfig, TlsProvider};
 
 use crate::jakim::{self, MAX_BODY, ParseError, PrayerDay, RejectedDay, Response};
 
 const ENDPOINT: &str = "https://www.e-solat.gov.my/index.php";
 
 /// Connect, send and read together may take this long, and no longer.
-pub const TIMEOUT: Duration = Duration::from_secs(10);
+pub const TIMEOUT: Duration = ot_net::TIMEOUT;
 
 /// Waits after the first, second and third failure in a row.
 pub const RETRY: [Duration; 3] = [
@@ -62,23 +60,7 @@ pub enum FetchError {
     Cancelled,
 }
 
-/// A flag a caller sets to stop a fetch. Clones share it.
-#[derive(Debug, Clone, Default)]
-pub struct Cancel(Arc<AtomicBool>);
-
-impl Cancel {
-    pub fn new() -> Self {
-        Self::default()
-    }
-
-    pub fn cancel(&self) {
-        self.0.store(true, Ordering::Relaxed);
-    }
-
-    pub fn is_cancelled(&self) -> bool {
-        self.0.load(Ordering::Relaxed)
-    }
-}
+pub use ot_net::Cancel;
 
 /// An inclusive range of days.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -176,28 +158,9 @@ pub fn next_after_failure(error: &FetchError, failures: u32) -> Option<Duration>
     }
 }
 
-/// The HTTP agent every service call uses: ten seconds, `OmniToaster/<version>`,
-/// Windows TLS with the Windows root store (ADR-019), and status codes left to
-/// the caller. `https_only` is off only for the tests' local server.
+/// The HTTP agent every service call uses (`ot_net::agent`, ADR-019).
 pub(crate) fn build_agent(https_only: bool) -> ureq::Agent {
-    ureq::Agent::config_builder()
-        .https_only(https_only)
-        .timeout_global(Some(TIMEOUT))
-        .user_agent(format!("OmniToaster/{}", env!("CARGO_PKG_VERSION")))
-        // Status codes are read here, so a 500 with a JSON content type
-        // and an HTML body is ours to name, not an opaque error.
-        .http_status_as_error(false)
-        // ureq 3 never picks these up by itself: its default is rustls,
-        // which is not built, and with native-tls it panics on the default
-        // root list rather than falling back to the Windows store.
-        .tls_config(
-            TlsConfig::builder()
-                .provider(TlsProvider::NativeTls)
-                .root_certs(RootCerts::PlatformVerifier)
-                .build(),
-        )
-        .build()
-        .into()
+    ot_net::agent(https_only)
 }
 
 /// The HTTP client: one agent, reused.

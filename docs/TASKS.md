@@ -128,8 +128,26 @@ Refs: BUG-0003
 Version : v0.5.1
 Features : FEAT-0077
 Bugs : BUG-0018
-Change Request : CR-0009
+Change Request : CR-0010
 ```
+
+---
+
+## v0.7.0 — Planned
+
+The in-app updater (FEAT-0008's scope, split into steps), on `feat/updater`.
+
+### CR-0009 · The HTTP agent and the cancel flag are shared, in `ot-net`
+- **State:** Completed · **Spec:** docs/08-decisions.md ADR-019 · ADR-023 · docs/03-architecture.md
+- **Branch:** feat/updater
+- **Source:** ADR-023's consequence: "if a third service needs them they belong in a shared place" — the updater is the third
+- [x] `crates/ot-net`: `agent(https_only)`, `agent_with_timeout`, `Cancel`, `TIMEOUT`; no policy and no answers read
+- [x] `ot-prayer` and `ot-weather` re-export `Cancel` and call `ot_net::agent`; their own tests and every call site unchanged
+- [x] Test: the cancel's clones share it; the agent builds with and without HTTPS forced; the prayer and weather suites pass as they were
+- [x] Gate: fmt · clippy -D warnings · test --workspace --locked -j 4 · deny check · --self-test
+- [x] App: not applicable — no behaviour changed
+- [x] Docs: ADR-023's update · `docs/03-architecture.md` · CHANGELOG
+- **Notes:** A refactor of working code, which the rules forbid unless something needs it; the updater needs it, and ADR-023 said so in advance.
 
 ---
 

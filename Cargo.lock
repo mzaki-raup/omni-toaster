@@ -2714,6 +2714,13 @@ dependencies = [
 ]
 
 [[package]]
+name = "ot-net"
+version = "0.18.0"
+dependencies = [
+ "ureq",
+]
+
+[[package]]
 name = "ot-platform"
 version = "0.18.0"
 dependencies = [
@@ -2732,6 +2739,7 @@ version = "0.18.0"
 dependencies = [
  "adhan",
  "jiff",
+ "ot-net",
  "serde_json",
  "thiserror 2.0.21",
  "tracing",
@@ -2802,6 +2810,7 @@ name = "ot-weather"
 version = "0.18.0"
 dependencies = [
  "jiff",
+ "ot-net",
  "serde_json",
  "thiserror 2.0.21",
  "tracing",
