@@ -126,12 +126,126 @@ Refs: BUG-0003
 
 ```
 Version : v0.5.1
-Features : FEAT-0082
+Features : FEAT-0091
 Bugs : BUG-0019
 Change Request : CR-0010
 ```
 
 ---
+
+## v0.8.0 — Planned
+
+The owner's list of 2026-11-27: toast polish, then Libraries (icons, images, audio) and
+everything that picks from them. FEAT-0084 comes first for FEAT-0086, FEAT-0088 and
+FEAT-0089; the toast items and the Prayer items are independent of it. Branch
+`batch/v0.8.0`.
+
+### FEAT-0082 · A small gap between the app icon and the title in a toast's header
+- **State:** Pending · **Spec:** docs/specs/toast.md
+- **Branch:** batch/v0.8.0
+- **Source:** the owner's list of 2026-11-27
+- [ ] The header's icon and its title are set apart by a small, scaled gap, in every shape and at every size; the title still truncates rather than overflowing
+- [ ] Test: the layout of the header with a long Malay title: nothing overflows and the gap is the shared constant, not a literal
+- [ ] Gate: fmt · clippy -D warnings · test --workspace --locked -j 4 · deny check · --self-test
+- [ ] App: `--data-dir ./tmp-data` — fire a test toast in each shape, English and Malay; the title no longer touches the icon
+- [ ] Docs: spec · README · CHANGELOG · CHECKLIST · GOTCHAS
+- **Notes:** The owner's words: "In All Toast Notification -> Notification Title; add a gap slightly between the apps icon and the title."
+
+### FEAT-0083 · A toast's bottom line is its location: the prayer's, and the weather's
+- **State:** Pending · **Spec:** docs/specs/toast.md §8 · docs/11-prayer-and-azan.md · docs/specs/weather.md
+- **Branch:** batch/v0.8.0
+- **Source:** the owner's list of 2026-11-27
+- [ ] A prayer toast drops the source status line at the bottom and shows the prayer's location there, in the same font colour; the place line under the details goes
+- [ ] A weather toast moves its place to the bottom line the same way
+- [ ] The Prayer pane's preview and the real toast stay identical (one `ToastSpec`)
+- [ ] Test: `ToastSpec` for a prayer and for a weather toast: the bottom line is the place, there is no source line and no place under the text; a toast with no place has no bottom line
+- [ ] Gate: fmt · clippy -D warnings · test --workspace --locked -j 4 · deny check · --self-test
+- [ ] App: `--data-dir ./tmp-data` — fire a prayer test toast and a weather test toast from their panes: the place is the last line, the source is gone
+- [ ] Docs: spec · README · CHANGELOG · CHECKLIST · GOTCHAS
+- **Notes:** Supersedes FEAT-0075's placement (the place beneath the text). The source label stays in Settings ▸ Prayer's status, which is where it was always a fact about the times.
+
+### FEAT-0084 · Libraries: icons, images and audio, uploaded once and picked anywhere
+- **State:** Pending · **Spec:** docs/specs/toast.md §8.1 · docs/06-security-and-privacy.md · docs/04-ui-design.md
+- **Branch:** batch/v0.8.0
+- **Source:** the owner's list of 2026-11-27
+- [ ] Settings ▸ Picture Library becomes Libraries with three kinds — Icons, Images and Audio — in both languages
+- [ ] Audio: the user uploads a sound (MP3, WAV and the formats the spec allows) with a name of their own; it is checked by magic bytes and size, copied in under a content-hashed name, and decoded with a bound, like every import
+- [ ] Icons: a library kind of their own, from 16 × 16 to 256 × 256 px, checked and stored the same way
+- [ ] A shared picker (a dropdown of the library's entries) that any pane can use, with the built-in choices listed first
+- [ ] A migration for the audio and icon kinds if the schema needs one
+- [ ] Test: the import checks for audio and icons: size, magic bytes, traversal, content-hashed relative path, bounded decode, the icon size range; the library lists, renames and removes, and refuses to remove what is in use
+- [ ] Gate: fmt · clippy -D warnings · test --workspace --locked -j 4 · deny check · --self-test
+- [ ] App: `--data-dir ./tmp-data` — upload a sound and an icon, name them, see them listed; remove one that is in use and be told
+- [ ] Docs: spec · README · CHANGELOG · CHECKLIST · GOTCHAS
+- **Notes:** The first of the batch: FEAT-0086, FEAT-0088 and FEAT-0089 pick from these libraries. Audio is the one new media kind and goes through `.claude/rules/security.md`'s import path in full.
+
+### FEAT-0085 · Settings ▸ Reminders: the list of reminders in structure, with separators or cards
+- **State:** Pending · **Spec:** docs/specs/reminders.md §10 · docs/04-ui-design.md
+- **Branch:** batch/v0.8.0
+- **Source:** the owner's list of 2026-11-27
+- [ ] Each reminder in the list is a card, or a row with a horizontal separator, whichever reads better at 100–200% and in Malay; chosen and shown to the owner before it is kept
+- [ ] The two-column layout of FEAT-0073 is kept, and a long list still lays out only the rows in view
+- [ ] Test: the layout test with long titles in both languages; a thousand reminders still lay out only what is in view
+- [ ] Gate: fmt · clippy -D warnings · test --workspace --locked -j 4 · deny check · --self-test
+- [ ] App: `--data-dir ./tmp-data` — the list with several reminders, English and Malay, narrow and wide, all three themes
+- [ ] Docs: spec · README · CHANGELOG · CHECKLIST · GOTCHAS
+
+### FEAT-0086 · A reminder's own image, sound and accent colour, from the libraries
+- **State:** Pending · **Spec:** docs/specs/reminders.md · docs/specs/toast.md §8
+- **Branch:** batch/v0.8.0
+- **Depends on:** FEAT-0084
+- **Source:** the owner's list of 2026-11-27
+- [ ] The reminder editor has an Image and a Sound dropdown filled from the Images and Audio libraries (built-in choices first) and an accent colour of its own
+- [ ] The toast built for the reminder uses them; empty means the type's default
+- [ ] Test: a reminder saved with an image, a sound and an accent reads back and builds a `ToastSpec` that carries them; a removed library entry falls back to the default and says so
+- [ ] Gate: fmt · clippy -D warnings · test --workspace --locked -j 4 · deny check · --self-test
+- [ ] App: `--data-dir ./tmp-data` — make a reminder with an uploaded sound and image and its own accent; fire it
+- [ ] Docs: spec · README · CHANGELOG · CHECKLIST · GOTCHAS
+
+### FEAT-0087 · Prayer notifications for Imsak and Dhuha
+- **State:** Pending · **Spec:** docs/11-prayer-and-azan.md §1
+- **Branch:** batch/v0.8.0
+- **Source:** the owner's list of 2026-11-27
+- [ ] Imsak and Dhuha can be switched on in Settings ▸ Prayer, each with its own template and a default sound (the chime, not the Azan, for both), and appear in the day's times
+- [ ] The scheduler fires them like the other prayers, with the catch-up window; Dhuha's time comes from the source or the calculation as the spec says
+- [ ] Test: both prayers' times for JAKIM and calculated sources, the scheduler's fire times and catch-up for each, and the key parity of their names in both languages
+- [ ] Gate: fmt · clippy -D warnings · test --workspace --locked -j 4 · deny check · --self-test
+- [ ] App: `--data-dir ./tmp-data` — turn both on, see them in today's times and fire a test of each
+- [ ] Docs: spec · README · CHANGELOG · CHECKLIST · GOTCHAS
+
+### FEAT-0088 · Each prayer's own icon, image and sound, from the libraries
+- **State:** Pending · **Spec:** docs/11-prayer-and-azan.md §8
+- **Branch:** batch/v0.8.0
+- **Depends on:** FEAT-0084
+- **Source:** the owner's list of 2026-11-27
+- [ ] Each prayer's template gets an Icon, an Image and a Sound dropdown from the libraries, not only the built-in picture; empty means the built-in
+- [ ] Test: a template saved with a library icon, image and sound reads back and builds a `ToastSpec` that carries them; the preview matches the real toast
+- [ ] Gate: fmt · clippy -D warnings · test --workspace --locked -j 4 · deny check · --self-test
+- [ ] App: `--data-dir ./tmp-data` — choose an uploaded icon, image and sound for one prayer; the Preview and a real fire agree
+- [ ] Docs: spec · README · CHANGELOG · CHECKLIST · GOTCHAS
+
+### FEAT-0089 · Each weather condition's own icon, image and sound, from the libraries
+- **State:** Pending · **Spec:** docs/specs/weather.md §6
+- **Branch:** batch/v0.8.0
+- **Depends on:** FEAT-0084
+- **Source:** the owner's list of 2026-11-27
+- [ ] Each condition's template gets the same Icon, Image and Sound dropdowns, not only the built-in picture
+- [ ] Test: as FEAT-0088 for a weather template
+- [ ] Gate: fmt · clippy -D warnings · test --workspace --locked -j 4 · deny check · --self-test
+- [ ] App: `--data-dir ./tmp-data` — choose them for one condition; the Preview and a simulated change of weather agree
+- [ ] Docs: spec · README · CHANGELOG · CHECKLIST · GOTCHAS
+
+### FEAT-0090 · How long a prayer toast stays before it dismisses itself
+- **State:** Pending · **Spec:** docs/specs/toast.md · docs/11-prayer-and-azan.md
+- **Branch:** batch/v0.8.0
+- **Source:** the owner's list of 2026-11-27
+- [ ] One setting in Settings ▸ Prayer for how long every prayer toast stays before it dismisses itself, within the enforced minimum and maximum, overriding the general duration for prayer toasts only; the current behaviour is the default
+- [ ] Hovering still pauses the countdown
+- [ ] Test: the setting reads, clamps and builds a prayer `ToastSpec` with that duration while a reminder toast keeps the general one
+- [ ] Gate: fmt · clippy -D warnings · test --workspace --locked -j 4 · deny check · --self-test
+- [ ] App: `--data-dir ./tmp-data` — set a short duration; a prayer test toast goes away by itself, and an Azan with its sound still plays to its end
+- [ ] Docs: spec · README · CHANGELOG · CHECKLIST · GOTCHAS
+- **Notes:** The owner chose one duration for all prayer toasts, not one per prayer.
 
 ## v0.7.1 — In-Progress
 
