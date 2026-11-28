@@ -411,13 +411,26 @@ As built in the scheduler (FEAT-0058, `ot_sched`):
 - **Sound** (FEAT-0060, ADR-022, CR-0008). Each prayer's template has a sound: the
   full Azan that ships in the exe — Subuh's own for Fajr — which is **the
   default** for every called prayer, Jumu'ah included; the short chime, the default
-  for Syuruk, which is not a call; a clip the user chose; or silence. A chosen clip is checked before it is
-  copied (20 MB before a byte is read, the format from the bytes, a bounded
-  decode of the whole clip up to ten minutes) and stored under its hash in
-  `assets/`. The sound starts when the prayer's toast appears and stops when it is
+  for Syuruk, which is not a call; a sound from the Audio library; or silence. A
+  sound is checked before it is copied (20 MB before a byte is read, the format from
+  the bytes, a bounded decode of the whole clip up to ten minutes) and stored under
+  its hash in `assets/`, through the one import path every upload uses
+  (`ot_ui::audio_import`, FEAT-0084). The sound starts when the prayer's toast appears and stops when it is
   dismissed or closes at its cap; Play Sound in Settings lets the user hear it.
   One thread owns the one output device, opened on the first clip; a new clip
   replaces the old. Quiet hours and the announcements' own audio come later.
+- **Template pickers** (FEAT-0088). Each prayer's template has three dropdowns on one
+  shared shape (`ot_ui::library_picker`): **Icon** (the header's small picture; Icons and
+  Images are listed, the app's own icon is the empty choice), **Picture** (Images; the
+  prayer's built-in masjid is the empty choice) and **Sound** (Short Chime, Full Azan and
+  Silent first, then the Audio library by name). Each ends with "Upload a New …", which
+  opens the dialog, puts the file in the library and chooses it in the dropdown it came
+  from — unless the editor moved to another prayer meanwhile. The individual built-in
+  pictures are not offered, because a template stores a library entry's hash and a
+  built-in has none. The closed dropdown says what will actually show or play: a clip
+  no longer in the library plays the chime and says "Short Chime". The icon is
+  `category.icon_id` (migration 010); the toast, the pre-prayer reminder and the Preview
+  all carry it through `prayer_spec` and `prayer_before_spec`.
 - **Settings.** `[prayer] notify_syuruk` gives Syuruk its own notification, and
   `azan_window_minutes` is the catch-up window (1 to 1440, 60 by default); both
   have controls in Settings ▸ Prayer ▸ Notifications, with `notify_jumuah` for Jumu'ah (below).

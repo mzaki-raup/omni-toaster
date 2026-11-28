@@ -13,6 +13,7 @@ pub mod fields;
 pub mod images;
 pub mod layout;
 pub mod library;
+pub mod library_picker;
 pub mod phrases;
 pub mod place_picker;
 pub mod prayer;

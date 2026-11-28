@@ -209,12 +209,14 @@ impl Store {
         Ok(())
     }
 
-    /// The templates that use an entry, by `category` id: as their picture or as their
-    /// sound. (An icon has no column of its own yet; FEAT-0088 adds it.)
+    /// The templates that use an entry, by `category` id: as their picture, their header
+    /// icon or their sound.
     pub fn templates_using(&self, sha256: &str) -> Result<Vec<i64>, StoreError> {
         let mut stmt = self
             .conn
-            .prepare("SELECT id FROM category WHERE image_id = ?1 OR sound_id = ?1 ORDER BY id")?;
+            .prepare(
+                "SELECT id FROM category WHERE image_id = ?1 OR sound_id = ?1 OR icon_id = ?1 ORDER BY id",
+            )?;
         let rows = stmt.query_map(params![sha256], |row| row.get(0))?;
         Ok(rows.collect::<Result<_, _>>()?)
     }
@@ -505,5 +507,58 @@ mod tests {
             .expect("the prayer is still there");
         assert_eq!(sound_id, None, "it no longer points at the clip");
         // `sound_mode` stays 'file' with no clip, which `clip_for` plays as the chime.
+    }
+
+    #[test]
+    fn a_templates_icon_image_and_sound_read_back_and_an_icon_in_use_asks_first() {
+        // FEAT-0088: a prayer's template names one entry of each library.
+        let (dir, store, source) = setup();
+        let image = assets::import(dir.path(), &source).expect("import");
+        store.add_to(Kind::Image, &image, "Mosque").expect("added");
+        let icon_file = png(dir.path(), "mark.png", 48, 48);
+        let icon = assets::import_icon(dir.path(), &icon_file).expect("icon");
+        store.add_to(Kind::Icon, &icon, "Mark").expect("added");
+        let clip = assets::store_audio(dir.path(), b"RIFFxxxxWAVEdata", "wav").expect("clip");
+        store.add_audio(&clip, "Bell").expect("added");
+
+        let edit = crate::reminders::PrayerTemplateEdit {
+            title: None,
+            body: None,
+            accent: None,
+            image: Some(image.sha256.clone()),
+            icon: Some(icon.sha256.clone()),
+            authored_lang: "en-US",
+            sound_mode: Some("file".to_owned()),
+            sound: Some(clip.sha256.clone()),
+        };
+        assert!(store.set_prayer_template("fajr", &edit).expect("saved"));
+        let fajr = store
+            .template_for_prayer("fajr")
+            .expect("reads")
+            .expect("there");
+        assert_eq!(fajr.image.as_deref(), Some(image.relative_path.as_str()));
+        assert_eq!(fajr.icon.as_deref(), Some(icon.relative_path.as_str()));
+        assert_eq!(fajr.sound.as_deref(), Some(clip.relative_path.as_str()));
+
+        // The icon counts as used, so removing it asks first and names the template.
+        let users = store.templates_using(&icon.sha256).expect("uses");
+        assert_eq!(users, [fajr.id]);
+        assert_eq!(
+            store
+                .remove_from_library(dir.path(), &icon.sha256, false)
+                .expect("asked"),
+            Removal::InUse(vec![fajr.id])
+        );
+        // Confirmed, the template falls back to the app's own icon and keeps the rest.
+        store
+            .remove_from_library(dir.path(), &icon.sha256, true)
+            .expect("removed");
+        let after = store
+            .template_for_prayer("fajr")
+            .expect("reads")
+            .expect("there");
+        assert_eq!(after.icon, None);
+        assert_eq!(after.image, fajr.image);
+        assert_eq!(after.sound, fajr.sound);
     }
 }

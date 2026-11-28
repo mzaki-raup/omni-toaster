@@ -57,6 +57,8 @@ pub struct PrayerTemplateEdit {
     pub accent: Option<String>,
     /// A library picture's `sha256`.
     pub image: Option<String>,
+    /// A library entry's `sha256` for the toast's header icon; `None` is the app's own.
+    pub icon: Option<String>,
     /// `en-US` or `ms-MY`: the language the text was typed in.
     pub authored_lang: &'static str,
     /// `chime`, `azan`, `file` or `none`; `None` is the chime.
@@ -321,6 +323,9 @@ pub struct Template {
     pub accent_color: Option<String>,
     /// The template's picture, as a relative path under the data folder.
     pub image: Option<String>,
+    /// The template's header icon, as a relative path under the data folder; `None` is
+    /// the app's own icon.
+    pub icon: Option<String>,
     /// A prayer's sound: `chime` (the default, also `None`), `azan`, `file` or
     /// `none`.
     pub sound_mode: Option<String>,
@@ -656,7 +661,7 @@ impl Store {
         Ok(self
             .conn
             .query_row(
-                "SELECT c.id, c.type_key, c.custom_title, c.custom_body, c.accent_color,                  a.relative_path, c.prayer_key, c.sound_mode, s.relative_path, c.weather_key FROM category c LEFT JOIN asset a ON a.sha256 = c.image_id                  LEFT JOIN asset s ON s.sha256 = c.sound_id WHERE c.id = ?1",
+                "SELECT c.id, c.type_key, c.custom_title, c.custom_body, c.accent_color,                  a.relative_path, c.prayer_key, c.sound_mode, s.relative_path, c.weather_key, i.relative_path FROM category c LEFT JOIN asset a ON a.sha256 = c.image_id                  LEFT JOIN asset s ON s.sha256 = c.sound_id LEFT JOIN asset i ON i.sha256 = c.icon_id WHERE c.id = ?1",
                 params![id],
                 |row| {
                     Ok(Template {
@@ -670,6 +675,7 @@ impl Store {
                         sound_mode: row.get(7)?,
                         sound: row.get(8)?,
                         weather_key: row.get(9)?,
+                        icon: row.get(10)?,
                     })
                 },
             )
@@ -711,7 +717,7 @@ impl Store {
         let lang = (title.is_some() || body.is_some()).then_some(edit.authored_lang);
         let changed = self.conn.execute(
             "UPDATE category SET custom_title = ?2, custom_body = ?3, accent_color = ?4, \
-             image_id = ?5, authored_lang = ?6, sound_mode = ?7, sound_id = ?8 \
+             image_id = ?5, authored_lang = ?6, sound_mode = ?7, sound_id = ?8, icon_id = ?9 \
              WHERE prayer_key = ?1",
             params![
                 prayer,
@@ -721,7 +727,8 @@ impl Store {
                 edit.image,
                 lang,
                 edit.sound_mode,
-                edit.sound
+                edit.sound,
+                edit.icon
             ],
         )?;
         Ok(changed == 1)
@@ -1337,6 +1344,7 @@ mod tests {
             body: Some("  Take an umbrella  ".to_owned()),
             accent: Some("#336699".to_owned()),
             image: None,
+            icon: None,
             authored_lang: "ms-MY",
             sound_mode: sound.map(str::to_owned),
             sound: None,
@@ -1417,6 +1425,7 @@ mod tests {
             body: Some("Bangun dan solat.".to_owned()),
             accent: Some("#3b9eff".to_owned()),
             image: None,
+            icon: None,
             authored_lang: "ms-MY",
             sound_mode: None,
             sound: None,
@@ -1442,6 +1451,7 @@ mod tests {
             body: None,
             accent: None,
             image: None,
+            icon: None,
             authored_lang: "en-US",
             sound_mode: None,
             sound: None,
@@ -1534,6 +1544,7 @@ mod tests {
             body: None,
             accent: None,
             image: None,
+            icon: None,
             authored_lang: "en-US",
             sound_mode: Some(mode.to_owned()),
             sound,

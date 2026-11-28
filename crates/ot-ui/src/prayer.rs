@@ -262,14 +262,6 @@ pub enum Reply {
         prayer: String,
         template: Option<ot_store::reminders::Template>,
     },
-    /// A clip was chosen, checked and copied in; the path is under the data folder.
-    AudioImported {
-        relative_path: String,
-    },
-    /// The chosen clip broke a rule; the Fluent key says which.
-    AudioRefused(&'static str),
-    /// The dialog was cancelled.
-    AudioCancelled,
     /// A store or thread failure the pane should say out loud.
     Failed(String),
 }
@@ -298,22 +290,6 @@ pub fn clip_for(
         "azan" => Some(Clip::Azan),
         "file" => Some(sound.map_or(Clip::Chime, |path| Clip::File(root.join(path)))),
         _ => Some(Clip::Chime),
-    }
-}
-
-/// Check a chosen file and copy it in, through the one audio import path
-/// (`crate::audio_import`), and record it in the Audio library under the file's own name.
-/// Blocking.
-fn import_clip(root: &Path, path: &Path) -> Reply {
-    let imported = match crate::audio_import::import(root, path) {
-        Ok(imported) => imported,
-        Err(key) => return Reply::AudioRefused(key),
-    };
-    match Store::open(root).and_then(|store| store.add_audio(&imported.clip, &imported.label)) {
-        Ok(_) => Reply::AudioImported {
-            relative_path: imported.clip.relative_path,
-        },
-        Err(error) => Reply::Failed(error.to_string()),
     }
 }
 
@@ -439,19 +415,6 @@ impl Controller {
             if !cancel.is_cancelled() {
                 send(out, None, Some(generation), reply);
             }
-        });
-    }
-
-    /// Open the file dialog on a thread of its own and import what is chosen. The
-    /// strings arrive in the user's language.
-    pub fn import_audio(&self, title: String, filter_name: String) {
-        self.spawn("prayer-audio-import", move |root, out| {
-            let reply = match ot_platform::file_dialog::pick_audio(&title, &filter_name) {
-                Ok(None) => Reply::AudioCancelled,
-                Ok(Some(path)) => import_clip(root, &path),
-                Err(error) => Reply::Failed(error.to_string()),
-            };
-            send(out, None, None, reply);
         });
     }
 
@@ -634,46 +597,6 @@ mod tests {
             clip_for("asr", Some("garbage"), None, root),
             Some(Clip::Chime)
         );
-    }
-
-    #[test]
-    fn a_chosen_clip_is_checked_then_copied_in_and_a_bad_one_never_lands() {
-        let dir = tempfile::tempdir().expect("a scratch folder");
-        std::fs::create_dir_all(dir.path().join("data")).expect("data folder");
-        drop(Store::open(dir.path()).expect("the store is created first"));
-
-        // Not audio at all, named like a clip.
-        let fake = dir.path().join("clip.mp3");
-        std::fs::write(&fake, b"this is text, not an MP3").expect("written");
-        assert!(matches!(
-            import_clip(dir.path(), &fake),
-            Reply::AudioRefused("error-import-not-audio")
-        ));
-        assert!(
-            !dir.path().join("assets").exists(),
-            "a refused file never reaches the folder"
-        );
-
-        // A real clip: the chime that ships, written out as a file.
-        let real = dir.path().join("mine.mp3");
-        std::fs::write(&real, ot_media::player::CHIME).expect("written");
-        let Reply::AudioImported { relative_path } = import_clip(dir.path(), &real) else {
-            panic!("the chime should import");
-        };
-        assert!(
-            relative_path.starts_with("assets/") && relative_path.ends_with(".mp3"),
-            "{relative_path}"
-        );
-        assert!(
-            dir.path().join(&relative_path).is_file(),
-            "it landed where it says"
-        );
-
-        // Not there at all.
-        assert!(matches!(
-            import_clip(dir.path(), &dir.path().join("missing.mp3")),
-            Reply::AudioRefused("error-import-unreadable")
-        ));
     }
 
     #[test]

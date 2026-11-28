@@ -7,6 +7,14 @@ Format: [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) · Versioning:
 
 ## Unreleased
 
+### Added
+
+- Each prayer's notification can have its own **icon**, **picture** and **sound**, chosen from your Libraries in dropdowns in Settings ▸ Prayer (the built-in ones first, "Upload a New …" last, and an upload is chosen straight away). The toast, the reminder ahead of the prayer and the Preview all show them (FEAT-0088).
+
+### Changed
+
+- The Prayer template's sound is one dropdown — Short Chime, Full Azan, Silent, then your sounds — in place of "My Audio File" and a Choose Audio File button (FEAT-0088).
+
 - (nothing yet)
 
 ## 0.22.0 — 2026-11-27

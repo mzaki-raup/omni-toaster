@@ -184,6 +184,12 @@ fn overflowing(width: f32, scale: f32) -> Vec<String> {
         sha256: "abc".to_owned(),
         relative_path: "assets/long-label.png".to_owned(),
         label: "Gambar masjid besar dengan menara tinggi di tepi tasik pada waktu subuh".to_owned(),
+        kind: ot_store::library::Kind::Image,
+    }];
+    let sounds = vec![ot_ui::prayer_pane::SoundChoice {
+        sha256: "def".to_owned(),
+        relative_path: "assets/0123456789abcdef0123456789abcdef0123456789abcdef.mp3".to_owned(),
+        label: "Bunyi loceng pintu depan rumah yang sangat panjang sekali namanya".to_owned(),
     }];
     let now: jiff::Timestamp = "2026-11-26T04:00:00Z".parse().expect("instant");
     // Settings > Updates (FEAT-0080): the longest states, each in its own pane.
@@ -271,6 +277,7 @@ fn overflowing(width: f32, scale: f32) -> Vec<String> {
                 &mut prayer_settings,
                 &mut location_settings,
                 &pictures,
+                &sounds,
                 ot_ui::Tokens::DARK,
                 now,
             );
@@ -297,6 +304,7 @@ fn overflowing(width: f32, scale: f32) -> Vec<String> {
                 &mut first_run_settings,
                 &mut first_run,
                 &pictures,
+                &sounds,
                 ot_ui::Tokens::DARK,
                 now,
             );

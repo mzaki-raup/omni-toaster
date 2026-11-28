@@ -70,10 +70,15 @@ const MIGRATIONS: &[(i64, &str, &str)] = &[
         "009_weather_place.sql",
         include_str!("../migrations/009_weather_place.sql"),
     ),
+    (
+        10,
+        "010_template_icon.sql",
+        include_str!("../migrations/010_template_icon.sql"),
+    ),
 ];
 
 /// The schema version this build migrates to: the last migration's number.
-pub const SCHEMA_VERSION: i64 = 9;
+pub const SCHEMA_VERSION: i64 = 10;
 
 /// The database file, relative to the data root.
 const DB_RELATIVE_PATH: &str = "data/omnitoaster.db";
@@ -252,7 +257,7 @@ mod tests {
     #[test]
     fn a_fresh_database_migrates_to_the_latest_version() {
         let store = Store::open_in_memory().expect("opens");
-        assert_eq!(store.schema_version().expect("version"), 9);
+        assert_eq!(store.schema_version().expect("version"), 10);
     }
 
     #[test]
@@ -294,13 +299,13 @@ mod tests {
         {
             let store = Store::open(dir.path()).expect("first open");
             store.set_setting("theme", "dark").expect("write");
-            assert_eq!(store.schema_version().expect("version"), 9);
+            assert_eq!(store.schema_version().expect("version"), 10);
         }
 
         // Re-opening must not re-run 001 — which would fail on the existing
         // tables — and must leave the data alone.
         let store = Store::open(dir.path()).expect("second open");
-        assert_eq!(store.schema_version().expect("version"), 9);
+        assert_eq!(store.schema_version().expect("version"), 10);
         assert_eq!(
             store.setting("theme").expect("read").as_deref(),
             Some("dark"),
@@ -329,7 +334,7 @@ mod tests {
         }
 
         let store = Store::open(dir.path()).expect("migrates");
-        assert_eq!(store.schema_version().expect("version"), 9);
+        assert_eq!(store.schema_version().expect("version"), 10);
         let label: String = store
             .connection()
             .query_row("SELECT label FROM asset WHERE sha256 = 'abc'", [], |row| {
@@ -366,7 +371,7 @@ mod tests {
         }
 
         let store = Store::open(dir.path()).expect("migrates");
-        assert_eq!(store.schema_version().expect("version"), 9);
+        assert_eq!(store.schema_version().expect("version"), 10);
         let conn = store.connection();
 
         let (title, key, lang): (String, Option<String>, Option<String>) = conn
@@ -422,7 +427,7 @@ mod tests {
         }
 
         let store = Store::open(dir.path()).expect("migrates");
-        assert_eq!(store.schema_version().expect("version"), 9);
+        assert_eq!(store.schema_version().expect("version"), 10);
         let conn = store.connection();
         let title: String = conn
             .query_row("SELECT title FROM reminder WHERE id = 1", [], |row| {
@@ -466,7 +471,7 @@ mod tests {
         }
 
         let store = Store::open(dir.path()).expect("migrates");
-        assert_eq!(store.schema_version().expect("version"), 9);
+        assert_eq!(store.schema_version().expect("version"), 10);
         let prayer = store.location().expect("reads").expect("the prayer place");
         let weather = store
             .weather_location()
@@ -482,6 +487,45 @@ mod tests {
             store.weather().expect("reads").is_some(),
             "the cached weather moved to the weather place and was kept"
         );
+    }
+
+    #[test]
+    fn a_version_9_database_gains_the_icon_column_and_keeps_its_templates() {
+        // 010 on an existing database (FEAT-0088): the file as v0.22.0 left it, with a
+        // prayer's template that already names a picture.
+        let dir = tempfile::tempdir().expect("temp dir");
+        std::fs::create_dir_all(dir.path().join("data")).expect("mkdir");
+        {
+            let conn =
+                Connection::open(dir.path().join(DB_RELATIVE_PATH)).expect("a version 9 file");
+            for migration in &MIGRATIONS[..9] {
+                conn.execute_batch(migration.2)
+                    .expect("an earlier migration");
+            }
+            conn.pragma_update(None, "user_version", 9i64)
+                .expect("version 9");
+            conn.execute(
+                "INSERT INTO asset (sha256, kind, relative_path, bytes, created_at, label) \
+                 VALUES ('aa', 'image', 'assets/aa.png', 1, '2026-11-28T00:00:00Z', 'Mosque')",
+                [],
+            )
+            .expect("a picture");
+            conn.execute(
+                "UPDATE category SET custom_title = 'Subuh', image_id = 'aa' WHERE prayer_key = 'fajr'",
+                [],
+            )
+            .expect("a customised template");
+        }
+
+        let store = Store::open(dir.path()).expect("migrates");
+        assert_eq!(store.schema_version().expect("version"), 10);
+        let fajr = store
+            .template_for_prayer("fajr")
+            .expect("reads")
+            .expect("there");
+        assert_eq!(fajr.custom_title.as_deref(), Some("Subuh"), "kept");
+        assert_eq!(fajr.image.as_deref(), Some("assets/aa.png"), "kept");
+        assert_eq!(fajr.icon, None, "and no icon until one is chosen");
     }
 
     #[test]
@@ -570,7 +614,7 @@ mod tests {
                 error,
                 StoreError::FromTheFuture {
                     found: 99,
-                    known: 9
+                    known: 10
                 }
             ),
             "got {error:?}"

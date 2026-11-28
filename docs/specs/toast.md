@@ -485,9 +485,11 @@ top.
   then the file. A prayer's `sound_mode` stays `file` with no clip, which `clip_for` plays
   as the chime. An icon has no template column yet (FEAT-0088), so none can use one.
 - The pickers that choose a picture — the icon and image of every template — choose **from
-  the libraries**, with "Upload a New Picture" at the end of the list so nobody has to
-  leave the editor to add one. A shared picker for Prayer, Weather and Reminders is
-  FEAT-0088.
+  the libraries**, with "Upload a New …" at the end of the list so nobody has to leave
+  the editor to add one. They are one component, `ot_ui::library_picker`: the built-in
+  choices first, the user's entries by name, the upload last. Prayer's template editor uses
+  it for Icon, Picture and Sound (FEAT-0088); Weather and Reminders follow (FEAT-0089,
+  FEAT-0086).
 
 ### 8.2 Built-in pictures and sounds
 

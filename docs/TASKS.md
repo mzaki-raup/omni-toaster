@@ -214,16 +214,16 @@ FEAT-0089; the toast items and the Prayer items are independent of it. Branch
 - [ ] Docs: spec · README · CHANGELOG · CHECKLIST · GOTCHAS
 
 ### FEAT-0088 · Each prayer's own icon, image and sound, from the libraries
-- **State:** Pending · **Spec:** docs/11-prayer-and-azan.md §8
-- **Branch:** batch/v0.8.0
+- **State:** Completed · **Spec:** docs/11-prayer-and-azan.md §8
+- **Branch:** feat/prayer-pickers
 - **Depends on:** FEAT-0084
 - **Source:** the owner's list of 2026-11-27
-- [ ] A shared dropdown picker over the libraries (the built-in choices first, "Upload a New …" last), moved here from FEAT-0084 so it has a caller; an icon column on `category` with its migration, so an icon can be "in use"
-- [ ] Each prayer's template gets an Icon, an Image and a Sound dropdown from the libraries, not only the built-in picture; empty means the built-in
-- [ ] Test: a template saved with a library icon, image and sound reads back and builds a `ToastSpec` that carries them; the preview matches the real toast
-- [ ] Gate: fmt · clippy -D warnings · test --workspace --locked -j 4 · deny check · --self-test
-- [ ] App: `--data-dir ./tmp-data` — choose an uploaded icon, image and sound for one prayer; the Preview and a real fire agree
-- [ ] Docs: spec · README · CHANGELOG · CHECKLIST · GOTCHAS
+- [x] A shared dropdown picker over the libraries (the built-in choices first, "Upload a New …" last), moved here from FEAT-0084 so it has a caller; an icon column on `category` with its migration, so an icon can be "in use" — `ot_ui::library_picker` (a kittest test clicks a built-in, an entry and Upload); migration 010 adds `category.icon_id`, tested on a version-9 database that has a customised template; `templates_using` and Remove see icons
+- [x] Each prayer's template gets an Icon, an Image and a Sound dropdown from the libraries, not only the built-in picture; empty means the built-in — Icon, Picture and Sound dropdowns in Settings ▸ Prayer; the sound is one dropdown (Short Chime, Full Azan, Silent, then the Audio library), and the old Choose Audio File path and its keys are gone. The individual built-in pictures are not offered (they have no `asset` row)
+- [x] Test: a template saved with a library icon, image and sound reads back and builds a `ToastSpec` that carries them; the preview matches the real toast — a template saved with an icon, image and sound reads back and builds a `ToastSpec` carrying them for the fire, the pre-prayer reminder and the Preview (equal); mutation-checked by dropping the icon from the spec; an upload is chosen in its own dropdown and dropped for another prayer; the layout test with the new rows and a very long Malay sound name
+- [x] Gate: fmt · clippy -D warnings · test --workspace --locked -j 4 · deny check · --self-test — fmt · clippy · `cargo test --workspace --locked -j 4 --no-fail-fast` · deny · self-test, with no OmniToaster copy running
+- [x] App: `--data-dir ./tmp-data` — choose an uploaded icon, image and sound for one prayer; the Preview and a real fire agree — scratch `--data-dir`, real file dialog: an icon, a picture and a sound each uploaded **from their own dropdown** and chosen at once by name (the sound as "ding", straight away); Save Template; Preview Toast showed the red icon in the header and the orange picture; reopened, the template read back all three; Malay shows the built-ins first and the upload last. **Not made:** a real prayer fire (no debug path; the equality test covers it), hearing the sound, Remove-while-chosen in the app, Light and System themes
+- [x] Docs: spec · README · CHANGELOG · CHECKLIST · GOTCHAS — docs/11 (Template pickers) · docs/05 (migration 010) · toast spec §8.1 · both READMEs · CHANGELOG · GOTCHAS; screenshots: none retaken (the README has no Prayer-template screenshot beyond the whole-pane one, which is listed as stale in `docs/screenshots/README.md`)
 
 ### FEAT-0089 · Each weather condition's own icon, image and sound, from the libraries
 - **State:** Pending · **Spec:** docs/specs/weather.md §6
