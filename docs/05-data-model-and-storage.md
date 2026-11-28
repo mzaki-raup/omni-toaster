@@ -137,6 +137,8 @@ edited once it has shipped; a correction is a new migration.
 | `004_jakim.sql` | 5 | `jakim_prayer_cache`. The zone table is embedded data — `data/jakim_zones.csv` and `data/jakim_zone_points.csv` — not a database table (FEAT-0050) |
 | `009_weather_place.sql` | 6 | the weather place (`location` row 2), copied from the prayer place if there is one, and the cached weather moved to it. A fresh database gets row 2 when the first prayer place is saved (FEAT-0072) |
 
+| `010_template_icon.sql` | 6 | `category.icon_id`, a template's header icon from the Icons library (FEAT-0088); NULL is the app's own icon. It references `asset` like `image_id` and `sound_id`, so a removal clears it and "in use" sees it |
+
 Every migration is tested on both a fresh database and an existing one
 ([.claude/rules/testing.md](../.claude/rules/testing.md)).
 

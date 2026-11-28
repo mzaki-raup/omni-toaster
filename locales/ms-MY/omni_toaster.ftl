@@ -881,6 +881,12 @@ prayer-template-accent-use = Guna warna aksen tersuai
 prayer-template-picture = Gambar
 # Pilihan pertama dalam senarai itu: gambar yang disertakan dengan aplikasi untuk solat ini.
 prayer-template-picture-builtin = Gambar terbina dalam
+# Label senarai juntai ikon pemberitahuan solat: gambar kecil dalam pengepala pemberitahuan.
+prayer-template-icon = Ikon
+# Pilihan terakhir dalam senarai ikon: membuka dialog untuk memuat naik ikon ke pustaka, dan memilihnya.
+prayer-upload-new-icon = Muat Naik Ikon Baharu
+# Pilihan terakhir dalam senarai bunyi: membuka dialog untuk memuat naik bunyi ke pustaka, dan memilihnya.
+prayer-upload-new-sound = Muat Naik Bunyi Baharu
 # Petunjuk di bawah medan templat.
 prayer-template-hint = Biarkan medan kosong untuk menggunakan teks terbina dalam dalam bahasa semasa. Teks yang anda tulis disimpan seperti yang ditaip dan tidak pernah diterjemah.
 # Butang yang menyimpan templat.
@@ -901,10 +907,6 @@ prayer-sound-azan = Azan Penuh
 prayer-sound-file = Fail Audio Saya
 # Pilihan bunyi: tiada bunyi langsung.
 prayer-sound-none = Senyap
-# Butang yang membuka dialog untuk memilih klip audio.
-prayer-sound-choose = Pilih Fail Audio
-# Dipaparkan selagi belum ada klip audio dipilih.
-prayer-sound-none-chosen = Belum ada fail dipilih.
 # Butang yang memainkan bunyi solat itu sekarang, untuk didengar.
 prayer-sound-play = Main Bunyi
 # Butang yang menghentikan bunyi.

@@ -347,6 +347,10 @@ pub struct SettingsWindow {
     /// Which library Settings ▸ Libraries shows, and the importer for its sounds.
     library_kind: LibraryKind,
     audio_importer: crate::audio_import::Importer,
+    /// An upload started from a template's dropdown, and the prayer it was for, so the
+    /// entry is chosen there when the library has it. Cleared when the attempt ends
+    /// without one, so a later upload from the Libraries pane is never mistaken for it.
+    template_pick: Option<(crate::prayer_pane::Upload, String)>,
     /// The image library, on a thread of its own with its own connection.
     library: crate::library::Library,
     /// A removal waiting for the user's word because something uses the
@@ -550,6 +554,7 @@ impl SettingsWindow {
             importer: crate::images::Importer::new(&root_path),
             library_kind: LibraryKind::Image,
             audio_importer: crate::audio_import::Importer::new(&root_path),
+            template_pick: None,
             library: crate::library::Library::new(&root_path),
             confirm_remove: None,
             test_icon: None,
@@ -1417,6 +1422,18 @@ impl SettingsWindow {
                 sha256: entry.picture.sha256.clone(),
                 relative_path: entry.picture.relative_path.clone(),
                 label: entry.picture.label.clone(),
+                kind: entry.picture.kind,
+            })
+            .collect();
+        let sounds: Vec<crate::prayer_pane::SoundChoice> = self
+            .library
+            .audio()
+            .unwrap_or_default()
+            .iter()
+            .map(|entry| crate::prayer_pane::SoundChoice {
+                sha256: entry.picture.sha256.clone(),
+                relative_path: entry.picture.relative_path.clone(),
+                label: entry.picture.label.clone(),
             })
             .collect();
         let mut outcome = crate::prayer_pane::Outcome::default();
@@ -1429,12 +1446,16 @@ impl SettingsWindow {
                     &mut self.settings.prayer,
                     &mut self.settings.location,
                     &pictures,
+                    &sounds,
                     tokens,
                     now,
                 );
             });
         if outcome.settings_changed {
             self.save();
+        }
+        if let Some(upload) = outcome.upload.take() {
+            self.start_template_upload(upload);
         }
         // The editor's Preview: the toast a fire would show, from the same
         // function, to the front.
@@ -1508,6 +1529,7 @@ impl SettingsWindow {
                 sha256: entry.picture.sha256.clone(),
                 relative_path: entry.picture.relative_path.clone(),
                 label: entry.picture.label.clone(),
+                kind: entry.picture.kind,
             })
             .collect();
         let mut outcome = crate::weather_pane::Outcome::default();
@@ -2548,6 +2570,32 @@ impl SettingsWindow {
         }
     }
 
+    /// "Upload a New …" was chosen in a prayer's template: open the dialog on the importer
+    /// for that kind, and remember where the entry is to be chosen when it arrives.
+    fn start_template_upload(&mut self, upload: crate::prayer_pane::Upload) {
+        use crate::prayer_pane::Upload;
+        if self.importer.is_busy() || self.audio_importer.is_busy() {
+            return;
+        }
+        self.template_pick = Some((upload, self.prayer.template_prayer_key().to_owned()));
+        match upload {
+            Upload::Icon | Upload::Image => self.importer.start(
+                None,
+                if upload == Upload::Icon {
+                    ot_store::library::Kind::Icon
+                } else {
+                    ot_store::library::Kind::Image
+                },
+                ot_i18n::text("settings-library-dialog-title"),
+                ot_i18n::text("settings-toast-image-filter"),
+            ),
+            Upload::Sound => self.audio_importer.start(
+                ot_i18n::text("prayer-sound-dialog-title"),
+                ot_i18n::text("prayer-sound-filter"),
+            ),
+        }
+    }
+
     /// Whether the test toast shows this picture, as its icon or its image.
     /// The database cannot know: the test toast is never saved.
     fn used_by_test_toast(&self, sha256: &str) -> bool {
@@ -2843,7 +2891,7 @@ impl SettingsWindow {
     fn drain_images(&mut self, ctx: &egui::Context) {
         if let Some(outcome) = self.importer.drain() {
             match outcome {
-                crate::images::ImportOutcome::Cancelled => {}
+                crate::images::ImportOutcome::Cancelled => self.template_pick = None,
                 crate::images::ImportOutcome::Imported(slot, kind, asset, label) => {
                     tracing::info!(
                         path = asset.relative_path,
@@ -2856,6 +2904,7 @@ impl SettingsWindow {
                     self.library.add(kind, asset, label, slot);
                 }
                 crate::images::ImportOutcome::Refused { name, error } => {
+                    self.template_pick = None;
                     tracing::warn!(%error, "a picture was refused");
                     self.status = Status::ImportRefused {
                         key: error.name_key(),
@@ -2863,6 +2912,7 @@ impl SettingsWindow {
                     };
                 }
                 crate::images::ImportOutcome::DialogFailed(reason) => {
+                    self.template_pick = None;
                     self.status = Status::Failed {
                         key: "settings-status-dialog-failed",
                         reason,
@@ -2872,16 +2922,18 @@ impl SettingsWindow {
         }
         if let Some(outcome) = self.audio_importer.drain() {
             match outcome {
-                crate::audio_import::Outcome::Cancelled => {}
+                crate::audio_import::Outcome::Cancelled => self.template_pick = None,
                 crate::audio_import::Outcome::Imported(imported) => {
                     tracing::info!(path = imported.clip.relative_path, "a sound was imported");
                     self.library.add_clip(imported.clip, imported.label);
                 }
                 crate::audio_import::Outcome::Refused { name, key } => {
+                    self.template_pick = None;
                     tracing::warn!(key, "a sound was refused");
                     self.status = Status::ImportRefused { key, name };
                 }
                 crate::audio_import::Outcome::DialogFailed(reason) => {
+                    self.template_pick = None;
                     self.status = Status::Failed {
                         key: "settings-status-dialog-failed",
                         reason,
@@ -2901,7 +2953,15 @@ impl SettingsWindow {
                     match slot {
                         Some(crate::images::Slot::Icon) => self.test_icon = Some(relative_path),
                         Some(crate::images::Slot::Image) => self.test_image = Some(relative_path),
-                        None => {}
+                        None => {
+                            // From a template's dropdown: chosen there, if the editor is
+                            // still on the prayer it was started for. A file that was
+                            // already in the library arrives the same way, named by the
+                            // entry it already was.
+                            if let Some((what, prayer)) = self.template_pick.take() {
+                                self.prayer.template_picked(what, &prayer, relative_path);
+                            }
+                        }
                     }
                     // Test content is not saved, so nothing follows to
                     // overwrite this message the way a deferred save did.

@@ -19,6 +19,7 @@ use ot_prayer::zones::{self, Zone};
 use ot_store::location::{Origin, StoredLocation};
 
 use crate::layout::{self, Columns};
+use crate::library_picker::{self, Choice, Menu, Picked};
 use crate::place_picker::{Picker, Search};
 use crate::prayer::{self, Controller, Plan, Reply, Warning};
 use crate::theme::Tokens;
@@ -116,10 +117,6 @@ pub struct State {
     edit: TemplateEdit,
     template_loaded: Option<usize>,
     template_saved: bool,
-    /// Why the last chosen clip was refused, as a Fluent key.
-    sound_error: Option<&'static str>,
-    /// A file dialog or an import is under way.
-    importing: bool,
 }
 
 /// A template as typed: empty text is the built-in text.
@@ -131,6 +128,8 @@ struct TemplateEdit {
     accent: egui::Color32,
     /// The picture's path under the data folder, or `None` for the built-in.
     picture: Option<String>,
+    /// The header icon's path under the data folder, or `None` for the app's own.
+    icon: Option<String>,
     sound_mode: SoundMode,
     /// The imported clip's path under the data folder.
     sound_file: Option<String>,
@@ -185,6 +184,26 @@ pub struct PictureChoice {
     pub sha256: String,
     pub relative_path: String,
     pub label: String,
+    /// Which library it is in: the Image dropdown lists Images, the Icon dropdown Icons
+    /// and Images (a header takes either).
+    pub kind: ot_store::library::Kind,
+}
+
+/// A sound in the Audio library, as the template's Sound dropdown lists it.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct SoundChoice {
+    pub sha256: String,
+    pub relative_path: String,
+    /// The name the user gave it; empty for a sound uploaded before it had names.
+    pub label: String,
+}
+
+/// What an upload from a dropdown is for.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum Upload {
+    Icon,
+    Image,
+    Sound,
 }
 
 /// A request to show the toast as it would look, from the editor's Preview.
@@ -229,8 +248,6 @@ impl State {
             edit: TemplateEdit::default(),
             template_loaded: None,
             template_saved: false,
-            sound_error: None,
-            importing: false,
         }
     }
 
@@ -270,12 +287,12 @@ impl State {
             accent_on: true,
             accent: egui::Color32::from_rgb(0x3b, 0x9e, 0xff),
             picture: Some("assets/long-label.png".to_string()),
+            icon: Some("assets/long-label.png".to_string()),
             sound_mode: SoundMode::File,
             sound_file: Some(
                 "assets/0123456789abcdef0123456789abcdef0123456789abcdef.mp3".to_string(),
             ),
         };
-        state.sound_error = Some("error-import-audio-too-large");
         state.template_saved = true;
         state.day = Day::Times;
         state.rows = LISTED
@@ -374,6 +391,30 @@ impl State {
         }
     }
 
+    /// An entry the user just uploaded from a dropdown is chosen in it. Dropped if the
+    /// editor has moved to another prayer since: the upload was for the one it was
+    /// started from.
+    pub fn template_picked(&mut self, what: Upload, prayer: &str, relative_path: String) {
+        if TEMPLATES[self.template_prayer].0 != prayer {
+            return;
+        }
+        match what {
+            Upload::Icon => self.edit.icon = Some(relative_path),
+            Upload::Image => self.edit.picture = Some(relative_path),
+            Upload::Sound => {
+                self.edit.sound_file = Some(relative_path);
+                self.edit.sound_mode = SoundMode::File;
+            }
+        }
+        self.template_saved = false;
+    }
+
+    /// The key of the prayer whose template is being edited, for an upload to be
+    /// matched with.
+    pub fn template_prayer_key(&self) -> &'static str {
+        TEMPLATES[self.template_prayer].0
+    }
+
     fn apply(&mut self, reply: Reply) {
         match reply {
             Reply::Location(place) => {
@@ -412,22 +453,12 @@ impl State {
                             .and_then(parse_hex)
                             .unwrap_or(egui::Color32::from_rgb(0x3b, 0x9e, 0xff)),
                         picture: template.image,
+                        icon: template.icon,
                         sound_mode: SoundMode::parse(template.sound_mode.as_deref(), &prayer),
                         sound_file: template.sound,
                     };
                 }
             }
-            Reply::AudioImported { relative_path } => {
-                self.edit.sound_file = Some(relative_path);
-                self.edit.sound_mode = SoundMode::File;
-                self.sound_error = None;
-                self.importing = false;
-            }
-            Reply::AudioRefused(key) => {
-                self.sound_error = Some(key);
-                self.importing = false;
-            }
-            Reply::AudioCancelled => self.importing = false,
             Reply::Failed(reason) => {
                 tracing::warn!(%reason, "a prayer pane request failed");
                 self.detecting = false;
@@ -570,16 +601,24 @@ pub struct Outcome {
     pub play_sound: Option<Preview>,
     /// Stop the sound.
     pub stop_sound: bool,
+    /// "Upload a New …" was chosen in a dropdown: the window opens the dialog, and when
+    /// the library has the entry it comes back through [`State::template_picked`].
+    pub upload: Option<Upload>,
 }
 
 /// Draw the pane. The window owns the settings and saves them when
 /// [`Outcome::settings_changed`] is set.
+#[allow(
+    clippy::too_many_arguments,
+    reason = "the pane's inputs, each a distinct thing the window owns"
+)]
 pub fn show(
     ui: &mut egui::Ui,
     state: &mut State,
     prayer_settings: &mut PrayerSettings,
     location_settings: &mut LocationSettings,
     pictures: &[PictureChoice],
+    sounds: &[SoundChoice],
     tokens: Tokens,
     now: Timestamp,
 ) -> Outcome {
@@ -602,7 +641,7 @@ pub fn show(
     rule(ui);
     notification_block(ui, columns, prayer_settings, tokens, &mut outcome);
     rule(ui);
-    template_block(ui, columns, state, pictures, tokens, &mut outcome);
+    template_block(ui, columns, state, pictures, sounds, tokens, &mut outcome);
     rule(ui);
     today_block(ui, state, tokens);
     outcome
@@ -1069,11 +1108,68 @@ pub(crate) fn hex(colour: egui::Color32) -> String {
 
 /// What a prayer's notification says and shows (spec toast.md §8): its title,
 /// message, accent and picture, each empty meaning the built-in.
+/// One Icon or Picture row: the dropdown over `entries`, with what is chosen looked up
+/// across **every** picture (so a saved image that is in the Icons library still shows its
+/// name), the built-in choice first and "Upload a New …" last.
+#[allow(
+    clippy::too_many_arguments,
+    reason = "one row of the editor, each argument a distinct thing it says"
+)]
+fn picture_row(
+    ui: &mut egui::Ui,
+    columns: Columns,
+    label_key: &str,
+    id: &str,
+    builtin_key: &str,
+    upload_key: &str,
+    chosen: &mut Option<String>,
+    entries: &[Choice],
+    all: &[PictureChoice],
+    upload: Upload,
+    outcome: &mut Outcome,
+) {
+    let builtin = ot_i18n::text(builtin_key);
+    let shown = chosen
+        .as_deref()
+        .and_then(|path| all.iter().find(|p| p.relative_path == path))
+        .map_or_else(
+            || builtin.clone(),
+            |picture| ellipsize(&picture.label, (columns.field / 9.0) as usize),
+        );
+    // Only a choice that is in this dropdown's own list is marked in it.
+    let current = chosen
+        .as_deref()
+        .filter(|path| entries.iter().any(|entry| entry.value == *path))
+        .map(str::to_owned);
+    let builtins = [(builtin, chosen.is_none())];
+    layout::labelled_row(ui, columns, &ot_i18n::text(label_key), |ui| {
+        let picked = library_picker::show(
+            ui,
+            &Menu {
+                id,
+                width: columns.field,
+                shown,
+                builtins: &builtins,
+                entries,
+                current: current.as_deref(),
+                upload: Some(ot_i18n::text(upload_key)),
+            },
+        );
+        match picked {
+            Some(Picked::Builtin(_)) => *chosen = None,
+            Some(Picked::Entry(path)) => *chosen = Some(path),
+            Some(Picked::Upload) => outcome.upload = Some(upload),
+            None => {}
+        }
+    });
+}
+
 fn template_block(
     ui: &mut egui::Ui,
     columns: Columns,
     state: &mut State,
     pictures: &[PictureChoice],
+    sounds: &[SoundChoice],
     tokens: Tokens,
     outcome: &mut Outcome,
 ) {
@@ -1156,41 +1252,57 @@ fn template_block(
     }
     ui.add_space(layout::ROW_GAP);
 
-    // The picture: the built-in one for this prayer, or one from the library.
-    let shown = state
-        .edit
-        .picture
-        .as_deref()
-        .and_then(|path| pictures.iter().find(|p| p.relative_path == path))
-        .map_or_else(
-            || ot_i18n::text("prayer-template-picture-builtin"),
-            |picture| ellipsize(&picture.label, (columns.field / 9.0) as usize),
-        );
-    layout::labelled_row(
+    // The icon: the app's own, or one from the libraries. A header takes an icon or an
+    // image, so both are listed. What the closed dropdown says is what will show.
+    let icon_entries: Vec<Choice> = pictures
+        .iter()
+        .filter(|p| p.kind == ot_store::library::Kind::Icon)
+        .chain(
+            pictures
+                .iter()
+                .filter(|p| p.kind == ot_store::library::Kind::Image),
+        )
+        .map(|p| Choice {
+            value: p.relative_path.clone(),
+            label: p.label.clone(),
+        })
+        .collect();
+    picture_row(
         ui,
         columns,
-        &ot_i18n::text("prayer-template-picture"),
-        |ui| {
-            egui::ComboBox::from_id_salt("prayer-template-picture")
-                .truncate()
-                .width(columns.field)
-                .height(layout::field_height(ui) * 6.0)
-                .selected_text(shown)
-                .show_ui(ui, |ui| {
-                    ui.selectable_value(
-                        &mut state.edit.picture,
-                        None,
-                        ot_i18n::text("prayer-template-picture-builtin"),
-                    );
-                    for picture in pictures {
-                        ui.selectable_value(
-                            &mut state.edit.picture,
-                            Some(picture.relative_path.clone()),
-                            picture.label.clone(),
-                        );
-                    }
-                });
-        },
+        "prayer-template-icon",
+        "template-icon-picker",
+        "settings-library-none-icon",
+        "prayer-upload-new-icon",
+        &mut state.edit.icon,
+        &icon_entries,
+        pictures,
+        Upload::Icon,
+        outcome,
+    );
+    ui.add_space(layout::ROW_GAP);
+
+    // The picture: the built-in one for this prayer, or one from the Images library.
+    let image_entries: Vec<Choice> = pictures
+        .iter()
+        .filter(|p| p.kind == ot_store::library::Kind::Image)
+        .map(|p| Choice {
+            value: p.relative_path.clone(),
+            label: p.label.clone(),
+        })
+        .collect();
+    picture_row(
+        ui,
+        columns,
+        "prayer-template-picture",
+        "template-picture-picker",
+        "prayer-template-picture-builtin",
+        "settings-library-upload-new",
+        &mut state.edit.picture,
+        &image_entries,
+        pictures,
+        Upload::Image,
+        outcome,
     );
     layout::field_hint(
         ui,
@@ -1200,49 +1312,75 @@ fn template_block(
     );
     ui.add_space(layout::ROW_GAP);
 
-    // The sound: the full Azan by default (Subuh's own for Fajr; the chime for
-    // Syuruk), the short chime, a clip of the user's own, or none.
-    let mut mode = state.edit.sound_mode;
+    // The sound: the built-in ones first — the full Azan by default (Subuh's own for
+    // Fajr; the chime for Syuruk), the short chime, none — then the user's own from the
+    // Audio library, then "Upload a New Sound". A clip that is no longer in the library
+    // plays the chime, and says so.
+    let in_library = state
+        .edit
+        .sound_file
+        .as_deref()
+        .filter(|_| state.edit.sound_mode == SoundMode::File)
+        .and_then(|path| sounds.iter().find(|s| s.relative_path == path));
+    let playing = if state.edit.sound_mode == SoundMode::File && in_library.is_none() {
+        SoundMode::Chime
+    } else {
+        state.edit.sound_mode
+    };
+    let sound_name = |sound: &SoundChoice| {
+        if sound.label.trim().is_empty() {
+            ot_i18n::text("settings-library-audio-unnamed")
+        } else {
+            sound.label.clone()
+        }
+    };
+    let built_in_sounds = [SoundMode::Chime, SoundMode::Azan, SoundMode::Silent];
+    let sound_builtins: Vec<(String, bool)> = built_in_sounds
+        .iter()
+        .map(|mode| {
+            (
+                ot_i18n::text(mode.key()),
+                in_library.is_none() && playing == *mode,
+            )
+        })
+        .collect();
+    let sound_entries: Vec<Choice> = sounds
+        .iter()
+        .map(|sound| Choice {
+            value: sound.relative_path.clone(),
+            label: sound_name(sound),
+        })
+        .collect();
+    let sound_shown = in_library.map_or_else(
+        || ot_i18n::text(playing.key()),
+        |sound| ellipsize(&sound_name(sound), (columns.field / 9.0) as usize),
+    );
     layout::labelled_row(ui, columns, &ot_i18n::text("prayer-sound-label"), |ui| {
-        egui::ComboBox::from_id_salt("prayer-sound")
-            .width(columns.field)
-            .height(layout::field_height(ui) * 6.0)
-            .selected_text(ot_i18n::text(mode.key()))
-            .show_ui(ui, |ui| {
-                for option in SoundMode::ALL {
-                    ui.selectable_value(&mut mode, option, ot_i18n::text(option.key()));
-                }
-            });
-    });
-    state.edit.sound_mode = mode;
-    if mode == SoundMode::File {
-        ui.add_space(layout::ROW_GAP);
-        let shown = state.edit.sound_file.as_deref().map_or_else(
-            || ot_i18n::text("prayer-sound-none-chosen"),
-            |path| ellipsize(path, (columns.field / 9.0) as usize),
+        let picked = library_picker::show(
+            ui,
+            &Menu {
+                id: "template-sound-picker",
+                width: columns.field,
+                shown: sound_shown,
+                builtins: &sound_builtins,
+                entries: &sound_entries,
+                current: in_library.map(|sound| sound.relative_path.as_str()),
+                upload: Some(ot_i18n::text("prayer-upload-new-sound")),
+            },
         );
-        ui.horizontal_wrapped(|ui| {
-            ui.add_space(columns.label);
-            note(ui, &shown, tokens.text_dim);
-        });
-        ui.horizontal_wrapped(|ui| {
-            ui.add_space(columns.label);
-            ui.add_enabled_ui(!state.importing, |ui| {
-                if button(ui, ot_i18n::text("prayer-sound-choose")).clicked() {
-                    state.importing = true;
-                    state.sound_error = None;
-                    state.controller.import_audio(
-                        ot_i18n::text("prayer-sound-dialog-title"),
-                        ot_i18n::text("prayer-sound-filter"),
-                    );
-                }
-            });
-        });
-    }
-    if let Some(key) = state.sound_error {
-        ui.add_space(layout::ROW_GAP / 2.0);
-        note(ui, &ot_i18n::text(key), tokens.danger);
-    }
+        match picked {
+            Some(Picked::Builtin(index)) => {
+                state.edit.sound_mode = built_in_sounds[index];
+                state.edit.sound_file = None;
+            }
+            Some(Picked::Entry(path)) => {
+                state.edit.sound_mode = SoundMode::File;
+                state.edit.sound_file = Some(path);
+            }
+            Some(Picked::Upload) => outcome.upload = Some(Upload::Sound),
+            None => {}
+        }
+    });
     ui.add_space(layout::ROW_GAP);
 
     // Save, restore, preview.
@@ -1252,12 +1390,19 @@ fn template_block(
         custom_body: Some(state.edit.message.trim().to_owned()).filter(|t| !t.is_empty()),
         accent_color: state.edit.accent_on.then(|| hex(state.edit.accent)),
         image: state.edit.picture.clone(),
+        icon: state.edit.icon.clone(),
         sound_mode: Some(state.edit.sound_mode.as_str().to_owned()),
         sound: state.edit.sound_file.clone(),
         ..Default::default()
     };
     let save = |state: &mut State| {
         let sha = state.edit.picture.as_deref().and_then(|path| {
+            pictures
+                .iter()
+                .find(|p| p.relative_path == path)
+                .map(|p| p.sha256.clone())
+        });
+        let icon_sha = state.edit.icon.as_deref().and_then(|path| {
             pictures
                 .iter()
                 .find(|p| p.relative_path == path)
@@ -1272,6 +1417,7 @@ fn template_block(
                 body: saved.custom_body,
                 accent: saved.accent_color,
                 image: sha,
+                icon: icon_sha,
                 authored_lang: language,
                 // The prayer's default is stored as nothing, so it follows the
                 // default if that ever changes again.
@@ -1351,6 +1497,27 @@ fn today_block(ui: &mut egui::Ui, state: &State, tokens: Tokens) {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn an_upload_is_chosen_in_the_dropdown_it_came_from_and_dropped_for_another_prayer() {
+        // FEAT-0088: the entry arrives after the dialog; the editor may have moved on.
+        let dir = tempfile::tempdir().expect("a scratch folder");
+        let mut state = State::new_idle(dir.path());
+        assert_eq!(state.template_prayer_key(), "fajr");
+
+        state.template_picked(Upload::Icon, "fajr", "assets/mark.png".to_owned());
+        state.template_picked(Upload::Image, "fajr", "assets/mosque.png".to_owned());
+        assert_eq!(state.edit.icon.as_deref(), Some("assets/mark.png"));
+        assert_eq!(state.edit.picture.as_deref(), Some("assets/mosque.png"));
+
+        state.template_picked(Upload::Sound, "fajr", "assets/bell.wav".to_owned());
+        assert_eq!(state.edit.sound_mode, SoundMode::File);
+        assert_eq!(state.edit.sound_file.as_deref(), Some("assets/bell.wav"));
+
+        // The editor moved to another prayer before the library answered: dropped.
+        state.template_picked(Upload::Icon, "isha", "assets/other.png".to_owned());
+        assert_eq!(state.edit.icon.as_deref(), Some("assets/mark.png"));
+    }
 
     /// Every `"prayer-…"` literal in this file, plus the keys
     /// the enums and the source label name — so a key added later is held to

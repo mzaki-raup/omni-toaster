@@ -1027,6 +1027,7 @@ mod tests {
                     body: None,
                     accent: None,
                     image: None,
+                    icon: None,
                     authored_lang: "en-US",
                     sound_mode: Some("chime".into()),
                     sound: None,

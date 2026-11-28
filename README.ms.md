@@ -336,8 +336,10 @@ had Tunda dan tempoh susulan di bawahnya:
 Dalam bahasa Melayu: [settings-reminders-ms.png](docs/screenshots/settings-reminders-ms.png).
 
 Tetapan ▸ Solat: lokasi, sumber dan zon, pemberitahuan (dengan peringatan
-sebelum setiap solat), templat bagi setiap solat, serta waktu hari ini dengan
-sumbernya:
+sebelum setiap solat), templat bagi setiap solat — tajuk, mesej, aksen, serta
+**ikon**, **gambar** dan **bunyi** yang masing-masing dipilih daripada Pustaka anda
+(atau dimuat naik di situ juga), dengan yang terbina dalam sebagai lalai — serta
+waktu hari ini dengan sumbernya:
 
 ![Tetapan ▸ Solat dengan lokasi yang ditetapkan sendiri, zon yang dikesan dan waktu JAKIM hari ini](docs/screenshots/settings-prayer.png)
 

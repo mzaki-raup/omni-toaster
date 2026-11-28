@@ -308,7 +308,9 @@ below:
 In Bahasa Melayu: [settings-reminders-ms.png](docs/screenshots/settings-reminders-ms.png).
 
 Settings ▸ Prayer: the place, the source and zone, the notifications (with the
-reminder ahead of each prayer), a template for each prayer, and today's times
+reminder ahead of each prayer), a template for each prayer — its title, message,
+accent, and an **icon**, a **picture** and a **sound** each chosen from your Libraries
+(or uploaded on the spot), with the built-in ones as the default — and today's times
 with where they came from:
 
 ![Settings ▸ Prayer with a place set by hand, the detected zone and today's JAKIM times](docs/screenshots/settings-prayer.png)

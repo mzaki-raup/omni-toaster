@@ -904,6 +904,12 @@ prayer-template-accent-use = Use a custom accent colour
 prayer-template-picture = Picture
 # The first choice in that dropdown: the picture that ships with the app for this prayer.
 prayer-template-picture-builtin = Built-in picture
+# The label of the icon dropdown of a prayer's notification: the small picture in the notification's header.
+prayer-template-icon = Icon
+# The last choice in the icon dropdown: opens the dialog to upload an icon to the library, and chooses it.
+prayer-upload-new-icon = Upload a New Icon
+# The last choice in the sound dropdown: opens the dialog to upload a sound to the library, and chooses it.
+prayer-upload-new-sound = Upload a New Sound
 # The hint under the template fields.
 prayer-template-hint = Leave a field empty to use the built-in text in the current language. Text you write is kept exactly as typed and is never translated.
 # The button that saves the template.
@@ -924,10 +930,6 @@ prayer-sound-azan = Full Azan
 prayer-sound-file = My Audio File
 # A sound choice: no sound at all.
 prayer-sound-none = Silent
-# The button that opens the dialog for choosing an audio clip.
-prayer-sound-choose = Choose Audio File
-# Shown while no audio clip has been chosen yet.
-prayer-sound-none-chosen = No file chosen yet.
 # The button that plays the prayer's sound now, to hear it.
 prayer-sound-play = Play Sound
 # The button that stops the sound.

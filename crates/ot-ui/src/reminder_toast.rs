@@ -115,6 +115,7 @@ pub fn prayer_spec(
         title,
         body,
         app_name: ot_i18n::text("toast-app-name"),
+        icon: template.and_then(|t| t.icon.clone()),
         image,
         accent: template
             .and_then(|t| t.accent_color.as_deref())
@@ -148,6 +149,7 @@ pub fn prayer_before_spec(
         title: name.clone(),
         body: ot_i18n::text_with_count("prayer-before-body", minutes, &[("prayer", name.into())]),
         app_name: ot_i18n::text("toast-app-name"),
+        icon: template.and_then(|t| t.icon.clone()),
         image: template
             .and_then(|t| t.image.clone())
             .or_else(|| default_prayer_image(prayer).map(str::to_owned)),
@@ -623,6 +625,42 @@ mod tests {
             !fire.content.body.contains("Kuala Lumpur"),
             "and it is no longer beneath the text"
         );
+    }
+
+    #[test]
+    fn a_prayers_library_icon_image_and_sound_reach_the_toast_and_the_preview_agrees() {
+        // FEAT-0088: a template names one entry of each library.
+        let prefs = ot_toast::Prefs::default();
+        let template = Template {
+            icon: Some("assets/mark.png".to_owned()),
+            image: Some("assets/mosque.png".to_owned()),
+            sound_mode: Some("file".to_owned()),
+            sound: Some("assets/bell.wav".to_owned()),
+            ..prayer_template(None, None, None)
+        };
+        let fire = prayer_spec(&prefs, "fajr", Some(&template), None, Some("Kuching"));
+        let preview = prayer_spec(&prefs, "fajr", Some(&template), None, Some("Kuching"));
+        assert_eq!(fire, preview, "one function, so one toast");
+        assert_eq!(fire.content.icon.as_deref(), Some("assets/mark.png"));
+        assert_eq!(fire.content.image.as_deref(), Some("assets/mosque.png"));
+        // The reminder ahead of the prayer wears the same header icon and picture.
+        let before = prayer_before_spec(&prefs, "fajr", 10, Some(&template), None, None);
+        assert_eq!(before.content.icon.as_deref(), Some("assets/mark.png"));
+        assert_eq!(before.content.image.as_deref(), Some("assets/mosque.png"));
+        // And the sound is the library clip, played from inside the data folder.
+        let root = std::path::Path::new("D:/data");
+        assert_eq!(
+            crate::prayer::clip_for(
+                "fajr",
+                template.sound_mode.as_deref(),
+                template.sound.as_deref(),
+                root
+            ),
+            Some(ot_media::Clip::File(root.join("assets/bell.wav")))
+        );
+        // Without a chosen icon the app's own shows, as before.
+        let plain = prayer_spec(&prefs, "fajr", None, None, None);
+        assert_eq!(plain.content.icon, None);
     }
 
     #[test]
